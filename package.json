@@ -1,0 +1,14 @@
+{
+  "name": "@pagedjs/fragmentainer",
+  "version": "0.0.1",
+  "description": "Javascript fragmentainer layout",
+  "license": "MIT",
+  "author": "fchasen@gmail.com",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test test/*.js",
+    "serve": "npx serve . -l 8080",
+    "bench": "open bench/index.html"
+  }
+}
