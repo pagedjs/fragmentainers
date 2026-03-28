@@ -79,7 +79,7 @@ export function scrollableNode({ debugName, blockSize = 0, children = [], ...ove
  * @param {Object} opts
  * @param {Object} opts.inlineItemsData - { items: InlineItem[], textContent: string }
  * @param {number} [opts.lineHeight] - Line height in px
- * @param {Function} [opts.measureText] - (text) => width in px
+ * @param {Function} [opts.measureText] - (text) => width in px (used to build mock measurer)
  */
 export function inlineNode({
   debugName,
@@ -88,13 +88,18 @@ export function inlineNode({
   measureText,
   ...overrides
 } = {}) {
+  const measureFn = measureText || ((text) => text.length * 8); // default: 8px per char
   return {
     ...DEFAULTS,
     debugName: debugName || 'inline',
     isInlineFormattingContext: true,
     inlineItemsData,
     lineHeight,
-    measureText: measureText || ((text) => text.length * 8), // default: 8px per char
+    measurer: {
+      measureRange(textNode, start, end) {
+        return measureFn(textNode.textContent.slice(start, end));
+      },
+    },
     computedBlockSize: () => 0,
     ...overrides,
   };
@@ -120,15 +125,17 @@ export function tableRowNode({ debugName, cells = [], ...overrides } = {}) {
 /**
  * Build InlineItemsData from a simple text string.
  * Splits into kText items per word and inserts kControl for \n.
+ * Each kText item includes a mock domNode for Range-based measurement.
  */
 export function textToInlineItems(text) {
   const items = [];
+  const mockTextNode = { textContent: text };
   let offset = 0;
 
   for (let i = 0; i < text.length; i++) {
     if (text[i] === '\n') {
       if (i > offset) {
-        items.push({ type: 'kText', startOffset: offset, endOffset: i });
+        items.push({ type: 'kText', startOffset: offset, endOffset: i, domNode: mockTextNode });
       }
       items.push({ type: 'kControl', startOffset: i, endOffset: i + 1 });
       offset = i + 1;
@@ -136,7 +143,7 @@ export function textToInlineItems(text) {
   }
 
   if (offset < text.length) {
-    items.push({ type: 'kText', startOffset: offset, endOffset: text.length });
+    items.push({ type: 'kText', startOffset: offset, endOffset: text.length, domNode: mockTextNode });
   }
 
   return { items, textContent: text };

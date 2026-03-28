@@ -171,29 +171,37 @@
       if (clipCheck) pageIssues.push(clipCheck);
     }
 
+    const remaining = pageH - page.blockSize;
     const hasIssues = pageIssues.length > 0;
     const btInfo = page.breakToken
       ? `breakToken(consumed=${page.breakToken.consumedBlockSize.toFixed(1)} children=${page.breakToken.childBreakTokens.length})`
       : 'breakToken=null';
     const issueTag = hasIssues ? ` *** ${pageIssues.length} ISSUE(S)` : '';
 
-    log(`## Page ${i + 1}/${pages.length}  blockSize=${page.blockSize.toFixed(2)}  ${btInfo}${issueTag}`);
+    log(`## Page ${i + 1}/${pages.length}  blockSize=${page.blockSize.toFixed(2)}  remaining=${remaining.toFixed(2)}  ${btInfo}${issueTag}`);
 
-    if (hasIssues || parseInt(new URLSearchParams(location.search).get('pages') || '0') > 0) {
-      log(`  childFragments: ${page.childFragments.filter(f => f.node).length}  childSum=${childSum.toFixed(2)}  gap=${gap.toFixed(2)}`);
-
-      for (const info of childData) {
-        printFragmentInfo(info, log, '  ');
+    // Show first and last text node on this page
+    const textSegments = collectPageTextSegments(page, prevBT);
+    if (textSegments.length > 0) {
+      log(`  first text: "${textSegments[0]}"`);
+      if (textSegments.length > 1) {
+        log(`  last text:  "${textSegments[textSegments.length - 1]}"`);
       }
-
-      if (hasIssues) {
-        log('  ISSUES:');
-        for (const issue of pageIssues) {
-          log(`    - ${issue}`);
-        }
-      }
-      log('');
     }
+
+    log(`  childFragments: ${page.childFragments.filter(f => f.node).length}  childSum=${childSum.toFixed(2)}  gap=${gap.toFixed(2)}  remaining=${remaining.toFixed(2)}`);
+
+    for (const info of childData) {
+      printFragmentInfo(info, log, '  ');
+    }
+
+    if (hasIssues) {
+      log('  ISSUES:');
+      for (const issue of pageIssues) {
+        log(`    - ${issue}`);
+      }
+    }
+    log('');
 
     return { text: lines.join('\n'), hasIssues };
   }
@@ -302,6 +310,32 @@
       current = last;
     }
     return null;
+  }
+
+  // --- Page text extraction ---
+
+  function collectPageTextSegments(pageFragment, inputBreakToken) {
+    const segments = [];
+    collectTextSegments(pageFragment, inputBreakToken, segments);
+    return segments;
+  }
+
+  function collectTextSegments(fragment, inputBreakToken, segments) {
+    for (const child of fragment.childFragments) {
+      if (!child.node) continue;
+      const childBT = findChildBreakToken(inputBreakToken, child.node);
+
+      if (child.node.isInlineFormattingContext) {
+        const data = child.node.inlineItemsData;
+        if (!data || !data.textContent) continue;
+        const startOffset = (childBT && childBT.type === 'inline') ? childBT.textOffset : 0;
+        const endOffset = (child.breakToken && child.breakToken.type === 'inline') ? child.breakToken.textOffset : data.textContent.length;
+        const text = data.textContent.slice(startOffset, endOffset).trim();
+        if (text) segments.push(text);
+      } else {
+        collectTextSegments(child, childBT, segments);
+      }
+    }
   }
 
   // --- Fragment tree rendering (same as viewer.js) ---

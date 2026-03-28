@@ -1,5 +1,5 @@
 import { collectInlineItems } from './collect-inlines.js';
-import { createTextMeasurer, measureElementBlockSize, getLineHeight, getFont, parseLength } from './measure.js';
+import { createRangeMeasurer, measureElementBlockSize, getLineHeight, parseLength } from './measure.js';
 
 const REPLACED_ELEMENTS = new Set([
   'img', 'video', 'canvas', 'iframe', 'embed', 'object', 'svg',
@@ -9,8 +9,8 @@ const INLINE_DISPLAYS = new Set([
   'inline', 'inline-block', 'inline-table', 'inline-flex', 'inline-grid',
 ]);
 
-// Shared text measurer instance
-let sharedMeasurer = null;
+// Shared Range-based text measurer instance
+let sharedRangeMeasurer = null;
 
 /**
  * Lazy wrapper around a DOM Element that implements the LayoutNode interface.
@@ -233,12 +233,11 @@ export class DOMLayoutNode {
     return getLineHeight(this.element);
   }
 
-  get measureText() {
-    if (!sharedMeasurer) {
-      sharedMeasurer = createTextMeasurer();
+  get measurer() {
+    if (!sharedRangeMeasurer) {
+      sharedRangeMeasurer = createRangeMeasurer();
     }
-    const font = getFont(this.element);
-    return (text) => sharedMeasurer(text, font);
+    return sharedRangeMeasurer;
   }
 
   // --- Table row support ---

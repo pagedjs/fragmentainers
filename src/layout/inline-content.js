@@ -11,11 +11,11 @@ import { PhysicalFragment } from '../fragment.js';
  * @param {number} startItemIndex
  * @param {number} startTextOffset
  * @param {number} availableInlineSize - line width
- * @param {Function} measureText - (text) => width in px
+ * @param {Object} measurer - { measureRange(textNode, start, end) => width }
  * @param {number} lineHeight
  * @returns {{ fragment: PhysicalFragment, blockSize: number, endItemIndex: number, endTextOffset: number } | null}
  */
-function breakLine(inlineItemsData, startItemIndex, startTextOffset, availableInlineSize, measureText, lineHeight) {
+function breakLine(inlineItemsData, startItemIndex, startTextOffset, availableInlineSize, measurer, lineHeight) {
   const { items, textContent } = inlineItemsData;
 
   if (startItemIndex >= items.length) return null;
@@ -55,14 +55,15 @@ function breakLine(inlineItemsData, startItemIndex, startTextOffset, availableIn
         item.endOffset
       );
 
-      // Measure word by word
+      // Measure word by word using Range on the live DOM Text node
       const words = itemText.split(/(\s+)/);
       let wordStart = Math.max(item.startOffset, textOffset);
 
       for (const word of words) {
         if (word.length === 0) continue;
 
-        const wordWidth = measureText(word);
+        const localOffset = wordStart - item.startOffset;
+        const wordWidth = measurer.measureRange(item.domNode, localOffset, localOffset + word.length);
 
         if (currentWidth + wordWidth > availableInlineSize && hasContent) {
           // Line is full — break before this word
@@ -150,7 +151,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
   let blockOffset = 0;
 
   const inlineItems = node.inlineItemsData;
-  const measureText = node.measureText;
+  const measurer = node.measurer;
   const lineHeight = node.lineHeight || 20;
 
   // Guard: if no inline items data, return empty fragment
@@ -198,7 +199,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
       itemIndex,
       textOffset,
       constraintSpace.availableInlineSize,
-      measureText,
+      measurer,
       lineHeight
     );
 

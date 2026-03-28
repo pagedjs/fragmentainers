@@ -1,22 +1,19 @@
 /**
- * Create a text measurer backed by a shared CanvasRenderingContext2D.
- * Returns a function: (text, font) => width in px.
+ * Create a text measurer backed by the DOM Range API.
+ * Measures substrings of live DOM Text nodes, giving pixel-perfect
+ * results that account for kerning, ligatures, letter-spacing, etc.
+ *
+ * Returns an object: { measureRange(textNode, startOffset, endOffset) => width }
  */
-export function createTextMeasurer() {
-  let canvas = null;
-  let ctx = null;
-  let cachedFont = '';
+export function createRangeMeasurer() {
+  const range = document.createRange();
 
-  return function measureText(text, font) {
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      ctx = canvas.getContext('2d');
-    }
-    if (font !== cachedFont) {
-      ctx.font = font;
-      cachedFont = font;
-    }
-    return ctx.measureText(text).width;
+  return {
+    measureRange(textNode, startOffset, endOffset) {
+      range.setStart(textNode, startOffset);
+      range.setEnd(textNode, endOffset);
+      return range.getBoundingClientRect().width;
+    },
   };
 }
 
@@ -37,15 +34,6 @@ export function getLineHeight(element) {
     return parseFloat(style.fontSize) * 1.2;
   }
   return parseFloat(lineHeight);
-}
-
-/**
- * Build the CSS font shorthand from an element's computed style.
- * Used for Canvas measureText.
- */
-export function getFont(element) {
-  const style = getComputedStyle(element);
-  return `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
 }
 
 /**
