@@ -1,4 +1,4 @@
-import { collectInlineItems } from './collect-inlines.js';
+import { collectInlineItems, collectInlineItemsFromNodes } from './collect-inlines.js';
 import { createRangeMeasurer, measureElementBlockSize, getLineHeight, parseLength } from './measure.js';
 
 const REPLACED_ELEMENTS = new Set([
@@ -143,15 +143,48 @@ export class DOMLayoutNode {
       return this._children;
     }
 
-    this._children = [];
-    for (const child of this.element.children) {
-      const style = getComputedStyle(child);
-      if (style.display === 'none') continue;
-      // Skip script, style, template elements
-      const tag = child.tagName.toLowerCase();
-      if (tag === 'script' || tag === 'style' || tag === 'template') continue;
-      this._children.push(new DOMLayoutNode(child));
+    // Check for mixed content (inline + block children)
+    let hasInline = false;
+    let hasBlock = false;
+    for (const child of this.element.childNodes) {
+      if (isBlockLevelNode(child)) {
+        hasBlock = true;
+      } else if (isSignificantInlineNode(child)) {
+        hasInline = true;
+      }
+      if (hasInline && hasBlock) break;
     }
+
+    this._children = [];
+
+    if (hasInline && hasBlock) {
+      // Mixed content: wrap consecutive inline runs in anonymous blocks
+      let inlineGroup = [];
+      for (const child of this.element.childNodes) {
+        if (isBlockLevelNode(child)) {
+          if (inlineGroup.length > 0) {
+            this._children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
+            inlineGroup = [];
+          }
+          this._children.push(new DOMLayoutNode(child));
+        } else if (isSignificantInlineNode(child)) {
+          inlineGroup.push(child);
+        }
+      }
+      if (inlineGroup.length > 0) {
+        this._children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
+      }
+    } else {
+      // Pure block children
+      for (const child of this.element.children) {
+        const style = getComputedStyle(child);
+        if (style.display === 'none') continue;
+        const tag = child.tagName.toLowerCase();
+        if (tag === 'script' || tag === 'style' || tag === 'template') continue;
+        this._children.push(new DOMLayoutNode(child));
+      }
+    }
+
     return this._children;
   }
 
@@ -246,4 +279,99 @@ export class DOMLayoutNode {
     if (!this.isTableRow) return [];
     return this.children;
   }
+}
+
+// --- Helpers for mixed content detection ---
+
+const BLOCK_DISPLAYS = new Set([
+  'block', 'flex', 'grid', 'table', 'list-item',
+  'table-row-group', 'table-header-group', 'table-footer-group',
+  'table-row', 'table-cell', 'table-column', 'table-column-group',
+  'table-caption',
+]);
+
+const SKIP_TAGS = new Set(['script', 'style', 'template']);
+
+function isBlockLevelNode(node) {
+  if (node.nodeType !== Node.ELEMENT_NODE) return false;
+  const display = getComputedStyle(node).display;
+  return BLOCK_DISPLAYS.has(display);
+}
+
+function isSignificantInlineNode(node) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node.textContent.trim().length > 0;
+  }
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const tag = node.tagName.toLowerCase();
+    if (SKIP_TAGS.has(tag)) return false;
+    if (tag === 'br') return true;
+    const display = getComputedStyle(node).display;
+    if (display === 'none') return false;
+    return !BLOCK_DISPLAYS.has(display);
+  }
+  return false;
+}
+
+/**
+ * Anonymous block box wrapping consecutive inline content in a mixed-content
+ * block container (CSS 2.1 §9.2.1.1). Implements the LayoutNode interface
+ * with neutral defaults.
+ */
+export class AnonymousBlockNode {
+  constructor(parentElement, childNodes) {
+    this._parentElement = parentElement;
+    this._childNodes = childNodes;
+    this._inlineItemsData = null;
+  }
+
+  get debugName() { return '[anon]'; }
+  get element() { return null; }
+  get isInlineFormattingContext() { return true; }
+  get children() { return []; }
+
+  get inlineItemsData() {
+    if (!this._inlineItemsData) {
+      this._inlineItemsData = collectInlineItemsFromNodes(this._childNodes);
+    }
+    return this._inlineItemsData;
+  }
+
+  get lineHeight() { return getLineHeight(this._parentElement); }
+
+  get measurer() {
+    if (!sharedRangeMeasurer) {
+      sharedRangeMeasurer = createRangeMeasurer();
+    }
+    return sharedRangeMeasurer;
+  }
+
+  get blockSize() { return 0; }
+  computedBlockSize() { return null; }
+
+  // Neutral box model
+  get marginBlockStart() { return 0; }
+  get marginBlockEnd() { return 0; }
+  get paddingBlockStart() { return 0; }
+  get paddingBlockEnd() { return 0; }
+  get borderBlockStart() { return 0; }
+  get borderBlockEnd() { return 0; }
+
+  // No fragmentation properties
+  get breakBefore() { return 'auto'; }
+  get breakAfter() { return 'auto'; }
+  get breakInside() { return 'auto'; }
+  get orphans() { return 2; }
+  get widows() { return 2; }
+
+  // Classification
+  get isReplacedElement() { return false; }
+  get isScrollable() { return false; }
+  get hasOverflowHidden() { return false; }
+  get hasExplicitBlockSize() { return false; }
+  get isTable() { return false; }
+  get isTableRow() { return false; }
+  get isFlexContainer() { return false; }
+  get isGridContainer() { return false; }
+  get cells() { return []; }
 }
