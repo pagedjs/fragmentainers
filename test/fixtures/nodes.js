@@ -75,29 +75,97 @@ export function scrollableNode({ debugName, blockSize = 0, children = [], ...ove
 }
 
 /**
+ * Simulate line breaking for mock nodes: walk text word-by-word using
+ * measureFn, and return an array of { startOffset, endOffset } per line.
+ * Newlines force a line break (matching kControl behavior).
+ */
+function computeMockLines(text, measureFn, availableInlineSize) {
+  const lines = [];
+  let lineStart = 0;
+  let currentWidth = 0;
+  const words = text.split(/(\s+)/);
+  let pos = 0;
+
+  for (const word of words) {
+    if (word.length === 0) continue;
+
+    // Newline forces a line break
+    if (word.includes('\n')) {
+      lines.push({ startOffset: lineStart, endOffset: pos + word.length });
+      pos += word.length;
+      lineStart = pos;
+      currentWidth = 0;
+      continue;
+    }
+
+    const wordWidth = measureFn(word);
+    if (currentWidth + wordWidth > availableInlineSize && currentWidth > 0) {
+      lines.push({ startOffset: lineStart, endOffset: pos });
+      lineStart = pos;
+      currentWidth = 0;
+    }
+    currentWidth += wordWidth;
+    pos += word.length;
+  }
+  if (pos > lineStart) {
+    lines.push({ startOffset: lineStart, endOffset: pos });
+  }
+  return lines;
+}
+
+/**
  * Create a node with inline formatting context.
+ *
+ * The mock node provides a measurer with charTop() and a mock element
+ * with getBoundingClientRect(), matching the DOM measurer contract so
+ * the browser-height code path is exercised in tests.
+ *
  * @param {Object} opts
  * @param {Object} opts.inlineItemsData - { items: InlineItem[], textContent: string }
  * @param {number} [opts.lineHeight] - Line height in px
- * @param {Function} [opts.measureText] - (text) => width in px (used to build mock measurer)
+ * @param {Function} [opts.measureText] - (text) => width in px
+ * @param {number} [opts.availableInlineSize] - line width for mock line breaking (default 100)
  */
 export function inlineNode({
   debugName,
   inlineItemsData,
   lineHeight = 20,
   measureText,
+  availableInlineSize = 100,
   ...overrides
 } = {}) {
   const measureFn = measureText || ((text) => text.length * 8); // default: 8px per char
+  const text = inlineItemsData?.textContent || '';
+  const MOCK_TOP = 0;
+
+  // Pre-compute line layout for charTop and element height
+  const mockLines = computeMockLines(text, measureFn, availableInlineSize);
+  const totalHeight = mockLines.length * lineHeight;
+
   return {
     ...DEFAULTS,
     debugName: debugName || 'inline',
     isInlineFormattingContext: true,
     inlineItemsData,
     lineHeight,
+    element: {
+      getBoundingClientRect() {
+        return { top: MOCK_TOP, height: totalHeight };
+      },
+    },
     measurer: {
       measureRange(textNode, start, end) {
         return measureFn(textNode.textContent.slice(start, end));
+      },
+      charTop(textNode, localOffset) {
+        // Find which line this offset falls on
+        const flatOffset = localOffset; // mock textNode covers full text
+        for (let i = 0; i < mockLines.length; i++) {
+          if (flatOffset < mockLines[i].endOffset) {
+            return MOCK_TOP + i * lineHeight;
+          }
+        }
+        return MOCK_TOP + (mockLines.length - 1) * lineHeight;
       },
     },
     computedBlockSize: () => 0,

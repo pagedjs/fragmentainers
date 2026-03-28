@@ -326,16 +326,24 @@
       const childBT = findChildBreakToken(inputBreakToken, child.node);
 
       if (child.node.isInlineFormattingContext) {
-        const data = child.node.inlineItemsData;
-        if (!data || !data.textContent) continue;
-        const startOffset = (childBT && childBT.type === 'inline') ? childBT.textOffset : 0;
-        const endOffset = (child.breakToken && child.breakToken.type === 'inline') ? child.breakToken.textOffset : data.textContent.length;
-        const text = data.textContent.slice(startOffset, endOffset).trim();
-        if (text) segments.push(text);
+        extractInlineText(child, childBT, segments);
       } else {
         collectTextSegments(child, childBT, segments);
       }
     }
+  }
+
+  function extractInlineText(fragment, breakToken, segments) {
+    const data = fragment.node.inlineItemsData;
+    if (!data || !data.textContent) return;
+    const startOffset = (breakToken && breakToken.type === 'inline') ? breakToken.textOffset : 0;
+    const endOffset = (fragment.breakToken && fragment.breakToken.type === 'inline') ? fragment.breakToken.textOffset : data.textContent.length;
+    let text = data.textContent.slice(startOffset, endOffset);
+    const ws = fragment.node.element ? getComputedStyle(fragment.node.element).whiteSpace : 'normal';
+    if (!ws.startsWith('pre')) {
+      text = text.replace(/\s+/g, ' ').trim();
+    }
+    if (text) segments.push(text);
   }
 
   // --- Fragment tree rendering (same as viewer.js) ---
@@ -377,6 +385,10 @@
     const startOffset = (inputBreakToken && inputBreakToken.type === 'inline') ? inputBreakToken.textOffset : 0;
     const endOffset = (fragment.breakToken && fragment.breakToken.type === 'inline') ? fragment.breakToken.textOffset : data.textContent.length;
 
+    // Check white-space on the original element to decide whether to collapse
+    const ws = node.element ? getComputedStyle(node.element).whiteSpace : 'normal';
+    const collapseWS = !ws.startsWith('pre');
+
     const el = node.element.cloneNode(false);
     let current = el;
     const stack = [];
@@ -386,7 +398,8 @@
         if (item.startOffset >= endOffset) break;
         const vs = Math.max(item.startOffset, startOffset);
         const ve = Math.min(item.endOffset, endOffset);
-        const text = data.textContent.slice(vs, ve);
+        let text = data.textContent.slice(vs, ve);
+        if (collapseWS) text = text.replace(/\s+/g, ' ');
         if (text.length > 0) current.appendChild(document.createTextNode(text));
       } else if (item.type === 'kOpenTag') {
         const tag = item.element.cloneNode(false);

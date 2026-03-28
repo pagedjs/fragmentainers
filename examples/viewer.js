@@ -158,9 +158,13 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl) {
     ? fragment.breakToken.textOffset
     : data.textContent.length;
 
+  // Check white-space on the original element to decide whether to collapse
+  const ws = node.element ? getComputedStyle(node.element).whiteSpace : 'normal';
+  const collapseWS = !ws.startsWith('pre');
+
   // Build content from inline items within the visible range
   const el = node.element.cloneNode(false);
-  buildInlineContent(data.items, data.textContent, startOffset, endOffset, el);
+  buildInlineContent(data.items, data.textContent, startOffset, endOffset, el, collapseWS);
   parentEl.appendChild(el);
 }
 
@@ -169,7 +173,7 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl) {
  * Reconstructs the DOM structure (text nodes, inline elements, <br>s)
  * for only the visible portion of the content.
  */
-function buildInlineContent(items, textContent, startOffset, endOffset, container) {
+function buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS = false) {
   let current = container;
   const stack = [];
 
@@ -186,7 +190,8 @@ function buildInlineContent(items, textContent, startOffset, endOffset, containe
       // Get the visible substring
       const visStart = Math.max(itemStart, startOffset);
       const visEnd = Math.min(itemEnd, endOffset);
-      const text = textContent.slice(visStart, visEnd);
+      let text = textContent.slice(visStart, visEnd);
+      if (collapseWS) text = text.replace(/\s+/g, ' ');
 
       if (text.length > 0) {
         current.appendChild(document.createTextNode(text));

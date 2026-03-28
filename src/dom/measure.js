@@ -1,18 +1,33 @@
 /**
  * Create a text measurer backed by the DOM Range API.
- * Measures substrings of live DOM Text nodes, giving pixel-perfect
- * results that account for kerning, ligatures, letter-spacing, etc.
  *
- * Returns an object: { measureRange(textNode, startOffset, endOffset) => width }
+ * Uses getClientRects() on the live DOM text to read the browser's
+ * actual line layout, avoiding re-implementation of line breaking.
  */
 export function createRangeMeasurer() {
   const range = document.createRange();
 
   return {
+    /**
+     * Measure the width of a substring within a text node.
+     */
     measureRange(textNode, startOffset, endOffset) {
       range.setStart(textNode, startOffset);
       range.setEnd(textNode, endOffset);
       return range.getBoundingClientRect().width;
+    },
+
+    /**
+     * Get the top position of a character at a given offset in a text node.
+     * Returns the vertical position from getBoundingClientRect().
+     */
+    charTop(textNode, offset) {
+      const safeEnd = Math.min(offset + 1, textNode.textContent.length);
+      if (offset >= safeEnd) return Infinity;
+      range.setStart(textNode, offset);
+      range.setEnd(textNode, safeEnd);
+      const rects = range.getClientRects();
+      return rects.length > 0 ? rects[0].top : Infinity;
     },
   };
 }

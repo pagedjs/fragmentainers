@@ -11,6 +11,7 @@ describe('Phase 5: Inline content fragmentation', () => {
       inlineItemsData: textToInlineItems(text),
       lineHeight: 20,
       measureText: (t) => t.length * 8, // 8px per char
+      availableInlineSize: 600,
     });
 
     const root = blockNode({ children: [node] });
@@ -29,6 +30,7 @@ describe('Phase 5: Inline content fragmentation', () => {
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
+      availableInlineSize: 100,
     });
 
     const root = blockNode({ children: [node] });
@@ -49,6 +51,7 @@ describe('Phase 5: Inline content fragmentation', () => {
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
+      availableInlineSize: 200,
     });
 
     const root = blockNode({ children: [node] });
@@ -71,6 +74,7 @@ describe('Phase 5: Inline content fragmentation', () => {
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
+      availableInlineSize: 200,
     });
 
     const root = blockNode({ children: [node] });
@@ -95,6 +99,7 @@ describe('Phase 5: Inline content fragmentation', () => {
       inlineItemsData: textToInlineItems(text),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
+      availableInlineSize: 600,
     });
 
     const root = blockNode({ children: [node] });
@@ -114,6 +119,7 @@ describe('Phase 5: Inline content fragmentation', () => {
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
+      availableInlineSize: 100,
     });
 
     const root = blockNode({ children: [node] });

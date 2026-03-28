@@ -13,6 +13,7 @@ describe('Overflow fixes: margin truncation at breaks', () => {
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
+      availableInlineSize: 200,
       marginBlockEnd: 16,
     });
 
@@ -66,6 +67,7 @@ describe('Overflow fixes: availableBlockSize propagation', () => {
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
+      availableInlineSize: 200,
     });
 
     const container = blockNode({
@@ -111,6 +113,7 @@ describe('Overflow fixes: insufficient space for inline content', () => {
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
+      availableInlineSize: 200,
     });
 
     const root = blockNode({
@@ -137,6 +140,7 @@ describe('Overflow fixes: insufficient space for inline content', () => {
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
+      availableInlineSize: 200,
     });
 
     const root = blockNode({ children: [para] });
