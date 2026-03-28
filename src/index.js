@@ -9,3 +9,4 @@ export { layoutBlockContainer } from './layout/block-container.js';
 export { layoutInlineContent } from './layout/inline-content.js';
 export { layoutTableRow } from './layout/table-row.js';
 export { buildLayoutTree, DOMLayoutNode } from './dom/index.js';
+export { renderFragmentTree, renderFragment, hasBlockChildFragments, buildInlineContent, getPageSize, buildPageElement } from './compositor/index.js';
