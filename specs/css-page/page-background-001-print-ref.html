@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<link rel="author" title="Morten Stenshorne" href="mailto:mstensho@chromium.org">
+<style>
+  body {
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+  }
+  .page {
+    width: 816px;
+    height: 1056px;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+  }
+  .body {
+    margin-left: 100px;
+    flex-grow: 1;
+  }
+</style>
+<section class="page">
+  <section class="body">
+    <img style="position:absolute; z-index:-1; top:0; left:0;" src="../support/cat.png">
+    There should be a cat in the top left corner on this page.
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="break-before:page;">
+      But there should be no cat on this page.
+    </div>
+  </section>
+</section>

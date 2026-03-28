@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<link rel="author" title="Morten Stenshorne" href="mailto:mstensho@chromium.org">
+<style>
+  body {
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+  }
+  .page {
+    width: 816px;
+    height: 1056px;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+  }
+  :root {
+    print-color-adjust: exact;
+  }
+  .body {
+    margin: 0;
+    line-height: 20px;
+    flex-grow: 1;
+  }
+</style>
+<section class="page">
+  <section class="body">
+    <div style="position:absolute; top:100%;">header</div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="position:absolute; top:200%;">header</div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="position:absolute; top:300%;">header</div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="position:absolute; bottom:0;">footer</div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="position:absolute; bottom:-100%;">footer</div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="position:absolute; bottom:-200%;">footer</div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="width:80%; padding-bottom:5px; background:hotpink;">
+      header
+      <div style="height:320%; padding:3px; background:cyan;"></div>
+      On the fourth page, right after a cyan box.<br>
+      footer
+    </div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    Right after the hotpink box. Still fourth page.<br>
+    Each page should have a header and footer.
+  </section>
+</section>

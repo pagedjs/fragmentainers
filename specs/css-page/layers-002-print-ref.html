@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<style>
+  body {
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+  }
+  .page {
+    width: 816px;
+    height: 1056px;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-shrink: 0;
+  }
+  .block {
+    width: 1cm;
+    height: 1cm;
+    border: 2px solid red;
+}
+  .body {
+    flex-grow: 1;
+  }
+</style>
+<section class="page">
+  <section class="body">
+    <body>
+        <div style="padding: 1cm; break-after: page">
+          <div class="block" style="border-color: lightblue"></div>
+        </div>
+        <div style="padding: 0">
+          <div class="block" style="border-color: pink"></div>
+        </div>
+      </body>
+    </html>
+  </section>
+</section>

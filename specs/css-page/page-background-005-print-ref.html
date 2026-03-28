@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<link rel="author" title="Morten Stenshorne" href="mailto:mstensho@chromium.org">
+<style>
+  body {
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+  }
+  .page {
+    width: 600px;
+    height: 300px;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-shrink: 0;
+  }
+  :root {
+    print-color-adjust: exact;
+  }
+  .body {
+    margin: 0;
+    flex-grow: 1;
+  }
+  .text {
+    /* Add some padding to leave some room for glyph overflow.
+       The page area may clip overflow, although the ref doesn't. */
+    padding: 0 5px;
+    background: #ddd;
+  }
+  .pagecontainer {
+    break-before: page;
+  }
+  .pageborder {
+    box-sizing: border-box;
+    height: 260px;
+    border: 20px solid blue;
+    padding: 20px;
+  }
+  .cat {
+    position: absolute;
+    z-index: -1;
+    width: 100px;
+    height: 100px;
+    background-image: url(../support/cat.png);
+    background-repeat: no-repeat;
+  }
+</style>
+<section class="page">
+  <section class="body">
+    <div class="pagecontainer">
+      <div class="cat"></div>
+      <div class="pageborder">
+        <div style="height:100px;"></div>
+        <div class="text">
+          There should be a cat in the top left corner, flush with the border
+          edge. The blue border should be painted on top of the cat.
+        </div>
+      </div>
+    </div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div class="pagecontainer">
+      <div class="cat" style="margin-top:20px; margin-left:20px;"></div>
+      <div class="pageborder">
+        <div style="height:100px;"></div>
+        <div class="text">
+          There should be a cat in the top left corner, flush with the padding box,
+          i.e. just inside the blue border.
+        </div>
+      </div>
+    </div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div class="pagecontainer">
+      <div class="cat" style="margin-top:40px; margin-left:40px;"></div>
+      <div class="pageborder">
+        <div style="margin-left:105px; width:10px; height:100px; background:orange;"></div>
+        <div class="text">
+          There should be a cat in the top left corner, flush with the content box
+          (left-aligned with this box, vertically aligned with the orange bar).
+        </div>
+      </div>
+    </div>
+  </section>
+</section>

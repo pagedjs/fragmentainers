@@ -9,6 +9,6 @@
   "scripts": {
     "test": "node --test test/*.js",
     "serve": "npx serve . -l 8080",
-    "bench": "open bench/index.html"
+    "bench": "open viewer/viewer.html"
   }
 }

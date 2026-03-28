@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<style>
+  body {
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+  }
+  :root {
+  print-color-adjust: exact;
+}
+  .body {
+    margin: 20px;
+    background: linear-gradient(lightgray 0%, lightgray 50%, white 50%, white 100%);
+    flex-grow: 1;
+  }
+  .page {
+    width: 800px;
+    height: 600px;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-shrink: 0;
+  }
+</style>
+<section class="page">
+  <section class="body">
+    <p style="writing-mode:horizontal-tb; position:absolute; right:0; top:0; width:200px;">
+      There should be a bottom-left-aligned blue box on the first page, and a
+      bottom-left-aligned hotpink box on the second page.
+      The background of the first page is lightgray, and the background of the
+      second page is white.
+    </p>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="width:600px; height:100px; break-inside:avoid; background:blue; margin-top:480px;"></div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="height:500px"></div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="width:800px; height:100px; break-inside:avoid; background:hotpink; margin-left:-20px;"></div>
+  </section>
+</section>

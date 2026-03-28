@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<link rel="author" title="Morten Stenshorne" href="mailto:mstensho@chromium.org">
+<style>
+  body {
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+  }
+  .page {
+    width: 816px;
+    height: 1056px;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+  }
+  :root {
+    print-color-adjust: exact;
+  }
+  .body {
+    flex-grow: 1;
+  }
+</style>
+<section class="page">
+  <section class="body">
+    <p>The word "PASS" should be seen below.</p>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="position:absolute; background:blue;">
+      <iframe src="data:text/html,PASS" style="width:8em; height:3em; background:yellow;"></iframe>
+    </div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <p style="break-before:page;">
+      Apart from this text, there should be nothing on this page.
+    </p>
+  </section>
+</section>

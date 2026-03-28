@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<style>
+  body {
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+  }
+  :root {
+    print-color-adjust: exact;
+  }
+  html {
+    background-color: lime;
+  }
+  .page {
+    width: 816px;
+    height: 1056px;
+    padding: 0px;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-shrink: 0;
+  }
+  .body {
+    flex-grow: 1;
+  }
+</style>
+<section class="page">
+  <section class="body">
+    <p>
+      Should print on a green background but not display it on screen.
+    </p>
+  </section>
+</section>

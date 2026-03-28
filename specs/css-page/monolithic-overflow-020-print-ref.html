@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<link rel="author" title="Morten Stenshorne" href="mailto:mstensho@chromium.org">
+<style>
+  body {
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+  }
+  .page {
+    width: 816px;
+    height: 1056px;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+  }
+  :root {
+    print-color-adjust: exact;
+  }
+  .body {
+    margin: 0;
+    flex-grow: 1;
+  }
+</style>
+<section class="page">
+  <section class="body">
+    <div style="float:right; width:20%; border:3px solid;">
+      <div style="width:50%; height:calc(100% - 3px); background:brown;"></div>
+      <div style="width:50%; height:100%; background:blue;"></div>
+      <div style="width:50%; height:50%; background:cyan;"></div>
+    </div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div style="background:yellow;">
+      <div style="width:20%; height:225%; background:hotpink;"></div>
+      <div style="height:75%;"></div>
+    </div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    This text should start on the fourth page. The first three pages should have a
+    yellow background. On the left hand side there should be a hotpink rectangle,
+    starting at the beginning on the first page, and ending 25% from the top of the
+    third page. On the right hand side there should a figure with a black border. It
+    should end around the middle of the third page. Inside there should be a brown
+    rectangle on the first page, a blue rectangle on the second page, and a cyan
+    rectangle on the third page.
+  </section>
+</section>
