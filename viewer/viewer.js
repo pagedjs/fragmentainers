@@ -52,8 +52,19 @@ export async function fetchAndParse(url) {
 
 /**
  * Inject parsed content and CSS into a container, rebasing relative URLs.
+ *
+ * When `container` is a <frag-measure> custom element, delegates to its
+ * injectContent() method for Shadow DOM isolation. Returns the content root
+ * element (the wrapper inside the shadow root, or the container itself for
+ * plain div fallback).
  */
 export function injectContent({ bodyHTML, cssEntries, baseURL }, container) {
+  // Shadow DOM path: <frag-measure> custom element
+  if (container.injectContent) {
+    return container.injectContent({ bodyHTML, cssEntries, baseURL });
+  }
+
+  // Legacy path: plain div container
   const rebasedCSS = cssEntries
     .map(({ css, cssBaseURL }) => css.replace(/url\(\s*['"]?(?!data:|https?:|\/\/)(.*?)['"]?\s*\)/g, (match, path) => {
       return `url('${cssBaseURL}${path}')`;
@@ -106,8 +117,9 @@ export async function waitForFonts(container) {
 /**
  * Render a grid of page thumbnails built from the fragment tree.
  * @param {Object[]} pageSizes - Array of { inlineSize, blockSize } per page
+ * @param {Object} [contentStyles] - Content styles for CSS isolation (from FragMeasureElement.getContentStyles)
  */
-export async function renderPages(pages, pageSizes, contentEl, gridContainer, onPageClick) {
+export async function renderPages(pages, pageSizes, contentStyles, gridContainer, onPageClick) {
   gridContainer.innerHTML = '';
 
   const thumbnailHeight = 220;
@@ -126,7 +138,7 @@ export async function renderPages(pages, pageSizes, contentEl, gridContainer, on
     wrapper.style.height = `${thumbnailHeight}px`;
 
     // Inner: full-size page, scaled via transform
-    const pageEl = await buildPageElement(i, pages, pageSizes);
+    const pageEl = await buildPageElement(i, pages, pageSizes, contentStyles);
     pageEl.style.transform = `scale(${scale})`;
     pageEl.style.transformOrigin = 'top left';
 
@@ -148,7 +160,7 @@ export async function renderPages(pages, pageSizes, contentEl, gridContainer, on
 /**
  * Show a single page at full size in an overlay.
  */
-export async function showDetail(pageIndex, pages, pageSizes, contentEl, overlay) {
+export async function showDetail(pageIndex, pages, pageSizes, contentStyles, overlay) {
   overlay.innerHTML = '';
   overlay.classList.add('active');
 
@@ -178,7 +190,7 @@ export async function showDetail(pageIndex, pages, pageSizes, contentEl, overlay
   prevBtn.disabled = pageIndex === 0;
   prevBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    showDetail(pageIndex - 1, pages, pageSizes, contentEl, overlay);
+    showDetail(pageIndex - 1, pages, pageSizes, contentStyles, overlay);
   });
 
   const pageInfo = document.createElement('span');
@@ -190,7 +202,7 @@ export async function showDetail(pageIndex, pages, pageSizes, contentEl, overlay
   nextBtn.disabled = pageIndex === pages.length - 1;
   nextBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    showDetail(pageIndex + 1, pages, pageSizes, contentEl, overlay);
+    showDetail(pageIndex + 1, pages, pageSizes, contentStyles, overlay);
   });
 
   const closeBtn = document.createElement('button');
@@ -211,7 +223,7 @@ export async function showDetail(pageIndex, pages, pageSizes, contentEl, overlay
   scaleWrapper.style.margin = '0 auto';
 
   // Full-size page
-  const pageEl = await buildPageElement(pageIndex, pages, pageSizes);
+  const pageEl = await buildPageElement(pageIndex, pages, pageSizes, contentStyles);
   pageEl.classList.add('detail-page');
   pageEl.style.transform = `scale(${fitScale})`;
   pageEl.style.transformOrigin = 'top left';
@@ -224,10 +236,10 @@ export async function showDetail(pageIndex, pages, pageSizes, contentEl, overlay
   overlay._keyHandler = (e) => {
     if (e.key === 'Escape') closeDetail(overlay);
     if (e.key === 'ArrowLeft' && pageIndex > 0) {
-      showDetail(pageIndex - 1, pages, pageSizes, contentEl, overlay);
+      showDetail(pageIndex - 1, pages, pageSizes, contentStyles, overlay);
     }
     if (e.key === 'ArrowRight' && pageIndex < pages.length - 1) {
-      showDetail(pageIndex + 1, pages, pageSizes, contentEl, overlay);
+      showDetail(pageIndex + 1, pages, pageSizes, contentStyles, overlay);
     }
   };
   document.removeEventListener('keydown', overlay._prevKeyHandler);

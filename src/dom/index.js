@@ -3,6 +3,7 @@ import { DOMLayoutNode } from './layout-node.js';
 export { DOMLayoutNode } from './layout-node.js';
 export { collectInlineItems } from './collect-inlines.js';
 export { createRangeMeasurer, measureElementBlockSize, getLineHeight, parseLength } from './measure.js';
+export { ContentMeasureElement, FragmentContainerElement } from './frag-measure.js';
 
 /**
  * Build a layout tree from a DOM element.

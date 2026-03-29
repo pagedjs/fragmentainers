@@ -55,17 +55,7 @@
       position: relative;
     }
 
-    /*
-     * Page content container: undo the few viewer-ui properties
-     * that inherit from body, without breaking the example's own
-     * CSS inheritance chain (which `all: initial` would do).
-     */
-    .page-content {
-      font-family: initial;
-      background: #fff;
-      overflow: hidden;
-      contain: strict;
-    }
+
 
     .viewer-ui .page-label {
       display: none;
@@ -107,16 +97,12 @@
     .detail-page-info { font-size: 0.85rem; min-width: 120px; text-align: center; font-family: system-ui, sans-serif; }
 
     .detail-page {
-      font-family: initial;
-      background: #fff;
-      overflow: hidden;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
 
     /* Off-screen measurement container */
     #measure {
       position: absolute; left: -99999px; top: 0;
-      visibility: hidden;
     }
 
     .viewer-ui #summary { font-size: 0.85rem; color: #555; padding: 0.5rem 0; }
@@ -149,11 +135,12 @@
   <div id="summary"></div>
   <div id="pages"></div>
 
-  <div id="measure"></div>
+  <content-measure id="measure"></content-measure>
   <div id="overlay"></div>
 
   <script type="module">
     import { fetchAndParse, injectContent, waitForFonts, runFragmentation, renderPages, showDetail } from './viewer.js';
+    import '../src/dom/frag-measure.js';
 
     const exampleSelect = document.getElementById('example');
     const pageWidthInput = document.getElementById('pageWidth');
@@ -167,7 +154,7 @@
     // State
     let currentPages = null;
     let currentPageSizes = null;
-    let currentContentEl = null;
+    let currentContentStyles = null;
 
     // --- URL params: read on load, write on change ---
 
@@ -272,9 +259,9 @@
         const parsed = await fetchAndParse(url);
         statusEl.textContent = 'Injecting content for measurement...';
 
-        // 2. Inject into off-screen container at widest page width
+        // 2. Inject into off-screen <content-measure> at widest page width
         measureEl.style.width = `${maxInline}px`;
-        injectContent(parsed, measureEl);
+        const contentRoot = injectContent(parsed, measureEl);
 
         // Wait for fonts and images
         await waitForFonts(measureEl);
@@ -282,23 +269,23 @@
 
         statusEl.textContent = 'Running fragmentation...';
 
-        // 3. Run fragmentation (use rAF so status renders)
+        // 3. Run fragmentation on the wrapper inside shadow DOM
         await new Promise(r => requestAnimationFrame(r));
         const start = performance.now();
-        const pages = runFragmentation(measureEl, pageSizes);
+        const pages = runFragmentation(contentRoot, pageSizes);
         const elapsed = Math.round(performance.now() - start);
 
         currentPages = pages;
         currentPageSizes = pageSizes;
-        currentContentEl = measureEl;
+        currentContentStyles = measureEl.getContentStyles();
 
         const sizeLabel = vary ? 'varied sizes' : `${baseW}\u00d7${baseH}px each`;
         statusEl.textContent = `${pages.length} pages in ${elapsed}ms (${sizeLabel}). Click a page to view full size.`;
 
-        // 4. Render thumbnails
+        // 4. Render thumbnails via <fragment-container> elements
         statusEl.textContent = `Rendering ${pages.length} pages...`;
-        const totalHeight = await renderPages(pages, pageSizes, measureEl, pagesEl, (idx) => {
-          showDetail(idx, currentPages, currentPageSizes, currentContentEl, overlayEl);
+        const totalHeight = await renderPages(pages, pageSizes, currentContentStyles, pagesEl, (idx) => {
+          showDetail(idx, currentPages, currentPageSizes, currentContentStyles, overlayEl);
         });
 
         statusEl.textContent = `${pages.length} pages in ${elapsed}ms (${sizeLabel}). Click a page to view full size.`;

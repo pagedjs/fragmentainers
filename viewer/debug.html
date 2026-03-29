@@ -15,7 +15,6 @@
         position: absolute;
         left: -99999px;
         top: 0;
-        visibility: hidden;
       }
       #output {
         white-space: pre-wrap;
@@ -45,7 +44,7 @@
     </style>
   </head>
   <body>
-    <div id="measure"></div>
+    <content-measure id="measure"></content-measure>
     <div id="output"></div>
     <script type="module">
       import {
@@ -54,6 +53,7 @@
         waitForFonts,
         runFragmentation,
       } from "./viewer.js";
+      import "../src/dom/frag-measure.js";
       import { findChildBreakToken } from "../src/helpers.js";
       import { renderFragmentTree } from "../src/compositor/index.js";
 
@@ -85,7 +85,7 @@
         try {
           const parsed = await fetchAndParse(url);
           measureEl.style.width = `${pageW}px`;
-          injectContent(parsed, measureEl);
+          const contentRoot = injectContent(parsed, measureEl);
           await waitForFonts(measureEl);
           await new Promise((r) =>
             requestAnimationFrame(() => requestAnimationFrame(r)),
@@ -93,7 +93,7 @@
 
           const pageSize = { inlineSize: pageW, blockSize: pageH };
           const t0 = performance.now();
-          const pages = runFragmentation(measureEl, [pageSize]);
+          const pages = runFragmentation(contentRoot, [pageSize]);
           const elapsed = (performance.now() - t0).toFixed(1);
 
           const header = [];
@@ -125,6 +125,7 @@
             // Render mode: header as text, then per-page rows with rendered page + data
             outputEl.textContent = header.join("\n");
 
+            const contentStyles = measureEl.getContentStyles();
             const limit =
               maxPages > 0 ? Math.min(maxPages, pages.length) : pages.length;
             let issueCount = 0;
@@ -135,25 +136,24 @@
               const row = document.createElement("div");
               row.className = "page-row";
 
-              // Rendered page
+              // Rendered page inside <fragment-container> for CSS isolation
               const renderBox = document.createElement("div");
               renderBox.className = "page-row-render";
               renderBox.style.width = `${pageW * renderScale}px`;
               renderBox.style.height = `${pageH * renderScale}px`;
 
-              const pageEl = document.createElement("div");
-              pageEl.style.width = `${pageW}px`;
-              pageEl.style.height = `${pageH}px`;
-              pageEl.style.overflow = "hidden";
-              pageEl.style.whiteSpace = "normal";
-              pageEl.style.background = "#fff";
-              pageEl.style.transform = `scale(${renderScale})`;
-              pageEl.style.transformOrigin = "top left";
+              const fragEl = document.createElement("fragment-container");
+              fragEl.style.width = `${pageW}px`;
+              fragEl.style.height = `${pageH}px`;
+              fragEl.style.overflow = "hidden";
+              fragEl.style.transform = `scale(${renderScale})`;
+              fragEl.style.transformOrigin = "top left";
+              const wrapper = fragEl.setupForRendering(contentStyles);
 
               const prevBT = i > 0 ? pages[i - 1].breakToken : null;
-              pageEl.appendChild(renderFragmentTree(pages[i], prevBT));
+              wrapper.appendChild(renderFragmentTree(pages[i], prevBT));
 
-              renderBox.appendChild(pageEl);
+              renderBox.appendChild(fragEl);
               row.appendChild(renderBox);
 
               // Append to DOM so we can measure rendered content
@@ -161,14 +161,14 @@
               await new Promise((r) => requestAnimationFrame(r));
 
               // Detect render overflow: measure natural content height
-              // Temporarily remove transform and constraints for accurate measurement
-              pageEl.style.overflow = "visible";
-              pageEl.style.height = "auto";
-              pageEl.style.transform = "none";
-              const naturalH = pageEl.scrollHeight;
-              pageEl.style.overflow = "hidden";
-              pageEl.style.height = `${pageH}px`;
-              pageEl.style.transform = `scale(${renderScale})`;
+              // Temporarily remove constraints for accurate measurement
+              fragEl.style.overflow = "visible";
+              fragEl.style.height = "auto";
+              fragEl.style.transform = "none";
+              const naturalH = fragEl.scrollHeight;
+              fragEl.style.overflow = "hidden";
+              fragEl.style.height = `${pageH}px`;
+              fragEl.style.transform = `scale(${renderScale})`;
 
               if (naturalH > pageH + 0.5) {
                 dump.text += `\n  ISSUES:\n    - RENDER OVERFLOW: rendered content ${naturalH}px > fragmentainer ${pageH}px (overflow by ${(naturalH - pageH).toFixed(1)}px)`;

@@ -9,26 +9,25 @@ export function getPageSize(pageSizes, pageIndex) {
 }
 
 /**
- * Create a page container element and populate it from the fragment tree.
+ * Create a <fragment-container> page element and populate it from the fragment tree.
  *
  * @param {number} pageIndex
  * @param {import('../fragment.js').PhysicalFragment[]} pages
  * @param {{ inlineSize: number, blockSize: number }[]} pageSizes
+ * @param {{ sheets: CSSStyleSheet[], cssText: string }} [contentStyles] — when omitted, styles are copied from the document
  * @returns {Promise<Element>}
  */
-export async function buildPageElement(pageIndex, pages, pageSizes) {
+export async function buildPageElement(pageIndex, pages, pageSizes, contentStyles) {
   const page = pages[pageIndex];
   const size = getPageSize(pageSizes, pageIndex);
   const prevBreakToken = pageIndex > 0 ? pages[pageIndex - 1].breakToken : null;
 
-  const pageEl = document.createElement('div');
-  pageEl.className = 'page-content';
-  pageEl.style.width = `${size.inlineSize}px`;
-  pageEl.style.height = `${size.blockSize}px`;
-  pageEl.style.overflow = 'hidden';
-  pageEl.style.whiteSpace = 'normal';
-  pageEl.style.contain = 'strict';
+  const fragEl = document.createElement('fragment-container');
+  fragEl.style.width = `${size.inlineSize}px`;
+  fragEl.style.height = `${size.blockSize}px`;
+  fragEl.style.overflow = 'hidden';
 
-  pageEl.appendChild(renderFragmentTree(page, prevBreakToken));
-  return pageEl;
+  const wrapper = fragEl.setupForRendering(contentStyles);
+  wrapper.appendChild(renderFragmentTree(page, prevBreakToken));
+  return fragEl;
 }
