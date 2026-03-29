@@ -79,8 +79,11 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
   const containerBoxStart = (node.paddingBlockStart || 0) + (node.borderBlockStart || 0);
   const containerBoxEnd = (node.paddingBlockEnd || 0) + (node.borderBlockEnd || 0);
 
-  // Start blockOffset at the container's top padding+border (first fragment only)
-  let blockOffset = breakToken ? 0 : containerBoxStart;
+  // Start blockOffset at the container's top padding+border.
+  // For slice (default): only on first fragment.
+  // For clone: on every fragment (repeated decorations).
+  const isClone = node.boxDecorationBreak === 'clone';
+  let blockOffset = (breakToken && !isClone) ? 0 : containerBoxStart;
 
   // Track previous child's margin-end for collapsing with next child's margin-start
   let prevChildMarginEnd = 0;
@@ -244,8 +247,11 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     blockOffset += prevChildMarginEnd;
   }
 
-  // Add container's bottom padding+border if all children are placed
-  if (hasSeenAllChildren && childBreakTokens.length === 0) {
+  // Add container's bottom padding+border.
+  // For slice: only on final fragment (all children placed, no break).
+  // For clone: on every fragment (repeated decorations).
+  if ((hasSeenAllChildren && childBreakTokens.length === 0) ||
+      (isClone && childBreakTokens.length > 0)) {
     blockOffset += containerBoxEnd;
   }
 
@@ -253,8 +259,10 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
   // height (e.g. from CSS pseudo-elements, list markers, min-height), use
   // the measured height as a floor. Only applies when children were laid out
   // but all produced zero blockSize.
-  const contentHeight = blockOffset - (breakToken ? 0 : containerBoxStart)
-    - (hasSeenAllChildren && childBreakTokens.length === 0 ? containerBoxEnd : 0);
+  const boxStartIncluded = (!breakToken || isClone) ? containerBoxStart : 0;
+  const boxEndIncluded = ((hasSeenAllChildren && childBreakTokens.length === 0) ||
+    (isClone && childBreakTokens.length > 0)) ? containerBoxEnd : 0;
+  const contentHeight = blockOffset - boxStartIncluded - boxEndIncluded;
   if (contentHeight === 0 && childFragments.length > 0 && node.element) {
     const measuredHeight = node.element.getBoundingClientRect().height;
     if (measuredHeight > blockOffset) {

@@ -179,6 +179,10 @@ export class DOMLayoutNode {
     return this._getStyle().breakInside || 'auto';
   }
 
+  get boxDecorationBreak() {
+    return this._getStyle().boxDecorationBreak || 'slice';
+  }
+
   get orphans() {
     return parseInt(this._getStyle().orphans) || 2;
   }
@@ -417,6 +421,7 @@ export class AnonymousBlockNode {
   get breakBefore() { return 'auto'; }
   get breakAfter() { return 'auto'; }
   get breakInside() { return 'auto'; }
+  get boxDecorationBreak() { return 'slice'; }
   get orphans() { return 2; }
   get widows() { return 2; }
 

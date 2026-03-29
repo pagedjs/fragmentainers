@@ -41,6 +41,9 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
     renderInlineFragment(fragment, inputBreakToken, parentEl);
   } else if (hasBlockChildFragments(fragment)) {
     const el = node.element.cloneNode(false);
+    if (node.boxDecorationBreak !== 'clone') {
+      applySliceDecorations(el, inputBreakToken, fragment);
+    }
     for (const child of fragment.childFragments) {
       if (!child.node) continue;
       const childInputBT = findChildBreakToken(inputBreakToken, child.node);
@@ -49,6 +52,9 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
     parentEl.appendChild(el);
   } else {
     const el = node.element.cloneNode(true);
+    if (node.boxDecorationBreak !== 'clone') {
+      applySliceDecorations(el, inputBreakToken, fragment);
+    }
     parentEl.appendChild(el);
   }
 }
@@ -77,14 +83,15 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl) {
 
   const ws = isAnonymous ? 'normal' : getComputedStyle(node.element).whiteSpace;
   const collapseWS = !ws.startsWith('pre');
+  const isHyphenated = fragment.breakToken?.isHyphenated ?? false;
 
   if (isAnonymous) {
     const docFragment = document.createDocumentFragment();
-    buildInlineContent(data.items, data.textContent, startOffset, endOffset, docFragment, collapseWS);
+    buildInlineContent(data.items, data.textContent, startOffset, endOffset, docFragment, collapseWS, isHyphenated);
     parentEl.appendChild(docFragment);
   } else {
     const el = node.element.cloneNode(false);
-    buildInlineContent(data.items, data.textContent, startOffset, endOffset, el, collapseWS);
+    buildInlineContent(data.items, data.textContent, startOffset, endOffset, el, collapseWS, isHyphenated);
     parentEl.appendChild(el);
   }
 }
@@ -140,6 +147,28 @@ function renderMulticolFragment(fragment, inputBreakToken, parentEl) {
 }
 
 /**
+ * For box-decoration-break: slice (the CSS default), suppress block-start
+ * and/or block-end decorations at fragmentainer break edges.
+ *
+ * The cloned element carries all original CSS styles. This function zeroes
+ * out the border/padding that should not appear at break boundaries.
+ *
+ * @param {{ style: CSSStyleDeclaration }} el - The cloned element
+ * @param {import('../tokens.js').BreakToken|null} inputBreakToken - non-null if continuation
+ * @param {import('../fragment.js').PhysicalFragment} fragment - the fragment being rendered
+ */
+export function applySliceDecorations(el, inputBreakToken, fragment) {
+  if (inputBreakToken !== null) {
+    el.style.borderBlockStart = 'none';
+    el.style.paddingBlockStart = '0';
+  }
+  if (fragment.breakToken !== null) {
+    el.style.borderBlockEnd = 'none';
+    el.style.paddingBlockEnd = '0';
+  }
+}
+
+/**
  * Build DOM content from inline items within the given text offset range.
  * Reconstructs text nodes, inline elements, <br>s, and atomic inlines
  * for only the visible portion of the content.
@@ -151,9 +180,10 @@ function renderMulticolFragment(fragment, inputBreakToken, parentEl) {
  * @param {Element} container - DOM element to append content into
  * @param {boolean} [collapseWS=false] - collapse whitespace runs
  */
-export function buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS = false) {
+export function buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS = false, isHyphenated = false) {
   let current = container;
   const stack = [];
+  let lastTextNode = null;
 
   for (const item of items) {
     if (item.type === 'kText') {
@@ -166,10 +196,13 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
       const visStart = Math.max(itemStart, startOffset);
       const visEnd = Math.min(itemEnd, endOffset);
       let text = textContent.slice(visStart, visEnd);
+      // Strip soft hyphens — they are invisible in flowing text
+      text = text.replace(/\u00AD/g, '');
       if (collapseWS) text = text.replace(/\s+/g, ' ');
 
       if (text.length > 0) {
-        current.appendChild(document.createTextNode(text));
+        lastTextNode = document.createTextNode(text);
+        current.appendChild(lastTextNode);
       }
     } else if (item.type === 'kOpenTag') {
       const el = item.element.cloneNode(false);
@@ -188,4 +221,22 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
       }
     }
   }
+
+  // Append visible hyphen when the break follows a soft hyphen
+  if (isHyphenated) {
+    const hyphenChar = resolveHyphenCharacter(container);
+    current.appendChild(document.createTextNode(hyphenChar));
+  }
+}
+
+/**
+ * Resolve the visible hyphen character per CSS `hyphenate-character`.
+ * Defaults to U+2010 (HYPHEN), matching Chromium's HyphenString() behavior.
+ */
+function resolveHyphenCharacter(container) {
+  if (container.nodeType === Node.ELEMENT_NODE) {
+    const val = getComputedStyle(container).hyphenateCharacter;
+    if (val && val !== 'auto') return val;
+  }
+  return '\u2010';
 }

@@ -268,3 +268,90 @@ describe('Phase 3: Block fragmentation across fragmentainers', () => {
     assert.equal(pages.length, 3);
   });
 });
+
+// ---------------------------------------------------------------------------
+// box-decoration-break: clone layout
+// ---------------------------------------------------------------------------
+
+describe('box-decoration-break: clone layout', () => {
+  // Uses a single child that overflows to create exactly 2 fragments.
+  // Container: padding-top=10, padding-bottom=10. Fragmentainer: 200px.
+  // Child: 250px. Available on first fragment: 200 - 10 (top) - 10 (bottom reserved) = 180.
+
+  it('includes containerBoxStart in continuation fragment blockOffset', () => {
+    const root = blockNode({
+      debugName: 'clone-container',
+      paddingBlockStart: 10,
+      paddingBlockEnd: 10,
+      boxDecorationBreak: 'clone',
+      children: [
+        blockNode({ debugName: 'child', blockSize: 250 }),
+      ],
+    });
+
+    const fragments = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
+
+    assert.equal(fragments.length, 2);
+
+    // Continuation fragment should include containerBoxStart (10) because clone
+    // repeats decorations: padding-top (10) + remaining child (70) + padding-bottom (10) = 90
+    assert.equal(fragments[1].blockSize, 90);
+  });
+
+  it('includes containerBoxEnd on non-final fragments with clone', () => {
+    const root = blockNode({
+      debugName: 'clone-container',
+      paddingBlockStart: 10,
+      paddingBlockEnd: 10,
+      boxDecorationBreak: 'clone',
+      children: [
+        blockNode({ debugName: 'child', blockSize: 250 }),
+      ],
+    });
+
+    const fragments = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
+
+    assert.equal(fragments.length, 2);
+
+    // Non-final fragment should include containerBoxEnd (padding-bottom)
+    // padding-top (10) + child portion (180) + padding-bottom (10) = 200
+    assert.equal(fragments[0].blockSize, 200);
+  });
+
+  it('slice mode does NOT include containerBoxStart on continuation', () => {
+    const root = blockNode({
+      debugName: 'slice-container',
+      paddingBlockStart: 10,
+      paddingBlockEnd: 10,
+      boxDecorationBreak: 'slice',
+      children: [
+        blockNode({ debugName: 'child', blockSize: 250 }),
+      ],
+    });
+
+    const fragments = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
+
+    assert.equal(fragments.length, 2);
+
+    // Slice first fragment: padding-top (10) + child portion (180) = 190 (no bottom padding)
+    assert.equal(fragments[0].blockSize, 190);
+
+    // Slice continuation: NO padding-top, child remainder (70) + padding-bottom (10) = 80
+    assert.equal(fragments[1].blockSize, 80);
+  });
+});

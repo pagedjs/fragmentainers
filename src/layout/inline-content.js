@@ -368,6 +368,12 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
     const inlineToken = new InlineBreakToken(node);
     inlineToken.itemIndex = itemIndex;
     inlineToken.textOffset = textOffset;
+
+    // Detect soft hyphen (U+00AD) immediately before the break offset
+    if (textOffset > 0 && inlineItems.textContent.charCodeAt(textOffset - 1) === 0x00AD) {
+      inlineToken.isHyphenated = true;
+    }
+
     fragment.breakToken = inlineToken;
   }
 

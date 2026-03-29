@@ -30,6 +30,7 @@ const DEFAULTS = {
   breakBefore: 'auto',
   breakAfter: 'auto',
   breakInside: 'auto',
+  boxDecorationBreak: 'slice',
   orphans: 2,
   widows: 2,
   marginBlockStart: 0,

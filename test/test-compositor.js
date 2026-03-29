@@ -11,6 +11,8 @@ import {
   getFragmentainerSize,
 } from '../src/compositor/index.js';
 
+import { applySliceDecorations } from '../src/compositor/render-fragments.js';
+
 // ---------------------------------------------------------------------------
 // hasBlockChildFragments
 // ---------------------------------------------------------------------------
@@ -162,5 +164,66 @@ describe('inline items data for compositor', () => {
     const endOffset = 25;   // ..."jumps over"
     const visible = data.textContent.slice(startOffset, endOffset);
     assert.equal(visible, 'brown fox jumps');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applySliceDecorations (box-decoration-break: slice)
+// ---------------------------------------------------------------------------
+
+describe('applySliceDecorations', () => {
+  /** Mock element with a style object */
+  function mockEl() {
+    return { style: {} };
+  }
+
+  it('does nothing for only-fragment (no breaks)', () => {
+    const el = mockEl();
+    const fragment = new PhysicalFragment(blockNode(), 200);
+    // inputBreakToken = null, fragment.breakToken = null
+    applySliceDecorations(el, null, fragment);
+    assert.equal(el.style.borderBlockStart, undefined);
+    assert.equal(el.style.borderBlockEnd, undefined);
+    assert.equal(el.style.paddingBlockStart, undefined);
+    assert.equal(el.style.paddingBlockEnd, undefined);
+  });
+
+  it('suppresses block-end on first fragment (non-final)', () => {
+    const el = mockEl();
+    const fragment = new PhysicalFragment(blockNode(), 200);
+    const bt = new BlockBreakToken(fragment.node);
+    fragment.breakToken = bt;
+    // inputBreakToken = null (first), fragment.breakToken = bt (non-final)
+    applySliceDecorations(el, null, fragment);
+    assert.equal(el.style.borderBlockStart, undefined);
+    assert.equal(el.style.paddingBlockStart, undefined);
+    assert.equal(el.style.borderBlockEnd, 'none');
+    assert.equal(el.style.paddingBlockEnd, '0');
+  });
+
+  it('suppresses block-start on final fragment (continuation)', () => {
+    const el = mockEl();
+    const inputBT = new BlockBreakToken(blockNode());
+    const fragment = new PhysicalFragment(blockNode(), 200);
+    // inputBreakToken = inputBT (continuation), fragment.breakToken = null (final)
+    applySliceDecorations(el, inputBT, fragment);
+    assert.equal(el.style.borderBlockStart, 'none');
+    assert.equal(el.style.paddingBlockStart, '0');
+    assert.equal(el.style.borderBlockEnd, undefined);
+    assert.equal(el.style.paddingBlockEnd, undefined);
+  });
+
+  it('suppresses both block-start and block-end on middle fragment', () => {
+    const el = mockEl();
+    const inputBT = new BlockBreakToken(blockNode());
+    const fragment = new PhysicalFragment(blockNode(), 200);
+    const outputBT = new BlockBreakToken(fragment.node);
+    fragment.breakToken = outputBT;
+    // inputBreakToken = inputBT (continuation), fragment.breakToken = outputBT (non-final)
+    applySliceDecorations(el, inputBT, fragment);
+    assert.equal(el.style.borderBlockStart, 'none');
+    assert.equal(el.style.paddingBlockStart, '0');
+    assert.equal(el.style.borderBlockEnd, 'none');
+    assert.equal(el.style.paddingBlockEnd, '0');
   });
 });

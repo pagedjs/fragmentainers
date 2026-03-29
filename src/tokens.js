@@ -83,5 +83,6 @@ export class InlineBreakToken extends BreakToken {
     this.itemIndex = 0;     // index into InlineItemsData.items
     this.textOffset = 0;    // offset into InlineItemsData.textContent
     this.flags = 0;         // inline-specific state bits
+    this.isHyphenated = false; // true when break follows a soft hyphen (U+00AD)
   }
 }
