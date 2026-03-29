@@ -9,5 +9,6 @@ export class PhysicalFragment {
     this.inlineSize = 0;
     this.childFragments = childFragments;
     this.breakToken = null;
+    this.constraints = null;
   }
 }

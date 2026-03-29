@@ -1,4 +1,5 @@
 import { ConstraintSpace } from './constraint-space.js';
+import { resolveNamedPageForBreakToken } from './helpers.js';
 import { layoutBlockContainer } from './layout/block-container.js';
 import { layoutInlineContent } from './layout/inline-content.js';
 import { layoutTableRow } from './layout/table-row.js';
@@ -12,26 +13,38 @@ import { layoutTableRow } from './layout/table-row.js';
  * Supports two-pass layout: if the first pass returns an earlyBreak,
  * re-runs layout with the earlyBreak target to break at a better point.
  *
+ * Accepts either a static array of sizes (backward-compatible) or a
+ * PageSizeResolver instance for dynamic @page rule resolution.
+ *
  * @param {import('./helpers.js').LayoutNode} rootNode
- * @param {{ inlineSize: number, blockSize: number }[]} fragmentainerSizes
+ * @param {{ inlineSize: number, blockSize: number }[] | import('./page-rules.js').PageSizeResolver} sizesOrResolver
  * @returns {import('./fragment.js').PhysicalFragment[]} Array of page fragments
  */
-export function paginateContent(rootNode, fragmentainerSizes) {
+export function paginateContent(rootNode, sizesOrResolver) {
+  const useResolver = !Array.isArray(sizesOrResolver) && typeof sizesOrResolver?.resolve === 'function';
   const pages = [];
   let breakToken = null;
   let zeroProgressCount = 0;
   const MAX_ZERO_PROGRESS = 5;
 
   for (let pageIndex = 0; breakToken !== null || pageIndex === 0; pageIndex++) {
-    const size = fragmentainerSizes[pageIndex] || fragmentainerSizes.at(-1);
+    let constraintSpace;
+    let constraints = null;
 
-    const constraintSpace = new ConstraintSpace({
-      availableInlineSize: size.inlineSize,
-      availableBlockSize: size.blockSize,
-      fragmentainerBlockSize: size.blockSize,
-      blockOffsetInFragmentainer: 0,
-      fragmentationType: 'page',
-    });
+    if (useResolver) {
+      const namedPage = resolveNamedPageForBreakToken(rootNode, breakToken);
+      constraints = sizesOrResolver.resolve(pageIndex, namedPage, null);
+      constraintSpace = constraints.toConstraintSpace();
+    } else {
+      const size = sizesOrResolver[pageIndex] || sizesOrResolver.at(-1);
+      constraintSpace = new ConstraintSpace({
+        availableInlineSize: size.inlineSize,
+        availableBlockSize: size.blockSize,
+        fragmentainerBlockSize: size.blockSize,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: 'page',
+      });
+    }
 
     let result = runLayoutGenerator(
       layoutBlockContainer, rootNode, constraintSpace, breakToken
@@ -43,6 +56,10 @@ export function paginateContent(rootNode, fragmentainerSizes) {
         layoutBlockContainer, rootNode, constraintSpace, breakToken,
         result.earlyBreak
       );
+    }
+
+    if (constraints) {
+      result.fragment.constraints = constraints;
     }
 
     pages.push(result.fragment);

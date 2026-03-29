@@ -161,6 +161,17 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
       break;
     }
 
+    // Named page change forces a page break (CSS Paged Media §3)
+    if (constraintSpace.fragmentationType === 'page' &&
+        i > startIndex && !effectiveChildBreakToken && blockOffset > 0) {
+      const prevPage = children[i - 1].page || null;
+      const thisPage = child.page || null;
+      if (prevPage !== thisPage && (thisPage !== null || prevPage !== null)) {
+        childBreakTokens.push(BlockBreakToken.createBreakBefore(child, true));
+        break;
+      }
+    }
+
     // Monolithic content: push or overflow
     if (isMonolithic(child) && !effectiveChildBreakToken) {
       const childSize = getMonolithicBlockSize(child, constraintSpace);

@@ -112,6 +112,11 @@ export class DOMLayoutNode {
 
   // --- Fragmentation CSS ---
 
+  get page() {
+    const val = this._getStyle().page;
+    return (val && val !== 'auto') ? val : null;
+  }
+
   get breakBefore() {
     return this._getStyle().breakBefore || 'auto';
   }
@@ -358,6 +363,7 @@ export class AnonymousBlockNode {
   get borderBlockEnd() { return 0; }
 
   // No fragmentation properties
+  get page() { return null; }
   get breakBefore() { return 'auto'; }
   get breakAfter() { return 'auto'; }
   get breakInside() { return 'auto'; }

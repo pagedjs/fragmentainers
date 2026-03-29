@@ -13,6 +13,7 @@
  * @property {boolean} isGridContainer
  * @property {Object|null} inlineItemsData
  * @property {Function} computedBlockSize - (availableInlineSize) => number
+ * @property {string|null} page - CSS page property value, or null for auto
  * @property {string} breakBefore - CSS break-before value
  * @property {string} breakAfter - CSS break-after value
  * @property {string} breakInside - CSS break-inside value
@@ -51,6 +52,84 @@ export function isMonolithic(node) {
  */
 export function getMonolithicBlockSize(node, constraintSpace) {
   return node.computedBlockSize(constraintSpace.availableInlineSize);
+}
+
+/**
+ * Read the CSS `page` property from a node.
+ * @param {LayoutNode} node
+ * @returns {string|null}
+ */
+export function getNamedPage(node) {
+  if (!node) return null;
+  return node.page || null;
+}
+
+/**
+ * Walk the break token tree to find the named page for the next page.
+ *
+ * Determines which element will be first on the next page and reads its
+ * CSS `page` property to drive @page rule resolution.
+ *
+ * @param {LayoutNode} rootNode
+ * @param {import('./tokens.js').BlockBreakToken|null} breakToken
+ * @returns {string|null}
+ */
+export function resolveNamedPageForBreakToken(rootNode, breakToken) {
+  if (!breakToken) {
+    // First page — use the first child's page property
+    const firstChild = rootNode.children[0];
+    return getNamedPage(firstChild);
+  }
+
+  // Walk break token children to find the resumption point
+  let current = breakToken;
+  let currentNode = rootNode;
+  while (current.childBreakTokens && current.childBreakTokens.length > 0) {
+    const lastChild = current.childBreakTokens[current.childBreakTokens.length - 1];
+    if (lastChild.isBreakBefore) {
+      // This child will be the first thing on the next page
+      return getNamedPage(lastChild.node);
+    }
+    currentNode = lastChild.node;
+    current = lastChild;
+  }
+
+  // The break is inside `currentNode`. Find the next unvisited sibling
+  // by walking back up the tree.
+  return getNamedPage(findNextUnvisitedChild(rootNode, breakToken));
+}
+
+/**
+ * Find the next child that hasn't been fully laid out, given a break token.
+ * Walks from the deepest break token child up to find a next sibling.
+ *
+ * @param {LayoutNode} rootNode
+ * @param {import('./tokens.js').BlockBreakToken} breakToken
+ * @returns {LayoutNode|null}
+ */
+function findNextUnvisitedChild(rootNode, breakToken) {
+  // Build a path from root break token to deepest child
+  const path = [];
+  let current = breakToken;
+  while (current.childBreakTokens && current.childBreakTokens.length > 0) {
+    const lastChild = current.childBreakTokens[current.childBreakTokens.length - 1];
+    path.push({ token: current, childToken: lastChild });
+    current = lastChild;
+  }
+
+  // Walk from deepest to shallowest looking for a next sibling
+  const nodes = [rootNode];
+  for (const { childToken } of path) {
+    const parentNode = nodes[nodes.length - 1];
+    const children = parentNode.children;
+    const idx = children.indexOf(childToken.node);
+    if (idx !== -1 && idx + 1 < children.length) {
+      return children[idx + 1];
+    }
+    nodes.push(childToken.node);
+  }
+
+  return null;
 }
 
 /**

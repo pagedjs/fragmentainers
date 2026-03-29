@@ -17,6 +17,7 @@ const DEFAULTS = {
   isFlexContainer: false,
   isGridContainer: false,
   inlineItemsData: null,
+  page: null,
   breakBefore: 'auto',
   breakAfter: 'auto',
   breakInside: 'auto',

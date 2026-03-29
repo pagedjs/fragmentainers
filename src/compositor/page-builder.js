@@ -1,10 +1,19 @@
 import { renderFragmentTree } from './render-fragments.js';
 
 /**
- * Get the page size for a given page index from a sizes array.
- * Reuses the last entry for pages beyond the array length.
+ * Get the page size for a given page index.
+ * When constraints are available on the fragment (from PageSizeResolver),
+ * returns the content area. Otherwise falls back to the pageSizes array.
+ *
+ * @param {{ inlineSize: number, blockSize: number }[]} pageSizes
+ * @param {number} pageIndex
+ * @param {import('../fragment.js').PhysicalFragment[]} [pages]
+ * @returns {{ inlineSize: number, blockSize: number }}
  */
-export function getPageSize(pageSizes, pageIndex) {
+export function getPageSize(pageSizes, pageIndex, pages) {
+  if (pages?.[pageIndex]?.constraints) {
+    return pages[pageIndex].constraints.contentArea;
+  }
   return pageSizes[pageIndex] || pageSizes[pageSizes.length - 1];
 }
 
