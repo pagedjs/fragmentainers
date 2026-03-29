@@ -11,6 +11,7 @@ export class PhysicalFragment {
     this.breakToken = null;
     this.constraints = null;
     this.multicolData = null;
+    this.lineCount = 0;
   }
 
   /**

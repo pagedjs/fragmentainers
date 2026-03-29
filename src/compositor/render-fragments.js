@@ -223,6 +223,12 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
     }
   }
 
+  // Trim trailing whitespace at break boundaries — the space before
+  // the break is not rendered (it belongs to the inter-word gap).
+  if (lastTextNode && endOffset < textContent.length) {
+    lastTextNode.textContent = lastTextNode.textContent.replace(/\s+$/, "");
+  }
+
   // Append visible hyphen when the break follows a soft hyphen
   if (isHyphenated) {
     const hyphenChar = resolveHyphenCharacter(container);

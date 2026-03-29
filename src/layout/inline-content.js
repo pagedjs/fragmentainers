@@ -1,5 +1,6 @@
 import { InlineBreakToken } from "../tokens.js";
 import { PhysicalFragment } from "../fragment.js";
+import { BreakScore } from "../break-scoring.js";
 import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../constants.js";
 
 /**
@@ -273,6 +274,10 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
   // fall back to word-by-word breakLine() for mock/test nodes.
   const useBrowserHeight = measurer.charTop != null && node.element != null;
 
+  // Hoisted for orphans/widows scoring at the end
+  let consumedLines = 0;
+  let remainingLines = 0;
+
   if (useBrowserHeight) {
     // Get the element's rendered height from the browser
     const element = node.element;
@@ -285,7 +290,6 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 
     // How many lines were already consumed (from break token)?
     // The element top + consumed lines * lineHeight = where we resume.
-    let consumedLines = 0;
     if (textOffset > 0) {
       // Find the Y position of the first char we're resuming at
       const loc = findItemAtOffset(inlineItems.items, textOffset);
@@ -295,11 +299,39 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
       }
     }
 
-    const remainingLines = totalLines - consumedLines;
+    remainingLines = totalLines - consumedLines;
     const fittingLines = Math.floor(availableBlockSpace / lineHeight);
     // Guarantee at least one line for progress when at top of page
     const minLines = (remainingLines > 0 && constraintSpace.blockOffsetInFragmentainer === 0) ? 1 : 0;
-    const linesToPlace = Math.max(minLines, Math.min(remainingLines, fittingLines));
+    let linesToPlace = Math.max(minLines, Math.min(remainingLines, fittingLines));
+
+    // Orphans/widows clamping (CSS Fragmentation §4.4 Rule 3)
+    const contentWillBreak = linesToPlace < remainingLines;
+    if (contentWillBreak && constraintSpace.fragmentationType !== "none") {
+      const orphans = node.orphans || 2;
+      const widows = node.widows || 2;
+
+      if (orphans + widows > remainingLines) {
+        // Fewer lines than constraints — keep all together if they fit
+        if (remainingLines <= fittingLines) {
+          linesToPlace = remainingLines;
+        }
+        // Otherwise can't satisfy — place what fits, score as violation
+      } else {
+        // Clamp for orphans (minimum lines before break)
+        if (linesToPlace < orphans && fittingLines >= orphans) {
+          linesToPlace = orphans;
+        }
+        // Clamp for widows (minimum lines after break)
+        const linesAfter = remainingLines - linesToPlace;
+        if (linesAfter < widows && linesAfter > 0) {
+          const maxLines = remainingLines - widows;
+          if (maxLines >= orphans && maxLines > 0) {
+            linesToPlace = maxLines;
+          }
+        }
+      }
+    }
 
     if (linesToPlace <= 0 && constraintSpace.blockOffsetInFragmentainer > 0) {
       // No lines fit — defer to next fragmentainer
@@ -363,9 +395,12 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 
   const fragment = new PhysicalFragment(node, blockOffset, lineFragments);
   fragment.inlineSize = constraintSpace.availableInlineSize;
+  fragment.lineCount = lineFragments.length;
 
   // Produce inline break token if content remains
   const contentRemains = itemIndex < inlineItems.items.length;
+  let breakScore = BreakScore.PERFECT;
+
   if (contentRemains) {
     const inlineToken = new InlineBreakToken(node);
     inlineToken.itemIndex = itemIndex;
@@ -377,7 +412,25 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
     }
 
     fragment.breakToken = inlineToken;
+
+    // Score the break for orphans/widows (CSS Fragmentation §4.4 Rule 3)
+    if (constraintSpace.fragmentationType !== "none") {
+      const orphans = node.orphans || 2;
+      const widows = node.widows || 2;
+      const linesPlaced = lineFragments.length;
+      const totalLinesInElement = consumedLines + remainingLines;
+      const linesAfterBreak = remainingLines - linesPlaced;
+
+      if (totalLinesInElement > 0) {
+        if (orphans + widows > totalLinesInElement) {
+          // Fewer lines than constraints — should keep all together
+          breakScore = BreakScore.VIOLATING_ORPHANS_WIDOWS;
+        } else if (linesPlaced < orphans || linesAfterBreak < widows) {
+          breakScore = BreakScore.VIOLATING_ORPHANS_WIDOWS;
+        }
+      }
+    }
   }
 
-  return { fragment, breakToken: fragment.breakToken || null };
+  return { fragment, breakToken: fragment.breakToken || null, breakScore };
 }

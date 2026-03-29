@@ -205,6 +205,15 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     prevChildMarginEnd = child.marginBlockEnd || 0;
 
     if (result.breakToken) {
+      // Track break quality from child (e.g. orphans/widows violation)
+      if (result.breakScore != null && result.breakScore > BreakScore.PERFECT) {
+        let childScore = applyBreakInsideAvoid(node, result.breakScore);
+        const candidate = new EarlyBreak(child, childScore, EARLY_BREAK_INSIDE);
+        if (isBetterBreak(candidate, bestEarlyBreak)) {
+          bestEarlyBreak = candidate;
+        }
+      }
+
       // Child broke — record its break token and stop
       childBreakTokens.push(result.breakToken);
       break;
