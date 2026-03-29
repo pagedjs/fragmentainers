@@ -4,7 +4,8 @@
  * Detects whether the page uses @page rules (pagination) or CSS columns
  * (multicol), then runs the library's fragmentation engine accordingly.
  */
-import { paginateContent } from '/src/driver.js';
+import { createFragments } from '/src/driver.js';
+import { ConstraintSpace } from '/src/constraint-space.js';
 import { buildLayoutTree } from '/src/dom/index.js';
 import { renderFragmentTree } from '/src/compositor/render-fragments.js';
 import { PageSizeResolver, parsePageRulesFromStyleSheets } from '/src/page-rules.js';
@@ -64,12 +65,12 @@ async function runPageMode(pageRules) {
   await doubleRAF();
 
   const tree = buildLayoutTree(wrapper);
-  const pages = paginateContent(tree, resolver);
+  const fragments = createFragments(tree, resolver);
 
   document.body.removeChild(wrapper);
 
-  for (let i = 0; i < pages.length; i++) {
-    const constraints = pages[i].constraints;
+  for (let i = 0; i < fragments.length; i++) {
+    const constraints = fragments[i].constraints;
     const { pageBoxSize, margins, contentArea } = constraints;
 
     const isLandscape = pageBoxSize.inlineSize > pageBoxSize.blockSize;
@@ -107,15 +108,15 @@ async function runPageMode(pageRules) {
     contentEl.style.height = `${contentArea.blockSize}px`;
     contentEl.style.overflow = 'hidden';
 
-    const prevBT = i > 0 ? pages[i - 1].breakToken : null;
-    contentEl.appendChild(renderFragmentTree(pages[i], prevBT));
+    const prevBT = i > 0 ? fragments[i - 1].breakToken : null;
+    contentEl.appendChild(renderFragmentTree(fragments[i], prevBT));
 
     pageEl.appendChild(contentEl);
     paperEl.appendChild(pageEl);
     document.body.appendChild(paperEl);
   }
 
-  document.documentElement.dataset.pageCount = pages.length;
+  document.documentElement.dataset.pageCount = fragments.length;
 }
 
 // ---- Multicol mode ----
@@ -172,17 +173,19 @@ async function processMulticol(container) {
   await doubleRAF();
 
   const tree = buildLayoutTree(wrapper);
-  const pages = paginateContent(tree, [{
-    inlineSize: fragmentainerWidth,
-    blockSize: fragmentainerHeight,
-  }]);
+  const fragments = createFragments(tree, new ConstraintSpace({
+    availableInlineSize: fragmentainerWidth,
+    availableBlockSize: fragmentainerHeight,
+    fragmentainerBlockSize: fragmentainerHeight,
+    fragmentationType: 'column',
+  }));
 
   container.innerHTML = '';
   container.style.display = 'flex';
   container.style.flexWrap = 'nowrap';
   container.style.alignItems = 'flex-start';
 
-  for (let i = 0; i < pages.length; i++) {
+  for (let i = 0; i < fragments.length; i++) {
     if (i > 0 && columnGap > 0) {
       const gapEl = document.createElement('div');
       gapEl.style.width = `${columnGap}px`;
@@ -196,8 +199,8 @@ async function processMulticol(container) {
     colEl.style.overflow = 'hidden';
     colEl.style.flexShrink = '0';
 
-    const prevBT = i > 0 ? pages[i - 1].breakToken : null;
-    colEl.appendChild(renderFragmentTree(pages[i], prevBT));
+    const prevBT = i > 0 ? fragments[i - 1].breakToken : null;
+    colEl.appendChild(renderFragmentTree(fragments[i], prevBT));
     container.appendChild(colEl);
   }
 

@@ -51,10 +51,10 @@
         fetchAndParse,
         injectContent,
         waitForFonts,
-        runFragmentation,
+        FragmentainerLayout,
       } from "./viewer.js";
       import "../src/dom/frag-measure.js";
-      import { findChildBreakToken } from "../src/helpers.js";
+      import { findChildBreakToken, isMonolithic, debugPrintTokenTree } from "../src/helpers.js";
       import { renderFragmentTree } from "../src/compositor/index.js";
 
       // Read config from URL params (same param names as viewer.html)
@@ -91,29 +91,34 @@
             requestAnimationFrame(() => requestAnimationFrame(r)),
           );
 
-          const pageSize = { inlineSize: pageW, blockSize: pageH };
           const t0 = performance.now();
-          const pages = runFragmentation(contentRoot, [pageSize]);
+          const layout = new FragmentainerLayout(contentRoot, {
+            defaultSize: { inlineSize: pageW, blockSize: pageH },
+          });
+          const flow = layout.flow();
+          const fragments = flow.fragments;
           const elapsed = (performance.now() - t0).toFixed(1);
 
           const header = [];
           header.push(`# Fragmentainer Debug Report`);
           header.push(`example: ${url}`);
           header.push(`pageSize: ${pageW}x${pageH}`);
-          header.push(`totalPages: ${pages.length}`);
+          header.push(`totalPages: ${fragments.length}`);
           header.push(`layoutTime: ${elapsed}ms`);
           header.push(`render: ${doRender}`);
+          header.push("");
+          header.push(buildDocumentSummary(fragments, pageH));
           header.push("");
 
           if (!doRender) {
             // Text-only mode: output everything into #output
             const lines = [...header];
             const limit =
-              maxPages > 0 ? Math.min(maxPages, pages.length) : pages.length;
+              maxPages > 0 ? Math.min(maxPages, fragments.length) : fragments.length;
             let issueCount = 0;
 
             for (let i = 0; i < limit; i++) {
-              const { text, hasIssues } = buildPageDump(pages, i, pageH);
+              const { text, hasIssues } = buildPageDump(fragments, i, pageH);
               if (hasIssues) issueCount++;
               lines.push(text);
             }
@@ -127,11 +132,11 @@
 
             const contentStyles = measureEl.getContentStyles();
             const limit =
-              maxPages > 0 ? Math.min(maxPages, pages.length) : pages.length;
+              maxPages > 0 ? Math.min(maxPages, fragments.length) : fragments.length;
             let issueCount = 0;
 
             for (let i = 0; i < limit; i++) {
-              const dump = buildPageDump(pages, i, pageH);
+              const dump = buildPageDump(fragments, i, pageH);
 
               const row = document.createElement("div");
               row.className = "page-row";
@@ -150,8 +155,8 @@
               fragEl.style.transformOrigin = "top left";
               const wrapper = fragEl.setupForRendering(contentStyles);
 
-              const prevBT = i > 0 ? pages[i - 1].breakToken : null;
-              wrapper.appendChild(renderFragmentTree(pages[i], prevBT));
+              const prevBT = i > 0 ? fragments[i - 1].breakToken : null;
+              wrapper.appendChild(renderFragmentTree(fragments[i], prevBT));
 
               renderBox.appendChild(fragEl);
               row.appendChild(renderBox);
@@ -196,12 +201,12 @@
 
       // --- Page dump (returns { text, hasIssues }) ---
 
-      function buildPageDump(pages, i, pageH) {
+      function buildPageDump(fragments, i, pageH) {
         const lines = [];
         const log = (...args) => lines.push(args.join(" "));
 
-        const page = pages[i];
-        const prevBT = i > 0 ? pages[i - 1].breakToken : null;
+        const page = fragments[i];
+        const prevBT = i > 0 ? fragments[i - 1].breakToken : null;
         const pageIssues = [];
 
         if (page.blockSize > pageH + 0.01) {
@@ -241,16 +246,21 @@
           : "breakToken=null";
         const issueTag = hasIssues ? ` *** ${pageIssues.length} ISSUE(S)` : "";
 
+        // Constraint space info (from resolver path)
+        const csInfo = page.constraints
+          ? ` constraints={content: ${page.constraints.contentArea.inlineSize}x${page.constraints.contentArea.blockSize}}`
+          : "";
+
         log(
-          `## Page ${i + 1}/${pages.length}  blockSize=${page.blockSize.toFixed(2)}  remaining=${remaining.toFixed(2)}  ${btInfo}${issueTag}`,
+          `## Page ${i + 1}/${fragments.length}  blockSize=${page.blockSize.toFixed(2)}  remaining=${remaining.toFixed(2)}  ${btInfo}${csInfo}${issueTag}`,
         );
 
         // Show first and last text node on this page
         const textSegments = collectPageTextSegments(page, prevBT);
         if (textSegments.length > 0) {
-          log(`  first text: "${textSegments[0]}"`);
+          log(`  first text: "${truncate(textSegments[0], 80)}"`);
           if (textSegments.length > 1) {
-            log(`  last text:  "${textSegments[textSegments.length - 1]}"`);
+            log(`  last text:  "${truncate(textSegments[textSegments.length - 1], 80)}"`);
           }
         }
 
@@ -268,6 +278,13 @@
             log(`    - ${issue}`);
           }
         }
+
+        // Break token tree (indented under page)
+        if (page.breakToken) {
+          log("  breakTokenTree:");
+          const tree = debugPrintTokenTree(page.breakToken, 2);
+          log(tree);
+        }
         log("");
 
         return { text: lines.join("\n"), hasIssues };
@@ -283,7 +300,17 @@
         const measured = node.element
           ? node.element.getBoundingClientRect().height
           : null;
+        const mono = isMonolithic(node);
         const issues = [];
+
+        // Collect break CSS properties (only non-default values)
+        const breakProps = {};
+        if (node.breakBefore && node.breakBefore !== "auto")
+          breakProps.before = node.breakBefore;
+        if (node.breakAfter && node.breakAfter !== "auto")
+          breakProps.after = node.breakAfter;
+        if (node.breakInside && node.breakInside !== "auto")
+          breakProps.inside = node.breakInside;
 
         const info = {
           name,
@@ -295,8 +322,11 @@
           padding: [node.paddingBlockStart || 0, node.paddingBlockEnd || 0],
           border: [node.borderBlockStart || 0, node.borderBlockEnd || 0],
           isIFC,
+          isMonolithic: mono,
+          breakProps,
           hasBreakToken: !!frag.breakToken,
           breakTokenType: frag.breakToken?.type || null,
+          consumedBlockSize: frag.breakToken?.consumedBlockSize ?? null,
           issues,
           children: [],
         };
@@ -354,11 +384,21 @@
           info.border[0] || info.border[1]
             ? ` border=${info.border[0].toFixed(1)}/${info.border[1].toFixed(1)}`
             : "";
-        const btStr = info.hasBreakToken ? ` BT(${info.breakTokenType})` : "";
+        const btStr = info.hasBreakToken
+          ? ` BT(${info.breakTokenType}${info.consumedBlockSize !== null ? ` consumed=${info.consumedBlockSize.toFixed(1)}` : ""})`
+          : "";
         const measuredStr =
           info.measured !== null ? ` measured=${info.measured.toFixed(2)}` : "";
+        const monoStr = info.isMonolithic ? " [monolithic]" : "";
 
-        let line = `${indent}${info.name}  blockSize=${info.blockSize.toFixed(2)}${measuredStr}  ${mStr} ${pStr}${bStr}${btStr}`;
+        // Break CSS properties
+        const bpParts = [];
+        if (info.breakProps.before) bpParts.push(`break-before:${info.breakProps.before}`);
+        if (info.breakProps.after) bpParts.push(`break-after:${info.breakProps.after}`);
+        if (info.breakProps.inside) bpParts.push(`break-inside:${info.breakProps.inside}`);
+        const bpStr = bpParts.length ? ` {${bpParts.join(", ")}}` : "";
+
+        let line = `${indent}${info.name}  blockSize=${info.blockSize.toFixed(2)}${measuredStr}  ${mStr} ${pStr}${bStr}${btStr}${monoStr}${bpStr}`;
 
         if (info.isIFC && info.ifc) {
           const ifc = info.ifc;
@@ -431,6 +471,77 @@
           text = text.replace(/\s+/g, " ").trim();
         }
         if (text) segments.push(text);
+      }
+
+      // --- Document summary ---
+
+      function buildDocumentSummary(fragments, pageH) {
+        const lines = [];
+        let totalContentHeight = 0;
+        let overflowPages = 0;
+        let forcedBreaks = 0;
+        let pagesWithBreakTokens = 0;
+        const elementSpans = new Map(); // element debugName → [first page, last page]
+
+        for (let i = 0; i < fragments.length; i++) {
+          const page = fragments[i];
+          totalContentHeight += page.blockSize;
+          if (page.blockSize > pageH + 0.01) overflowPages++;
+          if (page.breakToken) {
+            pagesWithBreakTokens++;
+            if (page.breakToken.isForcedBreak) forcedBreaks++;
+            countForcedBreaks(page.breakToken, (n) => forcedBreaks++);
+          }
+
+          // Track which elements appear on which pages
+          trackElementSpans(page, i, elementSpans);
+        }
+
+        // Elements spanning multiple pages
+        const spanning = [];
+        for (const [name, span] of elementSpans) {
+          if (span[1] > span[0]) {
+            spanning.push(`${name} (pages ${span[0] + 1}-${span[1] + 1})`);
+          }
+        }
+
+        lines.push("## Document Summary");
+        lines.push(`  totalContentHeight: ${totalContentHeight.toFixed(1)}px across ${fragments.length} pages`);
+        lines.push(`  overflowPages: ${overflowPages}  forcedBreaks: ${forcedBreaks}`);
+        if (spanning.length > 0) {
+          lines.push(`  spanning elements (${spanning.length}):`);
+          for (const s of spanning.slice(0, 20)) {
+            lines.push(`    - ${s}`);
+          }
+          if (spanning.length > 20) lines.push(`    ... and ${spanning.length - 20} more`);
+        }
+        return lines.join("\n");
+      }
+
+      function countForcedBreaks(bt, cb) {
+        if (!bt.childBreakTokens) return;
+        for (const child of bt.childBreakTokens) {
+          if (child.isForcedBreak) cb(child);
+          countForcedBreaks(child, cb);
+        }
+      }
+
+      function trackElementSpans(pageFragment, pageIndex, map) {
+        for (const child of pageFragment.childFragments) {
+          if (!child.node) continue;
+          const name = child.node.debugName || child.node.element?.tagName?.toLowerCase() || "?";
+          if (map.has(name)) {
+            map.get(name)[1] = pageIndex;
+          } else {
+            map.set(name, [pageIndex, pageIndex]);
+          }
+          trackElementSpans(child, pageIndex, map);
+        }
+      }
+
+      function truncate(str, maxLen) {
+        if (str.length <= maxLen) return str;
+        return str.slice(0, maxLen - 3) + "...";
       }
     </script>
   </body>

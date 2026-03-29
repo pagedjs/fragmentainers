@@ -8,7 +8,7 @@ import { findChildBreakToken } from '../src/helpers.js';
 // Import the compositor functions
 import {
   hasBlockChildFragments,
-  getPageSize,
+  getFragmentainerSize,
 } from '../src/compositor/index.js';
 
 // ---------------------------------------------------------------------------
@@ -43,29 +43,29 @@ describe('hasBlockChildFragments', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getPageSize
+// getFragmentainerSize
 // ---------------------------------------------------------------------------
 
-describe('getPageSize', () => {
+describe('getFragmentainerSize', () => {
   const sizes = [
     { inlineSize: 600, blockSize: 800 },
     { inlineSize: 800, blockSize: 600 },
   ];
 
   it('returns the size at the given index', () => {
-    assert.deepEqual(getPageSize(sizes, 0), { inlineSize: 600, blockSize: 800 });
-    assert.deepEqual(getPageSize(sizes, 1), { inlineSize: 800, blockSize: 600 });
+    assert.deepEqual(getFragmentainerSize(sizes, 0), { inlineSize: 600, blockSize: 800 });
+    assert.deepEqual(getFragmentainerSize(sizes, 1), { inlineSize: 800, blockSize: 600 });
   });
 
   it('returns the last size for indices beyond the array', () => {
-    assert.deepEqual(getPageSize(sizes, 2), { inlineSize: 800, blockSize: 600 });
-    assert.deepEqual(getPageSize(sizes, 99), { inlineSize: 800, blockSize: 600 });
+    assert.deepEqual(getFragmentainerSize(sizes, 2), { inlineSize: 800, blockSize: 600 });
+    assert.deepEqual(getFragmentainerSize(sizes, 99), { inlineSize: 800, blockSize: 600 });
   });
 
   it('works with a single-element array', () => {
     const single = [{ inlineSize: 500, blockSize: 700 }];
-    assert.deepEqual(getPageSize(single, 0), { inlineSize: 500, blockSize: 700 });
-    assert.deepEqual(getPageSize(single, 5), { inlineSize: 500, blockSize: 700 });
+    assert.deepEqual(getFragmentainerSize(single, 0), { inlineSize: 500, blockSize: 700 });
+    assert.deepEqual(getFragmentainerSize(single, 5), { inlineSize: 500, blockSize: 700 });
   });
 });
 

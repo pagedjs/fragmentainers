@@ -35,7 +35,9 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
 
   const node = fragment.node;
 
-  if (node.isInlineFormattingContext) {
+  if (fragment.multicolData) {
+    renderMulticolFragment(fragment, inputBreakToken, parentEl);
+  } else if (node.isInlineFormattingContext) {
     renderInlineFragment(fragment, inputBreakToken, parentEl);
   } else if (hasBlockChildFragments(fragment)) {
     const el = node.element.cloneNode(false);
@@ -85,6 +87,56 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl) {
     buildInlineContent(data.items, data.textContent, startOffset, endOffset, el, collapseWS);
     parentEl.appendChild(el);
   }
+}
+
+/**
+ * Render a multicol container fragment.
+ * Clones the element, disables native columns, renders each column
+ * child as a flex item with correct width and gap.
+ */
+function renderMulticolFragment(fragment, inputBreakToken, parentEl) {
+  const node = fragment.node;
+  const { columnWidth, columnGap } = fragment.multicolData;
+
+  const el = node.element.cloneNode(false);
+  el.style.columns = 'auto';
+  el.style.columnCount = 'auto';
+  el.style.columnWidth = 'auto';
+  el.style.columnGap = '0';
+  el.style.columnFill = 'initial';
+  el.style.display = 'flex';
+  el.style.flexWrap = 'nowrap';
+  el.style.alignItems = 'flex-start';
+
+  for (let i = 0; i < fragment.childFragments.length; i++) {
+    const colFragment = fragment.childFragments[i];
+
+    if (i > 0 && columnGap > 0) {
+      const gapEl = document.createElement('div');
+      gapEl.style.width = `${columnGap}px`;
+      gapEl.style.flexShrink = '0';
+      el.appendChild(gapEl);
+    }
+
+    const colEl = document.createElement('div');
+    colEl.style.width = `${columnWidth}px`;
+    colEl.style.height = `${fragment.blockSize}px`;
+    colEl.style.overflow = 'hidden';
+    colEl.style.flexShrink = '0';
+
+    // Thread break tokens: col 0 uses inputBreakToken, col N uses col N-1's breakToken
+    const colInputBT = i === 0 ? inputBreakToken : fragment.childFragments[i - 1].breakToken;
+
+    for (const child of colFragment.childFragments) {
+      if (!child.node) continue;
+      const childInputBT = findChildBreakToken(colInputBT, child.node);
+      renderFragment(child, childInputBT, colEl);
+    }
+
+    el.appendChild(colEl);
+  }
+
+  parentEl.appendChild(el);
 }
 
 /**

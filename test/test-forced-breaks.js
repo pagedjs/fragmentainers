@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { paginateContent } from '../src/driver.js';
+import { createFragments } from '../src/driver.js';
+import { ConstraintSpace } from '../src/constraint-space.js';
 import { blockNode } from './fixtures/nodes.js';
 
 describe('Phase 8: Forced breaks', () => {
@@ -14,7 +15,12 @@ describe('Phase 8: Forced breaks', () => {
     });
 
     // 1000px fragmentainer — everything fits, but forced break before B
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 2);
 
     // Page 1: only A
@@ -36,7 +42,12 @@ describe('Phase 8: Forced breaks', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 2);
   });
 
@@ -48,7 +59,12 @@ describe('Phase 8: Forced breaks', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 2);
   });
 
@@ -61,7 +77,12 @@ describe('Phase 8: Forced breaks', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 2);
 
     // Page 1: only A
@@ -81,7 +102,12 @@ describe('Phase 8: Forced breaks', () => {
     });
 
     // First child has break-before but blockOffset is 0 → no effect
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
     assert.equal(pages[0].childFragments.length, 2);
   });
@@ -95,7 +121,12 @@ describe('Phase 8: Forced breaks', () => {
     });
 
     // Last child has break-after but no more children → no break
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
   });
 
@@ -109,7 +140,12 @@ describe('Phase 8: Forced breaks', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 3);
     assert.equal(pages[0].childFragments.length, 1); // ch1
     assert.equal(pages[1].childFragments.length, 1); // ch2
@@ -124,7 +160,12 @@ describe('Phase 8: Forced breaks', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
   });
 });

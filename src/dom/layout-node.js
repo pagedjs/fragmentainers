@@ -84,6 +84,36 @@ export class DOMLayoutNode {
     return d === 'grid' || d === 'inline-grid';
   }
 
+  // --- Multicol properties ---
+
+  get isMulticolContainer() {
+    const style = this._getStyle();
+    const colCount = style.columnCount;
+    const colWidth = style.columnWidth;
+    return (colCount !== 'auto' && parseInt(colCount) > 0) ||
+           (colWidth !== 'auto' && colWidth !== 'none');
+  }
+
+  get columnCount() {
+    const val = this._getStyle().columnCount;
+    return (val && val !== 'auto') ? parseInt(val) : null;
+  }
+
+  get columnWidth() {
+    const val = this._getStyle().columnWidth;
+    return (val && val !== 'auto' && val !== 'none') ? parseFloat(val) : null;
+  }
+
+  get columnGap() {
+    const val = this._getStyle().columnGap;
+    if (val === 'normal') return null;
+    return parseFloat(val) || 0;
+  }
+
+  get columnFill() {
+    return this._getStyle().columnFill || 'balance';
+  }
+
   // --- Box model (margins, padding, border) ---
 
   get marginBlockStart() {
@@ -379,5 +409,10 @@ export class AnonymousBlockNode {
   get isTableRow() { return false; }
   get isFlexContainer() { return false; }
   get isGridContainer() { return false; }
+  get isMulticolContainer() { return false; }
+  get columnCount() { return null; }
+  get columnWidth() { return null; }
+  get columnGap() { return null; }
+  get columnFill() { return 'balance'; }
   get cells() { return []; }
 }

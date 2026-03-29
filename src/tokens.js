@@ -48,7 +48,7 @@ export class BlockBreakToken extends BreakToken {
   }
 
   /**
-   * For repeated content (table thead/tfoot on each page).
+   * For repeated content (table thead/tfoot in each fragmentainer).
    * Paint-only — carries sequence number but no child tokens.
    */
   static createRepeated(node, sequenceNumber) {

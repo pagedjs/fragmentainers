@@ -253,9 +253,9 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
     : constraintSpace.fragmentainerBlockSize - constraintSpace.blockOffsetInFragmentainer;
   const availableBlockSpace = Math.floor(rawAvailable);
 
-  // If not enough space for even one line and there's content above us on
-  // this page, produce a zero-height fragment. The parent will record the
-  // break token and the content resumes on the next page with full space.
+  // If not enough space for even one line and there's content above us in
+  // this fragmentainer, produce a zero-height fragment. The parent will record the
+  // break token and the content resumes in the next fragmentainer with full space.
   // The progress guarantee is enforced at the fragmentainer level, not here.
   if (availableBlockSpace < lineHeight && constraintSpace.blockOffsetInFragmentainer > 0) {
     const fragment = new PhysicalFragment(node, 0, []);
@@ -300,7 +300,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
     const linesToPlace = Math.max(minLines, Math.min(remainingLines, fittingLines));
 
     if (linesToPlace <= 0 && constraintSpace.blockOffsetInFragmentainer > 0) {
-      // No lines fit — defer to next page
+      // No lines fit — defer to next fragmentainer
       const fragment = new PhysicalFragment(node, 0, []);
       fragment.inlineSize = constraintSpace.availableInlineSize;
       const inlineToken = new InlineBreakToken(node);

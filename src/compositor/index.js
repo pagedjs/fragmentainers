@@ -6,6 +6,6 @@ export {
 } from './render-fragments.js';
 
 export {
-  getPageSize,
-  buildPageElement,
-} from './page-builder.js';
+  getFragmentainerSize,
+  buildFragmentainerElement,
+} from './fragmentainer-builder.js';

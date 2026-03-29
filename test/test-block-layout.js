@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { paginateContent, runLayoutGenerator } from '../src/driver.js';
+import { createFragments, runLayoutGenerator } from '../src/driver.js';
 import { layoutBlockContainer } from '../src/layout/block-container.js';
 import { ConstraintSpace } from '../src/constraint-space.js';
 import { blockNode } from './fixtures/nodes.js';
@@ -30,7 +30,12 @@ describe('Phase 2: Block layout (single fragmentainer)', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 800 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 800,
+      fragmentainerBlockSize: 800,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
     assert.equal(pages[0].blockSize, 300);
     assert.equal(pages[0].childFragments.length, 3);
@@ -52,7 +57,12 @@ describe('Phase 2: Block layout (single fragmentainer)', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 800 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 800,
+      fragmentainerBlockSize: 800,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
     assert.equal(pages[0].blockSize, 225); // 50 + 75 + 100
     assert.equal(pages[0].childFragments.length, 2);
@@ -66,7 +76,12 @@ describe('Phase 2: Block layout (single fragmentainer)', () => {
       children: [blockNode({ blockSize: 50 })],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 800 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 800,
+      fragmentainerBlockSize: 800,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages[0].inlineSize, 600);
   });
 });
@@ -82,7 +97,12 @@ describe('Phase 3: Block fragmentation across fragmentainers', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 2);
 
     // Page 1: children a + b = 200px (fills exactly)
@@ -102,7 +122,12 @@ describe('Phase 3: Block fragmentation across fragmentainers', () => {
     );
     const root = blockNode({ debugName: 'root', children });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 3);
     assert.equal(pages[0].childFragments.length, 2); // 200px
     assert.equal(pages[1].childFragments.length, 2); // 200px
@@ -118,7 +143,12 @@ describe('Phase 3: Block fragmentation across fragmentainers', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     const bt = pages[0].breakToken;
     assert.equal(bt.consumedBlockSize, 200);
     assert.equal(bt.sequenceNumber, 0);
@@ -142,7 +172,12 @@ describe('Phase 3: Block fragmentation across fragmentainers', () => {
     // Fragmentainer = 120px. 'before' takes 50px. 'container' gets 70px.
     // inner1 (100px) fragments: 70px on page 1, 30px on page 2.
     // inner2 (100px) fragments across pages 2 and 3.
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 120 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 120,
+      fragmentainerBlockSize: 120,
+      fragmentationType: 'page',
+    }));
 
     assert.equal(pages.length, 3);
     // Page 1 break token should have container's break token as child
@@ -164,7 +199,12 @@ describe('Phase 3: Block fragmentation across fragmentainers', () => {
     });
 
     // 200px fragmentainer, a+b fill it exactly, c remains
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 2);
 
     const bt = pages[0].breakToken;
@@ -190,10 +230,23 @@ describe('Phase 3: Block fragmentation across fragmentainers', () => {
 
     // Page 1: 150px — child0 (100) + child1 partial (50) = 150
     // Page 2: 250px — child1 remainder (50) + child2 (100) = 150
-    const pages = paginateContent(root, [
-      { inlineSize: 600, blockSize: 150 },
-      { inlineSize: 600, blockSize: 250 },
-    ]);
+    const pages = createFragments(root, {
+      resolve: (index) => {
+        const sizes = [
+          { inlineSize: 600, blockSize: 150 },
+          { inlineSize: 600, blockSize: 250 },
+        ];
+        const size = sizes[index] || sizes.at(-1);
+        return {
+          toConstraintSpace: () => new ConstraintSpace({
+            availableInlineSize: size.inlineSize,
+            availableBlockSize: size.blockSize,
+            fragmentainerBlockSize: size.blockSize,
+            fragmentationType: 'page',
+          }),
+        };
+      },
+    });
     assert.equal(pages.length, 2);
     assert.equal(pages[0].childFragments.length, 2); // child0 full + child1 partial
     assert.equal(pages[1].childFragments.length, 2); // child1 remainder + child2
@@ -206,7 +259,12 @@ describe('Phase 3: Block fragmentation across fragmentainers', () => {
     const root = blockNode({ children });
 
     // Only one size provided, reused for all pages
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 3);
   });
 });

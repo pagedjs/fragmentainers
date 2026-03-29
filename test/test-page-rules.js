@@ -7,7 +7,8 @@ import {
   getNamedPage, resolveNamedPageForBreakToken,
 } from '../src/helpers.js';
 import { BlockBreakToken } from '../src/tokens.js';
-import { paginateContent } from '../src/driver.js';
+import { createFragments } from '../src/driver.js';
+import { ConstraintSpace } from '../src/constraint-space.js';
 import { blockNode } from './fixtures/nodes.js';
 
 // -- PageSizeResolver --
@@ -265,7 +266,12 @@ describe('Named page forced breaks', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 2);
     assert.equal(pages[0].childFragments.length, 1); // Only A
     assert.equal(pages[1].childFragments.length, 2); // B + C (same page name)
@@ -279,7 +285,12 @@ describe('Named page forced breaks', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 2);
   });
 
@@ -291,7 +302,12 @@ describe('Named page forced breaks', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 2);
   });
 
@@ -303,7 +319,12 @@ describe('Named page forced breaks', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
   });
 
@@ -315,7 +336,12 @@ describe('Named page forced breaks', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
   });
 
@@ -327,14 +353,19 @@ describe('Named page forced breaks', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 1000 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 1000,
+      fragmentainerBlockSize: 1000,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages[0].breakToken.childBreakTokens[0].isForcedBreak, true);
   });
 });
 
-// -- paginateContent with PageSizeResolver --
+// -- createFragments with PageSizeResolver --
 
-describe('paginateContent with PageSizeResolver', () => {
+describe('createFragments with PageSizeResolver', () => {
   it('resolves page sizes dynamically', () => {
     const DEFAULT_SIZE = { inlineSize: 600, blockSize: 1000 };
     const resolver = new PageSizeResolver([
@@ -348,7 +379,7 @@ describe('paginateContent with PageSizeResolver', () => {
       ],
     });
 
-    const pages = paginateContent(root, resolver);
+    const pages = createFragments(root, resolver);
     assert.equal(pages.length, 2);
     assert.ok(pages[0].constraints);
     assert.equal(pages[0].constraints.contentArea.inlineSize, 600);
@@ -367,20 +398,25 @@ describe('paginateContent with PageSizeResolver', () => {
       ],
     });
 
-    const pages = paginateContent(root, resolver);
+    const pages = createFragments(root, resolver);
     assert.equal(pages.length, 2);
     assert.equal(pages[0].constraints.contentArea.inlineSize, 600);
     assert.equal(pages[1].constraints.contentArea.inlineSize, 800);
     assert.equal(pages[1].constraints.namedPage, 'wide');
   });
 
-  it('backward compat: array of sizes still works', () => {
+  it('accepts a plain ConstraintSpace (no resolver)', () => {
     const root = blockNode({
       children: [blockNode({ blockSize: 50 })],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
-    assert.equal(pages[0].constraints, null); // no constraints in array path
+    assert.equal(pages[0].constraints, null); // no constraints without resolver
   });
 });

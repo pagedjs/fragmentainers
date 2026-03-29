@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { paginateContent, runLayoutGenerator } from '../src/driver.js';
+import { createFragments, runLayoutGenerator } from '../src/driver.js';
 import { layoutTableRow } from '../src/layout/table-row.js';
 import { ConstraintSpace } from '../src/constraint-space.js';
 import { blockNode, tableRowNode } from './fixtures/nodes.js';
@@ -74,7 +74,12 @@ describe('Phase 6: Parallel flows (table row)', () => {
     const row = tableRowNode({ cells: [cellA, cellB, cellC] });
     const root = blockNode({ children: [row] });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
 
     assert.equal(pages.length, 2);
 

@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { paginateContent } from '../src/driver.js';
+import { createFragments } from '../src/driver.js';
+import { ConstraintSpace } from '../src/constraint-space.js';
 import { blockNode, inlineNode, textToInlineItems } from './fixtures/nodes.js';
 
 describe('Phase 5: Inline content fragmentation', () => {
@@ -17,7 +18,12 @@ describe('Phase 5: Inline content fragmentation', () => {
     const root = blockNode({ children: [node] });
 
     // Wide enough for the entire text on one line (200 chars * 8 = 1600 max)
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 800 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 800,
+      fragmentainerBlockSize: 800,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
     assert.equal(pages[0].breakToken, null);
   });
@@ -36,7 +42,12 @@ describe('Phase 5: Inline content fragmentation', () => {
     const root = blockNode({ children: [node] });
 
     // 100px wide → about 12 chars per line → multiple lines
-    const pages = paginateContent(root, [{ inlineSize: 100, blockSize: 800 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 100,
+      availableBlockSize: 800,
+      fragmentainerBlockSize: 800,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
     // Should have multiple line fragments
     const inlineFragment = pages[0].childFragments[0];
@@ -57,7 +68,12 @@ describe('Phase 5: Inline content fragmentation', () => {
     const root = blockNode({ children: [node] });
 
     // 200px wide, 100px tall → 5 lines per page
-    const pages = paginateContent(root, [{ inlineSize: 200, blockSize: 100 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 200,
+      availableBlockSize: 100,
+      fragmentainerBlockSize: 100,
+      fragmentationType: 'page',
+    }));
     assert.ok(pages.length > 1, `Expected multiple pages, got ${pages.length}`);
 
     // First page should have a break token
@@ -79,7 +95,12 @@ describe('Phase 5: Inline content fragmentation', () => {
 
     const root = blockNode({ children: [node] });
 
-    const pages = paginateContent(root, [{ inlineSize: 200, blockSize: 60 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 200,
+      availableBlockSize: 60,
+      fragmentainerBlockSize: 60,
+      fragmentationType: 'page',
+    }));
     assert.ok(pages.length > 1);
 
     // The break token from the inline node should have itemIndex and textOffset
@@ -105,7 +126,12 @@ describe('Phase 5: Inline content fragmentation', () => {
     const root = blockNode({ children: [node] });
 
     // Plenty of space — all 3 lines fit
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 800 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 800,
+      fragmentainerBlockSize: 800,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
     // Should have 3 line fragments (one per \n-separated segment)
     const inlineFragment = pages[0].childFragments[0];
@@ -126,10 +152,23 @@ describe('Phase 5: Inline content fragmentation', () => {
 
     // Page 1: narrow (100px), Page 2: wide (400px)
     // Same content-addressed break token, different line layout
-    const pages = paginateContent(root, [
-      { inlineSize: 100, blockSize: 60 },
-      { inlineSize: 400, blockSize: 200 },
-    ]);
+    const pages = createFragments(root, {
+      resolve: (index) => {
+        const sizes = [
+          { inlineSize: 100, blockSize: 60 },
+          { inlineSize: 400, blockSize: 200 },
+        ];
+        const size = sizes[index] || sizes.at(-1);
+        return {
+          toConstraintSpace: () => new ConstraintSpace({
+            availableInlineSize: size.inlineSize,
+            availableBlockSize: size.blockSize,
+            fragmentainerBlockSize: size.blockSize,
+            fragmentationType: 'page',
+          }),
+        };
+      },
+    });
 
     assert.ok(pages.length >= 2);
     // Page 1 lines should be narrower than page 2 lines

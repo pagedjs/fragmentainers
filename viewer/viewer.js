@@ -1,10 +1,7 @@
-import { buildLayoutTree } from '../src/dom/index.js';
-import { paginateContent } from '../src/driver.js';
-import {
-  renderFragmentTree,
-  getPageSize,
-  buildPageElement,
-} from '../src/compositor/index.js';
+import { FragmentainerLayout } from '../src/fragmentainer-layout.js';
+import { getFragmentainerSize } from '../src/compositor/fragmentainer-builder.js';
+
+export { FragmentainerLayout };
 
 /**
  * Fetch an example HTML file, parse it, and extract CSS + body content.
@@ -53,13 +50,13 @@ export async function fetchAndParse(url) {
 /**
  * Inject parsed content and CSS into a container, rebasing relative URLs.
  *
- * When `container` is a <frag-measure> custom element, delegates to its
+ * When `container` is a <content-measure> custom element, delegates to its
  * injectContent() method for Shadow DOM isolation. Returns the content root
  * element (the wrapper inside the shadow root, or the container itself for
  * plain div fallback).
  */
 export function injectContent({ bodyHTML, cssEntries, baseURL }, container) {
-  // Shadow DOM path: <frag-measure> custom element
+  // Shadow DOM path: <content-measure> custom element
   if (container.injectContent) {
     return container.injectContent({ bodyHTML, cssEntries, baseURL });
   }
@@ -84,18 +81,6 @@ export function injectContent({ bodyHTML, cssEntries, baseURL }, container) {
 }
 
 /**
- * Run the fragmentation engine on a content element.
- */
-export function runFragmentation(contentEl, pageSizes) {
-  const tree = buildLayoutTree(contentEl);
-  console.log("Layout tree:", tree);
-  const sizes = Array.isArray(pageSizes) ? pageSizes : [pageSizes];
-  const pages = paginateContent(tree, sizes);
-  console.log("Pagination result:", pages);
-  return pages;
-}
-
-/**
  * Wait for all fonts used by the content to finish loading.
  *
  * document.fonts.ready resolves immediately if no fonts are in the "loading"
@@ -115,21 +100,22 @@ export async function waitForFonts(container) {
 // ---------------------------------------------------------------------------
 
 /**
- * Render a grid of page thumbnails built from the fragment tree.
- * @param {Object[]} pageSizes - Array of { inlineSize, blockSize } per page
- * @param {Object} [contentStyles] - Content styles for CSS isolation (from FragMeasureElement.getContentStyles)
+ * Render a grid of fragmentainer thumbnails built from a FragmentedFlow.
+ * @param {import('../src/fragmentainer-layout.js').FragmentedFlow} flow
+ * @param {HTMLElement} gridContainer
+ * @param {function(number): void} onPageClick
  */
-export async function renderPages(pages, pageSizes, contentStyles, gridContainer, onPageClick) {
+export async function renderPages(flow, gridContainer, onPageClick) {
   gridContainer.innerHTML = '';
 
   const thumbnailHeight = 220;
   let totalHeight = 0;
 
-  for (let i = 0; i < pages.length; i++) {
-    totalHeight += pages[i].blockSize;
-    const size = getPageSize(pageSizes, i);
-    const scale = thumbnailHeight / size.blockSize;
-    const thumbnailWidth = size.inlineSize * scale;
+  for (let i = 0; i < flow.fragmentainerCount; i++) {
+    totalHeight += flow.fragments[i].blockSize;
+    const { contentArea } = flow.fragments[i].constraints;
+    const scale = thumbnailHeight / contentArea.blockSize;
+    const thumbnailWidth = contentArea.inlineSize * scale;
 
     // Outer wrapper sized to thumbnail dimensions
     const wrapper = document.createElement('div');
@@ -137,8 +123,8 @@ export async function renderPages(pages, pageSizes, contentStyles, gridContainer
     wrapper.style.width = `${thumbnailWidth}px`;
     wrapper.style.height = `${thumbnailHeight}px`;
 
-    // Inner: full-size page, scaled via transform
-    const pageEl = await buildPageElement(i, pages, pageSizes, contentStyles);
+    // Inner: full-size fragmentainer, scaled via transform
+    const pageEl = flow.renderFragmentainer(i);
     pageEl.style.transform = `scale(${scale})`;
     pageEl.style.transformOrigin = 'top left';
 
@@ -158,18 +144,21 @@ export async function renderPages(pages, pageSizes, contentStyles, gridContainer
 }
 
 /**
- * Show a single page at full size in an overlay.
+ * Show a single fragmentainer at full size in an overlay.
+ * @param {number} fragmentainerIndex
+ * @param {import('../src/fragmentainer-layout.js').FragmentedFlow} flow
+ * @param {HTMLElement} overlay
  */
-export async function showDetail(pageIndex, pages, pageSizes, contentStyles, overlay) {
+export async function showDetail(fragmentainerIndex, flow, overlay) {
   overlay.innerHTML = '';
   overlay.classList.add('active');
 
-  const size = getPageSize(pageSizes, pageIndex);
+  const { contentArea } = flow.fragments[fragmentainerIndex].constraints;
 
   // Fit to viewport
   const maxWidth = window.innerWidth - 120;
   const maxHeight = window.innerHeight - 120;
-  const fitScale = Math.min(1, maxWidth / size.inlineSize, maxHeight / size.blockSize);
+  const fitScale = Math.min(1, maxWidth / contentArea.inlineSize, maxHeight / contentArea.blockSize);
 
   // Backdrop
   const backdrop = document.createElement('div');
@@ -187,22 +176,22 @@ export async function showDetail(pageIndex, pages, pageSizes, contentStyles, ove
 
   const prevBtn = document.createElement('button');
   prevBtn.textContent = '\u2190 Prev';
-  prevBtn.disabled = pageIndex === 0;
+  prevBtn.disabled = fragmentainerIndex === 0;
   prevBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    showDetail(pageIndex - 1, pages, pageSizes, contentStyles, overlay);
+    showDetail(fragmentainerIndex - 1, flow, overlay);
   });
 
   const pageInfo = document.createElement('span');
   pageInfo.className = 'detail-page-info';
-  pageInfo.textContent = `Page ${pageIndex + 1} of ${pages.length} (${size.inlineSize}\u00d7${size.blockSize})`;
+  pageInfo.textContent = `Page ${fragmentainerIndex + 1} of ${flow.fragmentainerCount} (${contentArea.inlineSize}\u00d7${contentArea.blockSize})`;
 
   const nextBtn = document.createElement('button');
   nextBtn.textContent = 'Next \u2192';
-  nextBtn.disabled = pageIndex === pages.length - 1;
+  nextBtn.disabled = fragmentainerIndex === flow.fragmentainerCount - 1;
   nextBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    showDetail(pageIndex + 1, pages, pageSizes, contentStyles, overlay);
+    showDetail(fragmentainerIndex + 1, flow, overlay);
   });
 
   const closeBtn = document.createElement('button');
@@ -217,13 +206,13 @@ export async function showDetail(pageIndex, pages, pageSizes, contentStyles, ove
 
   // Scaled page wrapper
   const scaleWrapper = document.createElement('div');
-  scaleWrapper.style.width = `${size.inlineSize * fitScale}px`;
-  scaleWrapper.style.height = `${size.blockSize * fitScale}px`;
+  scaleWrapper.style.width = `${contentArea.inlineSize * fitScale}px`;
+  scaleWrapper.style.height = `${contentArea.blockSize * fitScale}px`;
   scaleWrapper.style.overflow = 'hidden';
   scaleWrapper.style.margin = '0 auto';
 
-  // Full-size page
-  const pageEl = await buildPageElement(pageIndex, pages, pageSizes, contentStyles);
+  // Full-size fragmentainer
+  const pageEl = flow.renderFragmentainer(fragmentainerIndex);
   pageEl.classList.add('detail-page');
   pageEl.style.transform = `scale(${fitScale})`;
   pageEl.style.transformOrigin = 'top left';
@@ -235,11 +224,11 @@ export async function showDetail(pageIndex, pages, pageSizes, contentStyles, ove
   // Keyboard navigation
   overlay._keyHandler = (e) => {
     if (e.key === 'Escape') closeDetail(overlay);
-    if (e.key === 'ArrowLeft' && pageIndex > 0) {
-      showDetail(pageIndex - 1, pages, pageSizes, contentStyles, overlay);
+    if (e.key === 'ArrowLeft' && fragmentainerIndex > 0) {
+      showDetail(fragmentainerIndex - 1, flow, overlay);
     }
-    if (e.key === 'ArrowRight' && pageIndex < pages.length - 1) {
-      showDetail(pageIndex + 1, pages, pageSizes, contentStyles, overlay);
+    if (e.key === 'ArrowRight' && fragmentainerIndex < flow.fragmentainerCount - 1) {
+      showDetail(fragmentainerIndex + 1, flow, overlay);
     }
   };
   document.removeEventListener('keydown', overlay._prevKeyHandler);

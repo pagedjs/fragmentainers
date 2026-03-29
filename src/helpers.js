@@ -13,6 +13,11 @@
  * @property {boolean} isGridContainer
  * @property {Object|null} inlineItemsData
  * @property {Function} computedBlockSize - (availableInlineSize) => number
+ * @property {boolean} isMulticolContainer
+ * @property {number|null} columnCount
+ * @property {number|null} columnWidth
+ * @property {number|null} columnGap
+ * @property {string} columnFill
  * @property {string|null} page - CSS page property value, or null for auto
  * @property {string} breakBefore - CSS break-before value
  * @property {string} breakAfter - CSS break-after value

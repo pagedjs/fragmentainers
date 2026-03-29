@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { paginateContent } from '../src/driver.js';
+import { createFragments } from '../src/driver.js';
+import { ConstraintSpace } from '../src/constraint-space.js';
 import { blockNode, replacedNode, scrollableNode } from './fixtures/nodes.js';
 
 describe('Phase 4: Monolithic content', () => {
@@ -14,7 +15,12 @@ describe('Phase 4: Monolithic content', () => {
     });
 
     // 200px fragmentainer. div=50, img=300 doesn't fit (150 remaining), pushed.
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
 
     assert.equal(pages.length, 3);
     // Page 1: just the div
@@ -41,7 +47,12 @@ describe('Phase 4: Monolithic content', () => {
     });
 
     // 200px fragmentainer. img at offset 0 → placed even though it overflows.
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
 
     assert.equal(pages.length, 1);
     assert.equal(pages[0].childFragments.length, 1);
@@ -56,7 +67,12 @@ describe('Phase 4: Monolithic content', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
 
     // img placed with overflow (500px at offset 0), 'after' pushed
     // The img itself should NOT have a break token
@@ -72,7 +88,12 @@ describe('Phase 4: Monolithic content', () => {
     });
 
     // 150px fragmentainer. header=100, scroller=200 doesn't fit (50 remaining).
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 150 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 150,
+      fragmentainerBlockSize: 150,
+      fragmentationType: 'page',
+    }));
 
     assert.equal(pages.length, 2);
     assert.equal(pages[0].childFragments.length, 1); // just header
@@ -87,7 +108,12 @@ describe('Phase 4: Monolithic content', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
     assert.equal(pages[0].childFragments.length, 2);
   });

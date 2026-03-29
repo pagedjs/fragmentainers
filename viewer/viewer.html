@@ -139,7 +139,8 @@
   <div id="overlay"></div>
 
   <script type="module">
-    import { fetchAndParse, injectContent, waitForFonts, runFragmentation, renderPages, showDetail } from './viewer.js';
+    import { fetchAndParse, injectContent, waitForFonts, FragmentainerLayout, renderPages, showDetail } from './viewer.js';
+    import { PageSizeResolver } from '../src/page-rules.js';
     import '../src/dom/frag-measure.js';
 
     const exampleSelect = document.getElementById('example');
@@ -152,9 +153,7 @@
     const overlayEl = document.getElementById('overlay');
 
     // State
-    let currentPages = null;
-    let currentPageSizes = null;
-    let currentContentStyles = null;
+    let currentFlow = null;
 
     // --- URL params: read on load, write on change ---
 
@@ -216,25 +215,52 @@
     const randomSizesCheckbox = document.getElementById('randomSizes');
 
     /**
-     * Generate an array of page sizes. If "Vary sizes" is checked,
-     * each page gets a randomly varied width and height (within +/-15%
+     * Build a PageSizeResolver. If "Vary sizes" is checked,
+     * creates @page rules with randomly varied dimensions (within +/-15%
      * of the base size), simulating different fragmentainer dimensions.
-     * Generates enough sizes for a large document (200 pages).
      */
-    function buildPageSizes(baseW, baseH, vary) {
-      if (!vary) return [{ inlineSize: baseW, blockSize: baseH }];
+    function buildResolver(baseW, baseH, vary) {
+      const defaultSize = { inlineSize: baseW, blockSize: baseH };
+      if (!vary) return new PageSizeResolver([], defaultSize);
 
       const count = 200;
-      const sizes = [];
+      const pageRules = [];
+      // Import PageRule for generating varied-size rules
       for (let i = 0; i < count; i++) {
         const wVariation = 1 + (Math.random() * 0.3 - 0.15); // 0.85–1.15
         const hVariation = 1 + (Math.random() * 0.3 - 0.15);
-        sizes.push({
+        pageRules.push({
+          index: i,
           inlineSize: Math.round(baseW * wVariation),
           blockSize: Math.round(baseH * hVariation),
         });
       }
-      return sizes;
+      // Use a custom resolver that maps page index to varied sizes
+      return {
+        resolve(pageIndex, namedPage, totalPages) {
+          const entry = pageRules[pageIndex] || pageRules[pageRules.length - 1];
+          const size = { inlineSize: entry.inlineSize, blockSize: entry.blockSize };
+          return {
+            pageIndex,
+            namedPage,
+            pageBoxSize: size,
+            margins: { top: 0, right: 0, bottom: 0, left: 0 },
+            contentArea: size,
+            isFirstPage: pageIndex === 0,
+            isLeftPage: pageIndex % 2 === 0,
+            toConstraintSpace() {
+              return {
+                availableInlineSize: size.inlineSize,
+                availableBlockSize: size.blockSize,
+                fragmentainerBlockSize: size.blockSize,
+                blockOffsetInFragmentainer: 0,
+                fragmentationType: 'page',
+                isNewFormattingContext: false,
+              };
+            },
+          };
+        },
+      };
     }
 
     // Run
@@ -243,10 +269,7 @@
       const baseW = parseInt(pageWidthInput.value);
       const baseH = parseInt(pageHeightInput.value);
       const vary = randomSizesCheckbox.checked;
-      const pageSizes = buildPageSizes(baseW, baseH, vary);
-
-      // Use the widest size for measuring so all content reflows correctly
-      const maxInline = Math.max(...pageSizes.map(s => s.inlineSize));
+      const resolver = buildResolver(baseW, baseH, vary);
 
       updateParams();
 
@@ -259,8 +282,9 @@
         const parsed = await fetchAndParse(url);
         statusEl.textContent = 'Injecting content for measurement...';
 
-        // 2. Inject into off-screen <content-measure> at widest page width
-        measureEl.style.width = `${maxInline}px`;
+        // 2. Inject into off-screen <content-measure> at widest possible width
+        const measureWidth = vary ? Math.ceil(baseW * 1.15) : baseW;
+        measureEl.style.width = `${measureWidth}px`;
         const contentRoot = injectContent(parsed, measureEl);
 
         // Wait for fonts and images
@@ -269,27 +293,26 @@
 
         statusEl.textContent = 'Running fragmentation...';
 
-        // 3. Run fragmentation on the wrapper inside shadow DOM
+        // 3. Run fragmentation via coordinator
         await new Promise(r => requestAnimationFrame(r));
         const start = performance.now();
-        const pages = runFragmentation(contentRoot, pageSizes);
+        const layout = new FragmentainerLayout(contentRoot, { resolver });
+        const flow = layout.flow();
         const elapsed = Math.round(performance.now() - start);
 
-        currentPages = pages;
-        currentPageSizes = pageSizes;
-        currentContentStyles = measureEl.getContentStyles();
+        currentFlow = flow;
 
         const sizeLabel = vary ? 'varied sizes' : `${baseW}\u00d7${baseH}px each`;
-        statusEl.textContent = `${pages.length} pages in ${elapsed}ms (${sizeLabel}). Click a page to view full size.`;
+        statusEl.textContent = `${flow.fragmentainerCount} pages in ${elapsed}ms (${sizeLabel}). Click a page to view full size.`;
 
-        // 4. Render thumbnails via <fragment-container> elements
-        statusEl.textContent = `Rendering ${pages.length} pages...`;
-        const totalHeight = await renderPages(pages, pageSizes, currentContentStyles, pagesEl, (idx) => {
-          showDetail(idx, currentPages, currentPageSizes, currentContentStyles, overlayEl);
+        // 4. Render thumbnails via FragmentedFlow
+        statusEl.textContent = `Rendering ${flow.fragmentainerCount} pages...`;
+        const totalHeight = await renderPages(flow, pagesEl, (idx) => {
+          showDetail(idx, currentFlow, overlayEl);
         });
 
-        statusEl.textContent = `${pages.length} pages in ${elapsed}ms (${sizeLabel}). Click a page to view full size.`;
-        summaryEl.textContent = `Total content height: ${Math.round(totalHeight)}px across ${pages.length} pages`;
+        statusEl.textContent = `${flow.fragmentainerCount} pages in ${elapsed}ms (${sizeLabel}). Click a page to view full size.`;
+        summaryEl.textContent = `Total content height: ${Math.round(totalHeight)}px across ${flow.fragmentainerCount} pages`;
 
       } catch (err) {
         statusEl.textContent = `Error: ${err.message}`;

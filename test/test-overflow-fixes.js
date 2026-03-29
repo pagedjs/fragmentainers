@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { paginateContent } from '../src/driver.js';
+import { createFragments } from '../src/driver.js';
+import { ConstraintSpace } from '../src/constraint-space.js';
 import { blockNode, inlineNode, textToInlineItems } from './fixtures/nodes.js';
 
 describe('Overflow fixes: margin truncation at breaks', () => {
@@ -18,7 +19,12 @@ describe('Overflow fixes: margin truncation at breaks', () => {
     });
 
     const root = blockNode({ children: [para] });
-    const pages = paginateContent(root, [{ inlineSize: 200, blockSize: 100 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 200,
+      availableBlockSize: 100,
+      fragmentainerBlockSize: 100,
+      fragmentationType: 'page',
+    }));
 
     // Page 1 should NOT exceed 100px (the margin-bottom is truncated at break)
     assert.ok(pages.length > 1, 'content should span multiple pages');
@@ -36,7 +42,12 @@ describe('Overflow fixes: margin truncation at breaks', () => {
 
     // 100px page: child 'a' is 90px, margin-end 20 would push to 110.
     // But 'b' gets pushed, so 'a's trailing margin is truncated.
-    const pages = paginateContent(root, [{ inlineSize: 200, blockSize: 100 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 200,
+      availableBlockSize: 100,
+      fragmentainerBlockSize: 100,
+      fragmentationType: 'page',
+    }));
     assert.ok(pages[0].blockSize <= 100,
       `Page 1 blockSize ${pages[0].blockSize} should not exceed 100`);
   });
@@ -50,7 +61,12 @@ describe('Overflow fixes: margin truncation at breaks', () => {
     });
 
     // 200px page: both fit (30 + 10 margin + 30 = 70). Trailing margin of 'b' is 0.
-    const pages = paginateContent(root, [{ inlineSize: 200, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 200,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
     // blockSize should include margin between children
     assert.ok(pages[0].blockSize >= 70);
@@ -77,7 +93,12 @@ describe('Overflow fixes: availableBlockSize propagation', () => {
     });
 
     const root = blockNode({ children: [container] });
-    const pages = paginateContent(root, [{ inlineSize: 200, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 200,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
 
     // The section fragment on page 1 should not exceed 200px.
     // The inline content should stop at 180px (200 - 20px padding).
@@ -95,7 +116,12 @@ describe('Overflow fixes: availableBlockSize propagation', () => {
     });
 
     const root = blockNode({ children: [container] });
-    const pages = paginateContent(root, [{ inlineSize: 200, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 200,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
 
     // Leaf (300px) should fragment respecting the 20px padding reservation
     assert.ok(pages[0].blockSize <= 200,
@@ -123,7 +149,12 @@ describe('Overflow fixes: insufficient space for inline content', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 200, blockSize: 100 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 200,
+      availableBlockSize: 100,
+      fragmentainerBlockSize: 100,
+      fragmentationType: 'page',
+    }));
 
     // Page 1: 'fill' (90px) + paragraph defers (0px) = 90px. No overflow.
     assert.ok(pages[0].blockSize <= 100,
@@ -146,7 +177,12 @@ describe('Overflow fixes: insufficient space for inline content', () => {
     const root = blockNode({ children: [para] });
 
     // Page height 15px < lineHeight 20px. Still must place one line.
-    const pages = paginateContent(root, [{ inlineSize: 200, blockSize: 15 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 200,
+      availableBlockSize: 15,
+      fragmentainerBlockSize: 15,
+      fragmentationType: 'page',
+    }));
     assert.ok(pages.length > 1);
     // First page should have at least one line (20px, overflows by 5px — acceptable for progress)
     assert.ok(pages[0].blockSize >= 20);
@@ -163,7 +199,12 @@ describe('Overflow fixes: insufficient space for inline content', () => {
 
     // Margins collapse: max(20, 15) = 20 between a and b.
     // Total: 40 + 20 + 40 + 40 = 140
-    const pages = paginateContent(root, [{ inlineSize: 200, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 200,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
     assert.equal(pages[0].blockSize, 140);
   });
@@ -177,7 +218,12 @@ describe('Overflow fixes: insufficient space for inline content', () => {
     });
 
     const root = blockNode({ children: [container] });
-    const pages = paginateContent(root, [{ inlineSize: 200, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 200,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 1);
     // 10 (padding-top) + 50 (child) + 10 (padding-bottom) = 70
     assert.equal(pages[0].childFragments[0].blockSize, 70);

@@ -10,5 +10,6 @@ export class PhysicalFragment {
     this.childFragments = childFragments;
     this.breakToken = null;
     this.constraints = null;
+    this.multicolData = null;
   }
 }

@@ -118,8 +118,8 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
       prevChildMarginEnd = 0; // consumed by collapsing
     }
 
-    // If the margin pushed us past the page boundary, undo it and push
-    // this child to the next page. Margins adjoining a break are truncated.
+    // If the margin pushed us past the fragmentainer boundary, undo it and push
+    // this child to the next fragmentainer. Margins adjoining a break are truncated.
     if (constraintSpace.fragmentationType !== 'none' &&
         containerOffsetInFragmentainer + blockOffset >= constraintSpace.fragmentainerBlockSize &&
         childFragments.length > 0) {

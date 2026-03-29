@@ -101,7 +101,7 @@ class ContentMeasureElement extends HTMLElement {
 
   /**
    * Get the content styles for reuse in <fragment-container> rendering.
-   * Call after injectContent() to capture styles for buildPageElement().
+   * Call after injectContent() to capture styles for rendering.
    *
    * @returns {{ sheets: CSSStyleSheet[], cssText: string }}
    */

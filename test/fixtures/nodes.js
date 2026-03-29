@@ -16,6 +16,11 @@ const DEFAULTS = {
   isTableRow: false,
   isFlexContainer: false,
   isGridContainer: false,
+  isMulticolContainer: false,
+  columnCount: null,
+  columnWidth: null,
+  columnGap: null,
+  columnFill: 'balance',
   inlineItemsData: null,
   page: null,
   breakBefore: 'auto',
@@ -172,6 +177,28 @@ export function inlineNode({
     computedBlockSize: () => 0,
     ...overrides,
   };
+}
+
+/**
+ * Create a multicol container node.
+ * @param {Object} opts
+ * @param {number} [opts.columnCount] - CSS column-count
+ * @param {number} [opts.columnWidth] - CSS column-width (null = auto)
+ * @param {number} [opts.columnGap] - CSS column-gap
+ * @param {string} [opts.columnFill] - 'balance' | 'auto'
+ */
+export function multicolNode({ debugName, columnCount = 2, columnWidth = null, columnGap = 0,
+                                columnFill = 'balance', children = [], ...overrides } = {}) {
+  return blockNode({
+    debugName: debugName || `multicol(${columnCount}col)`,
+    isMulticolContainer: true,
+    columnCount,
+    columnWidth,
+    columnGap,
+    columnFill,
+    children,
+    ...overrides,
+  });
 }
 
 /**

@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { paginateContent } from '../src/driver.js';
+import { createFragments } from '../src/driver.js';
+import { ConstraintSpace } from '../src/constraint-space.js';
 import { blockNode } from './fixtures/nodes.js';
 
 describe('Phase 7: Break scoring & two-pass layout', () => {
@@ -16,7 +17,12 @@ describe('Phase 7: Break scoring & two-pass layout', () => {
       ],
     });
 
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
 
     // Two-pass should break between A and B (at 100px), not between B and C
     assert.equal(pages.length, 2);
@@ -36,7 +42,12 @@ describe('Phase 7: Break scoring & two-pass layout', () => {
 
     // Without scoring, break goes between B and C (at 200px).
     // C has break-before: avoid → violating. Better break: between A and B (100px).
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
 
     assert.equal(pages.length, 2);
     assert.equal(pages[0].childFragments.length, 1); // just A
@@ -66,7 +77,12 @@ describe('Phase 7: Break scoring & two-pass layout', () => {
     // that any break inside the container violates the rule.
     // Without a better alternative at root level, it still breaks inside
     // (since it has to make progress).
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 120 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 120,
+      fragmentainerBlockSize: 120,
+      fragmentationType: 'page',
+    }));
     assert.ok(pages.length >= 2);
   });
 
@@ -83,7 +99,12 @@ describe('Phase 7: Break scoring & two-pass layout', () => {
     // 200px fragmentainer. Break between B and C has break-after:avoid on B.
     // Break between A and B also has break-after:avoid on A.
     // Both are equal score — falls back to last break (between B and C).
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 2);
     // Should still make progress — either 1 or 2 children on page 1
     assert.ok(pages[0].childFragments.length >= 1);
@@ -99,7 +120,12 @@ describe('Phase 7: Break scoring & two-pass layout', () => {
     });
 
     // No avoid rules — all breaks are perfect. No re-layout needed.
-    const pages = paginateContent(root, [{ inlineSize: 600, blockSize: 200 }]);
+    const pages = createFragments(root, new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 200,
+      fragmentainerBlockSize: 200,
+      fragmentationType: 'page',
+    }));
     assert.equal(pages.length, 2);
     assert.equal(pages[0].childFragments.length, 2); // A + B at 200px
   });
