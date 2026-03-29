@@ -155,9 +155,10 @@ export async function showDetail(fragmentainerIndex, flow, overlay) {
 
   const { contentArea } = flow.fragments[fragmentainerIndex].constraints;
 
-  // Fit to viewport
-  const maxWidth = window.innerWidth - 120;
-  const maxHeight = window.innerHeight - 120;
+  // Fit to viewport (account for detail-page padding)
+  const detailPadding = 20;
+  const maxWidth = window.innerWidth - 120 - detailPadding * 2;
+  const maxHeight = window.innerHeight - 120 - detailPadding * 2;
   const fitScale = Math.min(1, maxWidth / contentArea.inlineSize, maxHeight / contentArea.blockSize);
 
   // Backdrop
@@ -206,14 +207,13 @@ export async function showDetail(fragmentainerIndex, flow, overlay) {
 
   // Scaled page wrapper
   const scaleWrapper = document.createElement('div');
+  scaleWrapper.classList.add('detail-page');
   scaleWrapper.style.width = `${contentArea.inlineSize * fitScale}px`;
   scaleWrapper.style.height = `${contentArea.blockSize * fitScale}px`;
   scaleWrapper.style.overflow = 'hidden';
-  scaleWrapper.style.margin = '0 auto';
 
   // Full-size fragmentainer
   const pageEl = flow.renderFragmentainer(fragmentainerIndex);
-  pageEl.classList.add('detail-page');
   pageEl.style.transform = `scale(${fitScale})`;
   pageEl.style.transformOrigin = 'top left';
 
