@@ -1,3 +1,5 @@
+import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "./constants.js";
+
 /**
  * Base break token — continuation token for layout.
  * When a node's content doesn't fit in the current fragmentainer,
@@ -6,7 +8,7 @@
  */
 export class BreakToken {
   constructor(type, node) {
-    this.type = type;           // 'block' | 'inline'
+    this.type = type;           // "block" | "inline"
     this.node = node;           // reference to the layout node
     this.isBreakBefore = false;
     this.isForcedBreak = false;
@@ -28,7 +30,7 @@ export class BreakToken {
  */
 export class BlockBreakToken extends BreakToken {
   constructor(node) {
-    super('block', node);
+    super(BREAK_TOKEN_BLOCK, node);
     this.consumedBlockSize = 0;
     this.sequenceNumber = 0;
     this.childBreakTokens = [];
@@ -79,7 +81,7 @@ export class BlockBreakToken extends BreakToken {
  */
 export class InlineBreakToken extends BreakToken {
   constructor(node) {
-    super('inline', node);
+    super(BREAK_TOKEN_INLINE, node);
     this.itemIndex = 0;     // index into InlineItemsData.items
     this.textOffset = 0;    // offset into InlineItemsData.textContent
     this.flags = 0;         // inline-specific state bits

@@ -1,8 +1,9 @@
-import { BlockBreakToken } from '../tokens.js';
-import { ConstraintSpace } from '../constraint-space.js';
-import { PhysicalFragment } from '../fragment.js';
-import { layoutChild } from '../layout-request.js';
-import { findChildBreakToken } from '../helpers.js';
+import { BlockBreakToken } from "../tokens.js";
+import { ConstraintSpace } from "../constraint-space.js";
+import { PhysicalFragment } from "../fragment.js";
+import { layoutChild } from "../layout-request.js";
+import { findChildBreakToken } from "../helpers.js";
+import { FRAGMENTATION_NONE, ALGORITHM_FLEX, ALGORITHM_FLEX_LINE } from "../constants.js";
 
 /**
  * Flex container layout algorithm (generator).
@@ -15,8 +16,8 @@ import { findChildBreakToken } from '../helpers.js';
  * delegated to a flow thread (same Chromium pattern as multicol).
  */
 export function* layoutFlexContainer(node, constraintSpace, breakToken) {
-  const isRowDirection = node.flexDirection === 'row' ||
-                         node.flexDirection === 'row-reverse';
+  const isRowDirection = node.flexDirection === "row" ||
+                         node.flexDirection === "row-reverse";
 
   if (!isRowDirection) {
     // Column flex: sequential block layout via flow thread
@@ -43,13 +44,13 @@ export function* layoutFlexContainer(node, constraintSpace, breakToken) {
   let containerBreakToken = null;
 
   // Resume from break token
-  if (breakToken?.algorithmData?.type === 'kFlexData') {
+  if (breakToken?.algorithmData?.type === ALGORITHM_FLEX) {
     startLine = breakToken.algorithmData.flexLineIndex;
   }
 
   for (let lineIdx = startLine; lineIdx < flexLines.length; lineIdx++) {
     const lineItems = flexLines[lineIdx];
-    const remainingSpace = constraintSpace.fragmentationType !== 'none'
+    const remainingSpace = constraintSpace.fragmentationType !== FRAGMENTATION_NONE
       ? constraintSpace.fragmentainerBlockSize - constraintSpace.blockOffsetInFragmentainer - blockOffset
       : Infinity;
 
@@ -72,14 +73,14 @@ export function* layoutFlexContainer(node, constraintSpace, breakToken) {
         ? [lineResult.breakToken] : [];
       containerBreakToken.hasSeenAllChildren = false;
       containerBreakToken.algorithmData = {
-        type: 'kFlexData',
+        type: ALGORITHM_FLEX,
         flexLineIndex: lineIdx,
       };
       break;
     }
 
     // Check if next line fits (Class A break between flex lines)
-    if (constraintSpace.fragmentationType !== 'none' &&
+    if (constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
         lineIdx + 1 < flexLines.length &&
         blockOffset >= constraintSpace.fragmentainerBlockSize -
           constraintSpace.blockOffsetInFragmentainer) {
@@ -90,7 +91,7 @@ export function* layoutFlexContainer(node, constraintSpace, breakToken) {
         (breakToken?.sequenceNumber ?? -1) + 1;
       containerBreakToken.hasSeenAllChildren = false;
       containerBreakToken.algorithmData = {
-        type: 'kFlexData',
+        type: ALGORITHM_FLEX,
         flexLineIndex: lineIdx + 1,
       };
       break;
@@ -163,7 +164,7 @@ function* layoutFlexLine(node, lineItems, constraintSpace, blockOffset, parentBr
     lineToken = new BlockBreakToken(node);
     lineToken.childBreakTokens = itemBreakTokens;
     lineToken.hasSeenAllChildren = true;
-    lineToken.algorithmData = { type: 'kFlexLineData' };
+    lineToken.algorithmData = { type: ALGORITHM_FLEX_LINE };
   }
 
   return { fragment: lineFragment, breakToken: lineToken, anyBroke };
@@ -192,16 +193,16 @@ function* layoutFlexColumn(node, constraintSpace, breakToken) {
     columnCount: null,
     columnWidth: null,
     columnGap: null,
-    columnFill: 'balance',
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
+    columnFill: "balance",
+    flexDirection: "row",
+    flexWrap: "nowrap",
     gridRowStart: null,
     gridRowEnd: null,
     inlineItemsData: null,
     page: null,
-    breakBefore: 'auto',
-    breakAfter: 'auto',
-    breakInside: 'auto',
+    breakBefore: "auto",
+    breakAfter: "auto",
+    breakInside: "auto",
     orphans: 2,
     widows: 2,
     marginBlockStart: 0,
@@ -226,7 +227,7 @@ function* layoutFlexColumn(node, constraintSpace, breakToken) {
     containerToken.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
     containerToken.childBreakTokens = [result.breakToken];
     containerToken.hasSeenAllChildren = false;
-    containerToken.algorithmData = { type: 'kFlexData', flexLineIndex: 0 };
+    containerToken.algorithmData = { type: ALGORITHM_FLEX, flexLineIndex: 0 };
     fragment.breakToken = containerToken;
   }
 
@@ -239,7 +240,7 @@ function* layoutFlexColumn(node, constraintSpace, breakToken) {
  * For wrap: split when cumulative inline size exceeds available space.
  */
 function groupFlexLines(children, flexWrap, constraintSpace) {
-  if (flexWrap === 'nowrap') {
+  if (flexWrap === "nowrap") {
     return [children];
   }
 

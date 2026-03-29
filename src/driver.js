@@ -1,10 +1,11 @@
-import { resolveNamedPageForBreakToken } from './helpers.js';
-import { layoutBlockContainer } from './layout/block-container.js';
-import { layoutFlexContainer } from './layout/flex-container.js';
-import { layoutGridContainer } from './layout/grid-container.js';
-import { layoutInlineContent } from './layout/inline-content.js';
-import { layoutMulticolContainer } from './layout/multicol-container.js';
-import { layoutTableRow } from './layout/table-row.js';
+import { ConstraintSpace } from "./constraint-space.js";
+import { resolveNamedPageForBreakToken } from "./helpers.js";
+import { layoutBlockContainer } from "./layout/block-container.js";
+import { layoutFlexContainer } from "./layout/flex-container.js";
+import { layoutGridContainer } from "./layout/grid-container.js";
+import { layoutInlineContent } from "./layout/inline-content.js";
+import { layoutMulticolContainer } from "./layout/multicol-container.js";
+import { layoutTableRow } from "./layout/table-row.js";
 
 /**
  * Top-level fragmentainer driver loop.
@@ -19,16 +20,24 @@ import { layoutTableRow } from './layout/table-row.js';
  * @param {ConstraintSpace | { resolve: Function }} constraintSpaceOrResolver
  *   Either a single ConstraintSpace (reused for every fragmentainer) or a
  *   resolver with a `.resolve()` method for per-fragmentainer resolution.
- * @returns {import('./fragment.js').PhysicalFragment[]} Array of fragmentainer fragments
+ * @param {{ fragmentainerIndex: number, blockOffset: number }|null} [continuation]
+ *   When provided, starts layout at the given fragmentainer index and block offset.
+ *   Used to continue fragmentation across multiple independent elements.
+ * @returns {import('./fragment.js').PhysicalFragment[]|{ fragments: import('./fragment.js').PhysicalFragment[], continuation: { fragmentainerIndex: number, blockOffset: number } }}
+ *   When continuation is null: returns a flat array (backwards compatible).
+ *   When continuation is provided: returns { fragments, continuation } with final state.
  */
-export function createFragments(rootNode, constraintSpaceOrResolver) {
-  const useResolver = typeof constraintSpaceOrResolver?.resolve === 'function';
+export function createFragments(rootNode, constraintSpaceOrResolver, continuation = null) {
+  const useResolver = typeof constraintSpaceOrResolver?.resolve === "function";
   const fragments = [];
   let breakToken = null;
   let zeroProgressCount = 0;
   const MAX_ZERO_PROGRESS = 5;
 
-  for (let fragmentainerIndex = 0; breakToken !== null || fragmentainerIndex === 0; fragmentainerIndex++) {
+  const startIndex = continuation?.fragmentainerIndex ?? 0;
+  const startOffset = continuation?.blockOffset ?? 0;
+
+  for (let fragmentainerIndex = startIndex; breakToken !== null || fragmentainerIndex === startIndex; fragmentainerIndex++) {
     let constraintSpace;
     let constraints = null;
 
@@ -38,6 +47,18 @@ export function createFragments(rootNode, constraintSpaceOrResolver) {
       constraintSpace = constraints.toConstraintSpace();
     } else {
       constraintSpace = constraintSpaceOrResolver;
+    }
+
+    // Adjust first fragmentainer's offset when continuing from a previous element
+    if (fragmentainerIndex === startIndex && startOffset > 0) {
+      constraintSpace = new ConstraintSpace({
+        availableInlineSize: constraintSpace.availableInlineSize,
+        availableBlockSize: constraintSpace.fragmentainerBlockSize - startOffset,
+        fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
+        blockOffsetInFragmentainer: startOffset,
+        fragmentationType: constraintSpace.fragmentationType,
+        isNewFormattingContext: constraintSpace.isNewFormattingContext,
+      });
     }
 
     const rootAlgorithm = getLayoutAlgorithm(rootNode);
@@ -73,6 +94,23 @@ export function createFragments(rootNode, constraintSpaceOrResolver) {
     } else {
       zeroProgressCount = 0;
     }
+  }
+
+  // When using continuation, return structured result with final state
+  if (continuation !== null) {
+    const lastFragment = fragments[fragments.length - 1];
+    const lastIndex = startIndex + fragments.length - 1;
+    const lastOffset = lastFragment ? lastFragment.blockSize + (fragments.length === 1 ? startOffset : 0) : 0;
+    const pageBlockSize = lastFragment?.constraints?.contentArea?.blockSize
+      ?? constraintSpaceOrResolver?.fragmentainerBlockSize ?? 0;
+
+    return {
+      fragments,
+      continuation: {
+        fragmentainerIndex: lastOffset >= pageBlockSize ? lastIndex + 1 : lastIndex,
+        blockOffset: lastOffset >= pageBlockSize ? 0 : lastOffset,
+      },
+    };
   }
 
   return fragments;

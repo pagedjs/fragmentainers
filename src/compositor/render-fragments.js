@@ -1,4 +1,5 @@
-import { findChildBreakToken } from '../helpers.js';
+import { findChildBreakToken } from "../helpers.js";
+import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC, BREAK_TOKEN_INLINE, BOX_DECORATION_CLONE } from "../constants.js";
 
 /**
  * Check if a fragment has block-level child fragments (not line fragments).
@@ -12,8 +13,8 @@ export function hasBlockChildFragments(fragment) {
 /**
  * Walk a fragment's children and render each into a DocumentFragment.
  *
- * @param {import('../fragment.js').PhysicalFragment} fragment
- * @param {import('../tokens.js').BreakToken|null} inputBreakToken - break token from the previous fragmentainer
+ * @param {import("../fragment.js").PhysicalFragment} fragment
+ * @param {import("../tokens.js").BreakToken|null} inputBreakToken - break token from the previous fragmentainer
  * @returns {DocumentFragment}
  */
 export function renderFragmentTree(fragment, inputBreakToken) {
@@ -41,7 +42,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
     renderInlineFragment(fragment, inputBreakToken, parentEl);
   } else if (hasBlockChildFragments(fragment)) {
     const el = node.element.cloneNode(false);
-    if (node.boxDecorationBreak !== 'clone') {
+    if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
       applySliceDecorations(el, inputBreakToken, fragment);
     }
     for (const child of fragment.childFragments) {
@@ -52,7 +53,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
     parentEl.appendChild(el);
   } else {
     const el = node.element.cloneNode(true);
-    if (node.boxDecorationBreak !== 'clone') {
+    if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
       applySliceDecorations(el, inputBreakToken, fragment);
     }
     parentEl.appendChild(el);
@@ -74,15 +75,15 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl) {
     return;
   }
 
-  const startOffset = (inputBreakToken && inputBreakToken.type === 'inline')
+  const startOffset = (inputBreakToken && inputBreakToken.type === BREAK_TOKEN_INLINE)
     ? inputBreakToken.textOffset
     : 0;
-  const endOffset = (fragment.breakToken && fragment.breakToken.type === 'inline')
+  const endOffset = (fragment.breakToken && fragment.breakToken.type === BREAK_TOKEN_INLINE)
     ? fragment.breakToken.textOffset
     : data.textContent.length;
 
-  const ws = isAnonymous ? 'normal' : getComputedStyle(node.element).whiteSpace;
-  const collapseWS = !ws.startsWith('pre');
+  const ws = isAnonymous ? "normal" : getComputedStyle(node.element).whiteSpace;
+  const collapseWS = !ws.startsWith("pre");
   const isHyphenated = fragment.breakToken?.isHyphenated ?? false;
 
   if (isAnonymous) {
@@ -106,30 +107,30 @@ function renderMulticolFragment(fragment, inputBreakToken, parentEl) {
   const { columnWidth, columnGap } = fragment.multicolData;
 
   const el = node.element.cloneNode(false);
-  el.style.columns = 'auto';
-  el.style.columnCount = 'auto';
-  el.style.columnWidth = 'auto';
-  el.style.columnGap = '0';
-  el.style.columnFill = 'initial';
-  el.style.display = 'flex';
-  el.style.flexWrap = 'nowrap';
-  el.style.alignItems = 'flex-start';
+  el.style.columns = "auto";
+  el.style.columnCount = "auto";
+  el.style.columnWidth = "auto";
+  el.style.columnGap = "0";
+  el.style.columnFill = "initial";
+  el.style.display = "flex";
+  el.style.flexWrap = "nowrap";
+  el.style.alignItems = "flex-start";
 
   for (let i = 0; i < fragment.childFragments.length; i++) {
     const colFragment = fragment.childFragments[i];
 
     if (i > 0 && columnGap > 0) {
-      const gapEl = document.createElement('div');
+      const gapEl = document.createElement("div");
       gapEl.style.width = `${columnGap}px`;
-      gapEl.style.flexShrink = '0';
+      gapEl.style.flexShrink = "0";
       el.appendChild(gapEl);
     }
 
-    const colEl = document.createElement('div');
+    const colEl = document.createElement("div");
     colEl.style.width = `${columnWidth}px`;
     colEl.style.height = `${fragment.blockSize}px`;
-    colEl.style.overflow = 'hidden';
-    colEl.style.flexShrink = '0';
+    colEl.style.overflow = "hidden";
+    colEl.style.flexShrink = "0";
 
     // Thread break tokens: col 0 uses inputBreakToken, col N uses col N-1's breakToken
     const colInputBT = i === 0 ? inputBreakToken : fragment.childFragments[i - 1].breakToken;
@@ -154,17 +155,17 @@ function renderMulticolFragment(fragment, inputBreakToken, parentEl) {
  * out the border/padding that should not appear at break boundaries.
  *
  * @param {{ style: CSSStyleDeclaration }} el - The cloned element
- * @param {import('../tokens.js').BreakToken|null} inputBreakToken - non-null if continuation
- * @param {import('../fragment.js').PhysicalFragment} fragment - the fragment being rendered
+ * @param {import("../tokens.js").BreakToken|null} inputBreakToken - non-null if continuation
+ * @param {import("../fragment.js").PhysicalFragment} fragment - the fragment being rendered
  */
 export function applySliceDecorations(el, inputBreakToken, fragment) {
   if (inputBreakToken !== null) {
-    el.style.borderBlockStart = 'none';
-    el.style.paddingBlockStart = '0';
+    el.style.borderBlockStart = "none";
+    el.style.paddingBlockStart = "0";
   }
   if (fragment.breakToken !== null) {
-    el.style.borderBlockEnd = 'none';
-    el.style.paddingBlockEnd = '0';
+    el.style.borderBlockEnd = "none";
+    el.style.paddingBlockEnd = "0";
   }
 }
 
@@ -186,7 +187,7 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
   let lastTextNode = null;
 
   for (const item of items) {
-    if (item.type === 'kText') {
+    if (item.type === INLINE_TEXT) {
       const itemStart = item.startOffset;
       const itemEnd = item.endOffset;
 
@@ -197,25 +198,25 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
       const visEnd = Math.min(itemEnd, endOffset);
       let text = textContent.slice(visStart, visEnd);
       // Strip soft hyphens — they are invisible in flowing text
-      text = text.replace(/\u00AD/g, '');
-      if (collapseWS) text = text.replace(/\s+/g, ' ');
+      text = text.replace(/\u00AD/g, "");
+      if (collapseWS) text = text.replace(/\s+/g, " ");
 
       if (text.length > 0) {
         lastTextNode = document.createTextNode(text);
         current.appendChild(lastTextNode);
       }
-    } else if (item.type === 'kOpenTag') {
+    } else if (item.type === INLINE_OPEN_TAG) {
       const el = item.element.cloneNode(false);
       current.appendChild(el);
       stack.push(current);
       current = el;
-    } else if (item.type === 'kCloseTag') {
+    } else if (item.type === INLINE_CLOSE_TAG) {
       current = stack.pop() || container;
-    } else if (item.type === 'kControl') {
+    } else if (item.type === INLINE_CONTROL) {
       if (item.startOffset >= startOffset && item.startOffset < endOffset) {
-        current.appendChild(document.createElement('br'));
+        current.appendChild(document.createElement("br"));
       }
-    } else if (item.type === 'kAtomicInline') {
+    } else if (item.type === INLINE_ATOMIC) {
       if (item.startOffset >= startOffset && item.startOffset < endOffset) {
         current.appendChild(item.element.cloneNode(true));
       }
@@ -236,7 +237,7 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
 function resolveHyphenCharacter(container) {
   if (container.nodeType === Node.ELEMENT_NODE) {
     const val = getComputedStyle(container).hyphenateCharacter;
-    if (val && val !== 'auto') return val;
+    if (val && val !== "auto") return val;
   }
-  return '\u2010';
+  return "\u2010";
 }

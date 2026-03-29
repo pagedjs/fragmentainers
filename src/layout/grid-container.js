@@ -1,8 +1,9 @@
-import { BlockBreakToken } from '../tokens.js';
-import { ConstraintSpace } from '../constraint-space.js';
-import { PhysicalFragment } from '../fragment.js';
-import { layoutChild } from '../layout-request.js';
-import { findChildBreakToken } from '../helpers.js';
+import { BlockBreakToken } from "../tokens.js";
+import { ConstraintSpace } from "../constraint-space.js";
+import { PhysicalFragment } from "../fragment.js";
+import { layoutChild } from "../layout-request.js";
+import { findChildBreakToken } from "../helpers.js";
+import { FRAGMENTATION_NONE, ALGORITHM_GRID } from "../constants.js";
 
 /**
  * Grid container layout algorithm (generator).
@@ -32,13 +33,13 @@ export function* layoutGridContainer(node, constraintSpace, breakToken) {
   let containerBreakToken = null;
 
   // Resume from break token
-  if (breakToken?.algorithmData?.type === 'kGridData') {
+  if (breakToken?.algorithmData?.type === ALGORITHM_GRID) {
     startRow = breakToken.algorithmData.rowIndex;
   }
 
   for (let rowIdx = startRow; rowIdx < gridRows.length; rowIdx++) {
     const rowItems = gridRows[rowIdx];
-    const remainingSpace = constraintSpace.fragmentationType !== 'none'
+    const remainingSpace = constraintSpace.fragmentationType !== FRAGMENTATION_NONE
       ? constraintSpace.fragmentainerBlockSize - constraintSpace.blockOffsetInFragmentainer - blockOffset
       : Infinity;
 
@@ -58,7 +59,7 @@ export function* layoutGridContainer(node, constraintSpace, breakToken) {
     }
 
     // Check if next row fits (Class A break between grid rows)
-    if (constraintSpace.fragmentationType !== 'none' &&
+    if (constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
         rowIdx + 1 < gridRows.length &&
         blockOffset >= constraintSpace.fragmentainerBlockSize -
           constraintSpace.blockOffsetInFragmentainer) {
@@ -175,7 +176,7 @@ function buildGridBreakToken(node, prevToken, blockOffset, rowIndex) {
   token.sequenceNumber = (prevToken?.sequenceNumber ?? -1) + 1;
   token.hasSeenAllChildren = false;
   token.algorithmData = {
-    type: 'kGridData',
+    type: ALGORITHM_GRID,
     rowIndex,
   };
   return token;

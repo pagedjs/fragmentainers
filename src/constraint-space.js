@@ -1,3 +1,5 @@
+import { FRAGMENTATION_NONE } from "./constants.js";
+
 /**
  * Constraint space for a fragmentainer.
  * Carries the fragmentainer's dimensions and fragmentation type.
@@ -9,14 +11,14 @@ export class ConstraintSpace {
     availableBlockSize = 0,
     fragmentainerBlockSize = 0,
     blockOffsetInFragmentainer = 0,
-    fragmentationType = 'none',
+    fragmentationType = FRAGMENTATION_NONE,
     isNewFormattingContext = false,
   } = {}) {
     this.availableInlineSize = availableInlineSize;
     this.availableBlockSize = availableBlockSize;
     this.fragmentainerBlockSize = fragmentainerBlockSize;
     this.blockOffsetInFragmentainer = blockOffsetInFragmentainer;
-    this.fragmentationType = fragmentationType;       // 'none' | 'page' | 'column'
+    this.fragmentationType = fragmentationType;       // "none" | "page" | "column"
     this.isNewFormattingContext = isNewFormattingContext;
   }
 }

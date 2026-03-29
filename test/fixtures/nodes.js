@@ -17,20 +17,20 @@ const DEFAULTS = {
   isFlexContainer: false,
   isGridContainer: false,
   isMulticolContainer: false,
-  flexDirection: 'row',
-  flexWrap: 'nowrap',
+  flexDirection: "row",
+  flexWrap: "nowrap",
   gridRowStart: null,
   gridRowEnd: null,
   columnCount: null,
   columnWidth: null,
   columnGap: null,
-  columnFill: 'balance',
+  columnFill: "balance",
   inlineItemsData: null,
   page: null,
-  breakBefore: 'auto',
-  breakAfter: 'auto',
-  breakInside: 'auto',
-  boxDecorationBreak: 'slice',
+  breakBefore: "auto",
+  breakAfter: "auto",
+  breakInside: "auto",
+  boxDecorationBreak: "slice",
   orphans: 2,
   widows: 2,
   marginBlockStart: 0,
@@ -101,7 +101,7 @@ function computeMockLines(text, measureFn, availableInlineSize) {
     if (word.length === 0) continue;
 
     // Newline forces a line break
-    if (word.includes('\n')) {
+    if (word.includes("\n")) {
       lines.push({ startOffset: lineStart, endOffset: pos + word.length });
       pos += word.length;
       lineStart = pos;
@@ -146,7 +146,7 @@ export function inlineNode({
   ...overrides
 } = {}) {
   const measureFn = measureText || ((text) => text.length * 8); // default: 8px per char
-  const text = inlineItemsData?.textContent || '';
+  const text = inlineItemsData?.textContent || "";
   const MOCK_TOP = 0;
 
   // Pre-compute line layout for charTop and element height
@@ -155,7 +155,7 @@ export function inlineNode({
 
   return {
     ...DEFAULTS,
-    debugName: debugName || 'inline',
+    debugName: debugName || "inline",
     isInlineFormattingContext: true,
     inlineItemsData,
     lineHeight,
@@ -193,7 +193,7 @@ export function inlineNode({
  * @param {string} [opts.columnFill] - 'balance' | 'auto'
  */
 export function multicolNode({ debugName, columnCount = 2, columnWidth = null, columnGap = 0,
-                                columnFill = 'balance', children = [], ...overrides } = {}) {
+                                columnFill = "balance", children = [], ...overrides } = {}) {
   return blockNode({
     debugName: debugName || `multicol(${columnCount}col)`,
     isMulticolContainer: true,
@@ -209,10 +209,10 @@ export function multicolNode({ debugName, columnCount = 2, columnWidth = null, c
 /**
  * Create a flex container node.
  */
-export function flexNode({ debugName, flexDirection = 'row', flexWrap = 'nowrap',
+export function flexNode({ debugName, flexDirection = "row", flexWrap = "nowrap",
                             children = [], ...overrides } = {}) {
   return blockNode({
-    debugName: debugName || 'flex',
+    debugName: debugName || "flex",
     isFlexContainer: true,
     flexDirection,
     flexWrap,
@@ -226,7 +226,7 @@ export function flexNode({ debugName, flexDirection = 'row', flexWrap = 'nowrap'
  */
 export function gridNode({ debugName, children = [], ...overrides } = {}) {
   return blockNode({
-    debugName: debugName || 'grid',
+    debugName: debugName || "grid",
     isGridContainer: true,
     children,
     ...overrides,
@@ -255,7 +255,7 @@ export function gridItemNode({ debugName, blockSize = 0, gridRowStart = 1,
 export function tableRowNode({ debugName, cells = [], ...overrides } = {}) {
   return {
     ...DEFAULTS,
-    debugName: debugName || 'tr',
+    debugName: debugName || "tr",
     isTableRow: true,
     cells,
     children: cells,
@@ -275,17 +275,17 @@ export function textToInlineItems(text) {
   let offset = 0;
 
   for (let i = 0; i < text.length; i++) {
-    if (text[i] === '\n') {
+    if (text[i] === "\n") {
       if (i > offset) {
-        items.push({ type: 'kText', startOffset: offset, endOffset: i, domNode: mockTextNode });
+        items.push({ type: "kText", startOffset: offset, endOffset: i, domNode: mockTextNode });
       }
-      items.push({ type: 'kControl', startOffset: i, endOffset: i + 1 });
+      items.push({ type: "kControl", startOffset: i, endOffset: i + 1 });
       offset = i + 1;
     }
   }
 
   if (offset < text.length) {
-    items.push({ type: 'kText', startOffset: offset, endOffset: text.length, domNode: mockTextNode });
+    items.push({ type: "kText", startOffset: offset, endOffset: text.length, domNode: mockTextNode });
   }
 
   return { items, textContent: text };

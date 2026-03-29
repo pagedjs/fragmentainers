@@ -1,8 +1,9 @@
-import { BlockBreakToken } from '../tokens.js';
-import { ConstraintSpace } from '../constraint-space.js';
-import { PhysicalFragment } from '../fragment.js';
-import { layoutChild } from '../layout-request.js';
-import { findChildBreakToken } from '../helpers.js';
+import { BlockBreakToken } from "../tokens.js";
+import { ConstraintSpace } from "../constraint-space.js";
+import { PhysicalFragment } from "../fragment.js";
+import { layoutChild } from "../layout-request.js";
+import { findChildBreakToken } from "../helpers.js";
+import { ALGORITHM_TABLE_ROW } from "../constants.js";
 
 /**
  * Table row layout generator — parallel flow.
@@ -75,7 +76,7 @@ export function* layoutTableRow(node, constraintSpace, breakToken) {
       (breakToken?.sequenceNumber ?? -1) + 1;
     rowToken.childBreakTokens = cellBreakTokens;
     rowToken.hasSeenAllChildren = true;
-    rowToken.algorithmData = { type: 'kTableRowData' };
+    rowToken.algorithmData = { type: ALGORITHM_TABLE_ROW };
     fragment.breakToken = rowToken;
   }
 

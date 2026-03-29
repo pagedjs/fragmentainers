@@ -45,7 +45,7 @@ export function measureElementBlockSize(element) {
 export function getLineHeight(element) {
   const style = getComputedStyle(element);
   const lineHeight = style.lineHeight;
-  if (lineHeight === 'normal') {
+  if (lineHeight === "normal") {
     return parseFloat(style.fontSize) * 1.2;
   }
   return parseFloat(lineHeight);
@@ -55,11 +55,11 @@ export function getLineHeight(element) {
  * Parse a CSS length value to pixels.
  */
 export function parseLength(value, parentSize, fontSize) {
-  if (!value || value === 'auto' || value === 'none') return null;
-  if (value.endsWith('px')) return parseFloat(value);
-  if (value.endsWith('%')) return (parseFloat(value) / 100) * parentSize;
-  if (value.endsWith('em')) return parseFloat(value) * fontSize;
-  if (value.endsWith('rem')) {
+  if (!value || value === "auto" || value === "none") return null;
+  if (value.endsWith("px")) return parseFloat(value);
+  if (value.endsWith("%")) return (parseFloat(value) / 100) * parentSize;
+  if (value.endsWith("em")) return parseFloat(value) * fontSize;
+  if (value.endsWith("rem")) {
     const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
     return parseFloat(value) * rootFontSize;
   }

@@ -1,3 +1,5 @@
+import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC } from "../constants.js";
+
 /**
  * Walk DOM inline content and build a flat InlineItemsData structure.
  *
@@ -17,7 +19,7 @@ export function collectInlineItems(element) {
       const content = node.textContent;
       if (content.length > 0) {
         items.push({
-          type: 'kText',
+          type: INLINE_TEXT,
           startOffset: offset,
           endOffset: offset + content.length,
           domNode: node,
@@ -34,55 +36,55 @@ export function collectInlineItems(element) {
     const tagName = el.tagName.toLowerCase();
 
     // <br> → forced line break
-    if (tagName === 'br') {
+    if (tagName === "br") {
       items.push({
-        type: 'kControl',
+        type: INLINE_CONTROL,
         startOffset: offset,
         endOffset: offset + 1,
         domNode: el,
       });
-      textParts.push('\n');
+      textParts.push("\n");
       offset += 1;
       return;
     }
 
     // Skip non-visual elements
     const display = getComputedStyle(el).display;
-    if (display === 'none') return;
+    if (display === "none") return;
 
-    const isInline = display === 'inline';
-    const isAtomicInline = display === 'inline-block' || display === 'inline-table';
+    const isInline = display === "inline";
+    const isAtomicInline = display === "inline-block" || display === "inline-table";
 
     if (isAtomicInline) {
       // Atomic inline — treated as a single unit
       items.push({
-        type: 'kAtomicInline',
+        type: INLINE_ATOMIC,
         startOffset: offset,
         endOffset: offset + 1,
         element: el,
       });
-      textParts.push('\uFFFC'); // Object replacement character
+      textParts.push("\uFFFC"); // Object replacement character
       offset += 1;
       return;
     }
 
     if (isInline) {
-      items.push({ type: 'kOpenTag', element: el });
+      items.push({ type: INLINE_OPEN_TAG, element: el });
       for (const child of el.childNodes) {
         walk(child);
       }
-      items.push({ type: 'kCloseTag', element: el });
+      items.push({ type: INLINE_CLOSE_TAG, element: el });
       return;
     }
 
     // Block-level child inside inline context — treat as atomic
     items.push({
-      type: 'kAtomicInline',
+      type: INLINE_ATOMIC,
       startOffset: offset,
       endOffset: offset + 1,
       element: el,
     });
-    textParts.push('\uFFFC');
+    textParts.push("\uFFFC");
     offset += 1;
   }
 
@@ -90,7 +92,7 @@ export function collectInlineItems(element) {
     walk(child);
   }
 
-  return { items, textContent: textParts.join('') };
+  return { items, textContent: textParts.join("") };
 }
 
 /**
@@ -109,7 +111,7 @@ export function collectInlineItemsFromNodes(nodes) {
       const content = node.textContent;
       if (content.length > 0) {
         items.push({
-          type: 'kText',
+          type: INLINE_TEXT,
           startOffset: offset,
           endOffset: offset + content.length,
           domNode: node,
@@ -125,52 +127,52 @@ export function collectInlineItemsFromNodes(nodes) {
     const el = /** @type {Element} */ (node);
     const tagName = el.tagName.toLowerCase();
 
-    if (tagName === 'br') {
+    if (tagName === "br") {
       items.push({
-        type: 'kControl',
+        type: INLINE_CONTROL,
         startOffset: offset,
         endOffset: offset + 1,
         domNode: el,
       });
-      textParts.push('\n');
+      textParts.push("\n");
       offset += 1;
       return;
     }
 
     const display = getComputedStyle(el).display;
-    if (display === 'none') return;
+    if (display === "none") return;
 
-    const isInline = display === 'inline';
-    const isAtomicInline = display === 'inline-block' || display === 'inline-table';
+    const isInline = display === "inline";
+    const isAtomicInline = display === "inline-block" || display === "inline-table";
 
     if (isAtomicInline) {
       items.push({
-        type: 'kAtomicInline',
+        type: INLINE_ATOMIC,
         startOffset: offset,
         endOffset: offset + 1,
         element: el,
       });
-      textParts.push('\uFFFC');
+      textParts.push("\uFFFC");
       offset += 1;
       return;
     }
 
     if (isInline) {
-      items.push({ type: 'kOpenTag', element: el });
+      items.push({ type: INLINE_OPEN_TAG, element: el });
       for (const child of el.childNodes) {
         walk(child);
       }
-      items.push({ type: 'kCloseTag', element: el });
+      items.push({ type: INLINE_CLOSE_TAG, element: el });
       return;
     }
 
     items.push({
-      type: 'kAtomicInline',
+      type: INLINE_ATOMIC,
       startOffset: offset,
       endOffset: offset + 1,
       element: el,
     });
-    textParts.push('\uFFFC');
+    textParts.push("\uFFFC");
     offset += 1;
   }
 
@@ -178,5 +180,5 @@ export function collectInlineItemsFromNodes(nodes) {
     walk(node);
   }
 
-  return { items, textContent: textParts.join('') };
+  return { items, textContent: textParts.join("") };
 }

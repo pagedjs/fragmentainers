@@ -1,9 +1,9 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { runLayoutGenerator, getLayoutAlgorithm } from '../src/driver.js';
-import { layoutMulticolContainer } from '../src/layout/multicol-container.js';
-import { ConstraintSpace } from '../src/constraint-space.js';
-import { blockNode, multicolNode } from './fixtures/nodes.js';
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { runLayoutGenerator, getLayoutAlgorithm } from "../src/driver.js";
+import { layoutMulticolContainer } from "../src/layout/multicol-container.js";
+import { ConstraintSpace } from "../src/constraint-space.js";
+import { blockNode, multicolNode } from "./fixtures/nodes.js";
 
 /**
  * Helper: run the multicol layout algorithm on a node.
@@ -14,7 +14,7 @@ function layoutMulticol(node, { inlineSize = 600, blockSize = 400 } = {}) {
     availableBlockSize: blockSize,
     fragmentainerBlockSize: blockSize,
     blockOffsetInFragmentainer: 0,
-    fragmentationType: 'none',
+    fragmentationType: "none",
   });
 
   return runLayoutGenerator(
@@ -22,23 +22,23 @@ function layoutMulticol(node, { inlineSize = 600, blockSize = 400 } = {}) {
   );
 }
 
-describe('layoutMulticolContainer', () => {
-  it('dispatches multicol nodes to the multicol algorithm', () => {
+describe("layoutMulticolContainer", () => {
+  it("dispatches multicol nodes to the multicol algorithm", () => {
     const node = multicolNode({ columnCount: 2 });
     assert.equal(getLayoutAlgorithm(node), layoutMulticolContainer);
   });
 
-  it('does not dispatch non-multicol nodes to multicol', () => {
+  it("does not dispatch non-multicol nodes to multicol", () => {
     const node = blockNode();
     assert.notEqual(getLayoutAlgorithm(node), layoutMulticolContainer);
   });
 
-  it('lays out content across 2 columns', () => {
+  it("lays out content across 2 columns", () => {
     const root = multicolNode({
       columnCount: 2, columnGap: 0,
       children: [
-        blockNode({ debugName: 'A', blockSize: 100 }),
-        blockNode({ debugName: 'B', blockSize: 100 }),
+        blockNode({ debugName: "A", blockSize: 100 }),
+        blockNode({ debugName: "B", blockSize: 100 }),
       ],
     });
 
@@ -49,12 +49,12 @@ describe('layoutMulticolContainer', () => {
     assert.equal(result.fragment.multicolData.columnWidth, 300);
   });
 
-  it('all content fits in one column when column height is large', () => {
+  it("all content fits in one column when column height is large", () => {
     const root = multicolNode({
       columnCount: 2, columnGap: 0,
       children: [
-        blockNode({ debugName: 'A', blockSize: 50 }),
-        blockNode({ debugName: 'B', blockSize: 50 }),
+        blockNode({ debugName: "A", blockSize: 50 }),
+        blockNode({ debugName: "B", blockSize: 50 }),
       ],
     });
 
@@ -63,13 +63,13 @@ describe('layoutMulticolContainer', () => {
     assert.equal(result.fragment.childFragments.length, 1);
   });
 
-  it('content flows across 3 columns', () => {
+  it("content flows across 3 columns", () => {
     const root = multicolNode({
       columnCount: 3, columnGap: 0,
       children: [
-        blockNode({ debugName: 'A', blockSize: 100 }),
-        blockNode({ debugName: 'B', blockSize: 100 }),
-        blockNode({ debugName: 'C', blockSize: 100 }),
+        blockNode({ debugName: "A", blockSize: 100 }),
+        blockNode({ debugName: "B", blockSize: 100 }),
+        blockNode({ debugName: "C", blockSize: 100 }),
       ],
     });
 
@@ -78,13 +78,13 @@ describe('layoutMulticolContainer', () => {
     assert.equal(result.fragment.childFragments.length, 3);
   });
 
-  it('respects column-fill: auto — stops at column count', () => {
+  it("respects column-fill: auto — stops at column count", () => {
     const root = multicolNode({
-      columnCount: 2, columnGap: 0, columnFill: 'auto',
+      columnCount: 2, columnGap: 0, columnFill: "auto",
       children: [
-        blockNode({ debugName: 'A', blockSize: 100 }),
-        blockNode({ debugName: 'B', blockSize: 100 }),
-        blockNode({ debugName: 'C', blockSize: 100 }),
+        blockNode({ debugName: "A", blockSize: 100 }),
+        blockNode({ debugName: "B", blockSize: 100 }),
+        blockNode({ debugName: "C", blockSize: 100 }),
       ],
     });
 
@@ -95,7 +95,7 @@ describe('layoutMulticolContainer', () => {
     assert.equal(result.breakToken, null);
   });
 
-  it('resolves column width correctly with gap', () => {
+  it("resolves column width correctly with gap", () => {
     const root = multicolNode({
       columnCount: 2, columnGap: 20,
       children: [blockNode({ blockSize: 50 })],
@@ -107,7 +107,7 @@ describe('layoutMulticolContainer', () => {
     assert.equal(result.fragment.multicolData.columnGap, 20);
   });
 
-  it('sets multicolData on the fragment', () => {
+  it("sets multicolData on the fragment", () => {
     const root = multicolNode({
       columnCount: 3, columnGap: 10,
       children: [blockNode({ blockSize: 50 })],
@@ -119,12 +119,12 @@ describe('layoutMulticolContainer', () => {
     assert.equal(result.fragment.multicolData.columnGap, 10);
   });
 
-  it('break-before: column forces a column break', () => {
+  it("break-before: column forces a column break", () => {
     const root = multicolNode({
       columnCount: 3, columnGap: 0,
       children: [
-        blockNode({ debugName: 'A', blockSize: 50 }),
-        blockNode({ debugName: 'B', blockSize: 50, breakBefore: 'column' }),
+        blockNode({ debugName: "A", blockSize: 50 }),
+        blockNode({ debugName: "B", blockSize: 50, breakBefore: "column" }),
       ],
     });
 
@@ -133,13 +133,13 @@ describe('layoutMulticolContainer', () => {
     assert.equal(result.fragment.childFragments.length, 2);
   });
 
-  it('emits break token with kMulticolData when nested in outer context', () => {
+  it("emits break token with kMulticolData when nested in outer context", () => {
     const root = multicolNode({
-      columnCount: 2, columnGap: 0, columnFill: 'auto',
+      columnCount: 2, columnGap: 0, columnFill: "auto",
       children: [
-        blockNode({ debugName: 'A', blockSize: 100 }),
-        blockNode({ debugName: 'B', blockSize: 100 }),
-        blockNode({ debugName: 'C', blockSize: 100 }),
+        blockNode({ debugName: "A", blockSize: 100 }),
+        blockNode({ debugName: "B", blockSize: 100 }),
+        blockNode({ debugName: "C", blockSize: 100 }),
       ],
     });
 
@@ -149,17 +149,17 @@ describe('layoutMulticolContainer', () => {
       availableBlockSize: 100,
       fragmentainerBlockSize: 100,
       blockOffsetInFragmentainer: 0,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     });
 
     const result = runLayoutGenerator(layoutMulticolContainer, root, cs, null);
     assert.ok(result.breakToken);
-    assert.equal(result.breakToken.algorithmData.type, 'kMulticolData');
+    assert.equal(result.breakToken.algorithmData.type, "kMulticolData");
     assert.equal(result.breakToken.algorithmData.columnCount, 2);
     assert.equal(result.breakToken.algorithmData.columnWidth, 300);
   });
 
-  it('does not infinitely recurse (flow thread pattern)', () => {
+  it("does not infinitely recurse (flow thread pattern)", () => {
     // This test verifies the core architectural decision:
     // layoutMulticolContainer creates a flow thread that dispatches
     // to layoutBlockContainer, not back to layoutMulticolContainer.
@@ -174,7 +174,7 @@ describe('layoutMulticolContainer', () => {
     assert.equal(result.fragment.childFragments.length, 1);
   });
 
-  it('fragment inlineSize matches container', () => {
+  it("fragment inlineSize matches container", () => {
     const root = multicolNode({
       columnCount: 2, columnGap: 0,
       children: [blockNode({ blockSize: 50 })],

@@ -1,8 +1,9 @@
-import { BlockBreakToken } from '../tokens.js';
-import { ConstraintSpace } from '../constraint-space.js';
-import { PhysicalFragment } from '../fragment.js';
-import { layoutChild } from '../layout-request.js';
-import { resolveColumnDimensions } from '../column-sizing.js';
+import { BlockBreakToken } from "../tokens.js";
+import { ConstraintSpace } from "../constraint-space.js";
+import { PhysicalFragment } from "../fragment.js";
+import { layoutChild } from "../layout-request.js";
+import { resolveColumnDimensions } from "../column-sizing.js";
+import { FRAGMENTATION_COLUMN, FRAGMENTATION_NONE, ALGORITHM_MULTICOL } from "../constants.js";
 
 /**
  * Create an anonymous flow thread node (Chromium pattern).
@@ -33,12 +34,12 @@ function createFlowThread(multicolNode) {
     columnCount: null,
     columnWidth: null,
     columnGap: null,
-    columnFill: 'balance',
+    columnFill: "balance",
     inlineItemsData: null,
     page: null,
-    breakBefore: 'auto',
-    breakAfter: 'auto',
-    breakInside: 'auto',
+    breakBefore: "auto",
+    breakAfter: "auto",
+    breakInside: "auto",
     orphans: 2,
     widows: 2,
     marginBlockStart: 0,
@@ -80,7 +81,7 @@ export function* layoutMulticolContainer(node, constraintSpace, breakToken) {
     availableBlockSize: columnHeight,
     fragmentainerBlockSize: columnHeight,
     blockOffsetInFragmentainer: 0,
-    fragmentationType: 'column',
+    fragmentationType: FRAGMENTATION_COLUMN,
     isNewFormattingContext: true,
   });
 
@@ -100,7 +101,7 @@ export function* layoutMulticolContainer(node, constraintSpace, breakToken) {
     contentToken = result.breakToken;
 
     // column-fill: auto — stop at column count limit
-    if (node.columnFill === 'auto' && columnFragments.length >= count) {
+    if (node.columnFill === "auto" && columnFragments.length >= count) {
       break;
     }
   } while (contentToken !== null);
@@ -116,7 +117,7 @@ export function* layoutMulticolContainer(node, constraintSpace, breakToken) {
 
   // Break token if content remains and we're in an outer fragmentation context
   // (stub: emitted but nested column-in-page re-resolution not yet handled)
-  if (contentToken !== null && constraintSpace.fragmentationType !== 'none') {
+  if (contentToken !== null && constraintSpace.fragmentationType !== FRAGMENTATION_NONE) {
     const multicolToken = new BlockBreakToken(node);
     multicolToken.consumedBlockSize =
       (breakToken?.consumedBlockSize || 0) + multicolBlockSize;
@@ -124,7 +125,7 @@ export function* layoutMulticolContainer(node, constraintSpace, breakToken) {
     multicolToken.childBreakTokens = [contentToken];
     multicolToken.hasSeenAllChildren = false;
     multicolToken.algorithmData = {
-      type: 'kMulticolData',
+      type: ALGORITHM_MULTICOL,
       columnCount: count,
       columnWidth: width,
       columnGap: gap,

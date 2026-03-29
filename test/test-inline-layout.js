@@ -1,14 +1,14 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { createFragments } from '../src/driver.js';
-import { ConstraintSpace } from '../src/constraint-space.js';
-import { blockNode, inlineNode, textToInlineItems } from './fixtures/nodes.js';
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { createFragments } from "../src/driver.js";
+import { ConstraintSpace } from "../src/constraint-space.js";
+import { blockNode, inlineNode, textToInlineItems } from "./fixtures/nodes.js";
 
-describe('Phase 5: Inline content fragmentation', () => {
-  it('lays out inline content that fits in one page', () => {
-    const text = 'Hello world this is a test';
+describe("Phase 5: Inline content fragmentation", () => {
+  it("lays out inline content that fits in one page", () => {
+    const text = "Hello world this is a test";
     const node = inlineNode({
-      debugName: 'p',
+      debugName: "p",
       inlineItemsData: textToInlineItems(text),
       lineHeight: 20,
       measureText: (t) => t.length * 8, // 8px per char
@@ -22,17 +22,17 @@ describe('Phase 5: Inline content fragmentation', () => {
       availableInlineSize: 600,
       availableBlockSize: 800,
       fragmentainerBlockSize: 800,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.equal(pages.length, 1);
     assert.equal(pages[0].breakToken, null);
   });
 
-  it('breaks text across multiple lines', () => {
+  it("breaks text across multiple lines", () => {
     // 10 words of 5 chars + space = ~48px per word at 8px/char
-    const words = Array.from({ length: 10 }, () => 'hello').join(' ');
+    const words = Array.from({ length: 10 }, () => "hello").join(" ");
     const node = inlineNode({
-      debugName: 'p',
+      debugName: "p",
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
@@ -46,7 +46,7 @@ describe('Phase 5: Inline content fragmentation', () => {
       availableInlineSize: 100,
       availableBlockSize: 800,
       fragmentainerBlockSize: 800,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.equal(pages.length, 1);
     // Should have multiple line fragments
@@ -54,11 +54,11 @@ describe('Phase 5: Inline content fragmentation', () => {
     assert.ok(inlineFragment.childFragments.length > 1);
   });
 
-  it('fragments inline content across pages', () => {
+  it("fragments inline content across pages", () => {
     // Generate enough text to span 3+ pages
-    const words = Array.from({ length: 100 }, () => 'word').join(' ');
+    const words = Array.from({ length: 100 }, () => "word").join(" ");
     const node = inlineNode({
-      debugName: 'p',
+      debugName: "p",
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
@@ -72,7 +72,7 @@ describe('Phase 5: Inline content fragmentation', () => {
       availableInlineSize: 200,
       availableBlockSize: 100,
       fragmentainerBlockSize: 100,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.ok(pages.length > 1, `Expected multiple pages, got ${pages.length}`);
 
@@ -83,10 +83,10 @@ describe('Phase 5: Inline content fragmentation', () => {
     assert.equal(pages[pages.length - 1].breakToken, null);
   });
 
-  it('InlineBreakToken has correct content-addressed position', () => {
-    const words = Array.from({ length: 50 }, () => 'test').join(' ');
+  it("InlineBreakToken has correct content-addressed position", () => {
+    const words = Array.from({ length: 50 }, () => "test").join(" ");
     const node = inlineNode({
-      debugName: 'p',
+      debugName: "p",
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
@@ -99,7 +99,7 @@ describe('Phase 5: Inline content fragmentation', () => {
       availableInlineSize: 200,
       availableBlockSize: 60,
       fragmentainerBlockSize: 60,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.ok(pages.length > 1);
 
@@ -109,14 +109,14 @@ describe('Phase 5: Inline content fragmentation', () => {
     // Find the inline break token (could be nested)
     const inlineBT = rootBT.childBreakTokens[0];
     assert.ok(inlineBT);
-    assert.equal(inlineBT.type, 'inline');
-    assert.ok(inlineBT.textOffset > 0, 'textOffset should be > 0');
+    assert.equal(inlineBT.type, "inline");
+    assert.ok(inlineBT.textOffset > 0, "textOffset should be > 0");
   });
 
-  it('handles forced line break (<br>) without fragmentainer break', () => {
-    const text = 'line one\nline two\nline three';
+  it("handles forced line break (<br>) without fragmentainer break", () => {
+    const text = "line one\nline two\nline three";
     const node = inlineNode({
-      debugName: 'p',
+      debugName: "p",
       inlineItemsData: textToInlineItems(text),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
@@ -130,7 +130,7 @@ describe('Phase 5: Inline content fragmentation', () => {
       availableInlineSize: 600,
       availableBlockSize: 800,
       fragmentainerBlockSize: 800,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.equal(pages.length, 1);
     // Should have 3 line fragments (one per \n-separated segment)
@@ -138,10 +138,10 @@ describe('Phase 5: Inline content fragmentation', () => {
     assert.equal(inlineFragment.childFragments.length, 3);
   });
 
-  it('varying inline size between pages changes line breaks', () => {
-    const words = Array.from({ length: 30 }, () => 'word').join(' ');
+  it("varying inline size between pages changes line breaks", () => {
+    const words = Array.from({ length: 30 }, () => "word").join(" ");
     const node = inlineNode({
-      debugName: 'p',
+      debugName: "p",
       inlineItemsData: textToInlineItems(words),
       lineHeight: 20,
       measureText: (t) => t.length * 8,
@@ -164,7 +164,7 @@ describe('Phase 5: Inline content fragmentation', () => {
             availableInlineSize: size.inlineSize,
             availableBlockSize: size.blockSize,
             fragmentainerBlockSize: size.blockSize,
-            fragmentationType: 'page',
+            fragmentationType: "page",
           }),
         };
       },

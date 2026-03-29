@@ -1,4 +1,5 @@
-import { ConstraintSpace } from './constraint-space.js';
+import { ConstraintSpace } from "./constraint-space.js";
+import { FRAGMENTATION_PAGE } from "./constants.js";
 
 /**
  * Standard page sizes in CSS pixels at 96 DPI.
@@ -23,13 +24,13 @@ export function parseCSSLength(str) {
   const match = str.trim().match(/^([\d.]+)(px|in|cm|mm|pt)?$/);
   if (!match) return null;
   const value = parseFloat(match[1]);
-  const unit = match[2] || 'px';
+  const unit = match[2] || "px";
   switch (unit) {
-    case 'px': return value;
-    case 'in': return value * 96;
-    case 'cm': return value * 96 / 2.54;
-    case 'mm': return value * 96 / 25.4;
-    case 'pt': return value * 96 / 72;
+    case "px": return value;
+    case "in": return value * 96;
+    case "cm": return value * 96 / 2.54;
+    case "mm": return value * 96 / 25.4;
+    case "pt": return value * 96 / 72;
     default: return value;
   }
 }
@@ -87,7 +88,7 @@ export class PageConstraints {
       availableBlockSize: this.contentArea.blockSize,
       fragmentainerBlockSize: this.contentArea.blockSize,
       blockOffsetInFragmentainer: 0,
-      fragmentationType: 'page',
+      fragmentationType: FRAGMENTATION_PAGE,
     });
   }
 }
@@ -146,10 +147,10 @@ export class PageSizeResolver {
       if (rule.name && rule.name !== namedPage) return false;
 
       // Pseudo-class must match the page context
-      if (rule.pseudoClass === 'first' && pageIndex !== 0) return false;
-      if (rule.pseudoClass === 'left' && !this.isLeftPage(pageIndex)) return false;
-      if (rule.pseudoClass === 'right' && this.isLeftPage(pageIndex)) return false;
-      if (rule.pseudoClass === 'blank') return false; // not yet supported
+      if (rule.pseudoClass === "first" && pageIndex !== 0) return false;
+      if (rule.pseudoClass === "left" && !this.isLeftPage(pageIndex)) return false;
+      if (rule.pseudoClass === "right" && this.isLeftPage(pageIndex)) return false;
+      if (rule.pseudoClass === "blank") return false; // not yet supported
 
       return true;
     });
@@ -181,26 +182,26 @@ export class PageSizeResolver {
 
   /** Resolve CSS size property to physical dimensions in CSS pixels. */
   resolveSize(sizeValue) {
-    if (!sizeValue || sizeValue === 'auto') return { ...this.defaultSize };
+    if (!sizeValue || sizeValue === "auto") return { ...this.defaultSize };
 
-    if (typeof sizeValue === 'string') {
+    if (typeof sizeValue === "string") {
       const parts = sizeValue.toLowerCase().split(/\s+/);
       const name = parts.find(p => NAMED_SIZES[p]);
-      const orientation = parts.find(p => p === 'landscape' || p === 'portrait');
+      const orientation = parts.find(p => p === "landscape" || p === "portrait");
 
       if (name) {
         const size = { ...NAMED_SIZES[name] };
-        if (orientation === 'landscape') {
+        if (orientation === "landscape") {
           return { inlineSize: size.blockSize, blockSize: size.inlineSize };
         }
         return size;
       }
 
       // Bare 'landscape' / 'portrait' — rotate the default size
-      if (sizeValue === 'landscape') {
+      if (sizeValue === "landscape") {
         return { inlineSize: this.defaultSize.blockSize, blockSize: this.defaultSize.inlineSize };
       }
-      if (sizeValue === 'portrait') return { ...this.defaultSize };
+      if (sizeValue === "portrait") return { ...this.defaultSize };
 
       // Try parsing as one or two length values
       const lengths = parts.map(parseCSSLength).filter(v => v !== null);
@@ -218,7 +219,7 @@ export class PageSizeResolver {
 
   /** Apply page-orientation by swapping dimensions. */
   applyOrientation(size, orientation) {
-    if (orientation === 'rotate-left' || orientation === 'rotate-right') {
+    if (orientation === "rotate-left" || orientation === "rotate-right") {
       return { inlineSize: size.blockSize, blockSize: size.inlineSize };
     }
     return size;
@@ -279,7 +280,7 @@ export function parsePageRulesFromStyleSheets(styleElements) {
         const sizeStr = sizeMatch[1].trim();
         const parts = sizeStr.split(/\s+/);
         const hasNamedSize = parts.some(p => NAMED_SIZES[p.toLowerCase()]);
-        const hasOrientation = parts.some(p => p === 'landscape' || p === 'portrait');
+        const hasOrientation = parts.some(p => p === "landscape" || p === "portrait");
 
         if (hasNamedSize || hasOrientation) {
           size = sizeStr.toLowerCase();
@@ -331,7 +332,7 @@ function parseMarginProperties(body) {
   }
 
   // Individual margin properties (override shorthand)
-  const sides = ['top', 'right', 'bottom', 'left'];
+  const sides = ["top", "right", "bottom", "left"];
   for (const side of sides) {
     const re = new RegExp(`margin-${side}\\s*:\\s*([^;]+)`);
     const m = body.match(re);

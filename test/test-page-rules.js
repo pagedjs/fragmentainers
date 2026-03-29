@@ -1,29 +1,29 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import {
   PageRule, PageConstraints, PageSizeResolver, parseCSSLength,
-} from '../src/page-rules.js';
+} from "../src/page-rules.js";
 import {
   getNamedPage, resolveNamedPageForBreakToken,
-} from '../src/helpers.js';
-import { BlockBreakToken } from '../src/tokens.js';
-import { createFragments } from '../src/driver.js';
-import { ConstraintSpace } from '../src/constraint-space.js';
-import { blockNode } from './fixtures/nodes.js';
+} from "../src/helpers.js";
+import { BlockBreakToken } from "../src/tokens.js";
+import { createFragments } from "../src/driver.js";
+import { ConstraintSpace } from "../src/constraint-space.js";
+import { blockNode } from "./fixtures/nodes.js";
 
 // -- PageSizeResolver --
 
-describe('PageSizeResolver', () => {
+describe("PageSizeResolver", () => {
   const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };
 
-  it('returns default size when no rules', () => {
+  it("returns default size when no rules", () => {
     const resolver = new PageSizeResolver([], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
     assert.deepEqual(c.contentArea, DEFAULT_SIZE);
     assert.deepEqual(c.margins, { top: 0, right: 0, bottom: 0, left: 0 });
   });
 
-  it('universal @page with explicit size', () => {
+  it("universal @page with explicit size", () => {
     const resolver = new PageSizeResolver([
       new PageRule({ size: [600, 800] }),
     ], DEFAULT_SIZE);
@@ -32,34 +32,34 @@ describe('PageSizeResolver', () => {
     assert.equal(c.contentArea.blockSize, 800);
   });
 
-  it('universal @page with named size (a4)', () => {
+  it("universal @page with named size (a4)", () => {
     const resolver = new PageSizeResolver([
-      new PageRule({ size: 'a4' }),
+      new PageRule({ size: "a4" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
     assert.equal(c.pageBoxSize.inlineSize, 794);
     assert.equal(c.pageBoxSize.blockSize, 1123);
   });
 
-  it('named size with landscape orientation', () => {
+  it("named size with landscape orientation", () => {
     const resolver = new PageSizeResolver([
-      new PageRule({ size: 'letter landscape' }),
+      new PageRule({ size: "letter landscape" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
     assert.equal(c.pageBoxSize.inlineSize, 1056);
     assert.equal(c.pageBoxSize.blockSize, 816);
   });
 
-  it('bare landscape rotates default', () => {
+  it("bare landscape rotates default", () => {
     const resolver = new PageSizeResolver([
-      new PageRule({ size: 'landscape' }),
+      new PageRule({ size: "landscape" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
     assert.equal(c.pageBoxSize.inlineSize, DEFAULT_SIZE.blockSize);
     assert.equal(c.pageBoxSize.blockSize, DEFAULT_SIZE.inlineSize);
   });
 
-  it('applies margins and computes content area', () => {
+  it("applies margins and computes content area", () => {
     const resolver = new PageSizeResolver([
       new PageRule({ size: [800, 1000], margin: { top: 50, right: 40, bottom: 50, left: 40 } }),
     ], DEFAULT_SIZE);
@@ -68,10 +68,10 @@ describe('PageSizeResolver', () => {
     assert.equal(c.contentArea.blockSize, 900);  // 1000 - 50 - 50
   });
 
-  it(':first pseudo-class matches only page 0', () => {
+  it(":first pseudo-class matches only page 0", () => {
     const resolver = new PageSizeResolver([
       new PageRule({ size: [600, 800] }),
-      new PageRule({ pseudoClass: 'first', size: [400, 500] }),
+      new PageRule({ pseudoClass: "first", size: [400, 500] }),
     ], DEFAULT_SIZE);
 
     const c0 = resolver.resolve(0, null, null);
@@ -81,11 +81,11 @@ describe('PageSizeResolver', () => {
     assert.equal(c1.contentArea.inlineSize, 600);
   });
 
-  it(':left/:right alternate by page index', () => {
+  it(":left/:right alternate by page index", () => {
     const resolver = new PageSizeResolver([
       new PageRule({ size: [600, 800] }),
-      new PageRule({ pseudoClass: 'right', margin: { top: 0, right: 100, bottom: 0, left: 0 } }),
-      new PageRule({ pseudoClass: 'left', margin: { top: 0, right: 0, bottom: 0, left: 100 } }),
+      new PageRule({ pseudoClass: "right", margin: { top: 0, right: 100, bottom: 0, left: 0 } }),
+      new PageRule({ pseudoClass: "left", margin: { top: 0, right: 0, bottom: 0, left: 100 } }),
     ], DEFAULT_SIZE);
 
     // Page 0 is right (recto)
@@ -99,54 +99,54 @@ describe('PageSizeResolver', () => {
     assert.equal(c1.margins.right, 0);
   });
 
-  it('named page rule matches only its named page', () => {
+  it("named page rule matches only its named page", () => {
     const resolver = new PageSizeResolver([
       new PageRule({ size: [600, 800] }),
-      new PageRule({ name: 'chapter', size: [500, 700] }),
+      new PageRule({ name: "chapter", size: [500, 700] }),
     ], DEFAULT_SIZE);
 
     const cNone = resolver.resolve(0, null, null);
     assert.equal(cNone.contentArea.inlineSize, 600);
 
-    const cChapter = resolver.resolve(1, 'chapter', null);
+    const cChapter = resolver.resolve(1, "chapter", null);
     assert.equal(cChapter.contentArea.inlineSize, 500);
   });
 
-  it('cascade: named+pseudo overrides named overrides pseudo overrides universal', () => {
+  it("cascade: named+pseudo overrides named overrides pseudo overrides universal", () => {
     const resolver = new PageSizeResolver([
       new PageRule({ size: [100, 100] }),                                        // universal
-      new PageRule({ pseudoClass: 'first', size: [200, 200] }),                  // pseudo
-      new PageRule({ name: 'cover', size: [300, 300] }),                         // named
-      new PageRule({ name: 'cover', pseudoClass: 'first', size: [400, 400] }),   // named+pseudo
+      new PageRule({ pseudoClass: "first", size: [200, 200] }),                  // pseudo
+      new PageRule({ name: "cover", size: [300, 300] }),                         // named
+      new PageRule({ name: "cover", pseudoClass: "first", size: [400, 400] }),   // named+pseudo
     ], DEFAULT_SIZE);
 
     // Page 0, named 'cover' → named+pseudo wins
-    const c = resolver.resolve(0, 'cover', null);
+    const c = resolver.resolve(0, "cover", null);
     assert.equal(c.contentArea.inlineSize, 400);
   });
 
-  it('cascade: margins merge from multiple rules', () => {
+  it("cascade: margins merge from multiple rules", () => {
     const resolver = new PageSizeResolver([
       new PageRule({ size: [600, 800], margin: { top: 10, right: 10, bottom: 10, left: 10 } }),
-      new PageRule({ name: 'wide', margin: { left: 50, right: 50 } }),
+      new PageRule({ name: "wide", margin: { left: 50, right: 50 } }),
     ], DEFAULT_SIZE);
 
-    const c = resolver.resolve(0, 'wide', null);
+    const c = resolver.resolve(0, "wide", null);
     assert.equal(c.margins.top, 10);    // from universal
     assert.equal(c.margins.left, 50);   // overridden by named
     assert.equal(c.margins.right, 50);  // overridden by named
   });
 
-  it('page-orientation: rotate-left swaps dimensions', () => {
+  it("page-orientation: rotate-left swaps dimensions", () => {
     const resolver = new PageSizeResolver([
-      new PageRule({ size: [600, 800], pageOrientation: 'rotate-left' }),
+      new PageRule({ size: [600, 800], pageOrientation: "rotate-left" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
     assert.equal(c.pageBoxSize.inlineSize, 800);
     assert.equal(c.pageBoxSize.blockSize, 600);
   });
 
-  it('toConstraintSpace() produces correct values', () => {
+  it("toConstraintSpace() produces correct values", () => {
     const resolver = new PageSizeResolver([
       new PageRule({ size: [600, 800], margin: { top: 20, right: 20, bottom: 20, left: 20 } }),
     ], DEFAULT_SIZE);
@@ -157,10 +157,10 @@ describe('PageSizeResolver', () => {
     assert.equal(cs.availableBlockSize, 760);
     assert.equal(cs.fragmentainerBlockSize, 760);
     assert.equal(cs.blockOffsetInFragmentainer, 0);
-    assert.equal(cs.fragmentationType, 'page');
+    assert.equal(cs.fragmentationType, "page");
   });
 
-  it('isFirstPage and isLeftPage flags', () => {
+  it("isFirstPage and isLeftPage flags", () => {
     const resolver = new PageSizeResolver([], DEFAULT_SIZE);
 
     const c0 = resolver.resolve(0, null, null);
@@ -175,57 +175,57 @@ describe('PageSizeResolver', () => {
 
 // -- parseCSSLength --
 
-describe('parseCSSLength', () => {
-  it('parses px', () => assert.equal(parseCSSLength('100px'), 100));
-  it('parses in', () => assert.equal(parseCSSLength('1in'), 96));
-  it('parses cm', () => assert.ok(Math.abs(parseCSSLength('2.54cm') - 96) < 0.01));
-  it('parses mm', () => assert.ok(Math.abs(parseCSSLength('25.4mm') - 96) < 0.01));
-  it('parses pt', () => assert.equal(parseCSSLength('72pt'), 96));
-  it('parses bare number as px', () => assert.equal(parseCSSLength('50'), 50));
-  it('returns null for invalid', () => assert.equal(parseCSSLength('abc'), null));
+describe("parseCSSLength", () => {
+  it("parses px", () => assert.equal(parseCSSLength("100px"), 100));
+  it("parses in", () => assert.equal(parseCSSLength("1in"), 96));
+  it("parses cm", () => assert.ok(Math.abs(parseCSSLength("2.54cm") - 96) < 0.01));
+  it("parses mm", () => assert.ok(Math.abs(parseCSSLength("25.4mm") - 96) < 0.01));
+  it("parses pt", () => assert.equal(parseCSSLength("72pt"), 96));
+  it("parses bare number as px", () => assert.equal(parseCSSLength("50"), 50));
+  it("returns null for invalid", () => assert.equal(parseCSSLength("abc"), null));
 });
 
 // -- getNamedPage --
 
-describe('getNamedPage', () => {
-  it('returns page property from node', () => {
-    assert.equal(getNamedPage(blockNode({ page: 'cover' })), 'cover');
+describe("getNamedPage", () => {
+  it("returns page property from node", () => {
+    assert.equal(getNamedPage(blockNode({ page: "cover" })), "cover");
   });
 
-  it('returns null for node with no page', () => {
+  it("returns null for node with no page", () => {
     assert.equal(getNamedPage(blockNode()), null);
   });
 
-  it('returns null for null node', () => {
+  it("returns null for null node", () => {
     assert.equal(getNamedPage(null), null);
   });
 });
 
 // -- resolveNamedPageForBreakToken --
 
-describe('resolveNamedPageForBreakToken', () => {
-  it('returns first child page when no break token', () => {
+describe("resolveNamedPageForBreakToken", () => {
+  it("returns first child page when no break token", () => {
     const root = blockNode({
       children: [
-        blockNode({ page: 'cover' }),
-        blockNode({ page: 'chapter' }),
+        blockNode({ page: "cover" }),
+        blockNode({ page: "chapter" }),
       ],
     });
-    assert.equal(resolveNamedPageForBreakToken(root, null), 'cover');
+    assert.equal(resolveNamedPageForBreakToken(root, null), "cover");
   });
 
-  it('returns null when first child has no page', () => {
+  it("returns null when first child has no page", () => {
     const root = blockNode({
       children: [blockNode(), blockNode()],
     });
     assert.equal(resolveNamedPageForBreakToken(root, null), null);
   });
 
-  it('returns page of isBreakBefore child', () => {
-    const childB = blockNode({ debugName: 'B', page: 'chapter' });
+  it("returns page of isBreakBefore child", () => {
+    const childB = blockNode({ debugName: "B", page: "chapter" });
     const root = blockNode({
       children: [
-        blockNode({ debugName: 'A' }),
+        blockNode({ debugName: "A" }),
         childB,
       ],
     });
@@ -234,12 +234,12 @@ describe('resolveNamedPageForBreakToken', () => {
     const childBT = BlockBreakToken.createBreakBefore(childB, true);
     bt.childBreakTokens.push(childBT);
 
-    assert.equal(resolveNamedPageForBreakToken(root, bt), 'chapter');
+    assert.equal(resolveNamedPageForBreakToken(root, bt), "chapter");
   });
 
-  it('returns page of next sibling when break inside a child', () => {
-    const childA = blockNode({ debugName: 'A', blockSize: 200 });
-    const childB = blockNode({ debugName: 'B', page: 'appendix' });
+  it("returns page of next sibling when break inside a child", () => {
+    const childA = blockNode({ debugName: "A", blockSize: 200 });
+    const childB = blockNode({ debugName: "B", page: "appendix" });
     const root = blockNode({
       children: [childA, childB],
     });
@@ -250,19 +250,19 @@ describe('resolveNamedPageForBreakToken', () => {
     childAToken.consumedBlockSize = 100;
     bt.childBreakTokens.push(childAToken);
 
-    assert.equal(resolveNamedPageForBreakToken(root, bt), 'appendix');
+    assert.equal(resolveNamedPageForBreakToken(root, bt), "appendix");
   });
 });
 
 // -- Forced breaks from named page changes --
 
-describe('Named page forced breaks', () => {
-  it('forces break when page property changes between siblings', () => {
+describe("Named page forced breaks", () => {
+  it("forces break when page property changes between siblings", () => {
     const root = blockNode({
       children: [
-        blockNode({ debugName: 'A', blockSize: 50, page: 'cover' }),
-        blockNode({ debugName: 'B', blockSize: 50, page: 'chapter' }),
-        blockNode({ debugName: 'C', blockSize: 50, page: 'chapter' }),
+        blockNode({ debugName: "A", blockSize: 50, page: "cover" }),
+        blockNode({ debugName: "B", blockSize: 50, page: "chapter" }),
+        blockNode({ debugName: "C", blockSize: 50, page: "chapter" }),
       ],
     });
 
@@ -270,18 +270,18 @@ describe('Named page forced breaks', () => {
       availableInlineSize: 600,
       availableBlockSize: 1000,
       fragmentainerBlockSize: 1000,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.equal(pages.length, 2);
     assert.equal(pages[0].childFragments.length, 1); // Only A
     assert.equal(pages[1].childFragments.length, 2); // B + C (same page name)
   });
 
-  it('forces break when changing from named to null', () => {
+  it("forces break when changing from named to null", () => {
     const root = blockNode({
       children: [
-        blockNode({ debugName: 'A', blockSize: 50, page: 'cover' }),
-        blockNode({ debugName: 'B', blockSize: 50 }),
+        blockNode({ debugName: "A", blockSize: 50, page: "cover" }),
+        blockNode({ debugName: "B", blockSize: 50 }),
       ],
     });
 
@@ -289,16 +289,16 @@ describe('Named page forced breaks', () => {
       availableInlineSize: 600,
       availableBlockSize: 1000,
       fragmentainerBlockSize: 1000,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.equal(pages.length, 2);
   });
 
-  it('forces break when changing from null to named', () => {
+  it("forces break when changing from null to named", () => {
     const root = blockNode({
       children: [
-        blockNode({ debugName: 'A', blockSize: 50 }),
-        blockNode({ debugName: 'B', blockSize: 50, page: 'chapter' }),
+        blockNode({ debugName: "A", blockSize: 50 }),
+        blockNode({ debugName: "B", blockSize: 50, page: "chapter" }),
       ],
     });
 
@@ -306,16 +306,16 @@ describe('Named page forced breaks', () => {
       availableInlineSize: 600,
       availableBlockSize: 1000,
       fragmentainerBlockSize: 1000,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.equal(pages.length, 2);
   });
 
-  it('no break when both siblings have same page', () => {
+  it("no break when both siblings have same page", () => {
     const root = blockNode({
       children: [
-        blockNode({ debugName: 'A', blockSize: 50, page: 'chapter' }),
-        blockNode({ debugName: 'B', blockSize: 50, page: 'chapter' }),
+        blockNode({ debugName: "A", blockSize: 50, page: "chapter" }),
+        blockNode({ debugName: "B", blockSize: 50, page: "chapter" }),
       ],
     });
 
@@ -323,16 +323,16 @@ describe('Named page forced breaks', () => {
       availableInlineSize: 600,
       availableBlockSize: 1000,
       fragmentainerBlockSize: 1000,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.equal(pages.length, 1);
   });
 
-  it('no break when both siblings have null page', () => {
+  it("no break when both siblings have null page", () => {
     const root = blockNode({
       children: [
-        blockNode({ debugName: 'A', blockSize: 50 }),
-        blockNode({ debugName: 'B', blockSize: 50 }),
+        blockNode({ debugName: "A", blockSize: 50 }),
+        blockNode({ debugName: "B", blockSize: 50 }),
       ],
     });
 
@@ -340,16 +340,16 @@ describe('Named page forced breaks', () => {
       availableInlineSize: 600,
       availableBlockSize: 1000,
       fragmentainerBlockSize: 1000,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.equal(pages.length, 1);
   });
 
-  it('forced break token has isForcedBreak = true', () => {
+  it("forced break token has isForcedBreak = true", () => {
     const root = blockNode({
       children: [
-        blockNode({ debugName: 'A', blockSize: 50, page: 'cover' }),
-        blockNode({ debugName: 'B', blockSize: 50, page: 'chapter' }),
+        blockNode({ debugName: "A", blockSize: 50, page: "cover" }),
+        blockNode({ debugName: "B", blockSize: 50, page: "chapter" }),
       ],
     });
 
@@ -357,7 +357,7 @@ describe('Named page forced breaks', () => {
       availableInlineSize: 600,
       availableBlockSize: 1000,
       fragmentainerBlockSize: 1000,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.equal(pages[0].breakToken.childBreakTokens[0].isForcedBreak, true);
   });
@@ -365,8 +365,8 @@ describe('Named page forced breaks', () => {
 
 // -- createFragments with PageSizeResolver --
 
-describe('createFragments with PageSizeResolver', () => {
-  it('resolves page sizes dynamically', () => {
+describe("createFragments with PageSizeResolver", () => {
+  it("resolves page sizes dynamically", () => {
     const DEFAULT_SIZE = { inlineSize: 600, blockSize: 1000 };
     const resolver = new PageSizeResolver([
       new PageRule({ size: [600, 1000] }),
@@ -385,16 +385,16 @@ describe('createFragments with PageSizeResolver', () => {
     assert.equal(pages[0].constraints.contentArea.inlineSize, 600);
   });
 
-  it('uses named page sizes for different pages', () => {
+  it("uses named page sizes for different pages", () => {
     const resolver = new PageSizeResolver([
       new PageRule({ size: [600, 200] }),
-      new PageRule({ name: 'wide', size: [800, 200] }),
+      new PageRule({ name: "wide", size: [800, 200] }),
     ], { inlineSize: 600, blockSize: 200 });
 
     const root = blockNode({
       children: [
-        blockNode({ debugName: 'narrow', blockSize: 50 }),
-        blockNode({ debugName: 'wide-content', blockSize: 50, page: 'wide' }),
+        blockNode({ debugName: "narrow", blockSize: 50 }),
+        blockNode({ debugName: "wide-content", blockSize: 50, page: "wide" }),
       ],
     });
 
@@ -402,10 +402,10 @@ describe('createFragments with PageSizeResolver', () => {
     assert.equal(pages.length, 2);
     assert.equal(pages[0].constraints.contentArea.inlineSize, 600);
     assert.equal(pages[1].constraints.contentArea.inlineSize, 800);
-    assert.equal(pages[1].constraints.namedPage, 'wide');
+    assert.equal(pages[1].constraints.namedPage, "wide");
   });
 
-  it('accepts a plain ConstraintSpace (no resolver)', () => {
+  it("accepts a plain ConstraintSpace (no resolver)", () => {
     const root = blockNode({
       children: [blockNode({ blockSize: 50 })],
     });
@@ -414,7 +414,7 @@ describe('createFragments with PageSizeResolver', () => {
       availableInlineSize: 600,
       availableBlockSize: 200,
       fragmentainerBlockSize: 200,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.equal(pages.length, 1);
     assert.equal(pages[0].constraints, null); // no constraints without resolver

@@ -1,11 +1,11 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { runLayoutGenerator, getLayoutAlgorithm } from '../src/driver.js';
-import { layoutFlexContainer } from '../src/layout/flex-container.js';
-import { ConstraintSpace } from '../src/constraint-space.js';
-import { blockNode, flexNode } from './fixtures/nodes.js';
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { runLayoutGenerator, getLayoutAlgorithm } from "../src/driver.js";
+import { layoutFlexContainer } from "../src/layout/flex-container.js";
+import { ConstraintSpace } from "../src/constraint-space.js";
+import { blockNode, flexNode } from "./fixtures/nodes.js";
 
-function layoutFlex(node, { inlineSize = 600, blockSize = 400, fragmentationType = 'none' } = {}) {
+function layoutFlex(node, { inlineSize = 600, blockSize = 400, fragmentationType = "none" } = {}) {
   const cs = new ConstraintSpace({
     availableInlineSize: inlineSize,
     availableBlockSize: blockSize,
@@ -16,17 +16,17 @@ function layoutFlex(node, { inlineSize = 600, blockSize = 400, fragmentationType
   return runLayoutGenerator(getLayoutAlgorithm(node), node, cs, null);
 }
 
-describe('layoutFlexContainer', () => {
-  it('dispatches flex nodes to the flex algorithm', () => {
+describe("layoutFlexContainer", () => {
+  it("dispatches flex nodes to the flex algorithm", () => {
     const node = flexNode();
     assert.equal(getLayoutAlgorithm(node), layoutFlexContainer);
   });
 
-  it('lays out single-line row flex items as parallel flows', () => {
+  it("lays out single-line row flex items as parallel flows", () => {
     const root = flexNode({
       children: [
-        blockNode({ debugName: 'A', blockSize: 100 }),
-        blockNode({ debugName: 'B', blockSize: 80 }),
+        blockNode({ debugName: "A", blockSize: 100 }),
+        blockNode({ debugName: "B", blockSize: 80 }),
       ],
     });
 
@@ -39,30 +39,30 @@ describe('layoutFlexContainer', () => {
     assert.equal(line.blockSize, 100);
   });
 
-  it('items fragment independently (parallel flows)', () => {
+  it("items fragment independently (parallel flows)", () => {
     const root = flexNode({
       children: [
-        blockNode({ debugName: 'A', blockSize: 200 }),
-        blockNode({ debugName: 'B', blockSize: 50 }),
+        blockNode({ debugName: "A", blockSize: 200 }),
+        blockNode({ debugName: "B", blockSize: 50 }),
       ],
     });
 
     // Fragmentainer height 100: A breaks, B completes
-    const result = layoutFlex(root, { blockSize: 100, fragmentationType: 'page' });
+    const result = layoutFlex(root, { blockSize: 100, fragmentationType: "page" });
     const line = result.fragment.childFragments[0];
     assert.equal(line.blockSize, 100);
     assert.ok(result.breakToken);
   });
 
-  it('completed items get isAtBlockEnd tokens', () => {
+  it("completed items get isAtBlockEnd tokens", () => {
     const root = flexNode({
       children: [
-        blockNode({ debugName: 'A', blockSize: 200 }),
-        blockNode({ debugName: 'B', blockSize: 50 }),
+        blockNode({ debugName: "A", blockSize: 200 }),
+        blockNode({ debugName: "B", blockSize: 50 }),
       ],
     });
 
-    const result = layoutFlex(root, { blockSize: 100, fragmentationType: 'page' });
+    const result = layoutFlex(root, { blockSize: 100, fragmentationType: "page" });
     // The line break token should have child tokens for both items
     const lineToken = result.breakToken.childBreakTokens[0];
     assert.ok(lineToken);
@@ -74,24 +74,24 @@ describe('layoutFlexContainer', () => {
     assert.equal(broke.length, 1);
   });
 
-  it('break token has kFlexData', () => {
+  it("break token has kFlexData", () => {
     const root = flexNode({
       children: [
-        blockNode({ debugName: 'A', blockSize: 200 }),
+        blockNode({ debugName: "A", blockSize: 200 }),
       ],
     });
 
-    const result = layoutFlex(root, { blockSize: 100, fragmentationType: 'page' });
+    const result = layoutFlex(root, { blockSize: 100, fragmentationType: "page" });
     assert.ok(result.breakToken);
-    assert.equal(result.breakToken.algorithmData.type, 'kFlexData');
+    assert.equal(result.breakToken.algorithmData.type, "kFlexData");
   });
 
-  it('column flex uses flow thread (sequential fragmentation)', () => {
+  it("column flex uses flow thread (sequential fragmentation)", () => {
     const root = flexNode({
-      flexDirection: 'column',
+      flexDirection: "column",
       children: [
-        blockNode({ debugName: 'A', blockSize: 100 }),
-        blockNode({ debugName: 'B', blockSize: 100 }),
+        blockNode({ debugName: "A", blockSize: 100 }),
+        blockNode({ debugName: "B", blockSize: 100 }),
       ],
     });
 
@@ -101,30 +101,30 @@ describe('layoutFlexContainer', () => {
     assert.equal(result.breakToken, null);
   });
 
-  it('column flex fragments across pages', () => {
+  it("column flex fragments across pages", () => {
     const root = flexNode({
-      flexDirection: 'column',
+      flexDirection: "column",
       children: [
-        blockNode({ debugName: 'A', blockSize: 100 }),
-        blockNode({ debugName: 'B', blockSize: 100 }),
+        blockNode({ debugName: "A", blockSize: 100 }),
+        blockNode({ debugName: "B", blockSize: 100 }),
       ],
     });
 
-    const result = layoutFlex(root, { blockSize: 150, fragmentationType: 'page' });
+    const result = layoutFlex(root, { blockSize: 150, fragmentationType: "page" });
     assert.ok(result.breakToken);
-    assert.equal(result.breakToken.algorithmData.type, 'kFlexData');
+    assert.equal(result.breakToken.algorithmData.type, "kFlexData");
   });
 
-  it('empty flex container produces zero-height fragment', () => {
+  it("empty flex container produces zero-height fragment", () => {
     const root = flexNode({ children: [] });
     const result = layoutFlex(root);
     assert.equal(result.fragment.blockSize, 0);
     assert.equal(result.breakToken, null);
   });
 
-  it('does not infinitely recurse (flow thread pattern for column)', () => {
+  it("does not infinitely recurse (flow thread pattern for column)", () => {
     const root = flexNode({
-      flexDirection: 'column',
+      flexDirection: "column",
       children: [blockNode({ blockSize: 50 })],
     });
     const result = layoutFlex(root);

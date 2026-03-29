@@ -1,12 +1,13 @@
-import { collectInlineItems, collectInlineItemsFromNodes } from './collect-inlines.js';
-import { createRangeMeasurer, measureElementBlockSize, getLineHeight, parseLength } from './measure.js';
+import { collectInlineItems, collectInlineItemsFromNodes } from "./collect-inlines.js";
+import { createRangeMeasurer, measureElementBlockSize, getLineHeight, parseLength } from "./measure.js";
+import { BOX_DECORATION_SLICE } from "../constants.js";
 
 const REPLACED_ELEMENTS = new Set([
-  'img', 'video', 'canvas', 'iframe', 'embed', 'object', 'svg',
+  "img", "video", "canvas", "iframe", "embed", "object", "svg",
 ]);
 
 const INLINE_DISPLAYS = new Set([
-  'inline', 'inline-block', 'inline-table', 'inline-flex', 'inline-grid',
+  "inline", "inline-block", "inline-table", "inline-flex", "inline-grid",
 ]);
 
 // Shared Range-based text measurer instance
@@ -29,11 +30,11 @@ export class DOMLayoutNode {
   }
 
   get debugName() {
-    const tag = this.element.tagName?.toLowerCase() || 'unknown';
-    const id = this.element.id ? `#${this.element.id}` : '';
+    const tag = this.element.tagName?.toLowerCase() || "unknown";
+    const id = this.element.id ? `#${this.element.id}` : "";
     const cls = this.element.className
-      ? `.${String(this.element.className).split(/\s+/).join('.')}`
-      : '';
+      ? `.${String(this.element.className).split(/\s+/).join(".")}`
+      : "";
     return `${tag}${id}${cls}`;
   }
 
@@ -52,56 +53,56 @@ export class DOMLayoutNode {
 
   get isScrollable() {
     const style = this._getStyle();
-    return style.overflowY === 'scroll' || style.overflowY === 'auto' ||
-           style.overflowX === 'scroll' || style.overflowX === 'auto';
+    return style.overflowY === "scroll" || style.overflowY === "auto" ||
+           style.overflowX === "scroll" || style.overflowX === "auto";
   }
 
   get hasOverflowHidden() {
-    return this._getStyle().overflow === 'hidden';
+    return this._getStyle().overflow === "hidden";
   }
 
   get hasExplicitBlockSize() {
     const h = this._getStyle().height;
-    return h !== 'auto' && h !== '' && h !== '0px';
+    return h !== "auto" && h !== "" && h !== "0px";
   }
 
   get isTable() {
     const d = this._getStyle().display;
-    return d === 'table' || d === 'inline-table';
+    return d === "table" || d === "inline-table";
   }
 
   get isTableRow() {
-    return this._getStyle().display === 'table-row';
+    return this._getStyle().display === "table-row";
   }
 
   get isFlexContainer() {
     const d = this._getStyle().display;
-    return d === 'flex' || d === 'inline-flex';
+    return d === "flex" || d === "inline-flex";
   }
 
   get isGridContainer() {
     const d = this._getStyle().display;
-    return d === 'grid' || d === 'inline-grid';
+    return d === "grid" || d === "inline-grid";
   }
 
   // --- Flex/Grid properties ---
 
   get flexDirection() {
-    return this._getStyle().flexDirection || 'row';
+    return this._getStyle().flexDirection || "row";
   }
 
   get flexWrap() {
-    return this._getStyle().flexWrap || 'nowrap';
+    return this._getStyle().flexWrap || "nowrap";
   }
 
   get gridRowStart() {
     const val = this._getStyle().gridRowStart;
-    return (val && val !== 'auto') ? parseInt(val) : null;
+    return (val && val !== "auto") ? parseInt(val) : null;
   }
 
   get gridRowEnd() {
     const val = this._getStyle().gridRowEnd;
-    return (val && val !== 'auto') ? parseInt(val) : null;
+    return (val && val !== "auto") ? parseInt(val) : null;
   }
 
   // --- Multicol properties ---
@@ -110,28 +111,28 @@ export class DOMLayoutNode {
     const style = this._getStyle();
     const colCount = style.columnCount;
     const colWidth = style.columnWidth;
-    return (colCount !== 'auto' && parseInt(colCount) > 0) ||
-           (colWidth !== 'auto' && colWidth !== 'none');
+    return (colCount !== "auto" && parseInt(colCount) > 0) ||
+           (colWidth !== "auto" && colWidth !== "none");
   }
 
   get columnCount() {
     const val = this._getStyle().columnCount;
-    return (val && val !== 'auto') ? parseInt(val) : null;
+    return (val && val !== "auto") ? parseInt(val) : null;
   }
 
   get columnWidth() {
     const val = this._getStyle().columnWidth;
-    return (val && val !== 'auto' && val !== 'none') ? parseFloat(val) : null;
+    return (val && val !== "auto" && val !== "none") ? parseFloat(val) : null;
   }
 
   get columnGap() {
     const val = this._getStyle().columnGap;
-    if (val === 'normal') return null;
+    if (val === "normal") return null;
     return parseFloat(val) || 0;
   }
 
   get columnFill() {
-    return this._getStyle().columnFill || 'balance';
+    return this._getStyle().columnFill || "balance";
   }
 
   // --- Box model (margins, padding, border) ---
@@ -164,23 +165,23 @@ export class DOMLayoutNode {
 
   get page() {
     const val = this._getStyle().page;
-    return (val && val !== 'auto') ? val : null;
+    return (val && val !== "auto") ? val : null;
   }
 
   get breakBefore() {
-    return this._getStyle().breakBefore || 'auto';
+    return this._getStyle().breakBefore || "auto";
   }
 
   get breakAfter() {
-    return this._getStyle().breakAfter || 'auto';
+    return this._getStyle().breakAfter || "auto";
   }
 
   get breakInside() {
-    return this._getStyle().breakInside || 'auto';
+    return this._getStyle().breakInside || "auto";
   }
 
   get boxDecorationBreak() {
-    return this._getStyle().boxDecorationBreak || 'slice';
+    return this._getStyle().boxDecorationBreak || BOX_DECORATION_SLICE;
   }
 
   get orphans() {
@@ -237,9 +238,9 @@ export class DOMLayoutNode {
       // Pure block children
       for (const child of this.element.children) {
         const style = getComputedStyle(child);
-        if (style.display === 'none') continue;
+        if (style.display === "none") continue;
         const tag = child.tagName.toLowerCase();
-        if (tag === 'script' || tag === 'style' || tag === 'template') continue;
+        if (tag === "script" || tag === "style" || tag === "template") continue;
         this._children.push(new DOMLayoutNode(child));
       }
     }
@@ -261,7 +262,7 @@ export class DOMLayoutNode {
     }
 
     const h = style.height;
-    if (h && h !== 'auto') {
+    if (h && h !== "auto") {
       const fontSize = parseFloat(style.fontSize);
       return parseLength(h, availableInlineSize, fontSize) ?? 0;
     }
@@ -294,13 +295,13 @@ export class DOMLayoutNode {
       }
       if (child.nodeType === Node.ELEMENT_NODE) {
         const tag = child.tagName.toLowerCase();
-        if (tag === 'br') {
+        if (tag === "br") {
           hasInlineContent = true;
           continue;
         }
         const display = getComputedStyle(child).display;
-        if (display === 'none') continue;
-        if (INLINE_DISPLAYS.has(display) || display === 'inline') {
+        if (display === "none") continue;
+        if (INLINE_DISPLAYS.has(display) || display === "inline") {
           hasInlineContent = true;
         } else {
           hasBlockContent = true;
@@ -343,13 +344,13 @@ export class DOMLayoutNode {
 // --- Helpers for mixed content detection ---
 
 const BLOCK_DISPLAYS = new Set([
-  'block', 'flex', 'grid', 'table', 'list-item',
-  'table-row-group', 'table-header-group', 'table-footer-group',
-  'table-row', 'table-cell', 'table-column', 'table-column-group',
-  'table-caption',
+  "block", "flex", "grid", "table", "list-item",
+  "table-row-group", "table-header-group", "table-footer-group",
+  "table-row", "table-cell", "table-column", "table-column-group",
+  "table-caption",
 ]);
 
-const SKIP_TAGS = new Set(['script', 'style', 'template']);
+const SKIP_TAGS = new Set(["script", "style", "template"]);
 
 function isBlockLevelNode(node) {
   if (node.nodeType !== Node.ELEMENT_NODE) return false;
@@ -364,9 +365,9 @@ function isSignificantInlineNode(node) {
   if (node.nodeType === Node.ELEMENT_NODE) {
     const tag = node.tagName.toLowerCase();
     if (SKIP_TAGS.has(tag)) return false;
-    if (tag === 'br') return true;
+    if (tag === "br") return true;
     const display = getComputedStyle(node).display;
-    if (display === 'none') return false;
+    if (display === "none") return false;
     return !BLOCK_DISPLAYS.has(display);
   }
   return false;
@@ -384,7 +385,7 @@ export class AnonymousBlockNode {
     this._inlineItemsData = null;
   }
 
-  get debugName() { return '[anon]'; }
+  get debugName() { return "[anon]"; }
   get element() { return null; }
   get isInlineFormattingContext() { return true; }
   get children() { return []; }
@@ -418,10 +419,10 @@ export class AnonymousBlockNode {
 
   // No fragmentation properties
   get page() { return null; }
-  get breakBefore() { return 'auto'; }
-  get breakAfter() { return 'auto'; }
-  get breakInside() { return 'auto'; }
-  get boxDecorationBreak() { return 'slice'; }
+  get breakBefore() { return "auto"; }
+  get breakAfter() { return "auto"; }
+  get breakInside() { return "auto"; }
+  get boxDecorationBreak() { return BOX_DECORATION_SLICE; }
   get orphans() { return 2; }
   get widows() { return 2; }
 
@@ -435,13 +436,13 @@ export class AnonymousBlockNode {
   get isFlexContainer() { return false; }
   get isGridContainer() { return false; }
   get isMulticolContainer() { return false; }
-  get flexDirection() { return 'row'; }
-  get flexWrap() { return 'nowrap'; }
+  get flexDirection() { return "row"; }
+  get flexWrap() { return "nowrap"; }
   get gridRowStart() { return null; }
   get gridRowEnd() { return null; }
   get columnCount() { return null; }
   get columnWidth() { return null; }
   get columnGap() { return null; }
-  get columnFill() { return 'balance'; }
+  get columnFill() { return "balance"; }
   get cells() { return []; }
 }

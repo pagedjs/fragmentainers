@@ -48,6 +48,19 @@ class ContentMeasureElement extends HTMLElement {
    * @returns {Element} the wrapper element (contentRoot) for buildLayoutTree
    */
   injectContent({ bodyHTML, cssEntries, baseURL }) {
+    const { cssText, html } = preprocessContent({ bodyHTML, cssEntries, baseURL });
+    return this.injectRawContent(html, cssText);
+  }
+
+  /**
+   * Inject pre-processed HTML and CSS into the shadow root.
+   * Used by ContentMeasureGroup to avoid re-processing CSS per element.
+   *
+   * @param {string} html — rebased HTML content
+   * @param {string} cssText — rebased + rewritten CSS text
+   * @returns {Element} the wrapper element (contentRoot) for buildLayoutTree
+   */
+  injectRawContent(html, cssText) {
     this._shadow.innerHTML = "";
 
     // Host styles
@@ -55,37 +68,15 @@ class ContentMeasureElement extends HTMLElement {
     hostStyle.textContent = MEASURE_HOST_STYLES;
     this._shadow.appendChild(hostStyle);
 
-    // Rebase URLs in CSS and HTML
-    const rebasedCSS = cssEntries
-      .map(({ css, cssBaseURL }) =>
-        css.replace(
-          /url\(\s*['"]?(?!data:|https?:|\/\/)(.*?)['"]?\s*\)/g,
-          (_match, path) => `url('${cssBaseURL}${path}')`,
-        ),
-      )
-      .join("\n");
-
-    const rebasedHTML = bodyHTML
-      .replace(
-        /src\s*=\s*["'](?!data:|https?:|\/\/)(.*?)["']/g,
-        (_match, path) => `src="${baseURL}${path}"`,
-      )
-      .replace(
-        /href\s*=\s*["'](?!data:|https?:|\/\/|#)(.*?)["']/g,
-        (_match, path) => `href="${baseURL}${path}"`,
-      );
-
-    // Add content CSS with body selectors rewritten to .frag-body
-    const rewrittenCSS = rewriteBodySelectors(rebasedCSS);
-    this._contentCSSText = rewrittenCSS;
+    this._contentCSSText = cssText;
     const contentStyle = document.createElement("style");
-    contentStyle.textContent = rewrittenCSS;
+    contentStyle.textContent = cssText;
     this._shadow.appendChild(contentStyle);
 
     // Create wrapper div that content CSS targets via .frag-body
     this._wrapper = document.createElement("div");
     this._wrapper.className = "frag-body";
-    this._wrapper.innerHTML = rebasedHTML;
+    this._wrapper.innerHTML = html;
     this._shadow.appendChild(this._wrapper);
 
     return this._wrapper;
@@ -187,6 +178,163 @@ class FragmentContainerElement extends HTMLElement {
 customElements.define("fragment-container", FragmentContainerElement);
 
 // ---------------------------------------------------------------------------
+// ContentMeasureGroup — per-element measurement
+// ---------------------------------------------------------------------------
+
+/**
+ * Coordinates multiple <content-measure> elements, one per top-level child
+ * of a DocumentFragment. Processes CSS once and shares it across all measures.
+ *
+ * Supports two modes:
+ * - **batch**: create all measure elements at once, wait for all fonts
+ * - **sequential**: create one at a time, yield between each for lower peak cost
+ */
+class ContentMeasureGroup {
+  /**
+   * @param {HTMLElement} container — parent element to append measures into
+   *   (typically positioned off-screen)
+   */
+  constructor(container) {
+    this._container = container;
+    /** @type {ContentMeasureElement[]} */
+    this._measures = [];
+    this._cssText = "";
+    this._childHTMLs = [];
+  }
+
+  /**
+   * Parse content and prepare per-element HTML chunks.
+   * Call before measureAll() or measureSequential().
+   *
+   * @param {Object} options
+   * @param {string} options.bodyHTML
+   * @param {{ css: string, cssBaseURL: string }[]} options.cssEntries
+   * @param {string} options.baseURL
+   */
+  prepare({ bodyHTML, cssEntries, baseURL }) {
+    const { cssText, html } = preprocessContent({ bodyHTML, cssEntries, baseURL });
+    this._cssText = cssText;
+
+    // Parse HTML to extract individual top-level elements
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+    this._childHTMLs = [];
+    for (const child of temp.children) {
+      this._childHTMLs.push(child.outerHTML);
+    }
+  }
+
+  /** @returns {number} Number of top-level elements */
+  get elementCount() {
+    return this._childHTMLs.length;
+  }
+
+  /**
+   * Batch mode: create all <content-measure> elements at once,
+   * then wait for fonts.
+   *
+   * @param {string} width — CSS width for each measure container
+   * @returns {Promise<Element[]>} content root elements (first child of each wrapper)
+   */
+  async measureAll(width) {
+    for (let i = 0; i < this._childHTMLs.length; i++) {
+      this._createMeasure(i, width);
+    }
+
+    // Force style recalc on all measures, then wait for fonts
+    for (const m of this._measures) {
+      void m.offsetHeight;
+    }
+    await document.fonts.ready;
+
+    return this._getContentRoots();
+  }
+
+  /**
+   * Sequential mode: create and measure one element at a time.
+   * Yields after each element is ready for layout.
+   *
+   * @param {string} width — CSS width for each measure container
+   * @yields {{ index: number, contentRoot: Element, total: number }}
+   */
+  async *measureSequential(width) {
+    for (let i = 0; i < this._childHTMLs.length; i++) {
+      const measure = this._createMeasure(i, width);
+
+      // Force style recalc + wait for fonts for this element
+      void measure.offsetHeight;
+      await document.fonts.ready;
+      // Double rAF to ensure layout is complete
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      yield {
+        index: i,
+        contentRoot: measure.contentRoot.firstElementChild,
+        total: this._childHTMLs.length,
+      };
+    }
+  }
+
+  /**
+   * Get content root elements (first child of each measure's wrapper).
+   * Only valid after measureAll() or after all measureSequential() yields.
+   *
+   * @returns {Element[]}
+   */
+  _getContentRoots() {
+    return this._measures.map(m => m.contentRoot.firstElementChild);
+  }
+
+  /**
+   * Get all content root elements.
+   * @returns {Element[]}
+   */
+  getContentRoots() {
+    return this._getContentRoots();
+  }
+
+  /**
+   * Get content styles from the first measure (shared CSS).
+   * @returns {{ sheets: CSSStyleSheet[], cssText: string }|null}
+   */
+  getContentStyles() {
+    return this._measures[0]?.getContentStyles() || null;
+  }
+
+  /**
+   * Remove all measure elements from the DOM.
+   */
+  dispose() {
+    for (const m of this._measures) {
+      m.remove();
+    }
+    this._measures = [];
+  }
+
+  /**
+   * Remove a specific measure element by index.
+   * @param {number} index
+   */
+  disposeMeasure(index) {
+    const measure = this._measures[index];
+    if (measure) {
+      measure.remove();
+      this._measures[index] = null;
+    }
+  }
+
+  /** @private */
+  _createMeasure(index, width) {
+    const measure = document.createElement("content-measure");
+    measure.style.width = width;
+    this._container.appendChild(measure);
+    measure.injectRawContent(this._childHTMLs[index], this._cssText);
+    this._measures[index] = measure;
+    return measure;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Shared utilities
 // ---------------------------------------------------------------------------
 
@@ -232,14 +380,48 @@ function rewriteBodySelectors(cssText) {
 
   // Replace standalone `html` selectors with :host
   result = result.replace(
-    /(?:^|(?<=,\s*|}\s*))\bhtml\b(?=[{\s,.#:\[>+~])/gm,
+    /(?:^|(?<=,\s*|}\s*))\bhtml\b(?=[{\s,.#:[>+~])/gm,
     ":host",
   );
 
   // Replace `body` selectors with `.frag-body`
-  result = result.replace(/\bbody\b(?=[{\s,.#:\[>+~])/g, ".frag-body");
+  result = result.replace(/\bbody\b(?=[{\s,.#:[>+~])/g, ".frag-body");
 
   return result;
 }
 
-export { ContentMeasureElement, FragmentContainerElement };
+/**
+ * Pre-process content: rebase URLs and rewrite CSS selectors.
+ * Shared by injectContent() and ContentMeasureGroup.
+ *
+ * @param {Object} options
+ * @param {string} options.bodyHTML
+ * @param {{ css: string, cssBaseURL: string }[]} options.cssEntries
+ * @param {string} options.baseURL
+ * @returns {{ cssText: string, html: string }}
+ */
+function preprocessContent({ bodyHTML, cssEntries, baseURL }) {
+  const rebasedCSS = cssEntries
+    .map(({ css, cssBaseURL }) =>
+      css.replace(
+        /url\(\s*['"]?(?!data:|https?:|\/\/)(.*?)['"]?\s*\)/g,
+        (_match, path) => `url('${cssBaseURL}${path}')`,
+      ),
+    )
+    .join("\n");
+
+  const rebasedHTML = bodyHTML
+    .replace(
+      /src\s*=\s*["'](?!data:|https?:|\/\/)(.*?)["']/g,
+      (_match, path) => `src="${baseURL}${path}"`,
+    )
+    .replace(
+      /href\s*=\s*["'](?!data:|https?:|\/\/|#)(.*?)["']/g,
+      (_match, path) => `href="${baseURL}${path}"`,
+    );
+
+  const cssText = rewriteBodySelectors(rebasedCSS);
+  return { cssText, html: rebasedHTML };
+}
+
+export { ContentMeasureElement, FragmentContainerElement, ContentMeasureGroup };

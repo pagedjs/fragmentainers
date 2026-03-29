@@ -1,16 +1,16 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { createFragments } from '../src/driver.js';
-import { ConstraintSpace } from '../src/constraint-space.js';
-import { blockNode, replacedNode, scrollableNode } from './fixtures/nodes.js';
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { createFragments } from "../src/driver.js";
+import { ConstraintSpace } from "../src/constraint-space.js";
+import { blockNode, replacedNode, scrollableNode } from "./fixtures/nodes.js";
 
-describe('Phase 4: Monolithic content', () => {
-  it('pushes a monolithic element to the next page when it does not fit', () => {
+describe("Phase 4: Monolithic content", () => {
+  it("pushes a monolithic element to the next page when it does not fit", () => {
     const root = blockNode({
       children: [
-        blockNode({ debugName: 'div', blockSize: 50 }),
-        replacedNode({ debugName: 'img', blockSize: 300 }),
-        blockNode({ debugName: 'after', blockSize: 50 }),
+        blockNode({ debugName: "div", blockSize: 50 }),
+        replacedNode({ debugName: "img", blockSize: 300 }),
+        blockNode({ debugName: "after", blockSize: 50 }),
       ],
     });
 
@@ -19,7 +19,7 @@ describe('Phase 4: Monolithic content', () => {
       availableInlineSize: 600,
       availableBlockSize: 200,
       fragmentainerBlockSize: 200,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
 
     assert.equal(pages.length, 3);
@@ -39,10 +39,10 @@ describe('Phase 4: Monolithic content', () => {
     assert.equal(pages[2].blockSize, 50);
   });
 
-  it('places monolithic at top of fragmentainer even if it overflows', () => {
+  it("places monolithic at top of fragmentainer even if it overflows", () => {
     const root = blockNode({
       children: [
-        replacedNode({ debugName: 'big-img', blockSize: 500 }),
+        replacedNode({ debugName: "big-img", blockSize: 500 }),
       ],
     });
 
@@ -51,7 +51,7 @@ describe('Phase 4: Monolithic content', () => {
       availableInlineSize: 600,
       availableBlockSize: 200,
       fragmentainerBlockSize: 200,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
 
     assert.equal(pages.length, 1);
@@ -59,11 +59,11 @@ describe('Phase 4: Monolithic content', () => {
     assert.equal(pages[0].childFragments[0].blockSize, 500);
   });
 
-  it('monolithic elements never produce their own break token', () => {
+  it("monolithic elements never produce their own break token", () => {
     const root = blockNode({
       children: [
-        replacedNode({ debugName: 'img', blockSize: 500 }),
-        blockNode({ debugName: 'after', blockSize: 50 }),
+        replacedNode({ debugName: "img", blockSize: 500 }),
+        blockNode({ debugName: "after", blockSize: 50 }),
       ],
     });
 
@@ -71,7 +71,7 @@ describe('Phase 4: Monolithic content', () => {
       availableInlineSize: 600,
       availableBlockSize: 200,
       fragmentainerBlockSize: 200,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
 
     // img placed with overflow (500px at offset 0), 'after' pushed
@@ -79,11 +79,11 @@ describe('Phase 4: Monolithic content', () => {
     assert.equal(pages[0].childFragments[0].breakToken, null);
   });
 
-  it('pushes scrollable monolithic element', () => {
+  it("pushes scrollable monolithic element", () => {
     const root = blockNode({
       children: [
-        blockNode({ debugName: 'header', blockSize: 100 }),
-        scrollableNode({ debugName: 'scroller', blockSize: 200 }),
+        blockNode({ debugName: "header", blockSize: 100 }),
+        scrollableNode({ debugName: "scroller", blockSize: 200 }),
       ],
     });
 
@@ -92,7 +92,7 @@ describe('Phase 4: Monolithic content', () => {
       availableInlineSize: 600,
       availableBlockSize: 150,
       fragmentainerBlockSize: 150,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
 
     assert.equal(pages.length, 2);
@@ -100,11 +100,11 @@ describe('Phase 4: Monolithic content', () => {
     assert.equal(pages[1].childFragments.length, 1); // scroller on page 2
   });
 
-  it('monolithic element that fits is placed normally', () => {
+  it("monolithic element that fits is placed normally", () => {
     const root = blockNode({
       children: [
-        replacedNode({ debugName: 'small-img', blockSize: 100 }),
-        blockNode({ debugName: 'text', blockSize: 50 }),
+        replacedNode({ debugName: "small-img", blockSize: 100 }),
+        blockNode({ debugName: "text", blockSize: 50 }),
       ],
     });
 
@@ -112,7 +112,7 @@ describe('Phase 4: Monolithic content', () => {
       availableInlineSize: 600,
       availableBlockSize: 200,
       fragmentainerBlockSize: 200,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
     assert.equal(pages.length, 1);
     assert.equal(pages[0].childFragments.length, 2);

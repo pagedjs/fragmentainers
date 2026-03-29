@@ -8,7 +8,13 @@
   "main": "src/index.js",
   "scripts": {
     "test": "node --test test/*.js",
+    "lint": "eslint src/ test/",
+    "lint:fix": "eslint --fix src/ test/",
     "serve": "npx serve . -l 8080",
     "bench": "open viewer/viewer.html"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4"
   }
 }

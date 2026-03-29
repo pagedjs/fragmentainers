@@ -1,5 +1,6 @@
-import { InlineBreakToken } from '../tokens.js';
-import { PhysicalFragment } from '../fragment.js';
+import { InlineBreakToken } from "../tokens.js";
+import { PhysicalFragment } from "../fragment.js";
+import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../constants.js";
 
 /**
  * Break a single line from inline items starting at the given position.
@@ -32,7 +33,7 @@ function breakLine(inlineItemsData, startItemIndex, startTextOffset, availableIn
   while (itemIndex < items.length) {
     const item = items[itemIndex];
 
-    if (item.type === 'kControl') {
+    if (item.type === INLINE_CONTROL) {
       // Forced line break (<br>)
       if (hasContent) {
         // End the line here, advance past the control
@@ -49,7 +50,7 @@ function breakLine(inlineItemsData, startItemIndex, startTextOffset, availableIn
       }
     }
 
-    if (item.type === 'kText') {
+    if (item.type === INLINE_TEXT) {
       const itemText = textContent.slice(
         Math.max(item.startOffset, textOffset),
         item.endOffset
@@ -144,7 +145,7 @@ function breakLine(inlineItemsData, startItemIndex, startTextOffset, availableIn
 function findItemAtOffset(items, flatOffset) {
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    if (item.type !== 'kText') continue;
+    if (item.type !== INLINE_TEXT) continue;
     if (flatOffset >= item.startOffset && flatOffset < item.endOffset) {
       return { itemIndex: i, localOffset: flatOffset - item.startOffset, item };
     }
@@ -210,6 +211,7 @@ function advanceToOffset(items, flatOffset, textContentLength) {
  * Content-addressed via itemIndex + textOffset — survives
  * inline-size changes between fragmentainers.
  */
+// eslint-disable-next-line require-yield
 export function* layoutInlineContent(node, constraintSpace, breakToken) {
   const lineFragments = [];
   let blockOffset = 0;
@@ -229,7 +231,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
   // elements with CSS pseudo-element content), treat as monolithic and use
   // the browser-measured height.
   const hasContentItems = inlineItems.items.some(item =>
-    item.type === 'kText' || item.type === 'kControl' || item.type === 'kAtomicInline'
+    item.type === INLINE_TEXT || item.type === INLINE_CONTROL || item.type === INLINE_ATOMIC
   );
   if (!hasContentItems) {
     const measuredHeight = node.element

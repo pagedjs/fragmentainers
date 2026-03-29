@@ -1,17 +1,17 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { createFragments, runLayoutGenerator } from '../src/driver.js';
-import { layoutTableRow } from '../src/layout/table-row.js';
-import { ConstraintSpace } from '../src/constraint-space.js';
-import { blockNode, tableRowNode } from './fixtures/nodes.js';
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { createFragments, runLayoutGenerator } from "../src/driver.js";
+import { layoutTableRow } from "../src/layout/table-row.js";
+import { ConstraintSpace } from "../src/constraint-space.js";
+import { blockNode, tableRowNode } from "./fixtures/nodes.js";
 
-describe('Phase 6: Parallel flows (table row)', () => {
-  it('lays out a table row where all cells fit', () => {
+describe("Phase 6: Parallel flows (table row)", () => {
+  it("lays out a table row where all cells fit", () => {
     const row = tableRowNode({
       cells: [
-        blockNode({ debugName: 'cellA', blockSize: 50 }),
-        blockNode({ debugName: 'cellB', blockSize: 80 }),
-        blockNode({ debugName: 'cellC', blockSize: 30 }),
+        blockNode({ debugName: "cellA", blockSize: 50 }),
+        blockNode({ debugName: "cellB", blockSize: 80 }),
+        blockNode({ debugName: "cellC", blockSize: 30 }),
       ],
     });
 
@@ -19,7 +19,7 @@ describe('Phase 6: Parallel flows (table row)', () => {
       availableInlineSize: 600,
       availableBlockSize: 800,
       fragmentainerBlockSize: 800,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     });
 
     const result = runLayoutGenerator(layoutTableRow, row, space, null);
@@ -30,12 +30,12 @@ describe('Phase 6: Parallel flows (table row)', () => {
     assert.equal(result.breakToken, null);
   });
 
-  it('all cells get break tokens when any cell overflows', () => {
+  it("all cells get break tokens when any cell overflows", () => {
     const row = tableRowNode({
       cells: [
-        blockNode({ debugName: 'cellA', blockSize: 100 }),
-        blockNode({ debugName: 'cellB', blockSize: 300 }),
-        blockNode({ debugName: 'cellC', blockSize: 50 }),
+        blockNode({ debugName: "cellA", blockSize: 100 }),
+        blockNode({ debugName: "cellB", blockSize: 300 }),
+        blockNode({ debugName: "cellC", blockSize: 50 }),
       ],
     });
 
@@ -43,7 +43,7 @@ describe('Phase 6: Parallel flows (table row)', () => {
       availableInlineSize: 600,
       availableBlockSize: 200,
       fragmentainerBlockSize: 200,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     });
 
     const result = runLayoutGenerator(layoutTableRow, row, space, null);
@@ -51,7 +51,7 @@ describe('Phase 6: Parallel flows (table row)', () => {
     // Cell B (300px) fragments: 200px on page 1
     assert.ok(result.breakToken);
     assert.equal(result.breakToken.childBreakTokens.length, 3);
-    assert.equal(result.breakToken.algorithmData.type, 'kTableRowData');
+    assert.equal(result.breakToken.algorithmData.type, "kTableRowData");
 
     // Cells A and C should have isAtBlockEnd tokens
     const tokenA = result.breakToken.childBreakTokens[0];
@@ -66,10 +66,10 @@ describe('Phase 6: Parallel flows (table row)', () => {
     assert.ok(tokenB.consumedBlockSize > 0);
   });
 
-  it('resumes correctly with completed cells producing zero-height fragments', () => {
-    const cellA = blockNode({ debugName: 'cellA', blockSize: 100 });
-    const cellB = blockNode({ debugName: 'cellB', blockSize: 300 });
-    const cellC = blockNode({ debugName: 'cellC', blockSize: 50 });
+  it("resumes correctly with completed cells producing zero-height fragments", () => {
+    const cellA = blockNode({ debugName: "cellA", blockSize: 100 });
+    const cellB = blockNode({ debugName: "cellB", blockSize: 300 });
+    const cellC = blockNode({ debugName: "cellC", blockSize: 50 });
 
     const row = tableRowNode({ cells: [cellA, cellB, cellC] });
     const root = blockNode({ children: [row] });
@@ -78,7 +78,7 @@ describe('Phase 6: Parallel flows (table row)', () => {
       availableInlineSize: 600,
       availableBlockSize: 200,
       fragmentainerBlockSize: 200,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     }));
 
     assert.equal(pages.length, 2);
@@ -92,11 +92,11 @@ describe('Phase 6: Parallel flows (table row)', () => {
     assert.equal(pages[1].breakToken, null);
   });
 
-  it('row height is driven by tallest cell', () => {
+  it("row height is driven by tallest cell", () => {
     const row = tableRowNode({
       cells: [
-        blockNode({ debugName: 'short', blockSize: 20 }),
-        blockNode({ debugName: 'tall', blockSize: 150 }),
+        blockNode({ debugName: "short", blockSize: 20 }),
+        blockNode({ debugName: "tall", blockSize: 150 }),
       ],
     });
 
@@ -104,7 +104,7 @@ describe('Phase 6: Parallel flows (table row)', () => {
       availableInlineSize: 600,
       availableBlockSize: 800,
       fragmentainerBlockSize: 800,
-      fragmentationType: 'page',
+      fragmentationType: "page",
     });
 
     const result = runLayoutGenerator(layoutTableRow, row, space, null);

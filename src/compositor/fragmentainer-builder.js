@@ -1,4 +1,4 @@
-import { renderFragmentTree } from './render-fragments.js';
+import { renderFragmentTree } from "./render-fragments.js";
 
 /**
  * Get the fragmentainer size for a given index.
@@ -31,10 +31,10 @@ export async function buildFragmentainerElement(fragmentainerIndex, fragments, f
   const size = getFragmentainerSize(fragmentainerSizes, fragmentainerIndex);
   const prevBreakToken = fragmentainerIndex > 0 ? fragments[fragmentainerIndex - 1].breakToken : null;
 
-  const fragEl = document.createElement('fragment-container');
+  const fragEl = document.createElement("fragment-container");
   fragEl.style.width = `${size.inlineSize}px`;
   fragEl.style.height = `${size.blockSize}px`;
-  fragEl.style.overflow = 'hidden';
+  fragEl.style.overflow = "hidden";
 
   const wrapper = fragEl.setupForRendering(contentStyles);
   wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken));

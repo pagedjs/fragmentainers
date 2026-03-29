@@ -17,7 +17,7 @@ export class EarlyBreak {
   constructor(node, score, type) {
     this.node = node;               // which node to break at
     this.score = score;             // BreakScore value
-    this.type = type;               // 'before' | 'inside'
+    this.type = type;               // EARLY_BREAK_BEFORE | EARLY_BREAK_INSIDE
     this.childEarlyBreak = null;    // EarlyBreak chain to deep breakpoint
   }
 }
@@ -35,17 +35,17 @@ export function isBetterBreak(a, b) {
  * Evaluate the break score for a Class A break between siblings.
  * Checks break-after on the previous sibling and break-before on the next.
  *
- * @param {import('./helpers.js').LayoutNode|null} prevChild - child before the break
- * @param {import('./helpers.js').LayoutNode} nextChild - child after the break
+ * @param {import("./helpers.js").LayoutNode|null} prevChild - child before the break
+ * @param {import("./helpers.js").LayoutNode} nextChild - child after the break
  * @returns {number} BreakScore value
  */
 export function scoreClassABreak(prevChild, nextChild) {
   // Check break-before: avoid on nextChild
-  if (nextChild.breakBefore === 'avoid') {
+  if (nextChild.breakBefore === "avoid") {
     return BreakScore.VIOLATING_BREAK_AVOID;
   }
   // Check break-after: avoid on prevChild
-  if (prevChild && prevChild.breakAfter === 'avoid') {
+  if (prevChild && prevChild.breakAfter === "avoid") {
     return BreakScore.VIOLATING_BREAK_AVOID;
   }
   // Check break-inside: avoid on the parent (handled by caller)
@@ -57,7 +57,7 @@ export function scoreClassABreak(prevChild, nextChild) {
  * If so, any break inside degrades the score.
  */
 export function applyBreakInsideAvoid(node, score) {
-  if (node.breakInside === 'avoid' && score < BreakScore.VIOLATING_BREAK_AVOID) {
+  if (node.breakInside === "avoid" && score < BreakScore.VIOLATING_BREAK_AVOID) {
     return BreakScore.VIOLATING_BREAK_AVOID;
   }
   return score;

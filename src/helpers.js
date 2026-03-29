@@ -1,3 +1,5 @@
+import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "./constants.js";
+
 /**
  * @typedef {Object} LayoutNode
  * @property {LayoutNode[]} children
@@ -32,9 +34,9 @@
 
 /**
  * Find a child's break token within a parent's break token.
- * @param {import('./tokens.js').BlockBreakToken|null} parentBreakToken
+ * @param {import("./tokens.js").BlockBreakToken|null} parentBreakToken
  * @param {LayoutNode} childNode
- * @returns {import('./tokens.js').BreakToken|null}
+ * @returns {import("./tokens.js").BreakToken|null}
  */
 export function findChildBreakToken(parentBreakToken, childNode) {
   if (!parentBreakToken) return null;
@@ -56,7 +58,7 @@ export function isMonolithic(node) {
 /**
  * Get the block size of a monolithic element without full layout.
  * @param {LayoutNode} node
- * @param {import('./constraint-space.js').ConstraintSpace} constraintSpace
+ * @param {import("./constraint-space.js").ConstraintSpace} constraintSpace
  * @returns {number}
  */
 export function getMonolithicBlockSize(node, constraintSpace) {
@@ -80,7 +82,7 @@ export function getNamedPage(node) {
  * CSS `page` property to drive @page rule resolution.
  *
  * @param {LayoutNode} rootNode
- * @param {import('./tokens.js').BlockBreakToken|null} breakToken
+ * @param {import("./tokens.js").BlockBreakToken|null} breakToken
  * @returns {string|null}
  */
 export function resolveNamedPageForBreakToken(rootNode, breakToken) {
@@ -113,7 +115,7 @@ export function resolveNamedPageForBreakToken(rootNode, breakToken) {
  * Walks from the deepest break token child up to find a next sibling.
  *
  * @param {LayoutNode} rootNode
- * @param {import('./tokens.js').BlockBreakToken} breakToken
+ * @param {import("./tokens.js").BlockBreakToken} breakToken
  * @returns {LayoutNode|null}
  */
 function findNextUnvisitedChild(rootNode, breakToken) {
@@ -145,25 +147,25 @@ function findNextUnvisitedChild(rootNode, breakToken) {
  * Debug utility — pretty-print a break token tree.
  */
 export function debugPrintTokenTree(breakToken, indent = 0) {
-  if (!breakToken) return '(null)';
+  if (!breakToken) return "(null)";
 
-  const pad = '  '.repeat(indent);
+  const pad = "  ".repeat(indent);
   const flags = [];
-  if (breakToken.isBreakBefore) flags.push('break-before');
-  if (breakToken.isForcedBreak) flags.push('forced');
-  if (breakToken.isRepeated) flags.push('repeated');
-  if (breakToken.isAtBlockEnd) flags.push('at-block-end');
-  if (breakToken.hasSeenAllChildren) flags.push('seen-all');
+  if (breakToken.isBreakBefore) flags.push("break-before");
+  if (breakToken.isForcedBreak) flags.push("forced");
+  if (breakToken.isRepeated) flags.push("repeated");
+  if (breakToken.isAtBlockEnd) flags.push("at-block-end");
+  if (breakToken.hasSeenAllChildren) flags.push("seen-all");
 
   let line = `${pad}${breakToken.type}`;
   if (breakToken.node?.debugName) line += ` [${breakToken.node.debugName}]`;
-  if (breakToken.type === 'block') {
+  if (breakToken.type === BREAK_TOKEN_BLOCK) {
     line += ` consumed=${breakToken.consumedBlockSize} seq=${breakToken.sequenceNumber}`;
   }
-  if (breakToken.type === 'inline') {
+  if (breakToken.type === BREAK_TOKEN_INLINE) {
     line += ` item=${breakToken.itemIndex} offset=${breakToken.textOffset}`;
   }
-  if (flags.length) line += ` (${flags.join(', ')})`;
+  if (flags.length) line += ` (${flags.join(", ")})`;
 
   const lines = [line];
   if (breakToken.childBreakTokens) {
@@ -171,5 +173,5 @@ export function debugPrintTokenTree(breakToken, indent = 0) {
       lines.push(debugPrintTokenTree(child, indent + 1));
     }
   }
-  return lines.join('\n');
+  return lines.join("\n");
 }
