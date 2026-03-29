@@ -1,3 +1,5 @@
+import { OVERRIDES } from "../compositor/overrides.js";
+
 /**
  * Custom elements for CSS-isolated measurement and rendering.
  *
@@ -147,7 +149,9 @@ class FragmentContainerElement extends HTMLElement {
     if (contentStyles) {
       // Use cached styles from <content-measure>
       if (contentStyles.sheets.length > 0) {
-        this._shadow.adoptedStyleSheets = contentStyles.sheets;
+        this._shadow.adoptedStyleSheets = [...contentStyles.sheets, OVERRIDES];
+      } else {
+        this._shadow.adoptedStyleSheets = [OVERRIDES];
       }
       if (contentStyles.cssText) {
         const contentStyle = document.createElement("style");
@@ -357,7 +361,7 @@ function copyDocumentStyles(shadowRoot) {
       // Cross-origin stylesheet — cssRules access throws SecurityError
     }
   }
-  shadowRoot.adoptedStyleSheets = sheets;
+  shadowRoot.adoptedStyleSheets = [...sheets, OVERRIDES];
 }
 
 /**

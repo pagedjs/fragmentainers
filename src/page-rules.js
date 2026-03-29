@@ -5,6 +5,7 @@ import { FRAGMENTATION_PAGE } from "./constants.js";
  * Standard page sizes in CSS pixels at 96 DPI.
  */
 const NAMED_SIZES = {
+  a6:     { inlineSize: 397, blockSize: 559 },
   a5:     { inlineSize: 559, blockSize: 794 },
   a4:     { inlineSize: 794, blockSize: 1123 },
   a3:     { inlineSize: 1123, blockSize: 1587 },

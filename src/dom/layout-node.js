@@ -237,10 +237,10 @@ export class DOMLayoutNode {
     } else {
       // Pure block children
       for (const child of this.element.children) {
-        const style = getComputedStyle(child);
-        if (style.display === "none") continue;
         const tag = child.tagName.toLowerCase();
-        if (tag === "script" || tag === "style" || tag === "template") continue;
+        if (SKIP_TAGS.has(tag)) continue;
+        const display = getComputedStyle(child).display;
+        if (display === "none" || SKIP_DISPLAYS.has(display)) continue;
         this._children.push(new DOMLayoutNode(child));
       }
     }
@@ -346,15 +346,20 @@ export class DOMLayoutNode {
 const BLOCK_DISPLAYS = new Set([
   "block", "flex", "grid", "table", "list-item",
   "table-row-group", "table-header-group", "table-footer-group",
-  "table-row", "table-cell", "table-column", "table-column-group",
-  "table-caption",
+  "table-row", "table-cell", "table-caption",
 ]);
+
+// Display types that don't participate in content flow — skipped during
+// children enumeration. <colgroup>/<col> are styling-only and have no
+// rendered block size, but getBoundingClientRect reports the table's height.
+const SKIP_DISPLAYS = new Set(["table-column", "table-column-group", "none"]);
 
 const SKIP_TAGS = new Set(["script", "style", "template"]);
 
 function isBlockLevelNode(node) {
   if (node.nodeType !== Node.ELEMENT_NODE) return false;
   const display = getComputedStyle(node).display;
+  if (SKIP_DISPLAYS.has(display)) return false;
   return BLOCK_DISPLAYS.has(display);
 }
 
@@ -367,7 +372,7 @@ function isSignificantInlineNode(node) {
     if (SKIP_TAGS.has(tag)) return false;
     if (tag === "br") return true;
     const display = getComputedStyle(node).display;
-    if (display === "none") return false;
+    if (display === "none" || SKIP_DISPLAYS.has(display)) return false;
     return !BLOCK_DISPLAYS.has(display);
   }
   return false;

@@ -17,7 +17,14 @@ import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../constants.js";
  * @param {number} lineHeight
  * @returns {{ fragment: PhysicalFragment, blockSize: number, endItemIndex: number, endTextOffset: number } | null}
  */
-function breakLine(inlineItemsData, startItemIndex, startTextOffset, availableInlineSize, measurer, lineHeight) {
+function breakLine(
+  inlineItemsData,
+  startItemIndex,
+  startTextOffset,
+  availableInlineSize,
+  measurer,
+  lineHeight,
+) {
   const { items, textContent } = inlineItemsData;
 
   if (startItemIndex >= items.length) return null;
@@ -54,7 +61,7 @@ function breakLine(inlineItemsData, startItemIndex, startTextOffset, availableIn
     if (item.type === INLINE_TEXT) {
       const itemText = textContent.slice(
         Math.max(item.startOffset, textOffset),
-        item.endOffset
+        item.endOffset,
       );
 
       // Measure word by word using Range on the live DOM Text node
@@ -65,7 +72,11 @@ function breakLine(inlineItemsData, startItemIndex, startTextOffset, availableIn
         if (word.length === 0) continue;
 
         const localOffset = wordStart - item.startOffset;
-        const wordWidth = measurer.measureRange(item.domNode, localOffset, localOffset + word.length);
+        const wordWidth = measurer.measureRange(
+          item.domNode,
+          localOffset,
+          localOffset + word.length,
+        );
 
         if (currentWidth + wordWidth > availableInlineSize && hasContent) {
           // Line is full — break before this word
@@ -87,7 +98,12 @@ function breakLine(inlineItemsData, startItemIndex, startTextOffset, availableIn
 
           const fragment = new PhysicalFragment(null, lineHeight);
           fragment.inlineSize = currentWidth;
-          return { fragment, blockSize: lineHeight, endItemIndex: itemIndex, endTextOffset: textOffset };
+          return {
+            fragment,
+            blockSize: lineHeight,
+            endItemIndex: itemIndex,
+            endTextOffset: textOffset,
+          };
         }
 
         currentWidth += wordWidth;
@@ -135,7 +151,12 @@ function breakLine(inlineItemsData, startItemIndex, startTextOffset, availableIn
 
   const fragment = new PhysicalFragment(null, lineHeight);
   fragment.inlineSize = currentWidth;
-  return { fragment, blockSize: lineHeight, endItemIndex: itemIndex, endTextOffset: textOffset };
+  return {
+    fragment,
+    blockSize: lineHeight,
+    endItemIndex: itemIndex,
+    endTextOffset: textOffset,
+  };
 }
 
 /**
@@ -165,7 +186,7 @@ function findItemAtOffset(items, flatOffset) {
  * @param {number} yCutoff - the Y position threshold
  * @returns {number} flat textContent offset of the first char past the cutoff
  */
-function binarySearchBreakOffset(measurer, items, searchStart, searchEnd, yCutoff) {
+function findBreakOffset(measurer, items, searchStart, searchEnd, yCutoff) {
   let lo = searchStart;
   let hi = searchEnd;
 
@@ -231,8 +252,11 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
   // If items exist but carry no content (only open/close tags, e.g. empty
   // elements with CSS pseudo-element content), treat as monolithic and use
   // the browser-measured height.
-  const hasContentItems = inlineItems.items.some(item =>
-    item.type === INLINE_TEXT || item.type === INLINE_CONTROL || item.type === INLINE_ATOMIC
+  const hasContentItems = inlineItems.items.some(
+    (item) =>
+      item.type === INLINE_TEXT ||
+      item.type === INLINE_CONTROL ||
+      item.type === INLINE_ATOMIC,
   );
   if (!hasContentItems) {
     const measuredHeight = node.element
@@ -251,16 +275,21 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
   // padding/border reservations. Fall back to fragmentainer math if not set.
   // Floor the result — browsers round fragmentainer sizes down to integers
   // when printing, and fractional line-heights accumulate floating-point error.
-  const rawAvailable = constraintSpace.availableBlockSize > 0
-    ? constraintSpace.availableBlockSize
-    : constraintSpace.fragmentainerBlockSize - constraintSpace.blockOffsetInFragmentainer;
+  const rawAvailable =
+    constraintSpace.availableBlockSize > 0
+      ? constraintSpace.availableBlockSize
+      : constraintSpace.fragmentainerBlockSize -
+        constraintSpace.blockOffsetInFragmentainer;
   const availableBlockSpace = Math.floor(rawAvailable);
 
   // If not enough space for even one line and there's content above us in
   // this fragmentainer, produce a zero-height fragment. The parent will record the
   // break token and the content resumes in the next fragmentainer with full space.
   // The progress guarantee is enforced at the fragmentainer level, not here.
-  if (availableBlockSpace < lineHeight && constraintSpace.blockOffsetInFragmentainer > 0) {
+  if (
+    availableBlockSpace < lineHeight &&
+    constraintSpace.blockOffsetInFragmentainer > 0
+  ) {
     const fragment = new PhysicalFragment(node, 0, []);
     fragment.inlineSize = constraintSpace.availableInlineSize;
     const inlineToken = new InlineBreakToken(node);
@@ -302,8 +331,14 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
     remainingLines = totalLines - consumedLines;
     const fittingLines = Math.floor(availableBlockSpace / lineHeight);
     // Guarantee at least one line for progress when at top of page
-    const minLines = (remainingLines > 0 && constraintSpace.blockOffsetInFragmentainer === 0) ? 1 : 0;
-    let linesToPlace = Math.max(minLines, Math.min(remainingLines, fittingLines));
+    const minLines =
+      remainingLines > 0 && constraintSpace.blockOffsetInFragmentainer === 0
+        ? 1
+        : 0;
+    let linesToPlace = Math.max(
+      minLines,
+      Math.min(remainingLines, fittingLines),
+    );
 
     // Orphans/widows clamping (CSS Fragmentation §4.4 Rule 3)
     const contentWillBreak = linesToPlace < remainingLines;
@@ -356,22 +391,36 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
       textOffset = inlineItems.textContent.length;
     } else {
       // Need to break — find the text offset at the break line
-      const yCutoff = elementRect.top + (consumedLines + linesToPlace) * lineHeight;
+      const yCutoff =
+        elementRect.top + (consumedLines + linesToPlace) * lineHeight;
       const searchStart = textOffset;
       const searchEnd = inlineItems.textContent.length;
 
-      const breakFlatOffset = binarySearchBreakOffset(
-        measurer, inlineItems.items, searchStart, searchEnd, yCutoff
+      const breakFlatOffset = findBreakOffset(
+        measurer,
+        inlineItems.items,
+        searchStart,
+        searchEnd,
+        yCutoff,
+        linesToPlace,
+        remainingLines,
       );
 
-      const pos = advanceToOffset(inlineItems.items, breakFlatOffset, inlineItems.textContent.length);
+      const pos = advanceToOffset(
+        inlineItems.items,
+        breakFlatOffset,
+        inlineItems.textContent.length,
+      );
       itemIndex = pos.itemIndex;
       textOffset = pos.textOffset;
     }
   } else {
     // Fallback: word-by-word measurement (for tests with mock nodes)
     while (itemIndex < inlineItems.items.length) {
-      if (Math.floor(blockOffset + lineHeight) > availableBlockSpace && lineFragments.length > 0) {
+      if (
+        Math.floor(blockOffset + lineHeight) > availableBlockSpace &&
+        lineFragments.length > 0
+      ) {
         break;
       }
 
@@ -381,7 +430,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
         textOffset,
         constraintSpace.availableInlineSize,
         measurer,
-        lineHeight
+        lineHeight,
       );
 
       if (line === null) break;
@@ -406,9 +455,16 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
     inlineToken.itemIndex = itemIndex;
     inlineToken.textOffset = textOffset;
 
-    // Detect soft hyphen (U+00AD) immediately before the break offset
-    if (textOffset > 0 && inlineItems.textContent.charCodeAt(textOffset - 1) === 0x00AD) {
-      inlineToken.isHyphenated = true;
+    // Detect mid-word break: non-whitespace/non-control text characters
+    // on both sides of the break offset indicate a hyphenated break
+    // (soft hyphen, hyphens:auto dictionary break, etc.)
+    if (textOffset > 0 && textOffset < inlineItems.textContent.length) {
+      const before = inlineItems.textContent.charCodeAt(textOffset - 1);
+      const after = inlineItems.textContent.charCodeAt(textOffset);
+      const isTextChar = (c) => c > 0x20 && c !== 0x00AD;
+      if (isTextChar(before) && isTextChar(after)) {
+        inlineToken.isHyphenated = true;
+      }
     }
 
     fragment.breakToken = inlineToken;

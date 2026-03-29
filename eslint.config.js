@@ -30,6 +30,6 @@ export default [
     },
   },
   {
-    ignores: ["node_modules/", ".claude/", "specs/", "viewer/"],
+    ignores: ["node_modules/", "specs/", "viewer/"],
   },
 ];

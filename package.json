@@ -10,11 +10,17 @@
     "test": "node --test test/*.js",
     "lint": "eslint src/ test/",
     "lint:fix": "eslint --fix src/ test/",
-    "serve": "npx serve . -l 8080",
-    "bench": "open viewer/viewer.html"
+    "serve": "serve . -l 8080",
+    "bench": "open viewer/viewer.html",
+    "specs": "playwright test --config specs/playwright.config.js",
+    "specs:pagedjs": "playwright test --config specs/playwright.config.js --project pagedjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "eslint": "^9.39.4"
+    "@playwright/test": "^1.58.2",
+    "eslint": "^9.39.4",
+    "playwright": "^1.58.2",
+    "serve": "^14.2.6",
+    "yaml": "^2.8.3"
   }
 }

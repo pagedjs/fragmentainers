@@ -42,6 +42,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
     renderInlineFragment(fragment, inputBreakToken, parentEl);
   } else if (hasBlockChildFragments(fragment)) {
     const el = node.element.cloneNode(false);
+    applySplitAttributes(el, inputBreakToken, fragment);
     if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
       applySliceDecorations(el, inputBreakToken, fragment);
     }
@@ -53,6 +54,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
     parentEl.appendChild(el);
   } else {
     const el = node.element.cloneNode(true);
+    applySplitAttributes(el, inputBreakToken, fragment);
     if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
       applySliceDecorations(el, inputBreakToken, fragment);
     }
@@ -92,6 +94,7 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl) {
     parentEl.appendChild(docFragment);
   } else {
     const el = node.element.cloneNode(false);
+    applySplitAttributes(el, inputBreakToken, fragment);
     buildInlineContent(data.items, data.textContent, startOffset, endOffset, el, collapseWS, isHyphenated);
     parentEl.appendChild(el);
   }
@@ -158,6 +161,19 @@ function renderMulticolFragment(fragment, inputBreakToken, parentEl) {
  * @param {import("../tokens.js").BreakToken|null} inputBreakToken - non-null if continuation
  * @param {import("../fragment.js").PhysicalFragment} fragment - the fragment being rendered
  */
+/**
+ * Mark cloned elements with data-split-from / data-split-to attributes
+ * so the override stylesheet can suppress first/last-fragment-only CSS.
+ *
+ * @param {Element} el - The cloned element
+ * @param {import("../tokens.js").BreakToken|null} inputBreakToken - non-null if continuation
+ * @param {import("../fragment.js").PhysicalFragment} fragment - the fragment being rendered
+ */
+function applySplitAttributes(el, inputBreakToken, fragment) {
+  if (inputBreakToken) el.setAttribute("data-split-from", "");
+  if (fragment.breakToken) el.setAttribute("data-split-to", "");
+}
+
 export function applySliceDecorations(el, inputBreakToken, fragment) {
   if (inputBreakToken !== null) {
     el.style.borderBlockStart = "none";
@@ -197,8 +213,6 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
       const visStart = Math.max(itemStart, startOffset);
       const visEnd = Math.min(itemEnd, endOffset);
       let text = textContent.slice(visStart, visEnd);
-      // Strip soft hyphens — they are invisible in flowing text
-      text = text.replace(/\u00AD/g, "");
       if (collapseWS) text = text.replace(/\s+/g, " ");
 
       if (text.length > 0) {
@@ -229,21 +243,7 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
     lastTextNode.textContent = lastTextNode.textContent.replace(/\s+$/, "");
   }
 
-  // Append visible hyphen when the break follows a soft hyphen
-  if (isHyphenated) {
-    const hyphenChar = resolveHyphenCharacter(container);
-    current.appendChild(document.createTextNode(hyphenChar));
-  }
-}
-
-/**
- * Resolve the visible hyphen character per CSS `hyphenate-character`.
- * Defaults to U+2010 (HYPHEN), matching Chromium's HyphenString() behavior.
- */
-function resolveHyphenCharacter(container) {
-  if (container.nodeType === Node.ELEMENT_NODE) {
-    const val = getComputedStyle(container).hyphenateCharacter;
-    if (val && val !== "auto") return val;
-  }
-  return "\u2010";
+  // Soft hyphens (U+00AD) are preserved in the text — the browser renders
+  // them as visible hyphens at line break positions and invisible otherwise.
+  // No manual hyphen injection needed.
 }
