@@ -1,5 +1,7 @@
 import { resolveNamedPageForBreakToken } from './helpers.js';
 import { layoutBlockContainer } from './layout/block-container.js';
+import { layoutFlexContainer } from './layout/flex-container.js';
+import { layoutGridContainer } from './layout/grid-container.js';
 import { layoutInlineContent } from './layout/inline-content.js';
 import { layoutMulticolContainer } from './layout/multicol-container.js';
 import { layoutTableRow } from './layout/table-row.js';
@@ -122,8 +124,9 @@ export function runLayoutGenerator(generatorFn, node, constraintSpace, breakToke
  */
 export function getLayoutAlgorithm(node) {
   if (node.isMulticolContainer) return layoutMulticolContainer;
+  if (node.isFlexContainer) return layoutFlexContainer;
+  if (node.isGridContainer) return layoutGridContainer;
   if (node.isInlineFormattingContext) return layoutInlineContent;
   if (node.isTableRow) return layoutTableRow;
-  // Phase future: flex, grid, table container
   return layoutBlockContainer;
 }

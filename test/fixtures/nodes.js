@@ -17,6 +17,10 @@ const DEFAULTS = {
   isFlexContainer: false,
   isGridContainer: false,
   isMulticolContainer: false,
+  flexDirection: 'row',
+  flexWrap: 'nowrap',
+  gridRowStart: null,
+  gridRowEnd: null,
   columnCount: null,
   columnWidth: null,
   columnGap: null,
@@ -197,6 +201,47 @@ export function multicolNode({ debugName, columnCount = 2, columnWidth = null, c
     columnGap,
     columnFill,
     children,
+    ...overrides,
+  });
+}
+
+/**
+ * Create a flex container node.
+ */
+export function flexNode({ debugName, flexDirection = 'row', flexWrap = 'nowrap',
+                            children = [], ...overrides } = {}) {
+  return blockNode({
+    debugName: debugName || 'flex',
+    isFlexContainer: true,
+    flexDirection,
+    flexWrap,
+    children,
+    ...overrides,
+  });
+}
+
+/**
+ * Create a grid container node.
+ */
+export function gridNode({ debugName, children = [], ...overrides } = {}) {
+  return blockNode({
+    debugName: debugName || 'grid',
+    isGridContainer: true,
+    children,
+    ...overrides,
+  });
+}
+
+/**
+ * Create a grid item node with row placement.
+ */
+export function gridItemNode({ debugName, blockSize = 0, gridRowStart = 1,
+                                gridRowEnd = 2, ...overrides } = {}) {
+  return blockNode({
+    debugName: debugName || `grid-item(row${gridRowStart})`,
+    blockSize,
+    gridRowStart,
+    gridRowEnd,
     ...overrides,
   });
 }

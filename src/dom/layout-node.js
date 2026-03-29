@@ -84,6 +84,26 @@ export class DOMLayoutNode {
     return d === 'grid' || d === 'inline-grid';
   }
 
+  // --- Flex/Grid properties ---
+
+  get flexDirection() {
+    return this._getStyle().flexDirection || 'row';
+  }
+
+  get flexWrap() {
+    return this._getStyle().flexWrap || 'nowrap';
+  }
+
+  get gridRowStart() {
+    const val = this._getStyle().gridRowStart;
+    return (val && val !== 'auto') ? parseInt(val) : null;
+  }
+
+  get gridRowEnd() {
+    const val = this._getStyle().gridRowEnd;
+    return (val && val !== 'auto') ? parseInt(val) : null;
+  }
+
   // --- Multicol properties ---
 
   get isMulticolContainer() {
@@ -410,6 +430,10 @@ export class AnonymousBlockNode {
   get isFlexContainer() { return false; }
   get isGridContainer() { return false; }
   get isMulticolContainer() { return false; }
+  get flexDirection() { return 'row'; }
+  get flexWrap() { return 'nowrap'; }
+  get gridRowStart() { return null; }
+  get gridRowEnd() { return null; }
   get columnCount() { return null; }
   get columnWidth() { return null; }
   get columnGap() { return null; }

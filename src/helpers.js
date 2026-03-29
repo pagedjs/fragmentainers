@@ -13,6 +13,10 @@
  * @property {boolean} isGridContainer
  * @property {Object|null} inlineItemsData
  * @property {Function} computedBlockSize - (availableInlineSize) => number
+ * @property {string} flexDirection
+ * @property {string} flexWrap
+ * @property {number|null} gridRowStart
+ * @property {number|null} gridRowEnd
  * @property {boolean} isMulticolContainer
  * @property {number|null} columnCount
  * @property {number|null} columnWidth
