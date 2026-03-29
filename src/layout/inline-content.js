@@ -225,6 +225,21 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
     return { fragment, breakToken: null };
   }
 
+  // If items exist but carry no content (only open/close tags, e.g. empty
+  // elements with CSS pseudo-element content), treat as monolithic and use
+  // the browser-measured height.
+  const hasContentItems = inlineItems.items.some(item =>
+    item.type === 'kText' || item.type === 'kControl' || item.type === 'kAtomicInline'
+  );
+  if (!hasContentItems) {
+    const measuredHeight = node.element
+      ? node.element.getBoundingClientRect().height
+      : 0;
+    const fragment = new PhysicalFragment(node, measuredHeight);
+    fragment.inlineSize = constraintSpace.availableInlineSize;
+    return { fragment, breakToken: null };
+  }
+
   // Determine start position from break token
   let itemIndex = breakToken?.itemIndex ?? 0;
   let textOffset = breakToken?.textOffset ?? 0;

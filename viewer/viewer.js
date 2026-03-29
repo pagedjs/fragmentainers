@@ -15,10 +15,12 @@ export async function fetchAndParse(url) {
   const html = await response.text();
   const doc = new DOMParser().parseFromString(html, 'text/html');
 
-  // Collect CSS from <style> elements
-  const cssTexts = [];
+  // Collect CSS from <style> elements.
+  // Each entry is { css, cssBaseURL } so url() paths can be resolved
+  // relative to the stylesheet's location, not the HTML document.
+  const cssEntries = [];
   for (const style of doc.querySelectorAll('style')) {
-    cssTexts.push(style.textContent);
+    cssEntries.push({ css: style.textContent, cssBaseURL: baseURL });
   }
 
   // Fetch linked stylesheets
@@ -28,7 +30,8 @@ export async function fetchAndParse(url) {
       try {
         const cssURL = new URL(href, new URL(url, location.href)).href;
         const cssResponse = await fetch(cssURL);
-        cssTexts.push(await cssResponse.text());
+        const cssBaseURL = cssURL.substring(0, cssURL.lastIndexOf('/') + 1);
+        cssEntries.push({ css: await cssResponse.text(), cssBaseURL });
       } catch (e) {
         console.warn(`Failed to fetch stylesheet: ${href}`, e);
       }
@@ -44,16 +47,16 @@ export async function fetchAndParse(url) {
     bodyHTML = doc.body.innerHTML;
   }
 
-  return { bodyHTML, cssTexts, baseURL };
+  return { bodyHTML, cssEntries, baseURL };
 }
 
 /**
  * Inject parsed content and CSS into a container, rebasing relative URLs.
  */
-export function injectContent({ bodyHTML, cssTexts, baseURL }, container) {
-  const rebasedCSS = cssTexts
-    .map(css => css.replace(/url\(\s*['"]?(?!data:|https?:|\/\/)(.*?)['"]?\s*\)/g, (match, path) => {
-      return `url('${baseURL}${path}')`;
+export function injectContent({ bodyHTML, cssEntries, baseURL }, container) {
+  const rebasedCSS = cssEntries
+    .map(({ css, cssBaseURL }) => css.replace(/url\(\s*['"]?(?!data:|https?:|\/\/)(.*?)['"]?\s*\)/g, (match, path) => {
+      return `url('${cssBaseURL}${path}')`;
     }))
     .join('\n');
 
@@ -79,6 +82,21 @@ export function runFragmentation(contentEl, pageSizes) {
   const pages = paginateContent(tree, sizes);
   console.log("Pagination result:", pages);
   return pages;
+}
+
+/**
+ * Wait for all fonts used by the content to finish loading.
+ *
+ * document.fonts.ready resolves immediately if no fonts are in the "loading"
+ * state. After injecting @font-face CSS + content, the browser must perform a
+ * style/layout pass before it discovers which fonts to fetch. We force that
+ * pass with offsetHeight, then await document.fonts.ready so layout runs
+ * against the final metrics.
+ */
+export async function waitForFonts(container) {
+  // Force style recalc + layout so the browser enqueues font fetches.
+  void container.offsetHeight;
+  await document.fonts.ready;
 }
 
 // ---------------------------------------------------------------------------

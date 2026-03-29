@@ -103,7 +103,7 @@ async function runPageMode({ pageWidth, pageHeight, marginTop, marginRight, marg
     contentArea.style.overflow = 'hidden';
 
     const prevBT = i > 0 ? pages[i - 1].breakToken : null;
-    renderFragmentTree(pages[i], prevBT, contentArea);
+    contentArea.appendChild(renderFragmentTree(pages[i], prevBT));
 
     pageEl.appendChild(contentArea);
     paperEl.appendChild(pageEl);
@@ -192,7 +192,7 @@ async function processMulticol(container) {
     colEl.style.flexShrink = '0';
 
     const prevBT = i > 0 ? pages[i - 1].breakToken : null;
-    renderFragmentTree(pages[i], prevBT, colEl);
+    colEl.appendChild(renderFragmentTree(pages[i], prevBT));
     container.appendChild(colEl);
   }
 

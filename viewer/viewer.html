@@ -153,7 +153,7 @@
   <div id="overlay"></div>
 
   <script type="module">
-    import { fetchAndParse, injectContent, runFragmentation, renderPages, showDetail } from './viewer.js';
+    import { fetchAndParse, injectContent, waitForFonts, runFragmentation, renderPages, showDetail } from './viewer.js';
 
     const exampleSelect = document.getElementById('example');
     const pageWidthInput = document.getElementById('pageWidth');
@@ -277,7 +277,7 @@
         injectContent(parsed, measureEl);
 
         // Wait for fonts and images
-        await document.fonts.ready;
+        await waitForFonts(measureEl);
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
         statusEl.textContent = 'Running fragmentation...';

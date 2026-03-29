@@ -238,6 +238,19 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     blockOffset += containerBoxEnd;
   }
 
+  // If no children contributed height but the browser measures a non-zero
+  // height (e.g. from CSS pseudo-elements, list markers, min-height), use
+  // the measured height as a floor. Only applies when children were laid out
+  // but all produced zero blockSize.
+  const contentHeight = blockOffset - (breakToken ? 0 : containerBoxStart)
+    - (hasSeenAllChildren && childBreakTokens.length === 0 ? containerBoxEnd : 0);
+  if (contentHeight === 0 && childFragments.length > 0 && node.element) {
+    const measuredHeight = node.element.getBoundingClientRect().height;
+    if (measuredHeight > blockOffset) {
+      blockOffset = measuredHeight;
+    }
+  }
+
   // Build the output fragment
   const fragment = new PhysicalFragment(node, blockOffset, childFragments);
   fragment.inlineSize = constraintSpace.availableInlineSize;

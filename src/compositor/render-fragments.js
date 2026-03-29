@@ -10,18 +10,20 @@ export function hasBlockChildFragments(fragment) {
 }
 
 /**
- * Walk a page fragment's children and render each into the parent element.
+ * Walk a fragment's children and render each into a DocumentFragment.
  *
- * @param {import('../fragment.js').PhysicalFragment} pageFragment
- * @param {import('../tokens.js').BreakToken|null} inputBreakToken - break token from the PREVIOUS page
- * @param {Element} pageEl - the page container to render into
+ * @param {import('../fragment.js').PhysicalFragment} fragment
+ * @param {import('../tokens.js').BreakToken|null} inputBreakToken - break token from the previous fragmentainer
+ * @returns {DocumentFragment}
  */
-export function renderFragmentTree(pageFragment, inputBreakToken, pageEl) {
-  for (const child of pageFragment.childFragments) {
+export function renderFragmentTree(fragment, inputBreakToken) {
+  const docFragment = document.createDocumentFragment();
+  for (const child of fragment.childFragments) {
     if (!child.node) continue;
     const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-    renderFragment(child, childInputBT, pageEl);
+    renderFragment(child, childInputBT, docFragment);
   }
+  return docFragment;
 }
 
 /**
@@ -75,8 +77,9 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl) {
   const collapseWS = !ws.startsWith('pre');
 
   if (isAnonymous) {
-    // Anonymous block: render content directly into parent
-    buildInlineContent(data.items, data.textContent, startOffset, endOffset, parentEl, collapseWS);
+    const docFragment = document.createDocumentFragment();
+    buildInlineContent(data.items, data.textContent, startOffset, endOffset, docFragment, collapseWS);
+    parentEl.appendChild(docFragment);
   } else {
     const el = node.element.cloneNode(false);
     buildInlineContent(data.items, data.textContent, startOffset, endOffset, el, collapseWS);

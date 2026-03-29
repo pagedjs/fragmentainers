@@ -26,8 +26,9 @@ export async function buildPageElement(pageIndex, pages, pageSizes) {
   pageEl.style.width = `${size.inlineSize}px`;
   pageEl.style.height = `${size.blockSize}px`;
   pageEl.style.overflow = 'hidden';
+  pageEl.style.whiteSpace = 'normal';
   pageEl.style.contain = 'strict';
 
-  renderFragmentTree(page, prevBreakToken, pageEl);
+  pageEl.appendChild(renderFragmentTree(page, prevBreakToken));
   return pageEl;
 }
