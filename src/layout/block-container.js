@@ -31,8 +31,26 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     const consumed = breakToken?.consumedBlockSize || 0;
     const remaining = intrinsicBlockSize - consumed;
 
-    // Monolithic elements never fragment — placed whole or pushed by parent
+    // Monolithic elements are normally placed whole or pushed by parent.
+    // Last resort (CSS Fragmentation §4.4): in page mode, slice at the
+    // fragmentainer boundary when the element exceeds the full page.
     if (isMonolithic(node)) {
+      const availableSpace = constraintSpace.availableBlockSize > 0
+        ? constraintSpace.availableBlockSize
+        : constraintSpace.fragmentainerBlockSize - constraintSpace.blockOffsetInFragmentainer;
+
+      if (constraintSpace.fragmentationType === FRAGMENTATION_PAGE &&
+          remaining > availableSpace && availableSpace > 0) {
+        const fragment = new PhysicalFragment(node, availableSpace);
+        fragment.inlineSize = constraintSpace.availableInlineSize;
+        const token = new BlockBreakToken(node);
+        token.consumedBlockSize = consumed + availableSpace;
+        token.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
+        token.hasSeenAllChildren = true;
+        fragment.breakToken = token;
+        return { fragment, breakToken: token };
+      }
+
       const fragment = new PhysicalFragment(node, remaining);
       fragment.inlineSize = constraintSpace.availableInlineSize;
       return { fragment, breakToken: null };

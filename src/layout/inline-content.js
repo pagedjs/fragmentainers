@@ -446,8 +446,34 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
   fragment.inlineSize = constraintSpace.availableInlineSize;
   fragment.lineCount = lineFragments.length;
 
-  // Produce inline break token if content remains
-  const contentRemains = itemIndex < inlineItems.items.length;
+  // Produce inline break token if content remains.
+  // Skip trailing non-content items (close tags, whitespace-only text, BRs)
+  // so we don't create a break token for insignificant trailing content.
+  let contentRemains = false;
+  if (itemIndex < inlineItems.items.length) {
+    for (let j = itemIndex; j < inlineItems.items.length; j++) {
+      const item = inlineItems.items[j];
+      if (item.type === INLINE_ATOMIC) {
+        contentRemains = true;
+        break;
+      }
+      if (item.type === INLINE_TEXT) {
+        const text = inlineItems.textContent.slice(
+          Math.max(item.startOffset, textOffset),
+          item.endOffset,
+        );
+        if (text.trim().length > 0) {
+          contentRemains = true;
+          break;
+        }
+      }
+    }
+    if (!contentRemains) {
+      // Only insignificant content remains — consume everything
+      itemIndex = inlineItems.items.length;
+      textOffset = inlineItems.textContent.length;
+    }
+  }
   let breakScore = BreakScore.PERFECT;
 
   if (contentRemains) {
