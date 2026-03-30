@@ -79,26 +79,24 @@
       } from "./viewer.js";
       import "../src/dom/frag-measure.js";
       import {
-        findChildBreakToken,
-        isMonolithic,
-        debugPrintTokenTree,
-      } from "../src/helpers.js";
-      import {
         parsePageRulesFromStyleSheets,
         PageSizeResolver,
       } from "../src/page-rules.js";
+      import {
+        buildPageDump,
+        buildDocumentSummary,
+        fragmentainerHeight,
+      } from "./debug.js";
 
-      // Read config from URL params
-      // Accepts: ?url=<absolute-or-relative> or legacy ?example=<path>
       const params = new URLSearchParams(location.search);
       const url = params.get("url") || "examples/moby-dick/index.html";
       const pageW = parseInt(params.get("w") || "816");
       const pageH = parseInt(params.get("h") || "1056");
-      const maxPages = parseInt(params.get("pages") || "0"); // 0 = all
+      const maxPages = parseInt(params.get("pages") || "0");
       const doRender = params.get("render") !== "0";
       const renderScale = parseFloat(params.get("scale") || "0.8");
 
-      // Ensure all params are persisted in the URL
+      // Persist canonical params in the URL
       const canonical = new URLSearchParams();
       canonical.set("url", url);
       canonical.set("w", String(pageW));
@@ -149,496 +147,126 @@
           const fragments = flow.fragments;
           const elapsed = (performance.now() - t0).toFixed(1);
 
-          const header = [];
-          header.push(`# Fragmentainer Debug Report`);
-          header.push(`url: ${url}`);
-          if (resolver) {
-            const first = resolver.resolve(0, null, null);
-            header.push(
-              `pageSize: ${first.pageBoxSize.inlineSize}x${first.pageBoxSize.blockSize} (from @page rules)`,
-            );
-          } else {
-            header.push(`pageSize: ${pageW}x${pageH}`);
-          }
-          header.push(`totalPages: ${fragments.length}`);
-          header.push(`layoutTime: ${elapsed}ms`);
-          header.push(`render: ${doRender}`);
-          header.push("");
-          header.push(buildDocumentSummary(fragments, pageH));
-          header.push("");
+          const header = buildHeader(fragments, resolver, elapsed);
+          const limit =
+            maxPages > 0
+              ? Math.min(maxPages, fragments.length)
+              : fragments.length;
 
           if (!doRender) {
-            // Text-only mode: output everything into #output
-            const lines = [...header];
-            const limit =
-              maxPages > 0
-                ? Math.min(maxPages, fragments.length)
-                : fragments.length;
-            let issueCount = 0;
-
-            for (let i = 0; i < limit; i++) {
-              const { text, hasIssues } = buildPageDump(
-                fragments,
-                i,
-                getFragmentainerHeight(fragments[i], pageH),
-              );
-              if (hasIssues) issueCount++;
-              lines.push(text);
-            }
-
-            lines.push(`---`);
-            lines.push(`Pages with issues: ${issueCount}/${limit}`);
-            outputEl.textContent = lines.join("\n");
+            renderTextMode(fragments, header, limit);
           } else {
-            // Render mode: header in right panel, page rows on left
-            reportEl.style.display = "block";
-            reportEl.textContent = header.join("\n");
-
-            const limit =
-              maxPages > 0
-                ? Math.min(maxPages, fragments.length)
-                : fragments.length;
-            let issueCount = 0;
-
-            for (let i = 0; i < limit; i++) {
-              const c = fragments[i].constraints;
-              const fragW = c ? c.pageBoxSize.inlineSize : pageW;
-              const fragH = c ? c.pageBoxSize.blockSize : pageH;
-              const effectiveH = getFragmentainerHeight(fragments[i], pageH);
-              const dump = buildPageDump(fragments, i, effectiveH);
-
-              const row = document.createElement("div");
-              row.className = "page-row";
-
-              // Rendered page inside <fragment-container> for CSS isolation
-              const renderBox = document.createElement("div");
-              renderBox.className = "page-row-render";
-              renderBox.style.width = `${fragW * renderScale}px`;
-              renderBox.style.height = `${fragH * renderScale}px`;
-
-              const fragEl = flow.renderFragmentainer(i);
-              fragEl.style.width = `${fragW}px`;
-              fragEl.style.height = `${fragH}px`;
-              if (c && c.margins) {
-                fragEl.style.boxSizing = "border-box";
-                fragEl.style.paddingTop = `${c.margins.top}px`;
-                fragEl.style.paddingRight = `${c.margins.right}px`;
-                fragEl.style.paddingBottom = `${c.margins.bottom}px`;
-                fragEl.style.paddingLeft = `${c.margins.left}px`;
-              }
-              fragEl.style.transform = `scale(${renderScale})`;
-              fragEl.style.transformOrigin = "top left";
-
-              renderBox.appendChild(fragEl);
-              row.appendChild(renderBox);
-
-              // Append to DOM so we can measure rendered content
-              outputEl.appendChild(row);
-              await new Promise((r) => requestAnimationFrame(r));
-
-              // Detect render overflow: measure natural content height
-              // Temporarily remove constraints for accurate measurement
-              fragEl.style.overflow = "visible";
-              fragEl.style.height = "auto";
-              fragEl.style.transform = "none";
-              const naturalH = fragEl.scrollHeight;
-              fragEl.style.overflow = "hidden";
-              fragEl.style.height = `${fragH}px`;
-              fragEl.style.transform = `scale(${renderScale})`;
-
-              if (naturalH > fragH + 0.5) {
-                dump.text += `\n  ISSUES:\n    - RENDER OVERFLOW: rendered content ${naturalH}px > fragmentainer ${fragH}px (overflow by ${(naturalH - fragH).toFixed(1)}px)`;
-                dump.hasIssues = true;
-              }
-
-              if (dump.hasIssues) {
-                issueCount++;
-                row.classList.add("has-issues");
-              }
-
-              // Data dump
-              const dataBox = document.createElement("div");
-              dataBox.className = "page-row-data";
-              dataBox.textContent = dump.text;
-              row.appendChild(dataBox);
-            }
-
-            const summary = document.createElement("div");
-            summary.style.cssText =
-              "white-space:pre-wrap;margin-top:8px;border-top:1px solid #ccc;padding-top:8px;";
-            summary.textContent = `---\nPages with issues: ${issueCount}/${limit}`;
-            reportEl.appendChild(summary);
+            await renderVisualMode(fragments, flow, header, limit, t0);
           }
         } catch (err) {
           outputEl.textContent = `ERROR: ${err.message}\n${err.stack}`;
         }
       }
 
-      // --- Helpers ---
-
-      function getFragmentainerHeight(fragment, defaultH) {
-        return fragment.constraints
-          ? fragment.constraints.contentArea.blockSize
-          : defaultH;
-      }
-
-      // --- Page dump (returns { text, hasIssues }) ---
-
-      function buildPageDump(fragments, i, pageH) {
+      function buildHeader(fragments, resolver, elapsed) {
         const lines = [];
-        const log = (...args) => lines.push(args.join(" "));
-
-        const page = fragments[i];
-        const prevBT = i > 0 ? fragments[i - 1].breakToken : null;
-        const pageIssues = [];
-
-        if (page.blockSize > pageH + 0.01) {
-          pageIssues.push(
-            `OVERFLOW by ${(page.blockSize - pageH).toFixed(2)}px`,
+        lines.push("# Fragmentainer Debug Report");
+        lines.push(`url: ${url}`);
+        if (resolver) {
+          const first = resolver.resolve(0, null, null);
+          lines.push(
+            `pageSize: ${first.pageBoxSize.inlineSize}x${first.pageBoxSize.blockSize} (from @page rules)`,
           );
+        } else {
+          lines.push(`pageSize: ${pageW}x${pageH}`);
         }
-
-        const childData = [];
-        let childSum = 0;
-
-        for (const frag of page.childFragments) {
-          if (!frag.node) continue;
-          childSum += frag.blockSize;
-          const info = dumpFragment(frag, prevBT, 0);
-          childData.push(info);
-          if (info.issues) pageIssues.push(...info.issues);
-        }
-
-        const gap = page.blockSize - childSum;
-
-        const lastFrag = page.childFragments[page.childFragments.length - 1];
-        if (lastFrag?.node) {
-          const clipCheck = checkLastLineClip(
-            lastFrag,
-            page.blockSize,
-            pageH,
-            prevBT,
-          );
-          if (clipCheck) pageIssues.push(clipCheck);
-        }
-
-        const remaining = pageH - page.blockSize;
-        const hasIssues = pageIssues.length > 0;
-        const btInfo = page.breakToken
-          ? `breakToken(consumed=${page.breakToken.consumedBlockSize.toFixed(1)} children=${page.breakToken.childBreakTokens.length})`
-          : "breakToken=null";
-        const issueTag = hasIssues ? ` *** ${pageIssues.length} ISSUE(S)` : "";
-
-        // Constraint space info (from resolver path)
-        const csInfo = page.constraints
-          ? ` constraints={content: ${page.constraints.contentArea.inlineSize}x${page.constraints.contentArea.blockSize}}`
-          : "";
-
-        log(
-          `## Page ${i + 1}/${fragments.length}  blockSize=${page.blockSize.toFixed(2)}  remaining=${remaining.toFixed(2)}  ${btInfo}${csInfo}${issueTag}`,
-        );
-
-        // Show first and last text node on this page
-        const textSegments = collectPageTextSegments(page, prevBT);
-        if (textSegments.length > 0) {
-          log(`  first text: "${truncate(textSegments[0], 80)}"`);
-          if (textSegments.length > 1) {
-            log(
-              `  last text:  "${truncate(textSegments[textSegments.length - 1], 80)}"`,
-            );
-          }
-        }
-
-        log(
-          `  childFragments: ${page.childFragments.filter((f) => f.node).length}  childSum=${childSum.toFixed(2)}  gap=${gap.toFixed(2)}  remaining=${remaining.toFixed(2)}`,
-        );
-
-        for (const info of childData) {
-          printFragmentInfo(info, log, "  ");
-        }
-
-        if (hasIssues) {
-          log("  ISSUES:");
-          for (const issue of pageIssues) {
-            log(`    - ${issue}`);
-          }
-        }
-
-        // Break token tree (indented under page)
-        if (page.breakToken) {
-          log("  breakTokenTree:");
-          const tree = debugPrintTokenTree(page.breakToken, 2);
-          log(tree);
-        }
-        log("");
-
-        return { text: lines.join("\n"), hasIssues };
+        lines.push(`totalPages: ${fragments.length}`);
+        lines.push(`layoutTime: ${elapsed}ms`);
+        lines.push(`render: ${doRender}`);
+        lines.push("");
+        lines.push(buildDocumentSummary(fragments, pageH));
+        lines.push("");
+        return lines;
       }
 
-      // --- Fragment data collection ---
-
-      function dumpFragment(frag, parentBT, depth) {
-        const node = frag.node;
-        const tag = node.element?.tagName?.toLowerCase() || "?";
-        const name = node.debugName || tag;
-        const isIFC = node.isInlineFormattingContext;
-        const measured = node.element
-          ? node.element.getBoundingClientRect().height
-          : null;
-        const mono = isMonolithic(node);
-        const issues = [];
-
-        // Collect break CSS properties (only non-default values)
-        const breakProps = {};
-        if (node.breakBefore && node.breakBefore !== "auto")
-          breakProps.before = node.breakBefore;
-        if (node.breakAfter && node.breakAfter !== "auto")
-          breakProps.after = node.breakAfter;
-        if (node.breakInside && node.breakInside !== "auto")
-          breakProps.inside = node.breakInside;
-
-        const info = {
-          name,
-          tag,
-          depth,
-          blockSize: frag.blockSize,
-          measured,
-          margin: [node.marginBlockStart || 0, node.marginBlockEnd || 0],
-          padding: [node.paddingBlockStart || 0, node.paddingBlockEnd || 0],
-          border: [node.borderBlockStart || 0, node.borderBlockEnd || 0],
-          isIFC,
-          isMonolithic: mono,
-          breakProps,
-          hasBreakToken: !!frag.breakToken,
-          breakTokenType: frag.breakToken?.type || null,
-          consumedBlockSize: frag.breakToken?.consumedBlockSize ?? null,
-          issues,
-          children: [],
-        };
-
-        if (isIFC) {
-          const data = node.inlineItemsData;
-          const lh = node.lineHeight;
-          const lineCount = frag.childFragments.length;
-          const computed = lineCount * lh;
-          const inputBT = findChildBreakToken(parentBT, node);
-          const outputBT = frag.breakToken;
-
-          info.ifc = {
-            lineHeight: lh,
-            lineCount,
-            computedHeight: computed,
-            textLength: data?.textContent?.length || 0,
-            itemCount: data?.items?.length || 0,
-            startOffset: inputBT?.textOffset ?? 0,
-            endOffset: outputBT?.textOffset ?? (data?.textContent?.length || 0),
-          };
-
-          if (computed > frag.blockSize + 0.5) {
-            issues.push(
-              `${name}: lines*lineHeight (${computed.toFixed(2)}) > blockSize (${frag.blockSize.toFixed(2)}) by ${(computed - frag.blockSize).toFixed(2)}px`,
-            );
-          }
-
-          const remainder = frag.blockSize % lh;
-          if (remainder > 0.01 && remainder < lh - 0.01) {
-            issues.push(
-              `${name}: blockSize ${frag.blockSize.toFixed(2)} is not a multiple of lineHeight ${lh.toFixed(2)} (remainder=${remainder.toFixed(2)})`,
-            );
-          }
+      function renderTextMode(fragments, header, limit) {
+        const lines = [...header];
+        let issueCount = 0;
+        for (let i = 0; i < limit; i++) {
+          const effH = fragmentainerHeight(fragments[i], pageH);
+          const { text, hasIssues } = buildPageDump(fragments, i, effH);
+          if (hasIssues) issueCount++;
+          lines.push(text);
         }
-
-        if (!isIFC) {
-          for (const child of frag.childFragments) {
-            if (!child.node) continue;
-            const childBT = findChildBreakToken(parentBT, child.node);
-            const childInfo = dumpFragment(child, parentBT, depth + 1);
-            info.children.push(childInfo);
-            issues.push(...childInfo.issues);
-          }
-        }
-
-        return info;
+        lines.push("---");
+        lines.push(`Pages with issues: ${issueCount}/${limit}`);
+        outputEl.textContent = lines.join("\n");
       }
 
-      function printFragmentInfo(info, log, prefix) {
-        const indent = prefix + "  ".repeat(info.depth);
-        const mStr = `margin=${info.margin[0].toFixed(1)}/${info.margin[1].toFixed(1)}`;
-        const pStr = `pad=${info.padding[0].toFixed(1)}/${info.padding[1].toFixed(1)}`;
-        const bStr =
-          info.border[0] || info.border[1]
-            ? ` border=${info.border[0].toFixed(1)}/${info.border[1].toFixed(1)}`
-            : "";
-        const btStr = info.hasBreakToken
-          ? ` BT(${info.breakTokenType}${info.consumedBlockSize !== null ? ` consumed=${info.consumedBlockSize.toFixed(1)}` : ""})`
-          : "";
-        const measuredStr =
-          info.measured !== null ? ` measured=${info.measured.toFixed(2)}` : "";
-        const monoStr = info.isMonolithic ? " [monolithic]" : "";
+      async function renderVisualMode(fragments, flow, header, limit, t0) {
+        reportEl.style.display = "block";
+        reportEl.textContent = header.join("\n");
 
-        // Break CSS properties
-        const bpParts = [];
-        if (info.breakProps.before)
-          bpParts.push(`break-before:${info.breakProps.before}`);
-        if (info.breakProps.after)
-          bpParts.push(`break-after:${info.breakProps.after}`);
-        if (info.breakProps.inside)
-          bpParts.push(`break-inside:${info.breakProps.inside}`);
-        const bpStr = bpParts.length ? ` {${bpParts.join(", ")}}` : "";
+        let issueCount = 0;
+        for (let i = 0; i < limit; i++) {
+          const c = fragments[i].constraints;
+          const fragW = c ? c.pageBoxSize.inlineSize : pageW;
+          const fragH = c ? c.pageBoxSize.blockSize : pageH;
+          const effH = fragmentainerHeight(fragments[i], pageH);
+          const dump = buildPageDump(fragments, i, effH);
 
-        let line = `${indent}${info.name}  blockSize=${info.blockSize.toFixed(2)}${measuredStr}  ${mStr} ${pStr}${bStr}${btStr}${monoStr}${bpStr}`;
+          const row = document.createElement("div");
+          row.className = "page-row";
 
-        if (info.isIFC && info.ifc) {
-          const ifc = info.ifc;
-          line += `\n${indent}  IFC: lineHeight=${ifc.lineHeight.toFixed(2)} lines=${ifc.lineCount} computed=${ifc.computedHeight.toFixed(2)} text=[${ifc.startOffset}..${ifc.endOffset}]/${ifc.textLength}`;
-        }
+          const renderBox = document.createElement("div");
+          renderBox.className = "page-row-render";
+          renderBox.style.width = `${fragW * renderScale}px`;
+          renderBox.style.height = `${fragH * renderScale}px`;
 
-        log(line);
-
-        for (const child of info.children) {
-          printFragmentInfo(child, log, prefix);
-        }
-      }
-
-      function checkLastLineClip(frag, pageBlockSize, pageH, prevBT) {
-        let current = frag;
-        let bt = prevBT;
-        while (current) {
-          if (current.node?.isInlineFormattingContext) {
-            if (pageBlockSize > pageH + 0.01) {
-              return `Last IFC (${current.node.debugName}): page blockSize ${pageBlockSize.toFixed(2)} > fragmentainer ${pageH} — last line clipped`;
-            }
-            return null;
+          const fragEl = flow.renderFragmentainer(i);
+          fragEl.style.width = `${fragW}px`;
+          fragEl.style.height = `${fragH}px`;
+          if (c && c.margins) {
+            fragEl.style.boxSizing = "border-box";
+            fragEl.style.paddingTop = `${c.margins.top}px`;
+            fragEl.style.paddingRight = `${c.margins.right}px`;
+            fragEl.style.paddingBottom = `${c.margins.bottom}px`;
+            fragEl.style.paddingLeft = `${c.margins.left}px`;
           }
-          const blockChildren = current.childFragments.filter((f) => f.node);
-          if (blockChildren.length === 0) return null;
-          const last = blockChildren[blockChildren.length - 1];
-          bt = findChildBreakToken(bt, last.node);
-          current = last;
-        }
-        return null;
-      }
+          fragEl.style.transform = `scale(${renderScale})`;
+          fragEl.style.transformOrigin = "top left";
 
-      // --- Page text extraction ---
+          renderBox.appendChild(fragEl);
+          row.appendChild(renderBox);
+          outputEl.appendChild(row);
+          await new Promise((r) => requestAnimationFrame(r));
 
-      function collectPageTextSegments(pageFragment, inputBreakToken) {
-        const segments = [];
-        collectTextSegments(pageFragment, inputBreakToken, segments);
-        return segments;
-      }
+          // Detect render overflow
+          fragEl.style.overflow = "visible";
+          fragEl.style.height = "auto";
+          fragEl.style.transform = "none";
+          const naturalH = fragEl.scrollHeight;
+          fragEl.style.overflow = "hidden";
+          fragEl.style.height = `${fragH}px`;
+          fragEl.style.transform = `scale(${renderScale})`;
 
-      function collectTextSegments(fragment, inputBreakToken, segments) {
-        for (const child of fragment.childFragments) {
-          if (!child.node) continue;
-          const childBT = findChildBreakToken(inputBreakToken, child.node);
-
-          if (child.node.isInlineFormattingContext) {
-            extractInlineText(child, childBT, segments);
-          } else {
-            collectTextSegments(child, childBT, segments);
-          }
-        }
-      }
-
-      function extractInlineText(fragment, breakToken, segments) {
-        const data = fragment.node.inlineItemsData;
-        if (!data || !data.textContent) return;
-        const startOffset =
-          breakToken && breakToken.type === "inline"
-            ? breakToken.textOffset
-            : 0;
-        const endOffset =
-          fragment.breakToken && fragment.breakToken.type === "inline"
-            ? fragment.breakToken.textOffset
-            : data.textContent.length;
-        let text = data.textContent.slice(startOffset, endOffset);
-        const ws = fragment.node.element
-          ? getComputedStyle(fragment.node.element).whiteSpace
-          : "normal";
-        if (!ws.startsWith("pre")) {
-          text = text.replace(/\s+/g, " ").trim();
-        }
-        if (text) segments.push(text);
-      }
-
-      // --- Document summary ---
-
-      function buildDocumentSummary(fragments, pageH) {
-        const lines = [];
-        let totalContentHeight = 0;
-        let overflowPages = 0;
-        let forcedBreaks = 0;
-        let pagesWithBreakTokens = 0;
-        const elementSpans = new Map(); // element debugName → [first page, last page]
-
-        for (let i = 0; i < fragments.length; i++) {
-          const page = fragments[i];
-          const effH = getFragmentainerHeight(page, pageH);
-          totalContentHeight += page.blockSize;
-          if (page.blockSize > effH + 0.01) overflowPages++;
-          if (page.breakToken) {
-            pagesWithBreakTokens++;
-            if (page.breakToken.isForcedBreak) forcedBreaks++;
-            countForcedBreaks(page.breakToken, (n) => forcedBreaks++);
+          if (naturalH > fragH + 0.5) {
+            dump.text += `\n  ISSUES:\n    - RENDER OVERFLOW: rendered content ${naturalH}px > fragmentainer ${fragH}px (overflow by ${(naturalH - fragH).toFixed(1)}px)`;
+            dump.hasIssues = true;
           }
 
-          // Track which elements appear on which pages
-          trackElementSpans(page, i, elementSpans);
-        }
-
-        // Elements spanning multiple pages
-        const spanning = [];
-        for (const [name, span] of elementSpans) {
-          if (span[1] > span[0]) {
-            spanning.push(`${name} (pages ${span[0] + 1}-${span[1] + 1})`);
+          if (dump.hasIssues) {
+            issueCount++;
+            row.classList.add("has-issues");
           }
+
+          const dataBox = document.createElement("div");
+          dataBox.className = "page-row-data";
+          dataBox.textContent = dump.text;
+          row.appendChild(dataBox);
         }
 
-        lines.push("## Document Summary");
-        lines.push(
-          `  totalContentHeight: ${totalContentHeight.toFixed(1)}px across ${fragments.length} pages`,
-        );
-        lines.push(
-          `  overflowPages: ${overflowPages}  forcedBreaks: ${forcedBreaks}`,
-        );
-        if (spanning.length > 0) {
-          lines.push(`  spanning elements (${spanning.length}):`);
-          for (const s of spanning.slice(0, 20)) {
-            lines.push(`    - ${s}`);
-          }
-          if (spanning.length > 20)
-            lines.push(`    ... and ${spanning.length - 20} more`);
-        }
-        return lines.join("\n");
-      }
-
-      function countForcedBreaks(bt, cb) {
-        if (!bt.childBreakTokens) return;
-        for (const child of bt.childBreakTokens) {
-          if (child.isForcedBreak) cb(child);
-          countForcedBreaks(child, cb);
-        }
-      }
-
-      function trackElementSpans(pageFragment, pageIndex, map) {
-        for (const child of pageFragment.childFragments) {
-          if (!child.node) continue;
-          const name =
-            child.node.debugName ||
-            child.node.element?.tagName?.toLowerCase() ||
-            "?";
-          if (map.has(name)) {
-            map.get(name)[1] = pageIndex;
-          } else {
-            map.set(name, [pageIndex, pageIndex]);
-          }
-          trackElementSpans(child, pageIndex, map);
-        }
-      }
-
-      function truncate(str, maxLen) {
-        if (str.length <= maxLen) return str;
-        return str.slice(0, maxLen - 3) + "...";
+        const summary = document.createElement("div");
+        summary.style.cssText =
+          "white-space:pre-wrap;margin-top:8px;border-top:1px solid #ccc;padding-top:8px;";
+        summary.textContent = `pageIssues: ${issueCount}/${limit}\n`;
+        summary.textContent += `renderTime: ${(performance.now() - t0).toFixed(1)}ms`;
+        reportEl.appendChild(summary);
       }
     </script>
   </body>
