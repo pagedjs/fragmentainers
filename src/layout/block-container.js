@@ -298,6 +298,17 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     }
   }
 
+  // Empty container: no child produced visible content, all remaining
+  // children were pushed. Zero out blockOffset so this fragment doesn't
+  // consume space (avoids rendering an empty padding/border shell).
+  // Covers both the case where no children were placed at all and the
+  // case where children were placed but all have zero blockSize (e.g.
+  // an <li> inline FC that had no room for even one line of text).
+  if (childBreakTokens.length > 0 &&
+      !childFragments.some(f => f.blockSize > 0)) {
+    blockOffset = 0;
+  }
+
   // Build the output fragment
   const fragment = new PhysicalFragment(node, blockOffset, childFragments);
   fragment.inlineSize = constraintSpace.availableInlineSize;

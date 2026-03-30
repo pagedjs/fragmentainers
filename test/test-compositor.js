@@ -135,6 +135,56 @@ describe("compositor fragment tree contract", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Empty container shell detection
+// ---------------------------------------------------------------------------
+
+describe("empty container shell detection", () => {
+  /**
+   * Mirrors the condition in renderFragment that skips empty container shells:
+   *   fragment.childFragments.length === 0 && fragment.breakToken && node.children?.length > 0
+   */
+  function isEmptyContainerShell(fragment) {
+    return fragment.childFragments.length === 0 &&
+      fragment.breakToken !== null &&
+      fragment.node.children?.length > 0;
+  }
+
+  it("detects an empty container with pushed children", () => {
+    const child = blockNode({ debugName: "child" });
+    const container = blockNode({ debugName: "container", children: [child] });
+    const fragment = new PhysicalFragment(container, 0, []);
+    fragment.breakToken = new BlockBreakToken(container);
+    fragment.breakToken.childBreakTokens = [BlockBreakToken.createBreakBefore(child)];
+    assert.equal(isEmptyContainerShell(fragment), true);
+  });
+
+  it("does not flag a leaf node being sliced", () => {
+    const leaf = blockNode({ debugName: "leaf" }); // children: [] by default
+    const fragment = new PhysicalFragment(leaf, 200, []);
+    fragment.breakToken = new BlockBreakToken(leaf);
+    fragment.breakToken.consumedBlockSize = 200;
+    assert.equal(isEmptyContainerShell(fragment), false);
+  });
+
+  it("does not flag a container with placed children", () => {
+    const child = blockNode({ debugName: "child" });
+    const container = blockNode({ debugName: "container", children: [child] });
+    const childFrag = new PhysicalFragment(child, 50);
+    const fragment = new PhysicalFragment(container, 50, [childFrag]);
+    fragment.breakToken = new BlockBreakToken(container);
+    assert.equal(isEmptyContainerShell(fragment), false);
+  });
+
+  it("does not flag a completed container (no break token)", () => {
+    const child = blockNode({ debugName: "child" });
+    const container = blockNode({ debugName: "container", children: [child] });
+    const childFrag = new PhysicalFragment(child, 50);
+    const fragment = new PhysicalFragment(container, 50, [childFrag]);
+    assert.equal(isEmptyContainerShell(fragment), false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Inline items data structure (used by buildInlineContent)
 // ---------------------------------------------------------------------------
 

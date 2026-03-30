@@ -54,7 +54,17 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
       const childInputBT = findChildBreakToken(inputBreakToken, child.node);
       renderFragment(child, childInputBT, el);
     }
+    // Skip empty container shells — all rendered children were themselves
+    // empty and skipped (e.g. an <ol> whose only <li> had no visible text).
+    if (el.childNodes.length === 0 && fragment.breakToken) {
+      return;
+    }
     parentEl.appendChild(el);
+  } else if (fragment.childFragments.length === 0 && fragment.breakToken &&
+             node.children?.length > 0) {
+    // Empty container shell — all children pushed to next fragmentainer.
+    // Don't render; content will appear on the next page/column.
+    return;
   } else {
     const el = node.element.cloneNode(true);
     applySplitAttributes(el, inputBreakToken, fragment);
@@ -101,6 +111,13 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl) {
   const endOffset = (fragment.breakToken && fragment.breakToken.type === BREAK_TOKEN_INLINE)
     ? fragment.breakToken.textOffset
     : data.textContent.length;
+
+  // No visible text in this fragment and content continues on the next
+  // fragmentainer — skip rendering to avoid empty element shells (e.g. an
+  // <li> that shows only its ::marker with no text).
+  if (startOffset >= endOffset && fragment.breakToken) {
+    return;
+  }
 
   const ws = isAnonymous ? "normal" : getComputedStyle(node.element).whiteSpace;
   const collapseWS = !ws.startsWith("pre");
@@ -216,9 +233,17 @@ function applyListContinuation(el, node, inputBreakToken) {
 
   // A split continuation (not pushed) was partially rendered in the
   // previous fragment — its marker was already shown, so count it.
+  // But skip counting if the item produced no visible content (e.g.
+  // a zero-height inline fragment where no text fit — the compositor
+  // suppresses its rendering, so its marker was never shown).
   if (!firstChildToken.isBreakBefore &&
       node.children[childIndex]?.element?.tagName === "LI") {
-    itemCount++;
+    const hadVisibleContent = firstChildToken.type === BREAK_TOKEN_INLINE
+      ? firstChildToken.textOffset > 0
+      : firstChildToken.consumedBlockSize > 0;
+    if (hadVisibleContent) {
+      itemCount++;
+    }
   }
 
   el.setAttribute("start", String(originalStart + itemCount));
