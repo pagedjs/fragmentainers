@@ -11,3 +11,4 @@ export { layoutTableRow } from "./layout/table-row.js";
 export { buildLayoutTree, DOMLayoutNode } from "./dom/index.js";
 export { renderFragmentTree, renderFragment, hasBlockChildFragments, buildInlineContent, getFragmentainerSize, buildFragmentainerElement } from "./compositor/index.js";
 export { FragmentainerLayout, FragmentedFlow } from "./fragmentainer-layout.js";
+export { CounterState, parseCounterDirective, walkFragmentTree } from "./counter-state.js";

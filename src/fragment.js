@@ -12,6 +12,7 @@ export class PhysicalFragment {
     this.constraints = null;
     this.multicolData = null;
     this.lineCount = 0;
+    this.counterState = null;
   }
 
   /**
@@ -33,6 +34,7 @@ export class PhysicalFragment {
     merged.constraints = fragmentA.constraints;
     // B's break token carries forward (A is done on this page)
     merged.breakToken = fragmentB.breakToken;
+    merged.counterState = fragmentB.counterState || fragmentA.counterState;
     return merged;
   }
 }

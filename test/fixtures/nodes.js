@@ -3,6 +3,7 @@
  * These return plain objects matching the LayoutNode interface
  * expected by the layout algorithms.
  */
+import { INLINE_TEXT, INLINE_CONTROL } from "../../src/constants.js";
 
 const DEFAULTS = {
   children: [],
@@ -33,6 +34,8 @@ const DEFAULTS = {
   boxDecorationBreak: "slice",
   orphans: 2,
   widows: 2,
+  counterReset: "none",
+  counterIncrement: "none",
   marginBlockStart: 0,
   marginBlockEnd: 0,
   paddingBlockStart: 0,
@@ -277,15 +280,15 @@ export function textToInlineItems(text) {
   for (let i = 0; i < text.length; i++) {
     if (text[i] === "\n") {
       if (i > offset) {
-        items.push({ type: "kText", startOffset: offset, endOffset: i, domNode: mockTextNode });
+        items.push({ type: INLINE_TEXT, startOffset: offset, endOffset: i, domNode: mockTextNode });
       }
-      items.push({ type: "kControl", startOffset: i, endOffset: i + 1 });
+      items.push({ type: INLINE_CONTROL, startOffset: i, endOffset: i + 1 });
       offset = i + 1;
     }
   }
 
   if (offset < text.length) {
-    items.push({ type: "kText", startOffset: offset, endOffset: text.length, domNode: mockTextNode });
+    items.push({ type: INLINE_TEXT, startOffset: offset, endOffset: text.length, domNode: mockTextNode });
   }
 
   return { items, textContent: text };

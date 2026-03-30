@@ -43,6 +43,9 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
   } else if (hasBlockChildFragments(fragment)) {
     const el = node.element.cloneNode(false);
     applySplitAttributes(el, inputBreakToken, fragment);
+    if (inputBreakToken && el.tagName === "OL") {
+      applyListContinuation(el, node, inputBreakToken);
+    }
     if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
       applySliceDecorations(el, inputBreakToken, fragment);
     }
@@ -58,7 +61,22 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
     if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
       applySliceDecorations(el, inputBreakToken, fragment);
     }
-    parentEl.appendChild(el);
+
+    // Sliced monolithic content: wrap in a clip container and offset
+    // by the consumed amount to show the correct portion.
+    const consumed = inputBreakToken?.consumedBlockSize || 0;
+    if (consumed > 0 || fragment.breakToken) {
+      const wrapper = document.createElement("div");
+      wrapper.style.height = `${fragment.blockSize}px`;
+      wrapper.style.overflow = "hidden";
+      if (consumed > 0) {
+        el.style.marginTop = `-${consumed}px`;
+      }
+      wrapper.appendChild(el);
+      parentEl.appendChild(wrapper);
+    } else {
+      parentEl.appendChild(el);
+    }
   }
 }
 
@@ -172,6 +190,38 @@ function renderMulticolFragment(fragment, inputBreakToken, parentEl) {
 function applySplitAttributes(el, inputBreakToken, fragment) {
   if (inputBreakToken) el.setAttribute("data-split-from", "");
   if (fragment.breakToken) el.setAttribute("data-split-to", "");
+}
+
+/**
+ * Set the start attribute on a continuation <ol> so list numbering
+ * continues from the previous fragment rather than restarting at 1.
+ *
+ * Uses the break token's child structure to count how many list items
+ * were rendered in previous fragments.
+ */
+function applyListContinuation(el, node, inputBreakToken) {
+  const originalStart = parseInt(node.element.getAttribute("start"), 10) || 1;
+  const firstChildToken = inputBreakToken.childBreakTokens?.[0];
+  if (!firstChildToken) return;
+
+  const childIndex = node.children.indexOf(firstChildToken.node);
+  if (childIndex < 0) return;
+
+  // Count <li> items before the resumption point. Non-li children
+  // (e.g. <div>, <template>) don't increment the list-item counter.
+  let itemCount = 0;
+  for (let i = 0; i < childIndex; i++) {
+    if (node.children[i].element?.tagName === "LI") itemCount++;
+  }
+
+  // A split continuation (not pushed) was partially rendered in the
+  // previous fragment — its marker was already shown, so count it.
+  if (!firstChildToken.isBreakBefore &&
+      node.children[childIndex]?.element?.tagName === "LI") {
+    itemCount++;
+  }
+
+  el.setAttribute("start", String(originalStart + itemCount));
 }
 
 export function applySliceDecorations(el, inputBreakToken, fragment) {

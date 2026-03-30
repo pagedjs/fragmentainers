@@ -36,7 +36,10 @@ export async function buildFragmentainerElement(fragmentainerIndex, fragments, f
   fragEl.style.height = `${size.blockSize}px`;
   fragEl.style.overflow = "hidden";
 
-  const wrapper = fragEl.setupForRendering(contentStyles);
+  const counterSnapshot = fragmentainerIndex > 0
+    ? fragments[fragmentainerIndex - 1].counterState
+    : null;
+  const wrapper = fragEl.setupForRendering(contentStyles, counterSnapshot);
   wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken));
   return fragEl;
 }

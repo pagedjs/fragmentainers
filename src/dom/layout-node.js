@@ -192,6 +192,11 @@ export class DOMLayoutNode {
     return parseInt(this._getStyle().widows) || 2;
   }
 
+  // --- Counters ---
+
+  get counterReset() { return this._getStyle().counterReset || "none"; }
+  get counterIncrement() { return this._getStyle().counterIncrement || "none"; }
+
   // --- Children ---
 
   get children() {
@@ -450,4 +455,8 @@ export class AnonymousBlockNode {
   get columnGap() { return null; }
   get columnFill() { return "balance"; }
   get cells() { return []; }
+
+  // Counters
+  get counterReset() { return "none"; }
+  get counterIncrement() { return "none"; }
 }

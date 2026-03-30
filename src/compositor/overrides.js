@@ -21,6 +21,13 @@ OVERRIDES.replaceSync(`
   padding-block-start: unset !important;
   initial-letter: unset !important;
   counter-increment: unset !important;
+  counter-set: unset !important;
+}
+
+/* Suppress counter-reset on continuation fragments — but not on <ol>,
+   where the start attribute controls the list-item counter scope and
+   the compositor sets the correct continuation value. */
+[data-split-from]:not(ol) {
   counter-reset: unset !important;
 }
 

@@ -138,7 +138,7 @@ class FragmentContainerElement extends HTMLElement {
    * @param {Object} [contentStyles] — from ContentMeasureElement.getContentStyles()
    * @returns {Element} wrapper element to append rendered content into
    */
-  setupForRendering(contentStyles) {
+  setupForRendering(contentStyles, counterSnapshot = null) {
     this._shadow.innerHTML = "";
 
     // Host styles
@@ -161,6 +161,20 @@ class FragmentContainerElement extends HTMLElement {
     } else {
       // Copy stylesheets from the current document
       copyDocumentStyles(this._shadow);
+    }
+
+    // Seed counter values from the previous fragmentainer's snapshot.
+    // Inserted before OVERRIDES so OVERRIDES has higher cascade priority.
+    if (counterSnapshot && Object.keys(counterSnapshot).length > 0) {
+      const counterSheet = new CSSStyleSheet();
+      const pairs = Object.entries(counterSnapshot)
+        .map(([name, value]) => `${name} ${value}`)
+        .join(" ");
+      counterSheet.replaceSync(`.frag-body { counter-set: ${pairs}; }`);
+      const sheets = this._shadow.adoptedStyleSheets;
+      this._shadow.adoptedStyleSheets = [
+        ...sheets.slice(0, -1), counterSheet, sheets[sheets.length - 1]
+      ];
     }
 
     // Create wrapper div that content CSS targets via .frag-body

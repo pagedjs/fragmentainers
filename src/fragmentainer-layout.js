@@ -3,23 +3,7 @@ import { createFragments } from "./driver.js";
 import { PhysicalFragment } from "./fragment.js";
 import { renderFragmentTree } from "./compositor/render-fragments.js";
 import { PageSizeResolver } from "./page-rules.js";
-
-// Lazy import: ContentMeasureGroup requires browser DOM (HTMLElement).
-// Loaded on first use to keep this module importable in Node.js tests.
-let _ContentMeasureGroup = null;
-async function getContentMeasureGroup() {
-  if (!_ContentMeasureGroup) {
-    const mod = await import("./dom/frag-measure.js");
-    _ContentMeasureGroup = mod.ContentMeasureGroup;
-  }
-  return _ContentMeasureGroup;
-}
-function getContentMeasureGroupSync() {
-  if (!_ContentMeasureGroup) {
-    throw new Error("ContentMeasureGroup not loaded — call flowAsync() or preload via setMeasureGroup()");
-  }
-  return _ContentMeasureGroup;
-}
+import { ContentMeasureGroup } from "./dom/frag-measure.js";
 
 function buildLayoutTree(rootElement) {
   return new DOMLayoutNode(rootElement);
@@ -38,6 +22,11 @@ const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };
  * Module Level 3 terminology throughout.
  */
 export class FragmentainerLayout {
+  #contentElement;
+  #measureContainer;
+  #resolver;
+  #group;
+
   /**
    * @param {Element} contentElement - The root content element to fragment
    * @param {object} [options]
@@ -47,13 +36,13 @@ export class FragmentainerLayout {
    *   (required when contentElement is a DocumentFragment)
    */
   constructor(contentElement, options = {}) {
-    this._contentElement = contentElement;
-    this._measureContainer = options.measureContainer || null;
+    this.#contentElement = contentElement;
+    this.#measureContainer = options.measureContainer || null;
     if (options.resolver) {
-      this._resolver = options.resolver;
+      this.#resolver = options.resolver;
     } else {
       const size = options.defaultSize || DEFAULT_SIZE;
-      this._resolver = new PageSizeResolver([], size);
+      this.#resolver = new PageSizeResolver([], size);
     }
   }
 
@@ -71,19 +60,19 @@ export class FragmentainerLayout {
    */
   flow({ mode = "batch" } = {}) {
     // Single element path (existing behavior)
-    if (!(this._contentElement instanceof DocumentFragment) ||
-        this._contentElement.children.length <= 1) {
-      const element = this._contentElement instanceof DocumentFragment
-        ? this._contentElement.firstElementChild
-        : this._contentElement;
+    if (!(this.#contentElement instanceof DocumentFragment) ||
+        this.#contentElement.children.length <= 1) {
+      const element = this.#contentElement instanceof DocumentFragment
+        ? this.#contentElement.firstElementChild
+        : this.#contentElement;
       const tree = buildLayoutTree(element);
-      const fragments = createFragments(tree, this._resolver);
-      const contentStyles = this._captureContentStyles(element);
+      const fragments = createFragments(tree, this.#resolver);
+      const contentStyles = this.#captureContentStyles(element);
       return new FragmentedFlow(fragments, contentStyles);
     }
 
     // Multi-element path: fragment each child independently
-    return this._flowMultiElement();
+    return this.flowMultiElement();
   }
 
   /**
@@ -95,49 +84,48 @@ export class FragmentainerLayout {
    * @returns {Promise<FragmentedFlow>}
    */
   async flowAsync({ onProgress } = {}) {
-    const content = this._contentElement;
+    const content = this.#contentElement;
 
     // Single element: just run synchronously
     if (!(content instanceof DocumentFragment) || content.children.length <= 1) {
       return this.flow();
     }
 
-    return this._flowMultiElementAsync({ onProgress });
+    return this.flowMultiElementAsync({ onProgress });
   }
 
-  /** @private — synchronous multi-element fragmentation (batch mode) */
-  _flowMultiElement() {
-    const group = this._getOrCreateGroup();
+  /** Synchronous multi-element fragmentation (batch mode). */
+  flowMultiElement() {
+    const group = this.#getOrCreateGroup();
     const contentRoots = group.getContentRoots();
     const contentStyles = group.getContentStyles();
 
-    const { fragments, inputBreakTokens } = this._fragmentElements(contentRoots);
+    const { fragments, inputBreakTokens } = this.#fragmentElements(contentRoots);
 
     return new FragmentedFlow(fragments, contentStyles, inputBreakTokens);
   }
 
-  /** @private — async multi-element fragmentation (sequential mode) */
-  async _flowMultiElementAsync({ onProgress } = {}) {
-    if (!this._measureContainer) {
+  /** Async multi-element fragmentation (sequential mode). */
+  async flowMultiElementAsync({ onProgress } = {}) {
+    if (!this.#measureContainer) {
       throw new Error("measureContainer option is required for async multi-element flow");
     }
 
     // Ensure ContentMeasureGroup is loaded (browser-only dynamic import)
-    if (!this._group) {
-      const CMG = await getContentMeasureGroup();
-      this._group = new CMG(this._measureContainer);
+    if (!this.#group) {
+      this.#group = new ContentMeasureGroup(this.#measureContainer);
     }
-    const group = this._group;
+    const group = this.#group;
     const contentStyles = group.getContentStyles();
     const allFragments = [];
     const allInputBreakTokens = [];
     let continuation = { fragmentainerIndex: 0, blockOffset: 0 };
 
-    const width = `${this._resolver.resolve(0, null, null).contentArea.inlineSize}px`;
+    const width = `${this.#resolver.resolve(0, null, null).contentArea.inlineSize}px`;
 
     for await (const { index, contentRoot, total } of group.measureSequential(width)) {
       const tree = buildLayoutTree(contentRoot);
-      const result = createFragments(tree, this._resolver, continuation);
+      const result = createFragments(tree, this.#resolver, continuation);
 
       // Merge first fragment with previous last fragment if sharing a page
       if (continuation.blockOffset > 0 && result.fragments.length > 0 && allFragments.length > 0) {
@@ -177,18 +165,15 @@ export class FragmentainerLayout {
     return new FragmentedFlow(allFragments, contentStyles, allInputBreakTokens);
   }
 
-  /**
-   * Fragment an array of content root elements, merging shared pages.
-   * @private
-   */
-  _fragmentElements(contentRoots) {
+  /** Fragment an array of content root elements, merging shared pages. */
+  #fragmentElements(contentRoots) {
     const allFragments = [];
     const allInputBreakTokens = [];
     let continuation = { fragmentainerIndex: 0, blockOffset: 0 };
 
     for (const root of contentRoots) {
       const tree = buildLayoutTree(root);
-      const result = createFragments(tree, this._resolver, continuation);
+      const result = createFragments(tree, this.#resolver, continuation);
 
       // Merge first fragment with previous last fragment if sharing a page
       if (continuation.blockOffset > 0 && result.fragments.length > 0 && allFragments.length > 0) {
@@ -220,25 +205,20 @@ export class FragmentainerLayout {
     return { fragments: allFragments, inputBreakTokens: allInputBreakTokens };
   }
 
-  /** @private — get or create the measure group (batch: already measured) */
-  _getOrCreateGroup() {
-    if (this._group) return this._group;
-    this._group = this._ensureGroup();
-
-    // Batch: all measures already created by the caller via injectContent
-    // The group's content roots should already be available
-    return this._group;
+  /** Get or create the measure group (batch: already measured). */
+  #getOrCreateGroup() {
+    if (this.#group) return this.#group;
+    this.#group = this.#ensureGroup();
+    return this.#group;
   }
 
-  /** @private */
-  _ensureGroup() {
-    if (this._group) return this._group;
-    if (!this._measureContainer) {
+  #ensureGroup() {
+    if (this.#group) return this.#group;
+    if (!this.#measureContainer) {
       throw new Error("measureContainer option is required for DocumentFragment input");
     }
-    const CMG = getContentMeasureGroupSync();
-    this._group = new CMG(this._measureContainer);
-    return this._group;
+    this.#group = new ContentMeasureGroup(this.#measureContainer);
+    return this.#group;
   }
 
   /**
@@ -248,7 +228,7 @@ export class FragmentainerLayout {
    * @param {ContentMeasureGroup} group
    */
   setMeasureGroup(group) {
-    this._group = group;
+    this.#group = group;
   }
 
   /**
@@ -256,8 +236,8 @@ export class FragmentainerLayout {
    * When the content element lives inside a <content-measure> shadow root,
    * the host exposes getContentStyles() for CSS isolation during rendering.
    */
-  _captureContentStyles(element) {
-    const el = element || this._contentElement;
+  #captureContentStyles(element) {
+    const el = element || this.#contentElement;
     const root = el.getRootNode();
     const host = root.host;
     if (host && typeof host.getContentStyles === "function") {
@@ -275,6 +255,10 @@ export class FragmentainerLayout {
  * so no separate sizes array is needed.
  */
 export class FragmentedFlow {
+  #fragments;
+  #contentStyles;
+  #inputBreakTokens;
+
   /**
    * @param {import('./fragment.js').PhysicalFragment[]} fragments
    * @param {{ sheets: CSSStyleSheet[], cssText: string }|null} contentStyles
@@ -282,16 +266,16 @@ export class FragmentedFlow {
    *   When omitted, uses the default chain (prev fragment's breakToken).
    */
   constructor(fragments, contentStyles, inputBreakTokens = null) {
-    this._fragments = fragments;
-    this._contentStyles = contentStyles;
-    this._inputBreakTokens = inputBreakTokens;
+    this.#fragments = fragments;
+    this.#contentStyles = contentStyles;
+    this.#inputBreakTokens = inputBreakTokens;
   }
 
   /** @returns {import('./fragment.js').PhysicalFragment[]} */
-  get fragments() { return this._fragments; }
+  get fragments() { return this.#fragments; }
 
   /** @returns {number} */
-  get fragmentainerCount() { return this._fragments.length; }
+  get fragmentainerCount() { return this.#fragments.length; }
 
   /**
    * Render a single fragmentainer as a <fragment-container> element.
@@ -300,17 +284,20 @@ export class FragmentedFlow {
    * @returns {Element} A <fragment-container> element
    */
   renderFragmentainer(index) {
-    const fragment = this._fragments[index];
+    const fragment = this.#fragments[index];
     const { contentArea } = fragment.constraints;
-    const prevBreakToken = this._inputBreakTokens
-      ? this._inputBreakTokens[index]
-      : (index > 0 ? this._fragments[index - 1].breakToken : null);
+    const prevBreakToken = this.#inputBreakTokens
+      ? this.#inputBreakTokens[index]
+      : (index > 0 ? this.#fragments[index - 1].breakToken : null);
 
     const el = document.createElement("fragment-container");
     el.style.width = `${contentArea.inlineSize}px`;
     el.style.height = `${contentArea.blockSize}px`;
     el.style.overflow = "hidden";
-    const wrapper = el.setupForRendering(this._contentStyles);
+    const counterSnapshot = index > 0
+      ? this.#fragments[index - 1].counterState
+      : null;
+    const wrapper = el.setupForRendering(this.#contentStyles, counterSnapshot);
     wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken));
     return el;
   }
@@ -322,7 +309,7 @@ export class FragmentedFlow {
    */
   render() {
     const elements = [];
-    for (let i = 0; i < this._fragments.length; i++) {
+    for (let i = 0; i < this.#fragments.length; i++) {
       elements.push(this.renderFragmentainer(i));
     }
     return elements;

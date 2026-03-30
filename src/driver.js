@@ -1,5 +1,6 @@
 import { ConstraintSpace } from "./constraint-space.js";
 import { resolveNamedPageForBreakToken } from "./helpers.js";
+import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { layoutBlockContainer } from "./layout/block-container.js";
 import { layoutFlexContainer } from "./layout/flex-container.js";
 import { layoutGridContainer } from "./layout/grid-container.js";
@@ -33,6 +34,7 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
   let breakToken = null;
   let zeroProgressCount = 0;
   const MAX_ZERO_PROGRESS = 5;
+  const counterState = new CounterState();
 
   const startIndex = continuation?.fragmentainerIndex ?? 0;
   const startOffset = continuation?.blockOffset ?? 0;
@@ -81,6 +83,15 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
 
     fragments.push(result.fragment);
     breakToken = result.breakToken;
+
+    // Accumulate counter state by walking this fragmentainer's fragment tree
+    const prevBT = fragmentainerIndex > startIndex
+      ? fragments[fragments.length - 2]?.breakToken ?? null
+      : null;
+    walkFragmentTree(result.fragment, prevBT, counterState);
+    if (!counterState.isEmpty()) {
+      result.fragment.counterState = counterState.snapshot();
+    }
 
     // Safety: guarantee progress. Real DOM content can have 0-height elements
     // (images not yet loaded, empty containers, absolutely positioned children).
