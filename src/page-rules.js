@@ -12,12 +12,18 @@ export function parseCSSLength(str) {
   const value = parseFloat(match[1]);
   const unit = match[2] || "px";
   switch (unit) {
-    case "px": return value;
-    case "in": return value * 96;
-    case "cm": return value * 96 / 2.54;
-    case "mm": return value * 96 / 25.4;
-    case "pt": return value * 96 / 72;
-    default: return value;
+    case "px":
+      return value;
+    case "in":
+      return value * 96;
+    case "cm":
+      return (value * 96) / 2.54;
+    case "mm":
+      return (value * 96) / 25.4;
+    case "pt":
+      return (value * 96) / 72;
+    default:
+      return value;
   }
 }
 
@@ -56,8 +62,15 @@ export class PageConstraints {
    * @param {boolean} opts.isFirstPage
    * @param {boolean} opts.isLeftPage
    */
-  constructor({ pageIndex, namedPage, pageBoxSize, margins, contentArea,
-                isFirstPage, isLeftPage }) {
+  constructor({
+    pageIndex,
+    namedPage,
+    pageBoxSize,
+    margins,
+    contentArea,
+    isFirstPage,
+    isLeftPage,
+  }) {
     this.pageIndex = pageIndex;
     this.namedPage = namedPage;
     this.pageBoxSize = pageBoxSize;
@@ -104,7 +117,10 @@ export class PageSizeResolver {
     const matchingRules = this.matchRules(pageIndex, namedPage, totalPages);
     const resolved = this.cascadeRules(matchingRules);
     const pageSize = this.resolveSize(resolved.size);
-    const orientedSize = this.applyOrientation(pageSize, resolved.pageOrientation);
+    const orientedSize = this.applyOrientation(
+      pageSize,
+      resolved.pageOrientation,
+    );
     const margins = this.resolveMargins(resolved.margin, orientedSize);
     const contentArea = {
       inlineSize: orientedSize.inlineSize - margins.left - margins.right,
@@ -128,14 +144,16 @@ export class PageSizeResolver {
    * matches (or has none).
    */
   matchRules(pageIndex, namedPage) {
-    return this.pageRules.filter(rule => {
+    return this.pageRules.filter((rule) => {
       // Named rule must match the page's named page
       if (rule.name && rule.name !== namedPage) return false;
 
       // Pseudo-class must match the page context
       if (rule.pseudoClass === "first" && pageIndex !== 0) return false;
-      if (rule.pseudoClass === "left" && !this.isLeftPage(pageIndex)) return false;
-      if (rule.pseudoClass === "right" && this.isLeftPage(pageIndex)) return false;
+      if (rule.pseudoClass === "left" && !this.isLeftPage(pageIndex))
+        return false;
+      if (rule.pseudoClass === "right" && this.isLeftPage(pageIndex))
+        return false;
       if (rule.pseudoClass === "blank") return false; // not yet supported
 
       return true;
@@ -159,8 +177,10 @@ export class PageSizeResolver {
 
     for (const rule of sorted) {
       if (rule.size != null) result.size = rule.size;
-      if (rule.margin != null) result.margin = { ...result.margin, ...rule.margin };
-      if (rule.pageOrientation != null) result.pageOrientation = rule.pageOrientation;
+      if (rule.margin != null)
+        result.margin = { ...result.margin, ...rule.margin };
+      if (rule.pageOrientation != null)
+        result.pageOrientation = rule.pageOrientation;
     }
 
     return result;
@@ -172,8 +192,10 @@ export class PageSizeResolver {
 
     if (typeof sizeValue === "string") {
       const parts = sizeValue.toLowerCase().split(/\s+/);
-      const name = parts.find(p => NAMED_SIZES[p.toUpperCase()]);
-      const orientation = parts.find(p => p === "landscape" || p === "portrait");
+      const name = parts.find((p) => NAMED_SIZES[p.toUpperCase()]);
+      const orientation = parts.find(
+        (p) => p === "landscape" || p === "portrait",
+      );
 
       if (name) {
         const size = { ...NAMED_SIZES[name.toUpperCase()] };
@@ -185,19 +207,27 @@ export class PageSizeResolver {
 
       // Bare 'landscape' / 'portrait' — rotate the default size
       if (sizeValue === "landscape") {
-        return { inlineSize: this.defaultSize.blockSize, blockSize: this.defaultSize.inlineSize };
+        return {
+          inlineSize: this.defaultSize.blockSize,
+          blockSize: this.defaultSize.inlineSize,
+        };
       }
       if (sizeValue === "portrait") return { ...this.defaultSize };
 
       // Try parsing as one or two length values
-      const lengths = parts.map(parseCSSLength).filter(v => v !== null);
-      if (lengths.length === 1) return { inlineSize: lengths[0], blockSize: lengths[0] };
-      if (lengths.length >= 2) return { inlineSize: lengths[0], blockSize: lengths[1] };
+      const lengths = parts.map(parseCSSLength).filter((v) => v !== null);
+      if (lengths.length === 1)
+        return { inlineSize: lengths[0], blockSize: lengths[0] };
+      if (lengths.length >= 2)
+        return { inlineSize: lengths[0], blockSize: lengths[1] };
     }
 
     // Array: [width, height] or [side]
     if (Array.isArray(sizeValue)) {
-      return { inlineSize: sizeValue[0], blockSize: sizeValue[1] ?? sizeValue[0] };
+      return {
+        inlineSize: sizeValue[0],
+        blockSize: sizeValue[1] ?? sizeValue[0],
+      };
     }
 
     return { ...this.defaultSize };
@@ -229,101 +259,110 @@ export class PageSizeResolver {
   }
 }
 
-// ---- @page rule parsing ----
+// ---- @page rule parsing (CSSOM-based) ----
 
 /**
- * Parse @page rules from <style> elements.
+ * Parse @page rules from CSS text strings using the browser's CSSOM.
  *
- * @param {Iterable<HTMLStyleElement>} styleElements
+ * @param {Iterable<string>} cssTexts - CSS source strings to parse
  * @returns {PageRule[]}
  */
-export function parsePageRulesFromStyleSheets(styleElements) {
+export function parsePageRulesFromCSS(cssTexts) {
   const rules = [];
-  const PAGE_RE = /@page\s*([^{]*)\{([^}]*)\}/g;
-
-  for (const style of styleElements) {
-    const text = style.textContent;
-    let match;
-    PAGE_RE.lastIndex = 0;
-
-    while ((match = PAGE_RE.exec(text)) !== null) {
-      const selector = match[1].trim();
-      const body = match[2];
-
-      // Parse selector: optional name, optional :pseudo
-      let name = null;
-      let pseudoClass = null;
-      const selectorMatch = selector.match(/^(\w+)?\s*(?::(\w+))?$/);
-      if (selectorMatch) {
-        name = selectorMatch[1] || null;
-        pseudoClass = selectorMatch[2] || null;
-      }
-
-      // Parse size
-      let size = null;
-      const sizeMatch = body.match(/size\s*:\s*([^;]+)/);
-      if (sizeMatch) {
-        const sizeStr = sizeMatch[1].trim();
-        const parts = sizeStr.split(/\s+/);
-        const hasNamedSize = parts.some(p => NAMED_SIZES[p.toUpperCase()]);
-        const hasOrientation = parts.some(p => p === "landscape" || p === "portrait");
-
-        if (hasNamedSize || hasOrientation) {
-          size = sizeStr.toLowerCase();
-        } else {
-          const lengths = parts.map(parseCSSLength).filter(v => v !== null);
-          if (lengths.length === 1) size = [lengths[0], lengths[0]];
-          else if (lengths.length >= 2) size = [lengths[0], lengths[1]];
-        }
-      }
-
-      // Parse margins
-      const margin = parseMarginProperties(body);
-
-      // Parse page-orientation
-      let pageOrientation = null;
-      const orientMatch = body.match(/page-orientation\s*:\s*([^;]+)/);
-      if (orientMatch) {
-        pageOrientation = orientMatch[1].trim();
-      }
-
-      rules.push(new PageRule({ name, pseudoClass, size, margin, pageOrientation }));
-    }
+  for (const text of cssTexts) {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(text);
+    collectPageRules(sheet.cssRules, rules);
   }
-
   return rules;
 }
 
 /**
- * Parse margin properties from an @page rule body.
- * Handles shorthand `margin` and individual `margin-top` etc.
+ * Recursively collect CSSPageRule instances from a rule list,
+ * descending into grouping rules like @layer, @supports, @media.
  */
-function parseMarginProperties(body) {
-  let margin = null;
+function collectPageRules(cssRules, out) {
+  for (const rule of cssRules) {
+    if (rule instanceof CSSPageRule) {
+      out.push(parseOnePageRule(rule));
+    } else if (rule.cssRules) {
+      collectPageRules(rule.cssRules, out);
+    }
+  }
+}
 
-  // Shorthand margin
-  const shorthandMatch = body.match(/(?:^|;|\s)margin\s*:\s*([^;]+)/);
-  if (shorthandMatch) {
-    const parts = shorthandMatch[1].trim().split(/\s+/);
-    const values = parts.map(parseCSSLength).filter(v => v !== null);
-    if (values.length === 1) {
-      margin = { top: values[0], right: values[0], bottom: values[0], left: values[0] };
-    } else if (values.length === 2) {
-      margin = { top: values[0], right: values[1], bottom: values[0], left: values[1] };
-    } else if (values.length === 3) {
-      margin = { top: values[0], right: values[1], bottom: values[2], left: values[1] };
-    } else if (values.length >= 4) {
-      margin = { top: values[0], right: values[1], bottom: values[2], left: values[3] };
+/**
+ * Extract a PageRule from a CSSPageRule instance.
+ * @param {CSSPageRule} rule
+ * @returns {PageRule}
+ */
+function parseOnePageRule(rule) {
+  // Parse selector: optional name, optional :pseudo
+  let name = null;
+  let pseudoClass = null;
+  const selector = rule.selectorText.trim();
+  if (selector) {
+    const selectorMatch = selector.match(/^(\w+)?\s*(?::(\w+))?$/);
+    if (selectorMatch) {
+      name = selectorMatch[1] || null;
+      pseudoClass = selectorMatch[2] || null;
     }
   }
 
-  // Individual margin properties (override shorthand)
-  const sides = ["top", "right", "bottom", "left"];
-  for (const side of sides) {
-    const re = new RegExp(`margin-${side}\\s*:\\s*([^;]+)`);
-    const m = body.match(re);
-    if (m) {
-      const val = parseCSSLength(m[1].trim());
+  const size = parsePageSize(rule.style);
+  const margin = parsePageMargins(rule.style);
+  const pageOrientation =
+    rule.style.getPropertyValue("page-orientation").trim() || null;
+
+  return new PageRule({ name, pseudoClass, size, margin, pageOrientation });
+}
+
+/**
+ * Extract the `size` descriptor from a CSSPageRule's style.
+ * Falls back to cssText extraction if getPropertyValue doesn't expose it.
+ * @param {CSSStyleDeclaration} style
+ * @returns {string|number[]|null}
+ */
+function parsePageSize(style) {
+  let sizeStr = style.getPropertyValue("size").trim();
+  if (!sizeStr) {
+    // Fallback: some browsers don't expose `size` via getPropertyValue
+    const match = style.cssText.match(/\bsize\s*:\s*([^;]+)/);
+    if (match) sizeStr = match[1].trim();
+  }
+  if (!sizeStr) return null;
+
+  const parts = sizeStr.split(/\s+/);
+  const hasNamedSize = parts.some((p) => NAMED_SIZES[p.toUpperCase()]);
+  const hasOrientation = parts.some(
+    (p) => p === "landscape" || p === "portrait",
+  );
+
+  if (hasNamedSize || hasOrientation) {
+    return sizeStr.toLowerCase();
+  }
+
+  const lengths = parts.map(parseCSSLength).filter((v) => v !== null);
+  if (lengths.length === 1) return [lengths[0], lengths[0]];
+  if (lengths.length >= 2) return [lengths[0], lengths[1]];
+
+  return null;
+}
+
+/**
+ * Extract resolved margin values from a CSSPageRule's style.
+ * The browser handles shorthand expansion, so we only read longhands.
+ * @param {CSSStyleDeclaration} style
+ * @returns {{ top: number, right: number, bottom: number, left: number }|null}
+ */
+function parsePageMargins(style) {
+  const SIDES = ["top", "right", "bottom", "left"];
+  let margin = null;
+
+  for (const side of SIDES) {
+    const raw = style.getPropertyValue(`margin-${side}`).trim();
+    if (raw) {
+      const val = parseCSSLength(raw);
       if (val !== null) {
         if (!margin) margin = { top: 0, right: 0, bottom: 0, left: 0 };
         margin[side] = val;
