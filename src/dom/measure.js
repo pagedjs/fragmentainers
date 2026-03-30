@@ -58,10 +58,10 @@ export function parseLength(value, parentSize, fontSize) {
   if (!value || value === "auto" || value === "none") return null;
   if (value.endsWith("px")) return parseFloat(value);
   if (value.endsWith("%")) return (parseFloat(value) / 100) * parentSize;
-  if (value.endsWith("em")) return parseFloat(value) * fontSize;
   if (value.endsWith("rem")) {
     const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
     return parseFloat(value) * rootFontSize;
   }
+  if (value.endsWith("em")) return parseFloat(value) * fontSize;
   return parseFloat(value) || null;
 }

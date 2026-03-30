@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { createFragments } from "../src/layout-request.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
 import { blockNode } from "./fixtures/nodes.js";
@@ -25,10 +24,10 @@ describe("Phase 7: Break scoring & two-pass layout", () => {
     }));
 
     // Two-pass should break between A and B (at 100px), not between B and C
-    assert.equal(pages.length, 2);
-    assert.equal(pages[0].childFragments.length, 1); // just A
-    assert.equal(pages[0].blockSize, 100);
-    assert.equal(pages[1].childFragments.length, 2); // B + C
+    expect(pages.length).toBe(2);
+    expect(pages[0].childFragments.length).toBe(1); // just A
+    expect(pages[0].blockSize).toBe(100);
+    expect(pages[1].childFragments.length).toBe(2); // B + C
   });
 
   it("respects break-before: avoid on the next sibling", () => {
@@ -49,10 +48,10 @@ describe("Phase 7: Break scoring & two-pass layout", () => {
       fragmentationType: "page",
     }));
 
-    assert.equal(pages.length, 2);
-    assert.equal(pages[0].childFragments.length, 1); // just A
-    assert.equal(pages[0].blockSize, 100);
-    assert.equal(pages[1].childFragments.length, 2); // B + C
+    expect(pages.length).toBe(2);
+    expect(pages[0].childFragments.length).toBe(1); // just A
+    expect(pages[0].blockSize).toBe(100);
+    expect(pages[1].childFragments.length).toBe(2); // B + C
   });
 
   it("break-inside: avoid on parent degrades all interior breaks", () => {
@@ -83,7 +82,7 @@ describe("Phase 7: Break scoring & two-pass layout", () => {
       fragmentainerBlockSize: 120,
       fragmentationType: "page",
     }));
-    assert.ok(pages.length >= 2);
+    expect(pages.length >= 2).toBeTruthy();
   });
 
   it("falls back to normal break when no better alternative exists", () => {
@@ -105,9 +104,9 @@ describe("Phase 7: Break scoring & two-pass layout", () => {
       fragmentainerBlockSize: 200,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 2);
+    expect(pages.length).toBe(2);
     // Should still make progress — either 1 or 2 children on page 1
-    assert.ok(pages[0].childFragments.length >= 1);
+    expect(pages[0].childFragments.length >= 1).toBeTruthy();
   });
 
   it("perfect break is not overridden by two-pass", () => {
@@ -126,7 +125,7 @@ describe("Phase 7: Break scoring & two-pass layout", () => {
       fragmentainerBlockSize: 200,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 2);
-    assert.equal(pages[0].childFragments.length, 2); // A + B at 200px
+    expect(pages.length).toBe(2);
+    expect(pages[0].childFragments.length).toBe(2); // A + B at 200px
   });
 });

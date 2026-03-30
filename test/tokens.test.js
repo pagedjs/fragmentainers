@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { BreakToken, BlockBreakToken, InlineBreakToken } from "../src/tokens.js";
 import { findChildBreakToken, isMonolithic, debugPrintTokenTree } from "../src/helpers.js";
 import { blockNode, replacedNode, scrollableNode } from "./fixtures/nodes.js";
@@ -8,13 +7,13 @@ describe("BreakToken", () => {
   it("constructs with default flags", () => {
     const node = blockNode();
     const token = new BreakToken("block", node);
-    assert.equal(token.type, "block");
-    assert.equal(token.node, node);
-    assert.equal(token.isBreakBefore, false);
-    assert.equal(token.isForcedBreak, false);
-    assert.equal(token.isRepeated, false);
-    assert.equal(token.isAtBlockEnd, false);
-    assert.equal(token.hasSeenAllChildren, false);
+    expect(token.type).toBe("block");
+    expect(token.node).toBe(node);
+    expect(token.isBreakBefore).toBe(false);
+    expect(token.isForcedBreak).toBe(false);
+    expect(token.isRepeated).toBe(false);
+    expect(token.isAtBlockEnd).toBe(false);
+    expect(token.hasSeenAllChildren).toBe(false);
   });
 });
 
@@ -22,42 +21,42 @@ describe("BlockBreakToken", () => {
   it("constructs with default values", () => {
     const node = blockNode();
     const token = new BlockBreakToken(node);
-    assert.equal(token.type, "block");
-    assert.equal(token.consumedBlockSize, 0);
-    assert.equal(token.sequenceNumber, 0);
-    assert.deepEqual(token.childBreakTokens, []);
-    assert.equal(token.algorithmData, null);
+    expect(token.type).toBe("block");
+    expect(token.consumedBlockSize).toBe(0);
+    expect(token.sequenceNumber).toBe(0);
+    expect(token.childBreakTokens).toEqual([]);
+    expect(token.algorithmData).toBe(null);
   });
 
   it("createBreakBefore sets correct flags", () => {
     const node = blockNode({ debugName: "pushed" });
     const token = BlockBreakToken.createBreakBefore(node, false);
-    assert.equal(token.isBreakBefore, true);
-    assert.equal(token.isForcedBreak, false);
-    assert.equal(token.node, node);
+    expect(token.isBreakBefore).toBe(true);
+    expect(token.isForcedBreak).toBe(false);
+    expect(token.node).toBe(node);
   });
 
   it("createBreakBefore with forced break", () => {
     const node = blockNode();
     const token = BlockBreakToken.createBreakBefore(node, true);
-    assert.equal(token.isBreakBefore, true);
-    assert.equal(token.isForcedBreak, true);
+    expect(token.isBreakBefore).toBe(true);
+    expect(token.isForcedBreak).toBe(true);
   });
 
   it("createRepeated sets correct flags", () => {
     const node = blockNode({ debugName: "thead" });
     const token = BlockBreakToken.createRepeated(node, 3);
-    assert.equal(token.isRepeated, true);
-    assert.equal(token.sequenceNumber, 3);
-    assert.deepEqual(token.childBreakTokens, []);
+    expect(token.isRepeated).toBe(true);
+    expect(token.sequenceNumber).toBe(3);
+    expect(token.childBreakTokens).toEqual([]);
   });
 
   it("createForBreakInRepeatedFragment sets all fields", () => {
     const node = blockNode();
     const token = BlockBreakToken.createForBreakInRepeatedFragment(node, 2, 150);
-    assert.equal(token.isRepeated, true);
-    assert.equal(token.sequenceNumber, 2);
-    assert.equal(token.consumedBlockSize, 150);
+    expect(token.isRepeated).toBe(true);
+    expect(token.sequenceNumber).toBe(2);
+    expect(token.consumedBlockSize).toBe(150);
   });
 });
 
@@ -65,10 +64,10 @@ describe("InlineBreakToken", () => {
   it("constructs with default values", () => {
     const node = blockNode();
     const token = new InlineBreakToken(node);
-    assert.equal(token.type, "inline");
-    assert.equal(token.itemIndex, 0);
-    assert.equal(token.textOffset, 0);
-    assert.equal(token.flags, 0);
+    expect(token.type).toBe("inline");
+    expect(token.itemIndex).toBe(0);
+    expect(token.textOffset).toBe(0);
+    expect(token.flags).toBe(0);
   });
 });
 
@@ -91,9 +90,9 @@ describe("Break token tree", () => {
     rootToken.childBreakTokens = [child2Token];
 
     // child1 completed — no token in the tree (sparse)
-    assert.equal(rootToken.childBreakTokens.length, 1);
-    assert.equal(rootToken.childBreakTokens[0].node, child2);
-    assert.equal(rootToken.childBreakTokens[0].childBreakTokens[0].node, grandchild);
+    expect(rootToken.childBreakTokens.length).toBe(1);
+    expect(rootToken.childBreakTokens[0].node).toBe(child2);
+    expect(rootToken.childBreakTokens[0].childBreakTokens[0].node).toBe(grandchild);
   });
 
   it("contains inline break token as leaf", () => {
@@ -108,22 +107,22 @@ describe("Break token tree", () => {
     pToken.consumedBlockSize = 280;
     pToken.childBreakTokens = [inlineToken];
 
-    assert.equal(pToken.childBreakTokens[0].type, "inline");
-    assert.equal(pToken.childBreakTokens[0].itemIndex, 12);
-    assert.equal(pToken.childBreakTokens[0].textOffset, 347);
+    expect(pToken.childBreakTokens[0].type).toBe("inline");
+    expect(pToken.childBreakTokens[0].itemIndex).toBe(12);
+    expect(pToken.childBreakTokens[0].textOffset).toBe(347);
   });
 });
 
 describe("findChildBreakToken", () => {
   it("returns null when parent is null", () => {
     const child = blockNode();
-    assert.equal(findChildBreakToken(null, child), null);
+    expect(findChildBreakToken(null, child)).toBe(null);
   });
 
   it("returns null when child has no token", () => {
     const parent = new BlockBreakToken(blockNode());
     const child = blockNode();
-    assert.equal(findChildBreakToken(parent, child), null);
+    expect(findChildBreakToken(parent, child)).toBe(null);
   });
 
   it("finds the correct child token", () => {
@@ -134,38 +133,38 @@ describe("findChildBreakToken", () => {
     const parent = new BlockBreakToken(blockNode());
     parent.childBreakTokens = [tokenB];
 
-    assert.equal(findChildBreakToken(parent, childA), null);
-    assert.equal(findChildBreakToken(parent, childB), tokenB);
+    expect(findChildBreakToken(parent, childA)).toBe(null);
+    expect(findChildBreakToken(parent, childB)).toBe(tokenB);
   });
 });
 
 describe("isMonolithic", () => {
   it("replaced elements are monolithic", () => {
-    assert.equal(isMonolithic(replacedNode()), true);
+    expect(isMonolithic(replacedNode())).toBe(true);
   });
 
   it("scrollable elements are monolithic", () => {
-    assert.equal(isMonolithic(scrollableNode()), true);
+    expect(isMonolithic(scrollableNode())).toBe(true);
   });
 
   it("overflow:hidden with explicit height is monolithic", () => {
     const node = blockNode({ hasOverflowHidden: true, hasExplicitBlockSize: true });
-    assert.equal(isMonolithic(node), true);
+    expect(isMonolithic(node)).toBe(true);
   });
 
   it("overflow:hidden without explicit height is not monolithic", () => {
     const node = blockNode({ hasOverflowHidden: true, hasExplicitBlockSize: false });
-    assert.equal(isMonolithic(node), false);
+    expect(isMonolithic(node)).toBe(false);
   });
 
   it("normal block is not monolithic", () => {
-    assert.equal(isMonolithic(blockNode()), false);
+    expect(isMonolithic(blockNode())).toBe(false);
   });
 });
 
 describe("debugPrintTokenTree", () => {
   it("prints null token", () => {
-    assert.equal(debugPrintTokenTree(null), "(null)");
+    expect(debugPrintTokenTree(null)).toBe("(null)");
   });
 
   it("prints a block token with flags", () => {
@@ -176,9 +175,9 @@ describe("debugPrintTokenTree", () => {
     token.hasSeenAllChildren = true;
 
     const output = debugPrintTokenTree(token);
-    assert.ok(output.includes("section"));
-    assert.ok(output.includes("consumed=312"));
-    assert.ok(output.includes("seq=1"));
-    assert.ok(output.includes("seen-all"));
+    expect(output.includes("section")).toBeTruthy();
+    expect(output.includes("consumed=312")).toBeTruthy();
+    expect(output.includes("seq=1")).toBeTruthy();
+    expect(output.includes("seen-all")).toBeTruthy();
   });
 });

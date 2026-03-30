@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { runLayoutGenerator, getLayoutAlgorithm } from "../src/layout-request.js";
 import { layoutFlexContainer } from "../src/layout/flex-container.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
@@ -19,7 +18,7 @@ function layoutFlex(node, { inlineSize = 600, blockSize = 400, fragmentationType
 describe("layoutFlexContainer", () => {
   it("dispatches flex nodes to the flex algorithm", () => {
     const node = flexNode();
-    assert.equal(getLayoutAlgorithm(node), layoutFlexContainer);
+    expect(getLayoutAlgorithm(node)).toBe(layoutFlexContainer);
   });
 
   it("lays out single-line row flex items as parallel flows", () => {
@@ -32,11 +31,11 @@ describe("layoutFlexContainer", () => {
 
     const result = layoutFlex(root);
     // One flex line containing both items
-    assert.equal(result.fragment.childFragments.length, 1); // one line
+    expect(result.fragment.childFragments.length).toBe(1); // one line
     const line = result.fragment.childFragments[0];
-    assert.equal(line.childFragments.length, 2); // two items
+    expect(line.childFragments.length).toBe(2); // two items
     // Tallest item (100) drives line height
-    assert.equal(line.blockSize, 100);
+    expect(line.blockSize).toBe(100);
   });
 
   it("items fragment independently (parallel flows)", () => {
@@ -50,8 +49,8 @@ describe("layoutFlexContainer", () => {
     // Fragmentainer height 100: A breaks, B completes
     const result = layoutFlex(root, { blockSize: 100, fragmentationType: "page" });
     const line = result.fragment.childFragments[0];
-    assert.equal(line.blockSize, 100);
-    assert.ok(result.breakToken);
+    expect(line.blockSize).toBe(100);
+    expect(result.breakToken).toBeTruthy();
   });
 
   it("completed items get isAtBlockEnd tokens", () => {
@@ -65,13 +64,13 @@ describe("layoutFlexContainer", () => {
     const result = layoutFlex(root, { blockSize: 100, fragmentationType: "page" });
     // The line break token should have child tokens for both items
     const lineToken = result.breakToken.childBreakTokens[0];
-    assert.ok(lineToken);
+    expect(lineToken).toBeTruthy();
     const itemTokens = lineToken.childBreakTokens;
     // One item broke, one completed
     const completed = itemTokens.filter(t => t.isAtBlockEnd);
     const broke = itemTokens.filter(t => !t.isAtBlockEnd);
-    assert.equal(completed.length, 1);
-    assert.equal(broke.length, 1);
+    expect(completed.length).toBe(1);
+    expect(broke.length).toBe(1);
   });
 
   it("break token has kFlexData", () => {
@@ -82,8 +81,8 @@ describe("layoutFlexContainer", () => {
     });
 
     const result = layoutFlex(root, { blockSize: 100, fragmentationType: "page" });
-    assert.ok(result.breakToken);
-    assert.equal(result.breakToken.algorithmData.type, "FlexData");
+    expect(result.breakToken).toBeTruthy();
+    expect(result.breakToken.algorithmData.type).toBe("FlexData");
   });
 
   it("column flex uses flow thread (sequential fragmentation)", () => {
@@ -97,8 +96,8 @@ describe("layoutFlexContainer", () => {
 
     // Items stack sequentially, total 200px
     const result = layoutFlex(root, { blockSize: 400 });
-    assert.equal(result.fragment.blockSize, 200);
-    assert.equal(result.breakToken, null);
+    expect(result.fragment.blockSize).toBe(200);
+    expect(result.breakToken).toBe(null);
   });
 
   it("column flex fragments across pages", () => {
@@ -111,15 +110,15 @@ describe("layoutFlexContainer", () => {
     });
 
     const result = layoutFlex(root, { blockSize: 150, fragmentationType: "page" });
-    assert.ok(result.breakToken);
-    assert.equal(result.breakToken.algorithmData.type, "FlexData");
+    expect(result.breakToken).toBeTruthy();
+    expect(result.breakToken.algorithmData.type).toBe("FlexData");
   });
 
   it("empty flex container produces zero-height fragment", () => {
     const root = flexNode({ children: [] });
     const result = layoutFlex(root);
-    assert.equal(result.fragment.blockSize, 0);
-    assert.equal(result.breakToken, null);
+    expect(result.fragment.blockSize).toBe(0);
+    expect(result.breakToken).toBe(null);
   });
 
   it("does not infinitely recurse (flow thread pattern for column)", () => {
@@ -128,6 +127,6 @@ describe("layoutFlexContainer", () => {
       children: [blockNode({ blockSize: 50 })],
     });
     const result = layoutFlex(root);
-    assert.ok(result.fragment);
+    expect(result.fragment).toBeTruthy();
   });
 });

@@ -7,7 +7,10 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "test": "node --import ./test/setup-dom-globals.js --test test/*.js",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:browser": "vitest run --project browser",
+    "test:watch": "vitest",
     "lint": "eslint src/ test/",
     "lint:fix": "eslint --fix src/ test/",
     "serve": "serve . -l 8080",
@@ -18,9 +21,13 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.58.2",
+    "@vitest/browser": "^4.1.2",
+    "@vitest/browser-playwright": "^4.1.2",
     "eslint": "^9.39.4",
+    "jsdom": "^27.0.1",
     "playwright": "^1.58.2",
     "serve": "^14.2.6",
+    "vitest": "^4.1.2",
     "yaml": "^2.8.3"
   }
 }

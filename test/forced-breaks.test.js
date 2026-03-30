@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { createFragments } from "../src/layout-request.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
 import { blockNode } from "./fixtures/nodes.js";
@@ -21,17 +20,17 @@ describe("Phase 8: Forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 2);
+    expect(pages.length).toBe(2);
 
     // Page 1: only A
-    assert.equal(pages[0].childFragments.length, 1);
-    assert.equal(pages[0].blockSize, 50);
-    assert.ok(pages[0].breakToken);
-    assert.equal(pages[0].breakToken.childBreakTokens[0].isForcedBreak, true);
+    expect(pages[0].childFragments.length).toBe(1);
+    expect(pages[0].blockSize).toBe(50);
+    expect(pages[0].breakToken).toBeTruthy();
+    expect(pages[0].breakToken.childBreakTokens[0].isForcedBreak).toBe(true);
 
     // Page 2: B + C
-    assert.equal(pages[1].childFragments.length, 2);
-    assert.equal(pages[1].blockSize, 100);
+    expect(pages[1].childFragments.length).toBe(2);
+    expect(pages[1].blockSize).toBe(100);
   });
 
   it("break-before: column forces a break", () => {
@@ -48,7 +47,7 @@ describe("Phase 8: Forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 2);
+    expect(pages.length).toBe(2);
   });
 
   it("break-before: always forces a break", () => {
@@ -65,7 +64,7 @@ describe("Phase 8: Forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 2);
+    expect(pages.length).toBe(2);
   });
 
   it("break-after: page forces a break after the element", () => {
@@ -83,14 +82,14 @@ describe("Phase 8: Forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 2);
+    expect(pages.length).toBe(2);
 
     // Page 1: only A
-    assert.equal(pages[0].childFragments.length, 1);
-    assert.equal(pages[0].blockSize, 50);
+    expect(pages[0].childFragments.length).toBe(1);
+    expect(pages[0].blockSize).toBe(50);
 
     // Page 2: B + C
-    assert.equal(pages[1].childFragments.length, 2);
+    expect(pages[1].childFragments.length).toBe(2);
   });
 
   it("break-before on first child does nothing (already at top)", () => {
@@ -108,8 +107,8 @@ describe("Phase 8: Forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
-    assert.equal(pages[0].childFragments.length, 2);
+    expect(pages.length).toBe(1);
+    expect(pages[0].childFragments.length).toBe(2);
   });
 
   it("break-after on last child does nothing", () => {
@@ -127,7 +126,7 @@ describe("Phase 8: Forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
+    expect(pages.length).toBe(1);
   });
 
   it("multiple forced breaks produce multiple pages", () => {
@@ -146,10 +145,10 @@ describe("Phase 8: Forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 3);
-    assert.equal(pages[0].childFragments.length, 1); // ch1
-    assert.equal(pages[1].childFragments.length, 1); // ch2
-    assert.equal(pages[2].childFragments.length, 2); // ch3 + ch4
+    expect(pages.length).toBe(3);
+    expect(pages[0].childFragments.length).toBe(1); // ch1
+    expect(pages[1].childFragments.length).toBe(1); // ch2
+    expect(pages[2].childFragments.length).toBe(2); // ch3 + ch4
   });
 
   it("break-before: avoid does not force a break", () => {
@@ -166,6 +165,6 @@ describe("Phase 8: Forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
+    expect(pages.length).toBe(1);
   });
 });

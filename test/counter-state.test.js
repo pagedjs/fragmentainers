@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { parseCounterDirective, CounterState, walkFragmentTree } from "../src/counter-state.js";
 import { PhysicalFragment } from "../src/fragment.js";
 import { BlockBreakToken } from "../src/tokens.js";
@@ -11,54 +10,54 @@ import { blockNode } from "./fixtures/nodes.js";
 
 describe("parseCounterDirective", () => {
   it("returns [] for null", () => {
-    assert.deepStrictEqual(parseCounterDirective(null), []);
+    expect(parseCounterDirective(null)).toEqual([]);
   });
 
   it("returns [] for 'none'", () => {
-    assert.deepStrictEqual(parseCounterDirective("none"), []);
+    expect(parseCounterDirective("none")).toEqual([]);
   });
 
   it("returns [] for empty string", () => {
-    assert.deepStrictEqual(parseCounterDirective(""), []);
+    expect(parseCounterDirective("")).toEqual([]);
   });
 
   it("parses a single counter with value", () => {
-    assert.deepStrictEqual(parseCounterDirective("paragraph 0"), [
+    expect(parseCounterDirective("paragraph 0")).toEqual([
       { name: "paragraph", value: 0 },
     ]);
   });
 
   it("parses a single counter with non-zero value", () => {
-    assert.deepStrictEqual(parseCounterDirective("paragraph 3"), [
+    expect(parseCounterDirective("paragraph 3")).toEqual([
       { name: "paragraph", value: 3 },
     ]);
   });
 
   it("parses multiple counters", () => {
-    assert.deepStrictEqual(parseCounterDirective("paragraph 0 section 0"), [
+    expect(parseCounterDirective("paragraph 0 section 0")).toEqual([
       { name: "paragraph", value: 0 },
       { name: "section", value: 0 },
     ]);
   });
 
   it("parses counter name without explicit value as 0", () => {
-    assert.deepStrictEqual(parseCounterDirective("paragraph"), [
+    expect(parseCounterDirective("paragraph")).toEqual([
       { name: "paragraph", value: 0 },
     ]);
   });
 
   it("filters out list-item counter", () => {
-    assert.deepStrictEqual(parseCounterDirective("list-item 0 paragraph 0"), [
+    expect(parseCounterDirective("list-item 0 paragraph 0")).toEqual([
       { name: "paragraph", value: 0 },
     ]);
   });
 
   it("returns [] when only list-item", () => {
-    assert.deepStrictEqual(parseCounterDirective("list-item 0"), []);
+    expect(parseCounterDirective("list-item 0")).toEqual([]);
   });
 
   it("parses negative values", () => {
-    assert.deepStrictEqual(parseCounterDirective("paragraph -1"), [
+    expect(parseCounterDirective("paragraph -1")).toEqual([
       { name: "paragraph", value: -1 },
     ]);
   });
@@ -71,21 +70,21 @@ describe("parseCounterDirective", () => {
 describe("CounterState", () => {
   it("starts empty", () => {
     const state = new CounterState();
-    assert.equal(state.isEmpty(), true);
-    assert.deepStrictEqual(state.snapshot(), {});
+    expect(state.isEmpty()).toBe(true);
+    expect(state.snapshot()).toEqual({});
   });
 
   it("applyReset sets counter value", () => {
     const state = new CounterState();
     state.applyReset([{ name: "p", value: 0 }]);
-    assert.equal(state.isEmpty(), false);
-    assert.deepStrictEqual(state.snapshot(), { p: 0 });
+    expect(state.isEmpty()).toBe(false);
+    expect(state.snapshot()).toEqual({ p: 0 });
   });
 
   it("applyIncrement on empty state starts from 0", () => {
     const state = new CounterState();
     state.applyIncrement([{ name: "p", value: 1 }]);
-    assert.deepStrictEqual(state.snapshot(), { p: 1 });
+    expect(state.snapshot()).toEqual({ p: 1 });
   });
 
   it("accumulates increments", () => {
@@ -93,37 +92,37 @@ describe("CounterState", () => {
     state.applyReset([{ name: "p", value: 0 }]);
     state.applyIncrement([{ name: "p", value: 1 }]);
     state.applyIncrement([{ name: "p", value: 1 }]);
-    assert.deepStrictEqual(state.snapshot(), { p: 2 });
+    expect(state.snapshot()).toEqual({ p: 2 });
   });
 
   it("handles multiple counters", () => {
     const state = new CounterState();
     state.applyReset([{ name: "p", value: 0 }, { name: "s", value: 0 }]);
     state.applyIncrement([{ name: "p", value: 1 }]);
-    assert.deepStrictEqual(state.snapshot(), { p: 1, s: 0 });
+    expect(state.snapshot()).toEqual({ p: 1, s: 0 });
   });
 
   it("handles increment by non-1 value", () => {
     const state = new CounterState();
     state.applyIncrement([{ name: "p", value: 5 }]);
-    assert.deepStrictEqual(state.snapshot(), { p: 5 });
+    expect(state.snapshot()).toEqual({ p: 5 });
   });
 
   it("reset overwrites previous value", () => {
     const state = new CounterState();
     state.applyIncrement([{ name: "p", value: 10 }]);
     state.applyReset([{ name: "p", value: 0 }]);
-    assert.deepStrictEqual(state.snapshot(), { p: 0 });
+    expect(state.snapshot()).toEqual({ p: 0 });
   });
 
   it("snapshot returns a frozen copy", () => {
     const state = new CounterState();
     state.applyReset([{ name: "p", value: 0 }]);
     const snap = state.snapshot();
-    assert.equal(Object.isFrozen(snap), true);
+    expect(Object.isFrozen(snap)).toBe(true);
     // Mutating state doesn't affect snapshot
     state.applyIncrement([{ name: "p", value: 1 }]);
-    assert.equal(snap.p, 0);
+    expect(snap.p).toBe(0);
   });
 });
 
@@ -148,7 +147,7 @@ describe("walkFragmentTree", () => {
     const state = new CounterState();
     walkFragmentTree(tree, null, state);
 
-    assert.deepStrictEqual(state.snapshot(), { paragraph: 2 });
+    expect(state.snapshot()).toEqual({ paragraph: 2 });
   });
 
   it("skips counter operations on continuations", () => {
@@ -162,7 +161,7 @@ describe("walkFragmentTree", () => {
     walkFragmentTree(tree, sectionBT, state);
 
     // section's counter-reset is skipped, but p1 is fresh (no child break token)
-    assert.deepStrictEqual(state.snapshot(), { paragraph: 1 });
+    expect(state.snapshot()).toEqual({ paragraph: 1 });
   });
 
   it("skips both parent and child when both are continuations", () => {
@@ -178,7 +177,7 @@ describe("walkFragmentTree", () => {
     walkFragmentTree(tree, sectionBT, state);
 
     // Both are continuations — no counter operations
-    assert.deepStrictEqual(state.snapshot(), {});
+    expect(state.snapshot()).toEqual({});
   });
 
   it("skips fragments with null node", () => {
@@ -190,7 +189,7 @@ describe("walkFragmentTree", () => {
     const state = new CounterState();
     walkFragmentTree(tree, null, state);
 
-    assert.deepStrictEqual(state.snapshot(), { paragraph: 1 });
+    expect(state.snapshot()).toEqual({ paragraph: 1 });
   });
 
   it("accumulates across multiple calls (simulating fragmentainers)", () => {
@@ -205,12 +204,12 @@ describe("walkFragmentTree", () => {
     const bt = new BlockBreakToken(section);
     const tree1 = frag(section, [frag(p1), frag(p2)], bt);
     walkFragmentTree(tree1, null, state);
-    assert.deepStrictEqual(state.snapshot(), { paragraph: 2 });
+    expect(state.snapshot()).toEqual({ paragraph: 2 });
 
     // Fragmentainer 2: section (continuation) + p3 (fresh)
     const sectionBT = new BlockBreakToken(section);
     const tree2 = frag(section, [frag(p3)]);
     walkFragmentTree(tree2, sectionBT, state);
-    assert.deepStrictEqual(state.snapshot(), { paragraph: 3 });
+    expect(state.snapshot()).toEqual({ paragraph: 3 });
   });
 });

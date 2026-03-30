@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { createFragments, runLayoutGenerator } from "../src/layout-request.js";
 import { layoutBlockContainer } from "../src/layout/block-container.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
@@ -16,8 +15,8 @@ describe("Phase 2: Block layout (single fragmentainer)", () => {
     });
 
     const result = runLayoutGenerator(layoutBlockContainer, root, space, null);
-    assert.equal(result.fragment.blockSize, 50); // leaf uses intrinsic block size
-    assert.equal(result.breakToken, null);
+    expect(result.fragment.blockSize).toBe(50); // leaf uses intrinsic block size
+    expect(result.breakToken).toBe(null);
   });
 
   it("lays out a root with block children that all fit", () => {
@@ -36,10 +35,10 @@ describe("Phase 2: Block layout (single fragmentainer)", () => {
       fragmentainerBlockSize: 800,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
-    assert.equal(pages[0].blockSize, 300);
-    assert.equal(pages[0].childFragments.length, 3);
-    assert.equal(pages[0].breakToken, null);
+    expect(pages.length).toBe(1);
+    expect(pages[0].blockSize).toBe(300);
+    expect(pages[0].childFragments.length).toBe(3);
+    expect(pages[0].breakToken).toBe(null);
   });
 
   it("lays out nested block containers", () => {
@@ -63,12 +62,12 @@ describe("Phase 2: Block layout (single fragmentainer)", () => {
       fragmentainerBlockSize: 800,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
-    assert.equal(pages[0].blockSize, 225); // 50 + 75 + 100
-    assert.equal(pages[0].childFragments.length, 2);
+    expect(pages.length).toBe(1);
+    expect(pages[0].blockSize).toBe(225); // 50 + 75 + 100
+    expect(pages[0].childFragments.length).toBe(2);
     // outer fragment should contain inner1 + inner2
-    assert.equal(pages[0].childFragments[0].blockSize, 125);
-    assert.equal(pages[0].childFragments[0].childFragments.length, 2);
+    expect(pages[0].childFragments[0].blockSize).toBe(125);
+    expect(pages[0].childFragments[0].childFragments.length).toBe(2);
   });
 
   it("sets inlineSize on fragments", () => {
@@ -82,7 +81,7 @@ describe("Phase 2: Block layout (single fragmentainer)", () => {
       fragmentainerBlockSize: 800,
       fragmentationType: "page",
     }));
-    assert.equal(pages[0].inlineSize, 600);
+    expect(pages[0].inlineSize).toBe(600);
   });
 });
 
@@ -103,17 +102,17 @@ describe("Phase 3: Block fragmentation across fragmentainers", () => {
       fragmentainerBlockSize: 200,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 2);
+    expect(pages.length).toBe(2);
 
     // Page 1: children a + b = 200px (fills exactly)
-    assert.equal(pages[0].blockSize, 200);
-    assert.equal(pages[0].childFragments.length, 2);
-    assert.notEqual(pages[0].breakToken, null);
+    expect(pages[0].blockSize).toBe(200);
+    expect(pages[0].childFragments.length).toBe(2);
+    expect(pages[0].breakToken).not.toBe(null);
 
     // Page 2: child c = 100px
-    assert.equal(pages[1].blockSize, 100);
-    assert.equal(pages[1].childFragments.length, 1);
-    assert.equal(pages[1].breakToken, null);
+    expect(pages[1].blockSize).toBe(100);
+    expect(pages[1].childFragments.length).toBe(1);
+    expect(pages[1].breakToken).toBe(null);
   });
 
   it("splits content across 3 pages", () => {
@@ -128,10 +127,10 @@ describe("Phase 3: Block fragmentation across fragmentainers", () => {
       fragmentainerBlockSize: 200,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 3);
-    assert.equal(pages[0].childFragments.length, 2); // 200px
-    assert.equal(pages[1].childFragments.length, 2); // 200px
-    assert.equal(pages[2].childFragments.length, 1); // 100px
+    expect(pages.length).toBe(3);
+    expect(pages[0].childFragments.length).toBe(2); // 200px
+    expect(pages[1].childFragments.length).toBe(2); // 200px
+    expect(pages[2].childFragments.length).toBe(1); // 100px
   });
 
   it("break token has correct consumedBlockSize and sequenceNumber", () => {
@@ -150,8 +149,8 @@ describe("Phase 3: Block fragmentation across fragmentainers", () => {
       fragmentationType: "page",
     }));
     const bt = pages[0].breakToken;
-    assert.equal(bt.consumedBlockSize, 200);
-    assert.equal(bt.sequenceNumber, 0);
+    expect(bt.consumedBlockSize).toBe(200);
+    expect(bt.sequenceNumber).toBe(0);
   });
 
   it("handles nested container breaking mid-child", () => {
@@ -179,13 +178,13 @@ describe("Phase 3: Block fragmentation across fragmentainers", () => {
       fragmentationType: "page",
     }));
 
-    assert.equal(pages.length, 3);
+    expect(pages.length).toBe(3);
     // Page 1 break token should have container's break token as child
     const rootBT = pages[0].breakToken;
-    assert.ok(rootBT);
-    assert.equal(rootBT.childBreakTokens.length, 1);
+    expect(rootBT).toBeTruthy();
+    expect(rootBT.childBreakTokens.length).toBe(1);
     const containerBT = rootBT.childBreakTokens[0];
-    assert.equal(containerBT.node.debugName, "container");
+    expect(containerBT.node.debugName).toBe("container");
   });
 
   it("handles the exact-fill edge case (createBreakBefore)", () => {
@@ -205,18 +204,18 @@ describe("Phase 3: Block fragmentation across fragmentainers", () => {
       fragmentainerBlockSize: 200,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 2);
+    expect(pages.length).toBe(2);
 
     const bt = pages[0].breakToken;
-    assert.ok(bt);
+    expect(bt).toBeTruthy();
     // Should have a createBreakBefore token for 'c'
-    assert.equal(bt.childBreakTokens.length, 1);
-    assert.equal(bt.childBreakTokens[0].isBreakBefore, true);
-    assert.equal(bt.childBreakTokens[0].node.debugName, "c");
+    expect(bt.childBreakTokens.length).toBe(1);
+    expect(bt.childBreakTokens[0].isBreakBefore).toBe(true);
+    expect(bt.childBreakTokens[0].node.debugName).toBe("c");
 
     // Page 2 should have 'c'
-    assert.equal(pages[1].blockSize, 50);
-    assert.equal(pages[1].childFragments.length, 1);
+    expect(pages[1].blockSize).toBe(50);
+    expect(pages[1].childFragments.length).toBe(1);
   });
 
   it("uses varying fragmentainer sizes", () => {
@@ -247,9 +246,9 @@ describe("Phase 3: Block fragmentation across fragmentainers", () => {
         };
       },
     });
-    assert.equal(pages.length, 2);
-    assert.equal(pages[0].childFragments.length, 2); // child0 full + child1 partial
-    assert.equal(pages[1].childFragments.length, 2); // child1 remainder + child2
+    expect(pages.length).toBe(2);
+    expect(pages[0].childFragments.length).toBe(2); // child0 full + child1 partial
+    expect(pages[1].childFragments.length).toBe(2); // child1 remainder + child2
   });
 
   it("last fragmentainer size is reused for subsequent pages", () => {
@@ -265,7 +264,7 @@ describe("Phase 3: Block fragmentation across fragmentainers", () => {
       fragmentainerBlockSize: 200,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 3);
+    expect(pages.length).toBe(3);
   });
 });
 
@@ -296,11 +295,11 @@ describe("box-decoration-break: clone layout", () => {
       fragmentationType: "page",
     }));
 
-    assert.equal(fragments.length, 2);
+    expect(fragments.length).toBe(2);
 
     // Continuation fragment should include containerBoxStart (10) because clone
     // repeats decorations: padding-top (10) + remaining child (70) + padding-bottom (10) = 90
-    assert.equal(fragments[1].blockSize, 90);
+    expect(fragments[1].blockSize).toBe(90);
   });
 
   it("includes containerBoxEnd on non-final fragments with clone", () => {
@@ -321,11 +320,11 @@ describe("box-decoration-break: clone layout", () => {
       fragmentationType: "page",
     }));
 
-    assert.equal(fragments.length, 2);
+    expect(fragments.length).toBe(2);
 
     // Non-final fragment should include containerBoxEnd (padding-bottom)
     // padding-top (10) + child portion (180) + padding-bottom (10) = 200
-    assert.equal(fragments[0].blockSize, 200);
+    expect(fragments[0].blockSize).toBe(200);
   });
 
   it("slice mode does NOT include containerBoxStart on continuation", () => {
@@ -346,12 +345,12 @@ describe("box-decoration-break: clone layout", () => {
       fragmentationType: "page",
     }));
 
-    assert.equal(fragments.length, 2);
+    expect(fragments.length).toBe(2);
 
     // Slice first fragment: padding-top (10) + child portion (180) = 190 (no bottom padding)
-    assert.equal(fragments[0].blockSize, 190);
+    expect(fragments[0].blockSize).toBe(190);
 
     // Slice continuation: NO padding-top, child remainder (70) + padding-bottom (10) = 80
-    assert.equal(fragments[1].blockSize, 80);
+    expect(fragments[1].blockSize).toBe(80);
   });
 });

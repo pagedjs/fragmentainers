@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { createFragments } from "../src/layout-request.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
 import { blockNode, replacedNode, scrollableNode } from "./fixtures/nodes.js";
@@ -23,17 +22,17 @@ describe("Phase 4: Monolithic content", () => {
     }));
 
     // Page 1: just the div (img pushed)
-    assert.equal(pages[0].childFragments.length, 1);
-    assert.equal(pages[0].blockSize, 50);
-    assert.ok(pages[0].breakToken);
-    assert.equal(pages[0].breakToken.childBreakTokens[0].isBreakBefore, true);
+    expect(pages[0].childFragments.length).toBe(1);
+    expect(pages[0].blockSize).toBe(50);
+    expect(pages[0].breakToken).toBeTruthy();
+    expect(pages[0].breakToken.childBreakTokens[0].isBreakBefore).toBe(true);
 
     // Page 2: img sliced to 200px (last resort: monolithic exceeds page)
-    assert.equal(pages[1].childFragments.length, 1);
-    assert.equal(pages[1].childFragments[0].blockSize, 200);
+    expect(pages[1].childFragments.length).toBe(1);
+    expect(pages[1].childFragments[0].blockSize).toBe(200);
 
     // Page 3: remaining 100px of img + after (50px)
-    assert.ok(pages.length >= 3);
+    expect(pages.length >= 3).toBeTruthy();
   });
 
   it("slices monolithic at page boundary when it exceeds the page", () => {
@@ -51,10 +50,10 @@ describe("Phase 4: Monolithic content", () => {
       fragmentationType: "page",
     }));
 
-    assert.equal(pages.length, 3);
-    assert.equal(pages[0].childFragments[0].blockSize, 200);
-    assert.equal(pages[1].childFragments[0].blockSize, 200);
-    assert.equal(pages[2].childFragments[0].blockSize, 100);
+    expect(pages.length).toBe(3);
+    expect(pages[0].childFragments[0].blockSize).toBe(200);
+    expect(pages[1].childFragments[0].blockSize).toBe(200);
+    expect(pages[2].childFragments[0].blockSize).toBe(100);
   });
 
   it("monolithic elements produce break tokens when sliced in page mode", () => {
@@ -73,8 +72,8 @@ describe("Phase 4: Monolithic content", () => {
     }));
 
     // img sliced: first fragment has a break token
-    assert.ok(pages[0].childFragments[0].breakToken);
-    assert.equal(pages[0].childFragments[0].breakToken.consumedBlockSize, 200);
+    expect(pages[0].childFragments[0].breakToken).toBeTruthy();
+    expect(pages[0].childFragments[0].breakToken.consumedBlockSize).toBe(200);
   });
 
   it("pushes scrollable monolithic then slices if exceeds page", () => {
@@ -94,9 +93,9 @@ describe("Phase 4: Monolithic content", () => {
       fragmentationType: "page",
     }));
 
-    assert.equal(pages[0].childFragments.length, 1); // just header
-    assert.equal(pages[1].childFragments[0].blockSize, 150); // scroller sliced
-    assert.ok(pages.length >= 3); // remaining scroller on page 3
+    expect(pages[0].childFragments.length).toBe(1); // just header
+    expect(pages[1].childFragments[0].blockSize).toBe(150); // scroller sliced
+    expect(pages.length >= 3).toBeTruthy(); // remaining scroller on page 3
   });
 
   it("monolithic element that fits is placed normally", () => {
@@ -113,7 +112,7 @@ describe("Phase 4: Monolithic content", () => {
       fragmentainerBlockSize: 200,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
-    assert.equal(pages[0].childFragments.length, 2);
+    expect(pages.length).toBe(1);
+    expect(pages[0].childFragments.length).toBe(2);
   });
 });

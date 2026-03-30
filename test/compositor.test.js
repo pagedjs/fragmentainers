@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { PhysicalFragment } from "../src/fragment.js";
 import { BlockBreakToken, InlineBreakToken } from "../src/tokens.js";
 import { blockNode, inlineNode, textToInlineItems } from "./fixtures/nodes.js";
@@ -21,27 +20,27 @@ import { applySliceDecorations } from "../src/compositor/render-fragments.js";
 describe("hasBlockChildFragments", () => {
   it("returns false for empty childFragments", () => {
     const fragment = new PhysicalFragment(blockNode(), 100, []);
-    assert.equal(hasBlockChildFragments(fragment), false);
+    expect(hasBlockChildFragments(fragment)).toBe(false);
   });
 
   it("returns false when all children have null nodes (line fragments)", () => {
     const lineFragment = new PhysicalFragment(null, 20);
     const fragment = new PhysicalFragment(blockNode(), 100, [lineFragment, lineFragment]);
-    assert.equal(hasBlockChildFragments(fragment), false);
+    expect(hasBlockChildFragments(fragment)).toBe(false);
   });
 
   it("returns true when at least one child has a node", () => {
     const lineFragment = new PhysicalFragment(null, 20);
     const blockChild = new PhysicalFragment(blockNode({ debugName: "child" }), 50);
     const fragment = new PhysicalFragment(blockNode(), 100, [lineFragment, blockChild]);
-    assert.equal(hasBlockChildFragments(fragment), true);
+    expect(hasBlockChildFragments(fragment)).toBe(true);
   });
 
   it("returns true when all children have nodes", () => {
     const child1 = new PhysicalFragment(blockNode({ debugName: "a" }), 50);
     const child2 = new PhysicalFragment(blockNode({ debugName: "b" }), 50);
     const fragment = new PhysicalFragment(blockNode(), 100, [child1, child2]);
-    assert.equal(hasBlockChildFragments(fragment), true);
+    expect(hasBlockChildFragments(fragment)).toBe(true);
   });
 });
 
@@ -56,19 +55,19 @@ describe("getFragmentainerSize", () => {
   ];
 
   it("returns the size at the given index", () => {
-    assert.deepEqual(getFragmentainerSize(sizes, 0), { inlineSize: 600, blockSize: 800 });
-    assert.deepEqual(getFragmentainerSize(sizes, 1), { inlineSize: 800, blockSize: 600 });
+    expect(getFragmentainerSize(sizes, 0)).toEqual({ inlineSize: 600, blockSize: 800 });
+    expect(getFragmentainerSize(sizes, 1)).toEqual({ inlineSize: 800, blockSize: 600 });
   });
 
   it("returns the last size for indices beyond the array", () => {
-    assert.deepEqual(getFragmentainerSize(sizes, 2), { inlineSize: 800, blockSize: 600 });
-    assert.deepEqual(getFragmentainerSize(sizes, 99), { inlineSize: 800, blockSize: 600 });
+    expect(getFragmentainerSize(sizes, 2)).toEqual({ inlineSize: 800, blockSize: 600 });
+    expect(getFragmentainerSize(sizes, 99)).toEqual({ inlineSize: 800, blockSize: 600 });
   });
 
   it("works with a single-element array", () => {
     const single = [{ inlineSize: 500, blockSize: 700 }];
-    assert.deepEqual(getFragmentainerSize(single, 0), { inlineSize: 500, blockSize: 700 });
-    assert.deepEqual(getFragmentainerSize(single, 5), { inlineSize: 500, blockSize: 700 });
+    expect(getFragmentainerSize(single, 0)).toEqual({ inlineSize: 500, blockSize: 700 });
+    expect(getFragmentainerSize(single, 5)).toEqual({ inlineSize: 500, blockSize: 700 });
   });
 });
 
@@ -82,11 +81,11 @@ describe("compositor fragment tree contract", () => {
     const child = new PhysicalFragment(blockNode({ debugName: "child" }), 50);
     const fragment = new PhysicalFragment(node, 100, [child]);
 
-    assert.equal(fragment.node, node);
-    assert.equal(fragment.blockSize, 100);
-    assert.equal(fragment.childFragments.length, 1);
-    assert.equal(fragment.childFragments[0], child);
-    assert.equal(fragment.breakToken, null);
+    expect(fragment.node).toBe(node);
+    expect(fragment.blockSize).toBe(100);
+    expect(fragment.childFragments.length).toBe(1);
+    expect(fragment.childFragments[0]).toBe(child);
+    expect(fragment.breakToken).toBe(null);
   });
 
   it("break tokens attach to fragments for continuation", () => {
@@ -96,9 +95,9 @@ describe("compositor fragment tree contract", () => {
     bt.consumedBlockSize = 200;
     fragment.breakToken = bt;
 
-    assert.equal(fragment.breakToken.type, "block");
-    assert.equal(fragment.breakToken.consumedBlockSize, 200);
-    assert.equal(fragment.breakToken.node, node);
+    expect(fragment.breakToken.type).toBe("block");
+    expect(fragment.breakToken.consumedBlockSize).toBe(200);
+    expect(fragment.breakToken.node).toBe(node);
   });
 
   it("inline break tokens use content-addressed offsets", () => {
@@ -107,9 +106,9 @@ describe("compositor fragment tree contract", () => {
     token.itemIndex = 5;
     token.textOffset = 142;
 
-    assert.equal(token.type, "inline");
-    assert.equal(token.itemIndex, 5);
-    assert.equal(token.textOffset, 142);
+    expect(token.type).toBe("inline");
+    expect(token.itemIndex).toBe(5);
+    expect(token.textOffset).toBe(142);
   });
 
   it("findChildBreakToken locates child tokens in parent", () => {
@@ -120,8 +119,8 @@ describe("compositor fragment tree contract", () => {
     parentBT.childBreakTokens = [childBT];
 
     const found = findChildBreakToken(parentBT, childNode);
-    assert.equal(found, childBT);
-    assert.equal(found.consumedBlockSize, 100);
+    expect(found).toBe(childBT);
+    expect(found.consumedBlockSize).toBe(100);
   });
 
   it("findChildBreakToken returns null when no match", () => {
@@ -129,8 +128,8 @@ describe("compositor fragment tree contract", () => {
     parentBT.childBreakTokens = [];
     const other = blockNode({ debugName: "other" });
 
-    assert.equal(findChildBreakToken(parentBT, other), null);
-    assert.equal(findChildBreakToken(null, other), null);
+    expect(findChildBreakToken(parentBT, other)).toBe(null);
+    expect(findChildBreakToken(null, other)).toBe(null);
   });
 });
 
@@ -155,7 +154,7 @@ describe("empty container shell detection", () => {
     const fragment = new PhysicalFragment(container, 0, []);
     fragment.breakToken = new BlockBreakToken(container);
     fragment.breakToken.childBreakTokens = [BlockBreakToken.createBreakBefore(child)];
-    assert.equal(isEmptyContainerShell(fragment), true);
+    expect(isEmptyContainerShell(fragment)).toBe(true);
   });
 
   it("does not flag a leaf node being sliced", () => {
@@ -163,7 +162,7 @@ describe("empty container shell detection", () => {
     const fragment = new PhysicalFragment(leaf, 200, []);
     fragment.breakToken = new BlockBreakToken(leaf);
     fragment.breakToken.consumedBlockSize = 200;
-    assert.equal(isEmptyContainerShell(fragment), false);
+    expect(isEmptyContainerShell(fragment)).toBe(false);
   });
 
   it("does not flag a container with placed children", () => {
@@ -172,7 +171,7 @@ describe("empty container shell detection", () => {
     const childFrag = new PhysicalFragment(child, 50);
     const fragment = new PhysicalFragment(container, 50, [childFrag]);
     fragment.breakToken = new BlockBreakToken(container);
-    assert.equal(isEmptyContainerShell(fragment), false);
+    expect(isEmptyContainerShell(fragment)).toBe(false);
   });
 
   it("does not flag a completed container (no break token)", () => {
@@ -180,7 +179,7 @@ describe("empty container shell detection", () => {
     const container = blockNode({ debugName: "container", children: [child] });
     const childFrag = new PhysicalFragment(child, 50);
     const fragment = new PhysicalFragment(container, 50, [childFrag]);
-    assert.equal(isEmptyContainerShell(fragment), false);
+    expect(isEmptyContainerShell(fragment)).toBe(false);
   });
 });
 
@@ -191,22 +190,22 @@ describe("empty container shell detection", () => {
 describe("inline items data for compositor", () => {
   it("textToInlineItems creates kText items with correct offsets", () => {
     const data = textToInlineItems("Hello world");
-    assert.equal(data.textContent, "Hello world");
-    assert.equal(data.items.length, 1);
-    assert.equal(data.items[0].type, INLINE_TEXT);
-    assert.equal(data.items[0].startOffset, 0);
-    assert.equal(data.items[0].endOffset, 11);
+    expect(data.textContent).toBe("Hello world");
+    expect(data.items.length).toBe(1);
+    expect(data.items[0].type).toBe(INLINE_TEXT);
+    expect(data.items[0].startOffset).toBe(0);
+    expect(data.items[0].endOffset).toBe(11);
   });
 
   it("textToInlineItems splits on newlines with kControl", () => {
     const data = textToInlineItems("Line one\nLine two");
-    assert.equal(data.items.length, 3);
-    assert.equal(data.items[0].type, INLINE_TEXT);
-    assert.equal(data.items[0].endOffset, 8);
-    assert.equal(data.items[1].type, INLINE_CONTROL);
-    assert.equal(data.items[2].type, INLINE_TEXT);
-    assert.equal(data.items[2].startOffset, 9);
-    assert.equal(data.items[2].endOffset, 17);
+    expect(data.items.length).toBe(3);
+    expect(data.items[0].type).toBe(INLINE_TEXT);
+    expect(data.items[0].endOffset).toBe(8);
+    expect(data.items[1].type).toBe(INLINE_CONTROL);
+    expect(data.items[2].type).toBe(INLINE_TEXT);
+    expect(data.items[2].startOffset).toBe(9);
+    expect(data.items[2].endOffset).toBe(17);
   });
 
   it("inline break token offsets correctly slice text content", () => {
@@ -214,7 +213,7 @@ describe("inline items data for compositor", () => {
     const startOffset = 10; // "brown fox..."
     const endOffset = 25;   // ..."jumps over"
     const visible = data.textContent.slice(startOffset, endOffset);
-    assert.equal(visible, "brown fox jumps");
+    expect(visible).toBe("brown fox jumps");
   });
 });
 
@@ -233,10 +232,10 @@ describe("applySliceDecorations", () => {
     const fragment = new PhysicalFragment(blockNode(), 200);
     // inputBreakToken = null, fragment.breakToken = null
     applySliceDecorations(el, null, fragment);
-    assert.equal(el.style.borderBlockStart, undefined);
-    assert.equal(el.style.borderBlockEnd, undefined);
-    assert.equal(el.style.paddingBlockStart, undefined);
-    assert.equal(el.style.paddingBlockEnd, undefined);
+    expect(el.style.borderBlockStart).toBe(undefined);
+    expect(el.style.borderBlockEnd).toBe(undefined);
+    expect(el.style.paddingBlockStart).toBe(undefined);
+    expect(el.style.paddingBlockEnd).toBe(undefined);
   });
 
   it("suppresses block-end on first fragment (non-final)", () => {
@@ -246,10 +245,10 @@ describe("applySliceDecorations", () => {
     fragment.breakToken = bt;
     // inputBreakToken = null (first), fragment.breakToken = bt (non-final)
     applySliceDecorations(el, null, fragment);
-    assert.equal(el.style.borderBlockStart, undefined);
-    assert.equal(el.style.paddingBlockStart, undefined);
-    assert.equal(el.style.borderBlockEnd, "none");
-    assert.equal(el.style.paddingBlockEnd, "0");
+    expect(el.style.borderBlockStart).toBe(undefined);
+    expect(el.style.paddingBlockStart).toBe(undefined);
+    expect(el.style.borderBlockEnd).toBe("none");
+    expect(el.style.paddingBlockEnd).toBe("0");
   });
 
   it("suppresses block-start on final fragment (continuation)", () => {
@@ -258,10 +257,10 @@ describe("applySliceDecorations", () => {
     const fragment = new PhysicalFragment(blockNode(), 200);
     // inputBreakToken = inputBT (continuation), fragment.breakToken = null (final)
     applySliceDecorations(el, inputBT, fragment);
-    assert.equal(el.style.borderBlockStart, "none");
-    assert.equal(el.style.paddingBlockStart, "0");
-    assert.equal(el.style.borderBlockEnd, undefined);
-    assert.equal(el.style.paddingBlockEnd, undefined);
+    expect(el.style.borderBlockStart).toBe("none");
+    expect(el.style.paddingBlockStart).toBe("0");
+    expect(el.style.borderBlockEnd).toBe(undefined);
+    expect(el.style.paddingBlockEnd).toBe(undefined);
   });
 
   it("suppresses both block-start and block-end on middle fragment", () => {
@@ -272,9 +271,9 @@ describe("applySliceDecorations", () => {
     fragment.breakToken = outputBT;
     // inputBreakToken = inputBT (continuation), fragment.breakToken = outputBT (non-final)
     applySliceDecorations(el, inputBT, fragment);
-    assert.equal(el.style.borderBlockStart, "none");
-    assert.equal(el.style.paddingBlockStart, "0");
-    assert.equal(el.style.borderBlockEnd, "none");
-    assert.equal(el.style.paddingBlockEnd, "0");
+    expect(el.style.borderBlockStart).toBe("none");
+    expect(el.style.paddingBlockStart).toBe("0");
+    expect(el.style.borderBlockEnd).toBe("none");
+    expect(el.style.paddingBlockEnd).toBe("0");
   });
 });

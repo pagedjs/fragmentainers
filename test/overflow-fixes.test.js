@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { createFragments } from "../src/layout-request.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
 import { blockNode, inlineNode, textToInlineItems } from "./fixtures/nodes.js";
@@ -27,9 +26,8 @@ describe("Overflow fixes: margin truncation at breaks", () => {
     }));
 
     // Page 1 should NOT exceed 100px (the margin-bottom is truncated at break)
-    assert.ok(pages.length > 1, "content should span multiple pages");
-    assert.ok(pages[0].blockSize <= 100,
-      `Page 1 blockSize ${pages[0].blockSize} should not exceed fragmentainer 100`);
+    expect(pages.length > 1).toBeTruthy();
+    expect(pages[0].blockSize <= 100).toBeTruthy();
   });
 
   it("trailing margin is truncated when next sibling is pushed", () => {
@@ -48,8 +46,7 @@ describe("Overflow fixes: margin truncation at breaks", () => {
       fragmentainerBlockSize: 100,
       fragmentationType: "page",
     }));
-    assert.ok(pages[0].blockSize <= 100,
-      `Page 1 blockSize ${pages[0].blockSize} should not exceed 100`);
+    expect(pages[0].blockSize <= 100).toBeTruthy();
   });
 
   it("trailing margin is included when all children fit", () => {
@@ -67,9 +64,9 @@ describe("Overflow fixes: margin truncation at breaks", () => {
       fragmentainerBlockSize: 200,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
+    expect(pages.length).toBe(1);
     // blockSize should include margin between children
-    assert.ok(pages[0].blockSize >= 70);
+    expect(pages[0].blockSize >= 70).toBeTruthy();
   });
 });
 
@@ -102,8 +99,7 @@ describe("Overflow fixes: availableBlockSize propagation", () => {
 
     // The section fragment on page 1 should not exceed 200px.
     // The inline content should stop at 180px (200 - 20px padding).
-    assert.ok(pages[0].blockSize <= 200,
-      `Page 1 blockSize ${pages[0].blockSize} should not exceed fragmentainer 200`);
+    expect(pages[0].blockSize <= 200).toBeTruthy();
   });
 
   it("leaf node respects parent padding reservation", () => {
@@ -124,8 +120,7 @@ describe("Overflow fixes: availableBlockSize propagation", () => {
     }));
 
     // Leaf (300px) should fragment respecting the 20px padding reservation
-    assert.ok(pages[0].blockSize <= 200,
-      `Page 1 blockSize ${pages[0].blockSize} should not exceed 200`);
+    expect(pages[0].blockSize <= 200).toBeTruthy();
   });
 });
 
@@ -157,9 +152,8 @@ describe("Overflow fixes: insufficient space for inline content", () => {
     }));
 
     // Page 1: 'fill' (90px) + paragraph defers (0px) = 90px. No overflow.
-    assert.ok(pages[0].blockSize <= 100,
-      `Page 1 blockSize ${pages[0].blockSize} should not exceed 100`);
-    assert.ok(pages.length >= 2, "paragraph should continue on page 2");
+    expect(pages[0].blockSize <= 100).toBeTruthy();
+    expect(pages.length >= 2).toBeTruthy();
   });
 
   it("inline content still places one line at top of empty page", () => {
@@ -183,9 +177,9 @@ describe("Overflow fixes: insufficient space for inline content", () => {
       fragmentainerBlockSize: 15,
       fragmentationType: "page",
     }));
-    assert.ok(pages.length > 1);
+    expect(pages.length > 1).toBeTruthy();
     // First page should have at least one line (20px, overflows by 5px — acceptable for progress)
-    assert.ok(pages[0].blockSize >= 20);
+    expect(pages[0].blockSize >= 20).toBeTruthy();
   });
 
   it("margin collapsing works between siblings", () => {
@@ -205,8 +199,8 @@ describe("Overflow fixes: insufficient space for inline content", () => {
       fragmentainerBlockSize: 200,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
-    assert.equal(pages[0].blockSize, 140);
+    expect(pages.length).toBe(1);
+    expect(pages[0].blockSize).toBe(140);
   });
 
   it("parent padding is included in fragment blockSize", () => {
@@ -224,8 +218,8 @@ describe("Overflow fixes: insufficient space for inline content", () => {
       fragmentainerBlockSize: 200,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
+    expect(pages.length).toBe(1);
     // 10 (padding-top) + 50 (child) + 10 (padding-bottom) = 70
-    assert.equal(pages[0].childFragments[0].blockSize, 70);
+    expect(pages[0].childFragments[0].blockSize).toBe(70);
   });
 });

@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { runLayoutGenerator, getLayoutAlgorithm } from "../src/layout-request.js";
 import { layoutGridContainer } from "../src/layout/grid-container.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
@@ -19,7 +18,7 @@ function layoutGrid(node, { inlineSize = 600, blockSize = 400, fragmentationType
 describe("layoutGridContainer", () => {
   it("dispatches grid nodes to the grid algorithm", () => {
     const node = gridNode();
-    assert.equal(getLayoutAlgorithm(node), layoutGridContainer);
+    expect(getLayoutAlgorithm(node)).toBe(layoutGridContainer);
   });
 
   it("lays out single-row grid items as parallel flows", () => {
@@ -32,11 +31,11 @@ describe("layoutGridContainer", () => {
 
     const result = layoutGrid(root);
     // One grid row containing both items
-    assert.equal(result.fragment.childFragments.length, 1);
+    expect(result.fragment.childFragments.length).toBe(1);
     const row = result.fragment.childFragments[0];
-    assert.equal(row.childFragments.length, 2);
+    expect(row.childFragments.length).toBe(2);
     // Tallest item (100) drives row height
-    assert.equal(row.blockSize, 100);
+    expect(row.blockSize).toBe(100);
   });
 
   it("multi-row grid stacks rows", () => {
@@ -48,8 +47,8 @@ describe("layoutGridContainer", () => {
     });
 
     const result = layoutGrid(root);
-    assert.equal(result.fragment.childFragments.length, 2);
-    assert.equal(result.fragment.blockSize, 180); // 100 + 80
+    expect(result.fragment.childFragments.length).toBe(2);
+    expect(result.fragment.blockSize).toBe(180); // 100 + 80
   });
 
   it("items in the same row fragment independently (parallel flows)", () => {
@@ -62,7 +61,7 @@ describe("layoutGridContainer", () => {
 
     // Fragmentainer height 100: A breaks, B completes
     const result = layoutGrid(root, { blockSize: 100, fragmentationType: "page" });
-    assert.ok(result.breakToken);
+    expect(result.breakToken).toBeTruthy();
   });
 
   it("completed items get isAtBlockEnd tokens", () => {
@@ -75,7 +74,7 @@ describe("layoutGridContainer", () => {
 
     const result = layoutGrid(root, { blockSize: 100, fragmentationType: "page" });
     // Row break token should exist
-    assert.ok(result.breakToken);
+    expect(result.breakToken).toBeTruthy();
   });
 
   it("break token has kGridData with rowIndex", () => {
@@ -86,16 +85,16 @@ describe("layoutGridContainer", () => {
     });
 
     const result = layoutGrid(root, { blockSize: 100, fragmentationType: "page" });
-    assert.ok(result.breakToken);
-    assert.equal(result.breakToken.algorithmData.type, "GridData");
-    assert.equal(typeof result.breakToken.algorithmData.rowIndex, "number");
+    expect(result.breakToken).toBeTruthy();
+    expect(result.breakToken.algorithmData.type).toBe("GridData");
+    expect(typeof result.breakToken.algorithmData.rowIndex).toBe("number");
   });
 
   it("empty grid container produces zero-height fragment", () => {
     const root = gridNode({ children: [] });
     const result = layoutGrid(root);
-    assert.equal(result.fragment.blockSize, 0);
-    assert.equal(result.breakToken, null);
+    expect(result.fragment.blockSize).toBe(0);
+    expect(result.breakToken).toBe(null);
   });
 
   it("auto-placed items (no gridRowStart) each get their own row", () => {
@@ -108,7 +107,7 @@ describe("layoutGridContainer", () => {
 
     const result = layoutGrid(root);
     // Each auto-placed item is its own row
-    assert.equal(result.fragment.childFragments.length, 2);
-    assert.equal(result.fragment.blockSize, 100);
+    expect(result.fragment.childFragments.length).toBe(2);
+    expect(result.fragment.blockSize).toBe(100);
   });
 });

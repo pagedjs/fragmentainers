@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { createFragments } from "../src/layout-request.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
 import { blockNode, inlineNode, textToInlineItems } from "./fixtures/nodes.js";
@@ -24,8 +23,8 @@ describe("Phase 5: Inline content fragmentation", () => {
       fragmentainerBlockSize: 800,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
-    assert.equal(pages[0].breakToken, null);
+    expect(pages.length).toBe(1);
+    expect(pages[0].breakToken).toBe(null);
   });
 
   it("breaks text across multiple lines", () => {
@@ -48,10 +47,10 @@ describe("Phase 5: Inline content fragmentation", () => {
       fragmentainerBlockSize: 800,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
+    expect(pages.length).toBe(1);
     // Should have multiple line fragments
     const inlineFragment = pages[0].childFragments[0];
-    assert.ok(inlineFragment.childFragments.length > 1);
+    expect(inlineFragment.childFragments.length > 1).toBeTruthy();
   });
 
   it("fragments inline content across pages", () => {
@@ -74,13 +73,13 @@ describe("Phase 5: Inline content fragmentation", () => {
       fragmentainerBlockSize: 100,
       fragmentationType: "page",
     }));
-    assert.ok(pages.length > 1, `Expected multiple pages, got ${pages.length}`);
+    expect(pages.length > 1).toBeTruthy();
 
     // First page should have a break token
-    assert.ok(pages[0].breakToken);
+    expect(pages[0].breakToken).toBeTruthy();
 
     // Last page should have no break token
-    assert.equal(pages[pages.length - 1].breakToken, null);
+    expect(pages[pages.length - 1].breakToken).toBe(null);
   });
 
   it("InlineBreakToken has correct content-addressed position", () => {
@@ -101,16 +100,16 @@ describe("Phase 5: Inline content fragmentation", () => {
       fragmentainerBlockSize: 60,
       fragmentationType: "page",
     }));
-    assert.ok(pages.length > 1);
+    expect(pages.length > 1).toBeTruthy();
 
     // The break token from the inline node should have itemIndex and textOffset
     const rootBT = pages[0].breakToken;
-    assert.ok(rootBT);
+    expect(rootBT).toBeTruthy();
     // Find the inline break token (could be nested)
     const inlineBT = rootBT.childBreakTokens[0];
-    assert.ok(inlineBT);
-    assert.equal(inlineBT.type, "inline");
-    assert.ok(inlineBT.textOffset > 0, "textOffset should be > 0");
+    expect(inlineBT).toBeTruthy();
+    expect(inlineBT.type).toBe("inline");
+    expect(inlineBT.textOffset > 0).toBeTruthy();
   });
 
   it("handles forced line break (<br>) without fragmentainer break", () => {
@@ -132,10 +131,10 @@ describe("Phase 5: Inline content fragmentation", () => {
       fragmentainerBlockSize: 800,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
+    expect(pages.length).toBe(1);
     // Should have 3 line fragments (one per \n-separated segment)
     const inlineFragment = pages[0].childFragments[0];
-    assert.equal(inlineFragment.childFragments.length, 3);
+    expect(inlineFragment.childFragments.length).toBe(3);
   });
 
   it("varying inline size between pages changes line breaks", () => {
@@ -170,11 +169,11 @@ describe("Phase 5: Inline content fragmentation", () => {
       },
     });
 
-    assert.ok(pages.length >= 2);
+    expect(pages.length >= 2).toBeTruthy();
     // Page 1 lines should be narrower than page 2 lines
     const p1Lines = pages[0].childFragments[0].childFragments.length;
     // Page 2 should fit more content per line due to wider inline size
     // (fewer lines for same amount of text)
-    assert.ok(p1Lines > 0);
+    expect(p1Lines > 0).toBeTruthy();
   });
 });

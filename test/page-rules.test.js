@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import {
   PageRule, PageConstraints, PageSizeResolver, parseCSSLength,
 } from "../src/page-rules.js";
@@ -19,8 +18,8 @@ describe("PageSizeResolver", () => {
   it("returns default size when no rules", () => {
     const resolver = new PageSizeResolver([], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
-    assert.deepEqual(c.contentArea, DEFAULT_SIZE);
-    assert.deepEqual(c.margins, { top: 0, right: 0, bottom: 0, left: 0 });
+    expect(c.contentArea).toEqual(DEFAULT_SIZE);
+    expect(c.margins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
   });
 
   it("universal @page with explicit size", () => {
@@ -28,8 +27,8 @@ describe("PageSizeResolver", () => {
       new PageRule({ size: [600, 800] }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
-    assert.equal(c.contentArea.inlineSize, 600);
-    assert.equal(c.contentArea.blockSize, 800);
+    expect(c.contentArea.inlineSize).toBe(600);
+    expect(c.contentArea.blockSize).toBe(800);
   });
 
   it("universal @page with named size (a4)", () => {
@@ -37,8 +36,8 @@ describe("PageSizeResolver", () => {
       new PageRule({ size: "a4" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
-    assert.equal(c.pageBoxSize.inlineSize, 794);
-    assert.equal(c.pageBoxSize.blockSize, 1123);
+    expect(c.pageBoxSize.inlineSize).toBe(794);
+    expect(c.pageBoxSize.blockSize).toBe(1123);
   });
 
   it("named size with landscape orientation", () => {
@@ -46,8 +45,8 @@ describe("PageSizeResolver", () => {
       new PageRule({ size: "letter landscape" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
-    assert.equal(c.pageBoxSize.inlineSize, 1056);
-    assert.equal(c.pageBoxSize.blockSize, 816);
+    expect(c.pageBoxSize.inlineSize).toBe(1056);
+    expect(c.pageBoxSize.blockSize).toBe(816);
   });
 
   it("bare landscape rotates default", () => {
@@ -55,8 +54,8 @@ describe("PageSizeResolver", () => {
       new PageRule({ size: "landscape" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
-    assert.equal(c.pageBoxSize.inlineSize, DEFAULT_SIZE.blockSize);
-    assert.equal(c.pageBoxSize.blockSize, DEFAULT_SIZE.inlineSize);
+    expect(c.pageBoxSize.inlineSize).toBe(DEFAULT_SIZE.blockSize);
+    expect(c.pageBoxSize.blockSize).toBe(DEFAULT_SIZE.inlineSize);
   });
 
   it("applies margins and computes content area", () => {
@@ -64,8 +63,8 @@ describe("PageSizeResolver", () => {
       new PageRule({ size: [800, 1000], margin: { top: 50, right: 40, bottom: 50, left: 40 } }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
-    assert.equal(c.contentArea.inlineSize, 720); // 800 - 40 - 40
-    assert.equal(c.contentArea.blockSize, 900);  // 1000 - 50 - 50
+    expect(c.contentArea.inlineSize).toBe(720); // 800 - 40 - 40
+    expect(c.contentArea.blockSize).toBe(900);  // 1000 - 50 - 50
   });
 
   it(":first pseudo-class matches only page 0", () => {
@@ -75,10 +74,10 @@ describe("PageSizeResolver", () => {
     ], DEFAULT_SIZE);
 
     const c0 = resolver.resolve(0, null, null);
-    assert.equal(c0.contentArea.inlineSize, 400);
+    expect(c0.contentArea.inlineSize).toBe(400);
 
     const c1 = resolver.resolve(1, null, null);
-    assert.equal(c1.contentArea.inlineSize, 600);
+    expect(c1.contentArea.inlineSize).toBe(600);
   });
 
   it(":left/:right alternate by page index", () => {
@@ -90,13 +89,13 @@ describe("PageSizeResolver", () => {
 
     // Page 0 is right (recto)
     const c0 = resolver.resolve(0, null, null);
-    assert.equal(c0.margins.right, 100);
-    assert.equal(c0.margins.left, 0);
+    expect(c0.margins.right).toBe(100);
+    expect(c0.margins.left).toBe(0);
 
     // Page 1 is left (verso)
     const c1 = resolver.resolve(1, null, null);
-    assert.equal(c1.margins.left, 100);
-    assert.equal(c1.margins.right, 0);
+    expect(c1.margins.left).toBe(100);
+    expect(c1.margins.right).toBe(0);
   });
 
   it("named page rule matches only its named page", () => {
@@ -106,10 +105,10 @@ describe("PageSizeResolver", () => {
     ], DEFAULT_SIZE);
 
     const cNone = resolver.resolve(0, null, null);
-    assert.equal(cNone.contentArea.inlineSize, 600);
+    expect(cNone.contentArea.inlineSize).toBe(600);
 
     const cChapter = resolver.resolve(1, "chapter", null);
-    assert.equal(cChapter.contentArea.inlineSize, 500);
+    expect(cChapter.contentArea.inlineSize).toBe(500);
   });
 
   it("cascade: named+pseudo overrides named overrides pseudo overrides universal", () => {
@@ -122,7 +121,7 @@ describe("PageSizeResolver", () => {
 
     // Page 0, named 'cover' → named+pseudo wins
     const c = resolver.resolve(0, "cover", null);
-    assert.equal(c.contentArea.inlineSize, 400);
+    expect(c.contentArea.inlineSize).toBe(400);
   });
 
   it("cascade: margins merge from multiple rules", () => {
@@ -132,9 +131,9 @@ describe("PageSizeResolver", () => {
     ], DEFAULT_SIZE);
 
     const c = resolver.resolve(0, "wide", null);
-    assert.equal(c.margins.top, 10);    // from universal
-    assert.equal(c.margins.left, 50);   // overridden by named
-    assert.equal(c.margins.right, 50);  // overridden by named
+    expect(c.margins.top).toBe(10);    // from universal
+    expect(c.margins.left).toBe(50);   // overridden by named
+    expect(c.margins.right).toBe(50);  // overridden by named
   });
 
   it("page-orientation: rotate-left swaps dimensions", () => {
@@ -142,8 +141,8 @@ describe("PageSizeResolver", () => {
       new PageRule({ size: [600, 800], pageOrientation: "rotate-left" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
-    assert.equal(c.pageBoxSize.inlineSize, 800);
-    assert.equal(c.pageBoxSize.blockSize, 600);
+    expect(c.pageBoxSize.inlineSize).toBe(800);
+    expect(c.pageBoxSize.blockSize).toBe(600);
   });
 
   it("toConstraintSpace() produces correct values", () => {
@@ -153,51 +152,51 @@ describe("PageSizeResolver", () => {
 
     const c = resolver.resolve(0, null, null);
     const cs = c.toConstraintSpace();
-    assert.equal(cs.availableInlineSize, 560);
-    assert.equal(cs.availableBlockSize, 760);
-    assert.equal(cs.fragmentainerBlockSize, 760);
-    assert.equal(cs.blockOffsetInFragmentainer, 0);
-    assert.equal(cs.fragmentationType, "page");
+    expect(cs.availableInlineSize).toBe(560);
+    expect(cs.availableBlockSize).toBe(760);
+    expect(cs.fragmentainerBlockSize).toBe(760);
+    expect(cs.blockOffsetInFragmentainer).toBe(0);
+    expect(cs.fragmentationType).toBe("page");
   });
 
   it("isFirstPage and isLeftPage flags", () => {
     const resolver = new PageSizeResolver([], DEFAULT_SIZE);
 
     const c0 = resolver.resolve(0, null, null);
-    assert.equal(c0.isFirstPage, true);
-    assert.equal(c0.isLeftPage, false); // page 0 = right (recto)
+    expect(c0.isFirstPage).toBe(true);
+    expect(c0.isLeftPage).toBe(false); // page 0 = right (recto)
 
     const c1 = resolver.resolve(1, null, null);
-    assert.equal(c1.isFirstPage, false);
-    assert.equal(c1.isLeftPage, true);  // page 1 = left (verso)
+    expect(c1.isFirstPage).toBe(false);
+    expect(c1.isLeftPage).toBe(true);  // page 1 = left (verso)
   });
 });
 
 // -- parseCSSLength --
 
 describe("parseCSSLength", () => {
-  it("parses px", () => assert.equal(parseCSSLength("100px"), 100));
-  it("parses in", () => assert.equal(parseCSSLength("1in"), 96));
-  it("parses cm", () => assert.ok(Math.abs(parseCSSLength("2.54cm") - 96) < 0.01));
-  it("parses mm", () => assert.ok(Math.abs(parseCSSLength("25.4mm") - 96) < 0.01));
-  it("parses pt", () => assert.equal(parseCSSLength("72pt"), 96));
-  it("parses bare number as px", () => assert.equal(parseCSSLength("50"), 50));
-  it("returns null for invalid", () => assert.equal(parseCSSLength("abc"), null));
+  it("parses px", () => expect(parseCSSLength("100px")).toBe(100));
+  it("parses in", () => expect(parseCSSLength("1in")).toBe(96));
+  it("parses cm", () => expect(Math.abs(parseCSSLength("2.54cm") - 96) < 0.01).toBeTruthy());
+  it("parses mm", () => expect(Math.abs(parseCSSLength("25.4mm") - 96) < 0.01).toBeTruthy());
+  it("parses pt", () => expect(parseCSSLength("72pt")).toBe(96));
+  it("parses bare number as px", () => expect(parseCSSLength("50")).toBe(50));
+  it("returns null for invalid", () => expect(parseCSSLength("abc")).toBe(null));
 });
 
 // -- getNamedPage --
 
 describe("getNamedPage", () => {
   it("returns page property from node", () => {
-    assert.equal(getNamedPage(blockNode({ page: "cover" })), "cover");
+    expect(getNamedPage(blockNode({ page: "cover" }))).toBe("cover");
   });
 
   it("returns null for node with no page", () => {
-    assert.equal(getNamedPage(blockNode()), null);
+    expect(getNamedPage(blockNode())).toBe(null);
   });
 
   it("returns null for null node", () => {
-    assert.equal(getNamedPage(null), null);
+    expect(getNamedPage(null)).toBe(null);
   });
 });
 
@@ -211,14 +210,14 @@ describe("resolveNamedPageForBreakToken", () => {
         blockNode({ page: "chapter" }),
       ],
     });
-    assert.equal(resolveNamedPageForBreakToken(root, null), "cover");
+    expect(resolveNamedPageForBreakToken(root, null)).toBe("cover");
   });
 
   it("returns null when first child has no page", () => {
     const root = blockNode({
       children: [blockNode(), blockNode()],
     });
-    assert.equal(resolveNamedPageForBreakToken(root, null), null);
+    expect(resolveNamedPageForBreakToken(root, null)).toBe(null);
   });
 
   it("returns page of isBreakBefore child", () => {
@@ -234,7 +233,7 @@ describe("resolveNamedPageForBreakToken", () => {
     const childBT = BlockBreakToken.createBreakBefore(childB, true);
     bt.childBreakTokens.push(childBT);
 
-    assert.equal(resolveNamedPageForBreakToken(root, bt), "chapter");
+    expect(resolveNamedPageForBreakToken(root, bt)).toBe("chapter");
   });
 
   it("returns page of next sibling when break inside a child", () => {
@@ -250,7 +249,7 @@ describe("resolveNamedPageForBreakToken", () => {
     childAToken.consumedBlockSize = 100;
     bt.childBreakTokens.push(childAToken);
 
-    assert.equal(resolveNamedPageForBreakToken(root, bt), "appendix");
+    expect(resolveNamedPageForBreakToken(root, bt)).toBe("appendix");
   });
 });
 
@@ -272,9 +271,9 @@ describe("Named page forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 2);
-    assert.equal(pages[0].childFragments.length, 1); // Only A
-    assert.equal(pages[1].childFragments.length, 2); // B + C (same page name)
+    expect(pages.length).toBe(2);
+    expect(pages[0].childFragments.length).toBe(1); // Only A
+    expect(pages[1].childFragments.length).toBe(2); // B + C (same page name)
   });
 
   it("forces break when changing from named to null", () => {
@@ -291,7 +290,7 @@ describe("Named page forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 2);
+    expect(pages.length).toBe(2);
   });
 
   it("forces break when changing from null to named", () => {
@@ -308,7 +307,7 @@ describe("Named page forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 2);
+    expect(pages.length).toBe(2);
   });
 
   it("no break when both siblings have same page", () => {
@@ -325,7 +324,7 @@ describe("Named page forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
+    expect(pages.length).toBe(1);
   });
 
   it("no break when both siblings have null page", () => {
@@ -342,7 +341,7 @@ describe("Named page forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
+    expect(pages.length).toBe(1);
   });
 
   it("forced break token has isForcedBreak = true", () => {
@@ -359,7 +358,7 @@ describe("Named page forced breaks", () => {
       fragmentainerBlockSize: 1000,
       fragmentationType: "page",
     }));
-    assert.equal(pages[0].breakToken.childBreakTokens[0].isForcedBreak, true);
+    expect(pages[0].breakToken.childBreakTokens[0].isForcedBreak).toBe(true);
   });
 });
 
@@ -380,9 +379,9 @@ describe("createFragments with PageSizeResolver", () => {
     });
 
     const pages = createFragments(root, resolver);
-    assert.equal(pages.length, 2);
-    assert.ok(pages[0].constraints);
-    assert.equal(pages[0].constraints.contentArea.inlineSize, 600);
+    expect(pages.length).toBe(2);
+    expect(pages[0].constraints).toBeTruthy();
+    expect(pages[0].constraints.contentArea.inlineSize).toBe(600);
   });
 
   it("uses named page sizes for different pages", () => {
@@ -399,10 +398,10 @@ describe("createFragments with PageSizeResolver", () => {
     });
 
     const pages = createFragments(root, resolver);
-    assert.equal(pages.length, 2);
-    assert.equal(pages[0].constraints.contentArea.inlineSize, 600);
-    assert.equal(pages[1].constraints.contentArea.inlineSize, 800);
-    assert.equal(pages[1].constraints.namedPage, "wide");
+    expect(pages.length).toBe(2);
+    expect(pages[0].constraints.contentArea.inlineSize).toBe(600);
+    expect(pages[1].constraints.contentArea.inlineSize).toBe(800);
+    expect(pages[1].constraints.namedPage).toBe("wide");
   });
 
   it("accepts a plain ConstraintSpace (no resolver)", () => {
@@ -416,7 +415,7 @@ describe("createFragments with PageSizeResolver", () => {
       fragmentainerBlockSize: 200,
       fragmentationType: "page",
     }));
-    assert.equal(pages.length, 1);
-    assert.equal(pages[0].constraints, null); // no constraints without resolver
+    expect(pages.length).toBe(1);
+    expect(pages[0].constraints).toBe(null); // no constraints without resolver
   });
 });

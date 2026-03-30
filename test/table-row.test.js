@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { createFragments, runLayoutGenerator } from "../src/layout-request.js";
 import { layoutTableRow } from "../src/layout/table-row.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
@@ -25,9 +24,9 @@ describe("Phase 6: Parallel flows (table row)", () => {
     const result = runLayoutGenerator(layoutTableRow, row, space, null);
 
     // Row height = max cell height = 80
-    assert.equal(result.fragment.blockSize, 80);
-    assert.equal(result.fragment.childFragments.length, 3);
-    assert.equal(result.breakToken, null);
+    expect(result.fragment.blockSize).toBe(80);
+    expect(result.fragment.childFragments.length).toBe(3);
+    expect(result.breakToken).toBe(null);
   });
 
   it("all cells get break tokens when any cell overflows", () => {
@@ -49,21 +48,21 @@ describe("Phase 6: Parallel flows (table row)", () => {
     const result = runLayoutGenerator(layoutTableRow, row, space, null);
 
     // Cell B (300px) fragments: 200px on page 1
-    assert.ok(result.breakToken);
-    assert.equal(result.breakToken.childBreakTokens.length, 3);
-    assert.equal(result.breakToken.algorithmData.type, "TableRowData");
+    expect(result.breakToken).toBeTruthy();
+    expect(result.breakToken.childBreakTokens.length).toBe(3);
+    expect(result.breakToken.algorithmData.type).toBe("TableRowData");
 
     // Cells A and C should have isAtBlockEnd tokens
     const tokenA = result.breakToken.childBreakTokens[0];
     const tokenC = result.breakToken.childBreakTokens[2];
-    assert.equal(tokenA.isAtBlockEnd, true);
-    assert.equal(tokenA.hasSeenAllChildren, true);
-    assert.equal(tokenC.isAtBlockEnd, true);
+    expect(tokenA.isAtBlockEnd).toBe(true);
+    expect(tokenA.hasSeenAllChildren).toBe(true);
+    expect(tokenC.isAtBlockEnd).toBe(true);
 
     // Cell B should NOT be at block end
     const tokenB = result.breakToken.childBreakTokens[1];
-    assert.equal(tokenB.isAtBlockEnd, false);
-    assert.ok(tokenB.consumedBlockSize > 0);
+    expect(tokenB.isAtBlockEnd).toBe(false);
+    expect(tokenB.consumedBlockSize > 0).toBeTruthy();
   });
 
   it("resumes correctly with completed cells producing zero-height fragments", () => {
@@ -81,15 +80,15 @@ describe("Phase 6: Parallel flows (table row)", () => {
       fragmentationType: "page",
     }));
 
-    assert.equal(pages.length, 2);
+    expect(pages.length).toBe(2);
 
     // Page 1: row with max height 200 (cell B's partial fragment)
-    assert.equal(pages[0].blockSize, 200);
+    expect(pages[0].blockSize).toBe(200);
 
     // Page 2: resumed row. Cell A and C produce 0-height (already done).
     // Cell B produces remaining 100px.
-    assert.ok(pages[1].blockSize > 0);
-    assert.equal(pages[1].breakToken, null);
+    expect(pages[1].blockSize > 0).toBeTruthy();
+    expect(pages[1].breakToken).toBe(null);
   });
 
   it("row height is driven by tallest cell", () => {
@@ -108,6 +107,6 @@ describe("Phase 6: Parallel flows (table row)", () => {
     });
 
     const result = runLayoutGenerator(layoutTableRow, row, space, null);
-    assert.equal(result.fragment.blockSize, 150);
+    expect(result.fragment.blockSize).toBe(150);
   });
 });

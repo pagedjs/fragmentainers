@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { runLayoutGenerator, getLayoutAlgorithm } from "../src/layout-request.js";
 import { layoutMulticolContainer } from "../src/layout/multicol-container.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
@@ -25,12 +24,12 @@ function layoutMulticol(node, { inlineSize = 600, blockSize = 400 } = {}) {
 describe("layoutMulticolContainer", () => {
   it("dispatches multicol nodes to the multicol algorithm", () => {
     const node = multicolNode({ columnCount: 2 });
-    assert.equal(getLayoutAlgorithm(node), layoutMulticolContainer);
+    expect(getLayoutAlgorithm(node)).toBe(layoutMulticolContainer);
   });
 
   it("does not dispatch non-multicol nodes to multicol", () => {
     const node = blockNode();
-    assert.notEqual(getLayoutAlgorithm(node), layoutMulticolContainer);
+    expect(getLayoutAlgorithm(node)).not.toBe(layoutMulticolContainer);
   });
 
   it("lays out content across 2 columns", () => {
@@ -44,9 +43,9 @@ describe("layoutMulticolContainer", () => {
 
     // Column height 100: A fills col 1, B fills col 2
     const result = layoutMulticol(root, { inlineSize: 600, blockSize: 100 });
-    assert.equal(result.fragment.childFragments.length, 2);
-    assert.equal(result.fragment.multicolData.columnCount, 2);
-    assert.equal(result.fragment.multicolData.columnWidth, 300);
+    expect(result.fragment.childFragments.length).toBe(2);
+    expect(result.fragment.multicolData.columnCount).toBe(2);
+    expect(result.fragment.multicolData.columnWidth).toBe(300);
   });
 
   it("all content fits in one column when column height is large", () => {
@@ -60,7 +59,7 @@ describe("layoutMulticolContainer", () => {
 
     // Column height 200: both children fit in col 1
     const result = layoutMulticol(root, { inlineSize: 600, blockSize: 200 });
-    assert.equal(result.fragment.childFragments.length, 1);
+    expect(result.fragment.childFragments.length).toBe(1);
   });
 
   it("content flows across 3 columns", () => {
@@ -75,7 +74,7 @@ describe("layoutMulticolContainer", () => {
 
     // Column height 100: one child per column
     const result = layoutMulticol(root, { inlineSize: 600, blockSize: 100 });
-    assert.equal(result.fragment.childFragments.length, 3);
+    expect(result.fragment.childFragments.length).toBe(3);
   });
 
   it("respects column-fill: auto — stops at column count", () => {
@@ -90,9 +89,9 @@ describe("layoutMulticolContainer", () => {
 
     // Column height 100, 2 columns, fill: auto → A in col1, B in col2, C overflows
     const result = layoutMulticol(root, { inlineSize: 600, blockSize: 100 });
-    assert.equal(result.fragment.childFragments.length, 2);
+    expect(result.fragment.childFragments.length).toBe(2);
     // No break token emitted when not in outer fragmentation context
-    assert.equal(result.breakToken, null);
+    expect(result.breakToken).toBe(null);
   });
 
   it("resolves column width correctly with gap", () => {
@@ -103,8 +102,8 @@ describe("layoutMulticolContainer", () => {
 
     const result = layoutMulticol(root, { inlineSize: 620, blockSize: 200 });
     // W = (620 - 1*20) / 2 = 300
-    assert.equal(result.fragment.multicolData.columnWidth, 300);
-    assert.equal(result.fragment.multicolData.columnGap, 20);
+    expect(result.fragment.multicolData.columnWidth).toBe(300);
+    expect(result.fragment.multicolData.columnGap).toBe(20);
   });
 
   it("sets multicolData on the fragment", () => {
@@ -114,9 +113,9 @@ describe("layoutMulticolContainer", () => {
     });
 
     const result = layoutMulticol(root, { inlineSize: 640, blockSize: 200 });
-    assert.ok(result.fragment.multicolData);
-    assert.equal(result.fragment.multicolData.columnCount, 3);
-    assert.equal(result.fragment.multicolData.columnGap, 10);
+    expect(result.fragment.multicolData).toBeTruthy();
+    expect(result.fragment.multicolData.columnCount).toBe(3);
+    expect(result.fragment.multicolData.columnGap).toBe(10);
   });
 
   it("break-before: column forces a column break", () => {
@@ -130,7 +129,7 @@ describe("layoutMulticolContainer", () => {
 
     // Column height 200: both fit in one column, but forced break pushes B to col 2
     const result = layoutMulticol(root, { inlineSize: 600, blockSize: 200 });
-    assert.equal(result.fragment.childFragments.length, 2);
+    expect(result.fragment.childFragments.length).toBe(2);
   });
 
   it("emits break token with kMulticolData when nested in outer context", () => {
@@ -153,10 +152,10 @@ describe("layoutMulticolContainer", () => {
     });
 
     const result = runLayoutGenerator(layoutMulticolContainer, root, cs, null);
-    assert.ok(result.breakToken);
-    assert.equal(result.breakToken.algorithmData.type, "MulticolData");
-    assert.equal(result.breakToken.algorithmData.columnCount, 2);
-    assert.equal(result.breakToken.algorithmData.columnWidth, 300);
+    expect(result.breakToken).toBeTruthy();
+    expect(result.breakToken.algorithmData.type).toBe("MulticolData");
+    expect(result.breakToken.algorithmData.columnCount).toBe(2);
+    expect(result.breakToken.algorithmData.columnWidth).toBe(300);
   });
 
   it("does not infinitely recurse (flow thread pattern)", () => {
@@ -170,8 +169,8 @@ describe("layoutMulticolContainer", () => {
 
     // If this doesn't hang, the flow thread pattern works
     const result = layoutMulticol(root, { inlineSize: 600, blockSize: 200 });
-    assert.ok(result.fragment);
-    assert.equal(result.fragment.childFragments.length, 1);
+    expect(result.fragment).toBeTruthy();
+    expect(result.fragment.childFragments.length).toBe(1);
   });
 
   it("fragment inlineSize matches container", () => {
@@ -181,6 +180,6 @@ describe("layoutMulticolContainer", () => {
     });
 
     const result = layoutMulticol(root, { inlineSize: 800, blockSize: 200 });
-    assert.equal(result.fragment.inlineSize, 800);
+    expect(result.fragment.inlineSize).toBe(800);
   });
 });
