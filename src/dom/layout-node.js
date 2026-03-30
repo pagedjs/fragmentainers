@@ -1,5 +1,6 @@
 import { collectInlineItems, collectInlineItemsFromNodes } from "./collect-inlines.js";
 import { createRangeMeasurer, measureElementBlockSize, getLineHeight, parseLength } from "./measure.js";
+import { computedStyleMap } from "./computed-style-map.js";
 import { BOX_DECORATION_SLICE } from "../constants.js";
 
 const REPLACED_ELEMENTS = new Set([
@@ -23,6 +24,7 @@ export class DOMLayoutNode {
   constructor(element) {
     this.element = element;
     this._style = null;
+    this._styleMap = null;
     this._children = null;
     this._inlineItemsData = null;
     this._isInlineFormattingContext = null;
@@ -43,6 +45,13 @@ export class DOMLayoutNode {
       this._style = getComputedStyle(this.element);
     }
     return this._style;
+  }
+
+  _getStyleMap() {
+    if (!this._styleMap) {
+      this._styleMap = computedStyleMap(this.element);
+    }
+    return this._styleMap;
   }
 
   // --- Layout classification ---
@@ -96,39 +105,38 @@ export class DOMLayoutNode {
   }
 
   get gridRowStart() {
-    const val = this._getStyle().gridRowStart;
-    return (val && val !== "auto") ? parseInt(val) : null;
+    const v = this._getStyleMap().get("grid-row-start");
+    return (v && v.unit) ? v.value : null;
   }
 
   get gridRowEnd() {
-    const val = this._getStyle().gridRowEnd;
-    return (val && val !== "auto") ? parseInt(val) : null;
+    const v = this._getStyleMap().get("grid-row-end");
+    return (v && v.unit) ? v.value : null;
   }
 
   // --- Multicol properties ---
 
   get isMulticolContainer() {
-    const style = this._getStyle();
-    const colCount = style.columnCount;
-    const colWidth = style.columnWidth;
-    return (colCount !== "auto" && parseInt(colCount) > 0) ||
-           (colWidth !== "auto" && colWidth !== "none");
+    const map = this._getStyleMap();
+    const cc = map.get("column-count");
+    const cw = map.get("column-width");
+    return (cc && cc.unit && cc.value > 0) ||
+           (cw && cw.unit !== undefined);
   }
 
   get columnCount() {
-    const val = this._getStyle().columnCount;
-    return (val && val !== "auto") ? parseInt(val) : null;
+    const v = this._getStyleMap().get("column-count");
+    return (v && v.unit) ? v.value : null;
   }
 
   get columnWidth() {
-    const val = this._getStyle().columnWidth;
-    return (val && val !== "auto" && val !== "none") ? parseFloat(val) : null;
+    const v = this._getStyleMap().get("column-width");
+    return (v && v.unit) ? v.value : null;
   }
 
   get columnGap() {
-    const val = this._getStyle().columnGap;
-    if (val === "normal") return null;
-    return parseFloat(val) || 0;
+    const v = this._getStyleMap().get("column-gap");
+    return (v && v.unit) ? v.value : null;
   }
 
   get columnFill() {
@@ -138,27 +146,33 @@ export class DOMLayoutNode {
   // --- Box model (margins, padding, border) ---
 
   get marginBlockStart() {
-    return parseFloat(this._getStyle().marginTop) || 0;
+    const v = this._getStyleMap().get("margin-top");
+    return (v && v.unit) ? v.value : 0;
   }
 
   get marginBlockEnd() {
-    return parseFloat(this._getStyle().marginBottom) || 0;
+    const v = this._getStyleMap().get("margin-bottom");
+    return (v && v.unit) ? v.value : 0;
   }
 
   get paddingBlockStart() {
-    return parseFloat(this._getStyle().paddingTop) || 0;
+    const v = this._getStyleMap().get("padding-top");
+    return (v && v.unit) ? v.value : 0;
   }
 
   get paddingBlockEnd() {
-    return parseFloat(this._getStyle().paddingBottom) || 0;
+    const v = this._getStyleMap().get("padding-bottom");
+    return (v && v.unit) ? v.value : 0;
   }
 
   get borderBlockStart() {
-    return parseFloat(this._getStyle().borderTopWidth) || 0;
+    const v = this._getStyleMap().get("border-top-width");
+    return (v && v.unit) ? v.value : 0;
   }
 
   get borderBlockEnd() {
-    return parseFloat(this._getStyle().borderBottomWidth) || 0;
+    const v = this._getStyleMap().get("border-bottom-width");
+    return (v && v.unit) ? v.value : 0;
   }
 
   // --- Fragmentation CSS ---
@@ -185,11 +199,13 @@ export class DOMLayoutNode {
   }
 
   get orphans() {
-    return parseInt(this._getStyle().orphans) || 2;
+    const v = this._getStyleMap().get("orphans");
+    return (v && v.unit) ? v.value : 2;
   }
 
   get widows() {
-    return parseInt(this._getStyle().widows) || 2;
+    const v = this._getStyleMap().get("widows");
+    return (v && v.unit) ? v.value : 2;
   }
 
   // --- Counters ---
@@ -260,19 +276,18 @@ export class DOMLayoutNode {
   }
 
   computedBlockSize(availableInlineSize) {
-    const style = this._getStyle();
-
     if (this.isReplacedElement) {
       return measureElementBlockSize(this.element);
     }
 
-    const h = style.height;
-    if (h && h !== "auto") {
-      const fontSize = parseFloat(style.fontSize);
-      return parseLength(h, availableInlineSize, fontSize) ?? 0;
+    const map = this._getStyleMap();
+    const h = map.get("height");
+    if (h && h.unit) {
+      // Resolved length — use directly
+      return h.value;
     }
 
-    // height: auto — return null to let layout compute from content
+    // height: auto (keyword) — return null to let layout compute from content
     return null;
   }
 

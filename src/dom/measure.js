@@ -1,3 +1,5 @@
+import { computedStyleMap } from "./computed-style-map.js";
+
 /**
  * Create a text measurer backed by the DOM Range API.
  *
@@ -43,12 +45,16 @@ export function measureElementBlockSize(element) {
  * Get the computed line height of an element in pixels.
  */
 export function getLineHeight(element) {
-  const style = getComputedStyle(element);
-  const lineHeight = style.lineHeight;
-  if (lineHeight === "normal") {
-    return parseFloat(style.fontSize) * 1.2;
+  const map = computedStyleMap(element);
+  const lh = map.get("line-height");
+
+  // "normal" returns a keyword (no .unit property)
+  if (!lh || !lh.unit) {
+    const fs = map.get("font-size");
+    return ((fs && fs.unit) ? fs.value : 16) * 1.2;
   }
-  return parseFloat(lineHeight);
+
+  return lh.value;
 }
 
 /**

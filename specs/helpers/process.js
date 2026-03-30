@@ -11,7 +11,7 @@ import { createFragments } from "/src/layout-request.js";
 import { renderFragmentTree } from "/src/compositor/render-fragments.js";
 import {
   PageSizeResolver,
-  parsePageRulesFromStyleSheets,
+  parsePageRulesFromCSS,
 } from "/src/page-rules.js";
 
 async function run() {
@@ -19,8 +19,8 @@ async function run() {
     await document.fonts.ready;
     await doubleRAF();
 
-    const pageRules = parsePageRulesFromStyleSheets(
-      document.querySelectorAll("style"),
+    const pageRules = parsePageRulesFromCSS(
+      [...document.querySelectorAll("style")].map(el => el.textContent),
     );
     const multicolContainers = findMulticolContainers(document.body);
 

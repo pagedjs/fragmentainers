@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>Reader</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background: light-dark(#e0e0e0, #1a1a1a);
+      color: light-dark(#333, #ddd);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Reader container */
+    #reader {
+      position: relative;
+      background: light-dark(#fff, #262626);
+      box-shadow: 0 2px 20px light-dark(rgba(0,0,0,0.12), rgba(0,0,0,0.4));
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ---- Top bar ---- */
+    #top-bar {
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      height: 44px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10;
+    }
+
+    #top-bar .bar-left,
+    #top-bar .bar-right {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 44px;
+    }
+
+    #top-bar .bar-center {
+      flex: 1;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 0 8px;
+      color: light-dark(rgba(0,0,0,0.3), rgba(255,255,255,0.25));
+      transition: color 0.5s ease;
+    }
+
+    /* When chrome is visible, title is full strength */
+    .chrome-visible #top-bar .bar-center {
+      color: light-dark(#333, #ddd);
+    }
+
+    .bar-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: light-dark(#555, #999);
+      padding: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s, opacity 0.5s ease;
+    }
+    .bar-btn:hover { color: light-dark(#000, #fff); }
+    .bar-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ---- Spread area ---- */
+    #spread-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .spread {
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .spread-page {
+      position: relative;
+      background: light-dark(#fff, #262626);
+      overflow: hidden;
+    }
+
+    .spread-placeholder {
+      background: light-dark(#f0f0f0, #f0f0f0);
+    }
+
+    .spread-gutter {
+      width: 1px;
+      align-self: stretch;
+      background: light-dark(#e8e8e8, #3a3a3a);
+      flex-shrink: 0;
+    }
+
+    .page-number {
+      position: absolute;
+      bottom: 0;
+      font-family: -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 11px;
+      color: light-dark(rgba(0,0,0,0.3), rgba(255,255,255,0.2));
+      pointer-events: none;
+      z-index: 2;
+    }
+    .page-number-verso { left: 0; }
+    .page-number-recto { right: 0; }
+
+    /* ---- Navigation chevrons ---- */
+    .nav-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      font-size: 36px;
+      font-weight: 200;
+      color: light-dark(rgba(0,0,0,0.25), rgba(255,255,255,0.2));
+      cursor: pointer;
+      padding: 12px 4px;
+      z-index: 5;
+      line-height: 1;
+      transition: color 0.15s, opacity 0.5s ease;
+    }
+    .nav-btn:hover { color: light-dark(rgba(0,0,0,0.5), rgba(255,255,255,0.5)); }
+    .nav-btn:disabled { opacity: 0; cursor: default; pointer-events: none; }
+    #prevBtn { left: 8px; }
+    #nextBtn { right: 8px; }
+
+    /* ---- Footer ---- */
+    #footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    #progress-bar {
+      width: 100%;
+      height: 3px;
+      background: light-dark(#eee, #333);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    #progress-fill {
+      height: 100%;
+      background: light-dark(#bbb, #666);
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    #page-indicator {
+      font-size: 12px;
+      color: light-dark(rgba(0,0,0,0.35), rgba(255,255,255,0.3));
+      padding: 8px 20px;
+    }
+
+    /* ---- Chrome fade ---- */
+    .chrome {
+      transition: opacity 0.5s ease;
+    }
+
+    /* Default: chrome hidden */
+    .chrome {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* When chrome is visible */
+    .chrome-visible .chrome {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ---- Grid view ---- */
+    #grid-view {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      background: light-dark(#fff, #262626);
+    }
+
+    #grid-view.active {
+      display: block;
+    }
+
+    #grid-view .grid-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .grid-thumb {
+      position: relative;
+      cursor: pointer;
+      background: light-dark(#fff, #333);
+      box-shadow: 0 1px 3px light-dark(rgba(0,0,0,0.1), rgba(0,0,0,0.3));
+      overflow: hidden;
+      flex-shrink: 0;
+      transition: box-shadow 0.15s, transform 0.15s;
+    }
+    .grid-thumb:hover {
+      box-shadow: 0 2px 8px light-dark(rgba(0,0,0,0.18), rgba(0,0,0,0.5));
+      transform: translateY(-2px);
+    }
+
+    .grid-thumb-label {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: light-dark(rgba(0,0,0,0.5), rgba(0,0,0,0.6));
+      color: #fff;
+      text-align: center;
+      font-size: 11px;
+      padding: 3px 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .grid-thumb:hover .grid-thumb-label {
+      opacity: 1;
+    }
+
+    /* ---- Library modal ---- */
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      background: light-dark(rgba(0,0,0,0.4), rgba(0,0,0,0.6));
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    #modal-overlay.open { display: flex; }
+
+    #modal {
+      background: light-dark(#fff, #333);
+      box-shadow: 0 8px 40px light-dark(rgba(0,0,0,0.2), rgba(0,0,0,0.5));
+      padding: 28px 32px;
+      min-width: 320px;
+      max-width: 400px;
+    }
+    #modal h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: light-dark(#222, #eee);
+      margin-bottom: 16px;
+    }
+    #modal .modal-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 12px 16px;
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: light-dark(#333, #ddd);
+      background: light-dark(#f6f6f6, #3a3a3a);
+      border: 1px solid light-dark(#eee, #444);
+      cursor: pointer;
+      transition: background 0.12s;
+      font-family: inherit;
+    }
+    #modal .modal-item:hover { background: light-dark(#eee, #444); }
+    #modal .modal-item.active {
+      background: light-dark(#e8e8e8, #4a4a4a);
+      border-color: light-dark(#ccc, #555);
+      font-weight: 600;
+    }
+    #modal .modal-close {
+      display: block;
+      margin: 12px auto 0;
+      padding: 6px 20px;
+      font-size: 13px;
+      color: light-dark(#888, #999);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    #modal .modal-close:hover { color: light-dark(#333, #fff); }
+
+    /* ---- Status overlay ---- */
+    #status {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 13px;
+      color: light-dark(rgba(0,0,0,0.35), rgba(255,255,255,0.35));
+      font-style: italic;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* ---- Theme toggle ---- */
+    #themeBtn svg .sun { display: none; }
+    #themeBtn svg .moon { display: none; }
+
+    html[data-theme="light"] #themeBtn svg .moon { display: block; }
+    html[data-theme="light"] #themeBtn svg .sun { display: none; }
+    html[data-theme="dark"] #themeBtn svg .sun { display: block; }
+    html[data-theme="dark"] #themeBtn svg .moon { display: none; }
+    /* Auto mode: show the opposite of current preference */
+    html:not([data-theme]) #themeBtn svg .moon { display: block; }
+    html:not([data-theme]) #themeBtn svg .sun { display: none; }
+
+    @media (prefers-color-scheme: dark) {
+      html:not([data-theme]) #themeBtn svg .sun { display: block; }
+      html:not([data-theme]) #themeBtn svg .moon { display: none; }
+    }
+
+    /* ---- Dark mode: invert page content ---- */
+    html[data-theme="dark"] fragment-container {
+      filter: invert(1) hue-rotate(180deg);
+    }
+    @media (prefers-color-scheme: dark) {
+      html:not([data-theme="light"]) fragment-container {
+        filter: invert(1) hue-rotate(180deg);
+      }
+    }
+
+    /* Off-screen measurement */
+    #measure { position: absolute; left: -99999px; top: 0; }
+  </style>
+</head>
+<body>
+  <div id="reader">
+    <!-- Top bar -->
+    <div id="top-bar">
+      <div class="bar-left">
+        <button class="bar-btn chrome" id="libraryBtn" title="Library">
+          <svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13l-2.5 2H6v14"/><path d="M8 21h12a1 1 0 0 0 1-1V6l-2.5 2V19H8z"/><path d="M4 19a2 2 0 0 0 2 2"/></svg>
+        </button>
+      </div>
+      <div class="bar-center" id="title-bar"></div>
+      <div class="bar-right">
+        <button class="bar-btn chrome" id="themeBtn" title="Toggle theme">
+          <svg viewBox="0 0 24 24">
+            <circle class="sun" cx="12" cy="12" r="4"/><g class="sun"><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/></g>
+            <path class="moon" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <button class="bar-btn chrome" id="gridBtn" title="Page grid">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Spread view -->
+    <div id="spread-area">
+      <button class="nav-btn chrome" id="prevBtn" disabled>&#x2039;</button>
+      <div class="spread" id="spread"></div>
+      <button class="nav-btn chrome" id="nextBtn" disabled>&#x203A;</button>
+      <span id="status"></span>
+    </div>
+
+    <!-- Grid view (hidden by default) -->
+    <div id="grid-view">
+      <div class="grid-container" id="grid-container"></div>
+    </div>
+
+    <!-- Footer: progress bar then page number -->
+    <div id="footer">
+      <div id="progress-bar"><div id="progress-fill"></div></div>
+      <span id="page-indicator"></span>
+    </div>
+  </div>
+
+  <div id="modal-overlay">
+    <div id="modal">
+      <h2>Library</h2>
+      <div id="modal-list"></div>
+      <button class="modal-close" id="modal-close">Cancel</button>
+    </div>
+  </div>
+
+  <content-measure id="measure"></content-measure>
+
+  <script type="module">
+    import { fetchAndParse, injectContent, waitForFonts, FragmentainerLayout } from './viewer.js';
+    import { PageSizeResolver, parsePageRulesFromCSS } from "../src/page-rules.js";
+    import '../src/dom/frag-measure.js';
+
+    const A5 = { inlineSize: 559, blockSize: 793 };
+    const PAGE_PADDING = 32;
+    const GRID_THUMB_PADDING = 8;
+
+    const EXAMPLES = [
+      { url: 'examples/aurorae/index.html', label: 'Aurorae' },
+      { url: 'examples/moby-dick/index.html', label: 'Moby Dick' },
+    ];
+
+    const readerEl = document.getElementById('reader');
+    const titleBar = document.getElementById('title-bar');
+    const statusEl = document.getElementById('status');
+    const spreadEl = document.getElementById('spread');
+    const spreadArea = document.getElementById('spread-area');
+    const gridView = document.getElementById('grid-view');
+    const gridContainer = document.getElementById('grid-container');
+    const measureEl = document.getElementById('measure');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const pageIndicator = document.getElementById('page-indicator');
+    const progressFill = document.getElementById('progress-fill');
+    const libraryBtn = document.getElementById('libraryBtn');
+    const gridBtn = document.getElementById('gridBtn');
+    const themeBtn = document.getElementById('themeBtn');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalList = document.getElementById('modal-list');
+    const modalClose = document.getElementById('modal-close');
+
+    let flow = null;
+    let currentSpread = 0;
+    let totalSpreads = 0;
+    let currentUrl = '';
+    let currentTitle = '';
+    let isGridView = false;
+    let pageHeadings = [];
+
+    // --- Theme ---
+
+    function applyTheme(theme) {
+      if (theme === 'auto') {
+        document.documentElement.removeAttribute('data-theme');
+        document.documentElement.style.colorScheme = '';
+      } else {
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.style.colorScheme = theme;
+      }
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+      let next;
+      if (!current) {
+        // Auto mode — switch to opposite of system
+        next = prefersDark ? 'light' : 'dark';
+      } else if (current === 'light') {
+        next = 'dark';
+      } else {
+        // dark → back to auto
+        next = 'auto';
+      }
+      applyTheme(next);
+      localStorage.setItem('reader-theme', next);
+    }
+
+    // Restore saved theme
+    const savedTheme = localStorage.getItem('reader-theme');
+    if (savedTheme && savedTheme !== 'auto') applyTheme(savedTheme);
+
+    themeBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleTheme(); });
+
+    // --- Chrome auto-hide ---
+
+    let idleTimer = null;
+
+    function showChrome() {
+      document.body.classList.add('chrome-visible');
+      resetIdleTimer();
+    }
+
+    function hideChrome() {
+      document.body.classList.remove('chrome-visible');
+    }
+
+    function resetIdleTimer() {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(hideChrome, 5000);
+    }
+
+    document.addEventListener('mousemove', showChrome);
+    document.addEventListener('mousedown', showChrome);
+    showChrome();
+
+    // --- Modal ---
+
+    function openModal() {
+      modalList.innerHTML = '';
+      for (const ex of EXAMPLES) {
+        const btn = document.createElement('button');
+        btn.className = 'modal-item';
+        if (ex.url === currentUrl) btn.classList.add('active');
+        btn.textContent = ex.label;
+        btn.addEventListener('click', () => {
+          closeModal();
+          if (ex.url !== currentUrl) {
+            currentUrl = ex.url;
+            currentSpread = 0;
+            updateParams();
+            run();
+          }
+        });
+        modalList.appendChild(btn);
+      }
+      modalOverlay.classList.add('open');
+    }
+
+    function closeModal() {
+      modalOverlay.classList.remove('open');
+    }
+
+    libraryBtn.addEventListener('click', (e) => { e.stopPropagation(); openModal(); });
+    modalClose.addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) closeModal();
+    });
+
+    // --- Grid view toggle ---
+
+    const GRID_ICON = `<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`;
+    const SPREAD_ICON = `<svg viewBox="0 0 24 24"><path d="M2 6h9v12H2z"/><path d="M13 6h9v12h-9z"/></svg>`;
+
+    function toggleGridView() {
+      isGridView = !isGridView;
+      if (isGridView) {
+        spreadArea.style.display = 'none';
+        gridView.classList.add('active');
+        renderGrid();
+        gridBtn.title = 'Spread view';
+        gridBtn.innerHTML = SPREAD_ICON;
+      } else {
+        gridView.classList.remove('active');
+        spreadArea.style.display = '';
+        showSpread(currentSpread);
+        gridBtn.title = 'Page grid';
+        gridBtn.innerHTML = GRID_ICON;
+      }
+    }
+
+    function renderGrid() {
+      if (!flow) return;
+      gridContainer.innerHTML = '';
+
+      const thumbHeight = 200;
+      const total = flow.fragmentainerCount;
+
+      for (let i = 0; i < total; i++) {
+        const { contentArea } = flow.fragments[i].constraints;
+        const scale = thumbHeight / contentArea.blockSize;
+        const thumbWidth = contentArea.inlineSize * scale;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'grid-thumb';
+        wrapper.style.width = `${thumbWidth + GRID_THUMB_PADDING * 2}px`;
+        wrapper.style.height = `${thumbHeight + GRID_THUMB_PADDING * 2}px`;
+
+        const pageEl = flow.renderFragmentainer(i);
+        pageEl.style.transform = `scale(${scale})`;
+        pageEl.style.transformOrigin = 'top left';
+        pageEl.style.margin = `${GRID_THUMB_PADDING}px`;
+        wrapper.appendChild(pageEl);
+
+        const label = document.createElement('div');
+        label.className = 'grid-thumb-label';
+        label.textContent = i + 1;
+        wrapper.appendChild(label);
+
+        const pageIndex = i;
+        wrapper.addEventListener('click', () => {
+          const spreadIndex = pageIndex === 0 ? 0 : Math.ceil(pageIndex / 2);
+          isGridView = false;
+          gridView.classList.remove('active');
+          spreadArea.style.display = '';
+          gridBtn.title = 'Page grid';
+          gridBtn.innerHTML = GRID_ICON;
+          showSpread(spreadIndex);
+        });
+
+        gridContainer.appendChild(wrapper);
+      }
+    }
+
+    gridBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleGridView(); });
+
+    // --- Sizing ---
+
+    function sizeReader() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      readerEl.style.width = `${w}px`;
+      readerEl.style.height = `${h}px`;
+    }
+
+    sizeReader();
+    window.addEventListener('resize', () => {
+      sizeReader();
+      if (flow) {
+        if (isGridView) {
+          renderGrid();
+        } else {
+          showSpread(currentSpread);
+        }
+      }
+    });
+
+    // --- URL params ---
+
+    function getParams() {
+      return new URLSearchParams(location.search);
+    }
+
+    function applyParams() {
+      const params = getParams();
+      currentUrl = params.get('url') || EXAMPLES[0].url;
+    }
+
+    function updateParams() {
+      const params = new URLSearchParams();
+      params.set('url', currentUrl);
+      if (currentSpread > 0) params.set('spread', String(currentSpread));
+      history.replaceState(null, '', `?${params}`);
+    }
+
+    applyParams();
+
+    // --- Spread logic ---
+
+    function spreadPages(spreadIndex, totalPages) {
+      if (spreadIndex === 0) return [0];
+      const left = spreadIndex * 2 - 1;
+      const right = left + 1;
+      if (right < totalPages) return [left, right];
+      if (left < totalPages) return [left];
+      return [];
+    }
+
+    function spreadCount(totalPages) {
+      if (totalPages === 0) return 0;
+      return 1 + Math.ceil((totalPages - 1) / 2);
+    }
+
+    function createPageEl(pageIndex, scale, pageW, pageH, isVerso) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'spread-page';
+      wrapper.style.width = `${(pageW + PAGE_PADDING * 2) * scale}px`;
+      wrapper.style.height = `${(pageH + PAGE_PADDING * 2) * scale}px`;
+
+      const pageEl = flow.renderFragmentainer(pageIndex);
+      pageEl.style.transform = `scale(${scale})`;
+      pageEl.style.transformOrigin = 'top left';
+      pageEl.style.margin = `${PAGE_PADDING}px`;
+      wrapper.appendChild(pageEl);
+
+      const num = document.createElement('div');
+      num.className = `page-number ${isVerso ? 'page-number-verso' : 'page-number-recto'}`;
+      num.style.fontSize = `${11 * scale}px`;
+      num.style.padding = `${6 * scale}px ${PAGE_PADDING * scale}px`;
+      num.textContent = String(pageIndex + 1);
+      wrapper.appendChild(num);
+
+      return wrapper;
+    }
+
+    function createPlaceholder(scale, pageW, pageH) {
+      const el = document.createElement('div');
+      el.className = 'spread-page spread-placeholder';
+      el.style.width = `${(pageW + PAGE_PADDING * 2) * scale}px`;
+      el.style.height = `${(pageH + PAGE_PADDING * 2) * scale}px`;
+      return el;
+    }
+
+    function showSpread(index) {
+      if (!flow) return;
+      const total = flow.fragmentainerCount;
+      currentSpread = Math.max(0, Math.min(index, totalSpreads - 1));
+      const pages = spreadPages(currentSpread, total);
+
+      spreadEl.innerHTML = '';
+
+      const { contentArea } = flow.fragments[0].constraints;
+      const pageW = contentArea.inlineSize;
+      const pageH = contentArea.blockSize;
+      const navSpace = 56;
+
+      const paddedW = pageW + PAGE_PADDING * 2;
+      const paddedH = pageH + PAGE_PADDING * 2;
+      const naturalWidth = paddedW * 2 + 1;
+      const naturalHeight = paddedH;
+
+      const availW = spreadArea.clientWidth - navSpace * 2;
+      const availH = spreadArea.clientHeight - 16;
+      const scale = Math.min(1, availW / naturalWidth, availH / naturalHeight);
+
+      if (currentSpread === 0 && pages.length === 1) {
+        spreadEl.appendChild(createPlaceholder(scale, pageW, pageH));
+        const gutter = document.createElement('div');
+        gutter.className = 'spread-gutter';
+        spreadEl.appendChild(gutter);
+      }
+
+      for (let j = 0; j < pages.length; j++) {
+        if (j > 0) {
+          const gutter = document.createElement('div');
+          gutter.className = 'spread-gutter';
+          spreadEl.appendChild(gutter);
+        }
+        const isVerso = (currentSpread === 0) ? false : (j === 0);
+        spreadEl.appendChild(createPageEl(pages[j], scale, pageW, pageH, isVerso));
+      }
+
+      if (pages.length === 1 && currentSpread > 0) {
+        const gutter = document.createElement('div');
+        gutter.className = 'spread-gutter';
+        spreadEl.appendChild(gutter);
+        spreadEl.appendChild(createPlaceholder(scale, pageW, pageH));
+      }
+
+      prevBtn.disabled = currentSpread === 0;
+      nextBtn.disabled = currentSpread >= totalSpreads - 1;
+
+      updateTitleBar(pages);
+
+      const lastPage = pages[pages.length - 1] + 1;
+      pageIndicator.textContent = `${lastPage} of ${total}`;
+
+      const pct = total > 1 ? (lastPage / total) * 100 : 100;
+      progressFill.style.width = `${pct}%`;
+
+      updateParams();
+    }
+
+    // --- Navigation ---
+
+    prevBtn.addEventListener('click', () => { showSpread(currentSpread - 1); showChrome(); });
+    nextBtn.addEventListener('click', () => { showSpread(currentSpread + 1); showChrome(); });
+
+    document.addEventListener('keydown', (e) => {
+      if (modalOverlay.classList.contains('open')) {
+        if (e.key === 'Escape') closeModal();
+        return;
+      }
+      if (isGridView) {
+        if (e.key === 'Escape') toggleGridView();
+        return;
+      }
+      if (e.key === 'ArrowLeft') { showSpread(currentSpread - 1); showChrome(); }
+      if (e.key === 'ArrowRight') { showSpread(currentSpread + 1); showChrome(); }
+      if (e.key === 'Home') { showSpread(0); showChrome(); }
+      if (e.key === 'End') { showSpread(totalSpreads - 1); showChrome(); }
+    });
+
+    // --- Title extraction ---
+
+    function extractTitle(url) {
+      const match = EXAMPLES.find(e => e.url === url);
+      return match ? match.label : url.split('/').pop().replace(/\.html$/, '');
+    }
+
+    function buildPageHeadings() {
+      pageHeadings = [];
+      if (!flow) return;
+      let lastHeading = '';
+      for (let i = 0; i < flow.fragmentainerCount; i++) {
+        const pageEl = flow.renderFragmentainer(i);
+        const root = pageEl.shadowRoot || pageEl;
+        const headings = root.querySelectorAll('h1');
+        if (headings.length > 0) {
+          lastHeading = headings[headings.length - 1].textContent.replace(/\s+/g, ' ').trim();
+        }
+        pageHeadings[i] = lastHeading;
+      }
+    }
+
+    function updateTitleBar(pages) {
+      const lastPageIndex = pages[pages.length - 1];
+      const heading = pageHeadings[lastPageIndex] || '';
+      if (heading && heading !== currentTitle) {
+        titleBar.textContent = `${currentTitle} \u2014 ${heading}`;
+      } else {
+        titleBar.textContent = currentTitle;
+      }
+    }
+
+    // --- Run ---
+
+    async function run() {
+      statusEl.textContent = 'Loading\u2026';
+      statusEl.style.display = '';
+      spreadEl.innerHTML = '';
+      gridContainer.innerHTML = '';
+      pageIndicator.textContent = '';
+      progressFill.style.width = '0%';
+
+      // Reset to spread view
+      if (isGridView) {
+        isGridView = false;
+        gridView.classList.remove('active');
+        spreadArea.style.display = '';
+        gridBtn.title = 'Page grid';
+        gridBtn.innerHTML = GRID_ICON;
+      }
+
+      currentTitle = extractTitle(currentUrl);
+      titleBar.textContent = currentTitle;
+      document.title = currentTitle;
+
+      try {
+        const parsed = await fetchAndParse(currentUrl);
+
+        const pageRules = parsePageRulesFromCSS(parsed.cssEntries.map(({ css }) => css));
+        const resolver = new PageSizeResolver(pageRules, A5);
+
+        const firstConstraints = resolver.resolve(0, null, null);
+        const measureWidth = firstConstraints.contentArea.inlineSize;
+
+        statusEl.textContent = 'Typesetting\u2026';
+        measureEl.style.width = `${measureWidth}px`;
+        const contentRoot = injectContent(parsed, measureEl);
+        await waitForFonts(measureEl);
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        await new Promise(r => requestAnimationFrame(r));
+
+        const layout = new FragmentainerLayout(contentRoot, { resolver });
+        flow = layout.flow();
+
+        totalSpreads = spreadCount(flow.fragmentainerCount);
+        buildPageHeadings();
+        statusEl.style.display = 'none';
+
+        const params = getParams();
+        const startSpread = params.has('spread') ? parseInt(params.get('spread')) : 0;
+        showSpread(startSpread);
+
+      } catch (err) {
+        statusEl.textContent = `Error: ${err.message}`;
+        console.error(err);
+      }
+    }
+
+    run();
+  </script>
+</body>
+</html>

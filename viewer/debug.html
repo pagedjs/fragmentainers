@@ -79,7 +79,7 @@
       } from "./viewer.js";
       import "../src/dom/frag-measure.js";
       import {
-        parsePageRulesFromStyleSheets,
+        parsePageRulesFromCSS,
         PageSizeResolver,
       } from "../src/page-rules.js";
       import {
@@ -123,9 +123,7 @@
 
           // Parse @page rules from injected content
           const contentCSSText = measureEl.getContentStyles().cssText;
-          const tmpStyle = document.createElement("style");
-          tmpStyle.textContent = contentCSSText;
-          const pageRules = parsePageRulesFromStyleSheets([tmpStyle]);
+          const pageRules = parsePageRulesFromCSS([contentCSSText]);
 
           const defaultSize = { inlineSize: pageW, blockSize: pageH };
           let resolver;

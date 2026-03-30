@@ -2,6 +2,7 @@ import { DOMLayoutNode } from "./layout-node.js";
 
 export { DOMLayoutNode } from "./layout-node.js";
 export { collectInlineItems } from "./collect-inlines.js";
+export { computedStyleMap } from "./computed-style-map.js";
 export { createRangeMeasurer, measureElementBlockSize, getLineHeight, parseLength } from "./measure.js";
 export { ContentMeasureElement, FragmentContainerElement } from "./frag-measure.js";
 
