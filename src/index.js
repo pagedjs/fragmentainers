@@ -4,7 +4,7 @@ export { ConstraintSpace } from "./constraint-space.js";
 export { LayoutRequest, layoutChild } from "./layout-request.js";
 export { findChildBreakToken, isMonolithic, getMonolithicBlockSize, debugPrintTokenTree } from "./helpers.js";
 export { EarlyBreak, BreakScore } from "./break-scoring.js";
-export { createFragments, runLayoutGenerator, getLayoutAlgorithm } from "./driver.js";
+export { createFragments, runLayoutGenerator, getLayoutAlgorithm } from "./layout-request.js";
 export { layoutBlockContainer } from "./layout/block-container.js";
 export { layoutInlineContent } from "./layout/inline-content.js";
 export { layoutTableRow } from "./layout/table-row.js";

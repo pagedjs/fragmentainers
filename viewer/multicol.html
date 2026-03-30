@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Multicol Viewer</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 1rem;
+        background: #f0f0f0;
+      }
+      h1 {
+        font-size: 1.3rem;
+        margin: 0 0 1rem;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 1rem;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+      }
+      .controls label {
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .controls input,
+      .controls select {
+        font-size: 0.85rem;
+        padding: 4px 8px;
+      }
+      .controls input[type="number"] {
+        width: 70px;
+      }
+      .controls button {
+        padding: 6px 16px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        background: #333;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+      }
+      .controls button:hover {
+        background: #555;
+      }
+
+      #status {
+        padding: 0.5rem 0;
+        font-size: 0.85rem;
+        color: #666;
+        font-style: italic;
+      }
+
+      /* Side-by-side comparison */
+      #comparison {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+        padding: 1rem 0;
+      }
+      .panel {
+        flex: 1;
+        min-width: 0;
+      }
+      .panel-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #555;
+        margin-bottom: 8px;
+      }
+      .panel-content {
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      /* Editor */
+      #editor {
+        width: 100%;
+        min-height: 300px;
+        font-family: monospace;
+        font-size: 13px;
+        padding: 12px;
+        border: none;
+        resize: vertical;
+        box-sizing: border-box;
+        tab-size: 2;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Multicol Viewer</h1>
+
+    <div class="controls">
+      <label
+        >Example:
+        <select id="example">
+          <option value="basic">Basic 3-column</option>
+          <option value="article">Article layout</option>
+          <option value="counters">Counter test</option>
+          <option value="custom">Custom (edit below)</option>
+        </select>
+      </label>
+      <button id="runBtn">Run</button>
+    </div>
+
+    <div id="status">Select an example and click Run.</div>
+
+    <div id="comparison">
+      <div class="panel">
+        <div class="panel-label">Input HTML</div>
+        <div class="panel-content">
+          <textarea id="editor" spellcheck="false"></textarea>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Native (browser columns)</div>
+        <div class="panel-content" id="native"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Fragmentainer</div>
+        <div class="panel-content" id="output"></div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { createFragments } from "../src/layout-request.js";
+      import { ConstraintSpace } from "../src/constraint-space.js";
+      import { buildLayoutTree } from "../src/dom/index.js";
+      import { renderFragmentTree } from "../src/compositor/render-fragments.js";
+      import "../src/dom/frag-measure.js";
+
+      // --- Examples ---
+
+      const EXAMPLES = {
+        basic: `<style>
+  .multicol {
+    column-count: 3;
+    column-gap: 20px;
+    column-fill: auto;
+    width: 600px;
+    height: 300px;
+    font-size: 14px;
+    line-height: 1.6;
+    border: 1px solid #ccc;
+    padding: 12px;
+  }
+</style>
+<div class="multicol">
+  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</p>
+  <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.</p>
+  <p>Sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem.</p>
+  <p>Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.</p>
+</div>`,
+
+        article: `<style>
+  .article {
+    column-count: 2;
+    column-gap: 30px;
+    column-rule: 1px solid #ddd;
+    column-fill: auto;
+    width: 700px;
+    height: 400px;
+    font-family: Georgia, serif;
+    font-size: 15px;
+    line-height: 1.7;
+    border: 1px solid #ccc;
+    padding: 16px;
+  }
+  .article h2 {
+    font-size: 1.4em;
+    margin: 0 0 0.5em;
+    break-after: avoid;
+  }
+  .article h3 {
+    font-size: 1.1em;
+    margin: 1em 0 0.4em;
+    break-after: avoid;
+  }
+  .article p { margin: 0 0 0.8em; }
+</style>
+<div class="article">
+  <h2>The Architecture of Fragmentation</h2>
+  <p>CSS fragmentation is the process of splitting content across multiple containers. This occurs in paginated media, multi-column layouts, and CSS regions.</p>
+  <h3>Break Tokens</h3>
+  <p>When content overflows a fragmentainer, a break token captures enough state to resume layout in the next container. These tokens form a sparse tree mirroring the CSS box tree.</p>
+  <p>The consumed block size is cumulative across all previous fragments, ensuring correct positioning on resumption.</p>
+  <h3>Two-Pass Scoring</h3>
+  <p>The engine uses a two-pass approach: Pass 1 discovers the optimal breakpoint by tracking EarlyBreak chains. If the actual break is worse than the best candidate, Pass 2 re-runs layout to break at the optimal point.</p>
+  <p>This produces better break quality without the complexity of a full constraint solver.</p>
+</div>`,
+
+        counters: `<style>
+  .counter-demo {
+    column-count: 2;
+    column-gap: 24px;
+    column-fill: auto;
+    width: 600px;
+    height: 350px;
+    font-size: 14px;
+    line-height: 1.6;
+    border: 1px solid #ccc;
+    padding: 12px;
+  }
+  .section { counter-reset: paragraph; margin-bottom: 1em; }
+  .section h3 { margin: 0 0 0.5em; font-size: 1.1em; }
+  .section p { counter-increment: paragraph; margin: 0 0 0.5em; }
+  .section p::before {
+    content: counter(paragraph) ". ";
+    color: #c00;
+    font-weight: bold;
+  }
+  ol { margin: 0.5em 0; padding-left: 1.5em; }
+  ol li { margin-bottom: 0.3em; }
+</style>
+<div class="counter-demo">
+  <div class="section">
+    <h3>Section A</h3>
+    <p>First paragraph with counter.</p>
+    <p>Second paragraph continues numbering.</p>
+    <p>Third paragraph in this section.</p>
+    <p>Fourth paragraph before the break.</p>
+  </div>
+  <div class="section">
+    <h3>Section B</h3>
+    <p>Counter resets in new section.</p>
+    <p>This should be numbered 2.</p>
+    <p>And this should be 3.</p>
+  </div>
+  <ol>
+    <li>First ordered list item</li>
+    <li>Second item</li>
+    <li>Third item</li>
+    <li>Fourth item</li>
+    <li>Fifth item</li>
+    <li>Sixth item</li>
+    <li>Seventh item</li>
+  </ol>
+</div>`,
+
+        custom: `<style>
+  .multicol {
+    column-count: 2;
+    column-gap: 20px;
+    column-fill: auto;
+    width: 500px;
+    height: 300px;
+    font-size: 14px;
+    line-height: 1.6;
+    border: 1px solid #ccc;
+    padding: 12px;
+  }
+</style>
+<div class="multicol">
+  <p>Edit this HTML to try your own multicol layout.</p>
+</div>`,
+      };
+
+      // --- DOM refs ---
+
+      const exampleSelect = document.getElementById("example");
+      const editorEl = document.getElementById("editor");
+      const nativeEl = document.getElementById("native");
+      const outputEl = document.getElementById("output");
+      const statusEl = document.getElementById("status");
+
+      // --- Init ---
+
+      exampleSelect.addEventListener("change", () => {
+        const key = exampleSelect.value;
+        if (key !== "custom") editorEl.value = EXAMPLES[key];
+      });
+
+      editorEl.value = EXAMPLES.basic;
+
+      // --- Run ---
+
+      document.getElementById("runBtn").addEventListener("click", run);
+
+      async function run() {
+        const html = editorEl.value;
+        statusEl.textContent = "Processing...";
+        nativeEl.innerHTML = "";
+        outputEl.innerHTML = "";
+
+        await doubleRAF();
+
+        try {
+          // 1. Render native browser columns
+          nativeEl.innerHTML = html;
+
+          // 2. Find multicol containers in a hidden copy for measurement
+          const measureDiv = document.createElement("div");
+          measureDiv.style.position = "absolute";
+          measureDiv.style.left = "-99999px";
+          measureDiv.style.top = "0";
+          measureDiv.innerHTML = html;
+          document.body.appendChild(measureDiv);
+
+          await doubleRAF();
+
+          const containers = findMulticolContainers(measureDiv);
+
+          if (containers.length === 0) {
+            statusEl.textContent =
+              "No multicol containers found. Add column-count or column-width CSS.";
+            document.body.removeChild(measureDiv);
+            return;
+          }
+
+          // 3. Process each container
+          const results = [];
+          for (const container of containers) {
+            const result = await processMulticol(container);
+            if (result) results.push(result);
+          }
+
+          document.body.removeChild(measureDiv);
+
+          // 4. Build output
+          outputEl.innerHTML = html;
+          const outputContainers = findMulticolContainers(outputEl);
+
+          for (
+            let i = 0;
+            i < outputContainers.length && i < results.length;
+            i++
+          ) {
+            replaceWithFragmented(outputContainers[i], results[i]);
+          }
+
+          const totalCols = results.reduce((s, r) => s + r.fragments.length, 0);
+          statusEl.textContent = `Processed ${containers.length} container(s), ${totalCols} column(s) total.`;
+        } catch (err) {
+          statusEl.textContent = `Error: ${err.message}`;
+          console.error(err);
+        }
+      }
+
+      // --- Multicol processing (from process.js) ---
+
+      function findMulticolContainers(root) {
+        const result = [];
+        const all = root.querySelectorAll("*");
+        for (const el of all) {
+          const style = getComputedStyle(el);
+          const colCount = style.columnCount;
+          const colWidth = style.columnWidth;
+          if (
+            (colCount !== "auto" && parseInt(colCount) > 0) ||
+            (colWidth !== "auto" && colWidth !== "none")
+          ) {
+            result.push(el);
+          }
+        }
+        return result;
+      }
+
+      async function processMulticol(container) {
+        const style = getComputedStyle(container);
+
+        const totalWidth = container.clientWidth;
+        const totalHeight = container.clientHeight;
+        const columnCount = parseInt(style.columnCount) || 1;
+        const columnGap =
+          style.columnGap === "normal" ? 0 : parseFloat(style.columnGap) || 0;
+        const columnWidth =
+          (totalWidth - (columnCount - 1) * columnGap) / columnCount;
+
+        if (columnWidth <= 0 || totalHeight <= 0) return null;
+
+        const wrapper = document.createElement("div");
+        wrapper.style.width = `${columnWidth}px`;
+
+        while (container.firstChild) {
+          wrapper.appendChild(container.firstChild);
+        }
+
+        container.style.columns = "auto";
+        container.style.columnCount = "auto";
+        container.style.columnWidth = "auto";
+        container.style.columnFill = "auto";
+        container.style.columnGap = "0";
+
+        container.appendChild(wrapper);
+        await doubleRAF();
+
+        const tree = buildLayoutTree(wrapper);
+        const fragments = createFragments(
+          tree,
+          new ConstraintSpace({
+            availableInlineSize: columnWidth,
+            availableBlockSize: totalHeight,
+            fragmentainerBlockSize: totalHeight,
+            fragmentationType: "column",
+          }),
+        );
+
+        return { fragments, columnWidth, columnGap, totalHeight };
+      }
+
+      function replaceWithFragmented(
+        container,
+        { fragments, columnWidth, columnGap, totalHeight },
+      ) {
+        container.innerHTML = "";
+        container.style.columns = "auto";
+        container.style.columnCount = "auto";
+        container.style.columnWidth = "auto";
+        container.style.columnFill = "auto";
+        container.style.columnGap = "0";
+        container.style.display = "flex";
+        container.style.flexWrap = "nowrap";
+        container.style.alignItems = "flex-start";
+        container.style.gap = `${columnGap}px`;
+
+        for (let i = 0; i < fragments.length; i++) {
+          const colEl = document.createElement("div");
+          colEl.style.width = `${columnWidth}px`;
+          colEl.style.height = `${totalHeight}px`;
+          colEl.style.overflow = "hidden";
+          colEl.style.flexShrink = "0";
+
+          const prevBT = i > 0 ? fragments[i - 1].breakToken : null;
+          colEl.appendChild(renderFragmentTree(fragments[i], prevBT));
+          container.appendChild(colEl);
+        }
+      }
+
+      // --- Helpers ---
+
+      function doubleRAF() {
+        return new Promise((r) =>
+          requestAnimationFrame(() => requestAnimationFrame(r)),
+        );
+      }
+
+      // Auto-run on load
+      run();
+    </script>
+  </body>
+</html>

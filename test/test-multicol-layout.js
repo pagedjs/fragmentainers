@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { runLayoutGenerator, getLayoutAlgorithm } from "../src/driver.js";
+import { runLayoutGenerator, getLayoutAlgorithm } from "../src/layout-request.js";
 import { layoutMulticolContainer } from "../src/layout/multicol-container.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
 import { blockNode, multicolNode } from "./fixtures/nodes.js";

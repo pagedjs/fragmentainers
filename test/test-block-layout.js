@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createFragments, runLayoutGenerator } from "../src/driver.js";
+import { createFragments, runLayoutGenerator } from "../src/layout-request.js";
 import { layoutBlockContainer } from "../src/layout/block-container.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
 import { blockNode } from "./fixtures/nodes.js";

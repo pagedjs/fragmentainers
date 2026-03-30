@@ -7,7 +7,7 @@ import {
   getNamedPage, resolveNamedPageForBreakToken,
 } from "../src/helpers.js";
 import { BlockBreakToken } from "../src/tokens.js";
-import { createFragments } from "../src/driver.js";
+import { createFragments } from "../src/layout-request.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
 import { blockNode } from "./fixtures/nodes.js";
 

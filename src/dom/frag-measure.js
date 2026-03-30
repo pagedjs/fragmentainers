@@ -38,6 +38,26 @@ class ContentMeasureElement extends HTMLElement {
     this._shadow = this.attachShadow({ mode: "open" });
     this._wrapper = null;
     this._contentCSSText = "";
+    this._currentInlineSize = undefined;
+  }
+
+  /**
+   * Synchronize this measurement container with a fragmentainer's
+   * constraint space. Updates the container's inline size and forces
+   * a synchronous browser reflow so that subsequent
+   * getBoundingClientRect() and Range.getClientRects() calls return
+   * values at the correct width.
+   *
+   * No-ops when the inline size hasn't changed.
+   *
+   * @param {import('../constraint-space.js').ConstraintSpace} constraintSpace
+   */
+  applyConstraintSpace(constraintSpace) {
+    const inlineSize = constraintSpace.availableInlineSize;
+    if (this._currentInlineSize === inlineSize) return;
+    this._currentInlineSize = inlineSize;
+    this.style.width = `${inlineSize}px`;
+    void this.offsetHeight; // Force synchronous reflow
   }
 
   /**

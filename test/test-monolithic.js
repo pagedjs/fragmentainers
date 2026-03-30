@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createFragments } from "../src/driver.js";
+import { createFragments } from "../src/layout-request.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
 import { blockNode, replacedNode, scrollableNode } from "./fixtures/nodes.js";
 
