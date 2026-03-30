@@ -83,7 +83,7 @@ describe("layoutFlexContainer", () => {
 
     const result = layoutFlex(root, { blockSize: 100, fragmentationType: "page" });
     assert.ok(result.breakToken);
-    assert.equal(result.breakToken.algorithmData.type, "kFlexData");
+    assert.equal(result.breakToken.algorithmData.type, "FlexData");
   });
 
   it("column flex uses flow thread (sequential fragmentation)", () => {
@@ -112,7 +112,7 @@ describe("layoutFlexContainer", () => {
 
     const result = layoutFlex(root, { blockSize: 150, fragmentationType: "page" });
     assert.ok(result.breakToken);
-    assert.equal(result.breakToken.algorithmData.type, "kFlexData");
+    assert.equal(result.breakToken.algorithmData.type, "FlexData");
   });
 
   it("empty flex container produces zero-height fragment", () => {

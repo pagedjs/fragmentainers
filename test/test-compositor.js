@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { PhysicalFragment } from "../src/fragment.js";
 import { BlockBreakToken, InlineBreakToken } from "../src/tokens.js";
 import { blockNode, inlineNode, textToInlineItems } from "./fixtures/nodes.js";
+import { INLINE_TEXT, INLINE_CONTROL } from "../src/constants.js";
 import { findChildBreakToken } from "../src/helpers.js";
 
 // Import the compositor functions
@@ -142,18 +143,18 @@ describe("inline items data for compositor", () => {
     const data = textToInlineItems("Hello world");
     assert.equal(data.textContent, "Hello world");
     assert.equal(data.items.length, 1);
-    assert.equal(data.items[0].type, "kText");
+    assert.equal(data.items[0].type, INLINE_TEXT);
     assert.equal(data.items[0].startOffset, 0);
     assert.equal(data.items[0].endOffset, 11);
   });
 
   it("textToInlineItems splits on newlines with kControl", () => {
     const data = textToInlineItems("Line one\nLine two");
-    assert.equal(data.items.length, 3); // kText, kControl, kText
-    assert.equal(data.items[0].type, "kText");
+    assert.equal(data.items.length, 3);
+    assert.equal(data.items[0].type, INLINE_TEXT);
     assert.equal(data.items[0].endOffset, 8);
-    assert.equal(data.items[1].type, "kControl");
-    assert.equal(data.items[2].type, "kText");
+    assert.equal(data.items[1].type, INLINE_CONTROL);
+    assert.equal(data.items[2].type, INLINE_TEXT);
     assert.equal(data.items[2].startOffset, 9);
     assert.equal(data.items[2].endOffset, 17);
   });

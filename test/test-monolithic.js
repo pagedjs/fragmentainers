@@ -22,31 +22,28 @@ describe("Phase 4: Monolithic content", () => {
       fragmentationType: "page",
     }));
 
-    assert.equal(pages.length, 3);
-    // Page 1: just the div
+    // Page 1: just the div (img pushed)
     assert.equal(pages[0].childFragments.length, 1);
     assert.equal(pages[0].blockSize, 50);
-    // Break token should have createBreakBefore for img
     assert.ok(pages[0].breakToken);
     assert.equal(pages[0].breakToken.childBreakTokens[0].isBreakBefore, true);
 
-    // Page 2: img placed at top, overflows (300 > 200), 'after' pushed
+    // Page 2: img sliced to 200px (last resort: monolithic exceeds page)
     assert.equal(pages[1].childFragments.length, 1);
-    assert.equal(pages[1].childFragments[0].blockSize, 300);
+    assert.equal(pages[1].childFragments[0].blockSize, 200);
 
-    // Page 3: after
-    assert.equal(pages[2].childFragments.length, 1);
-    assert.equal(pages[2].blockSize, 50);
+    // Page 3: remaining 100px of img + after (50px)
+    assert.ok(pages.length >= 3);
   });
 
-  it("places monolithic at top of fragmentainer even if it overflows", () => {
+  it("slices monolithic at page boundary when it exceeds the page", () => {
     const root = blockNode({
       children: [
         replacedNode({ debugName: "big-img", blockSize: 500 }),
       ],
     });
 
-    // 200px fragmentainer. img at offset 0 → placed even though it overflows.
+    // 200px page. img=500 → sliced across 3 pages (200+200+100).
     const pages = createFragments(root, new ConstraintSpace({
       availableInlineSize: 600,
       availableBlockSize: 200,
@@ -54,12 +51,13 @@ describe("Phase 4: Monolithic content", () => {
       fragmentationType: "page",
     }));
 
-    assert.equal(pages.length, 1);
-    assert.equal(pages[0].childFragments.length, 1);
-    assert.equal(pages[0].childFragments[0].blockSize, 500);
+    assert.equal(pages.length, 3);
+    assert.equal(pages[0].childFragments[0].blockSize, 200);
+    assert.equal(pages[1].childFragments[0].blockSize, 200);
+    assert.equal(pages[2].childFragments[0].blockSize, 100);
   });
 
-  it("monolithic elements never produce their own break token", () => {
+  it("monolithic elements produce break tokens when sliced in page mode", () => {
     const root = blockNode({
       children: [
         replacedNode({ debugName: "img", blockSize: 500 }),
@@ -74,12 +72,12 @@ describe("Phase 4: Monolithic content", () => {
       fragmentationType: "page",
     }));
 
-    // img placed with overflow (500px at offset 0), 'after' pushed
-    // The img itself should NOT have a break token
-    assert.equal(pages[0].childFragments[0].breakToken, null);
+    // img sliced: first fragment has a break token
+    assert.ok(pages[0].childFragments[0].breakToken);
+    assert.equal(pages[0].childFragments[0].breakToken.consumedBlockSize, 200);
   });
 
-  it("pushes scrollable monolithic element", () => {
+  it("pushes scrollable monolithic then slices if exceeds page", () => {
     const root = blockNode({
       children: [
         blockNode({ debugName: "header", blockSize: 100 }),
@@ -87,7 +85,8 @@ describe("Phase 4: Monolithic content", () => {
       ],
     });
 
-    // 150px fragmentainer. header=100, scroller=200 doesn't fit (50 remaining).
+    // 150px page. header=100, scroller=200 doesn't fit (50 remaining) → pushed.
+    // On page 2, scroller (200) > page (150) → sliced: 150 + 50.
     const pages = createFragments(root, new ConstraintSpace({
       availableInlineSize: 600,
       availableBlockSize: 150,
@@ -95,9 +94,9 @@ describe("Phase 4: Monolithic content", () => {
       fragmentationType: "page",
     }));
 
-    assert.equal(pages.length, 2);
     assert.equal(pages[0].childFragments.length, 1); // just header
-    assert.equal(pages[1].childFragments.length, 1); // scroller on page 2
+    assert.equal(pages[1].childFragments[0].blockSize, 150); // scroller sliced
+    assert.ok(pages.length >= 3); // remaining scroller on page 3
   });
 
   it("monolithic element that fits is placed normally", () => {

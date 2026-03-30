@@ -87,7 +87,7 @@ describe("layoutGridContainer", () => {
 
     const result = layoutGrid(root, { blockSize: 100, fragmentationType: "page" });
     assert.ok(result.breakToken);
-    assert.equal(result.breakToken.algorithmData.type, "kGridData");
+    assert.equal(result.breakToken.algorithmData.type, "GridData");
     assert.equal(typeof result.breakToken.algorithmData.rowIndex, "number");
   });
 

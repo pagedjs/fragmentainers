@@ -51,7 +51,7 @@ describe("Phase 6: Parallel flows (table row)", () => {
     // Cell B (300px) fragments: 200px on page 1
     assert.ok(result.breakToken);
     assert.equal(result.breakToken.childBreakTokens.length, 3);
-    assert.equal(result.breakToken.algorithmData.type, "kTableRowData");
+    assert.equal(result.breakToken.algorithmData.type, "TableRowData");
 
     // Cells A and C should have isAtBlockEnd tokens
     const tokenA = result.breakToken.childBreakTokens[0];

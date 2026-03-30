@@ -154,7 +154,7 @@ describe("layoutMulticolContainer", () => {
 
     const result = runLayoutGenerator(layoutMulticolContainer, root, cs, null);
     assert.ok(result.breakToken);
-    assert.equal(result.breakToken.algorithmData.type, "kMulticolData");
+    assert.equal(result.breakToken.algorithmData.type, "MulticolData");
     assert.equal(result.breakToken.algorithmData.columnCount, 2);
     assert.equal(result.breakToken.algorithmData.columnWidth, 300);
   });
