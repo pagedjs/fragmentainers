@@ -1,9 +1,7 @@
 import { DOMLayoutNode } from "./dom/layout-node.js";
 import { createFragments } from "./driver.js";
-import { PhysicalFragment } from "./fragment.js";
 import { renderFragmentTree } from "./compositor/render-fragments.js";
 import { PageSizeResolver } from "./page-rules.js";
-import { ContentMeasureGroup } from "./dom/frag-measure.js";
 
 function buildLayoutTree(rootElement) {
   return new DOMLayoutNode(rootElement);
@@ -23,21 +21,16 @@ const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };
  */
 export class FragmentainerLayout {
   #contentElement;
-  #measureContainer;
   #resolver;
-  #group;
 
   /**
    * @param {Element} contentElement - The root content element to fragment
    * @param {object} [options]
    * @param {PageSizeResolver} [options.resolver] - Pre-configured resolver with @page rules
    * @param {{ inlineSize: number, blockSize: number }} [options.defaultSize] - Single default fragmentainer size
-   * @param {HTMLElement} [options.measureContainer] - Container for off-screen measure elements
-   *   (required when contentElement is a DocumentFragment)
    */
   constructor(contentElement, options = {}) {
     this.#contentElement = contentElement;
-    this.#measureContainer = options.measureContainer || null;
     if (options.resolver) {
       this.#resolver = options.resolver;
     } else {
@@ -49,186 +42,16 @@ export class FragmentainerLayout {
   /**
    * Run fragmentation and return a FragmentedFlow.
    *
-   * When contentElement is a DocumentFragment with multiple children,
-   * creates a separate <content-measure> per child and fragments each
-   * element independently, merging shared pages.
-   *
-   * @param {object} [options]
-   * @param {'batch'|'sequential'} [options.mode='batch'] - Processing mode
-   *   (only applies to multi-element DocumentFragment input)
    * @returns {FragmentedFlow} The fragmented content with rendering methods
    */
-  flow({ mode = "batch" } = {}) {
-    // Single element path (existing behavior)
-    if (!(this.#contentElement instanceof DocumentFragment) ||
-        this.#contentElement.children.length <= 1) {
-      const element = this.#contentElement instanceof DocumentFragment
-        ? this.#contentElement.firstElementChild
-        : this.#contentElement;
-      const tree = buildLayoutTree(element);
-      const fragments = createFragments(tree, this.#resolver);
-      const contentStyles = this.#captureContentStyles(element);
-      return new FragmentedFlow(fragments, contentStyles);
-    }
-
-    // Multi-element path: fragment each child independently
-    return this.flowMultiElement();
-  }
-
-  /**
-   * Async fragmentation with sequential measurement.
-   * Measures and fragments one element at a time, yielding between each.
-   *
-   * @param {object} [options]
-   * @param {function} [options.onProgress] - Called after each element: ({ index, total, fragmentCount })
-   * @returns {Promise<FragmentedFlow>}
-   */
-  async flowAsync({ onProgress } = {}) {
-    const content = this.#contentElement;
-
-    // Single element: just run synchronously
-    if (!(content instanceof DocumentFragment) || content.children.length <= 1) {
-      return this.flow();
-    }
-
-    return this.flowMultiElementAsync({ onProgress });
-  }
-
-  /** Synchronous multi-element fragmentation (batch mode). */
-  flowMultiElement() {
-    const group = this.#getOrCreateGroup();
-    const contentRoots = group.getContentRoots();
-    const contentStyles = group.getContentStyles();
-
-    const { fragments, inputBreakTokens } = this.#fragmentElements(contentRoots);
-
-    return new FragmentedFlow(fragments, contentStyles, inputBreakTokens);
-  }
-
-  /** Async multi-element fragmentation (sequential mode). */
-  async flowMultiElementAsync({ onProgress } = {}) {
-    if (!this.#measureContainer) {
-      throw new Error("measureContainer option is required for async multi-element flow");
-    }
-
-    // Ensure ContentMeasureGroup is loaded (browser-only dynamic import)
-    if (!this.#group) {
-      this.#group = new ContentMeasureGroup(this.#measureContainer);
-    }
-    const group = this.#group;
-    const contentStyles = group.getContentStyles();
-    const allFragments = [];
-    const allInputBreakTokens = [];
-    let continuation = { fragmentainerIndex: 0, blockOffset: 0 };
-
-    const width = `${this.#resolver.resolve(0, null, null).contentArea.inlineSize}px`;
-
-    for await (const { index, contentRoot, total } of group.measureSequential(width)) {
-      const tree = buildLayoutTree(contentRoot);
-      const result = createFragments(tree, this.#resolver, continuation);
-
-      // Merge first fragment with previous last fragment if sharing a page
-      if (continuation.blockOffset > 0 && result.fragments.length > 0 && allFragments.length > 0) {
-        const prev = allFragments.pop();
-        allInputBreakTokens.pop();
-        const merged = PhysicalFragment.merge(prev, result.fragments[0]);
-        allFragments.push(merged);
-        allInputBreakTokens.push(allInputBreakTokens.length > 0
-          ? allInputBreakTokens[allInputBreakTokens.length - 1] : null);
-
-        // Add remaining fragments from this element
-        for (let i = 1; i < result.fragments.length; i++) {
-          const inputBT = result.fragments[i - 1].breakToken;
-          allInputBreakTokens.push(inputBT);
-          allFragments.push(result.fragments[i]);
-        }
-      } else {
-        for (let i = 0; i < result.fragments.length; i++) {
-          const inputBT = i === 0
-            ? (allFragments.length > 0 ? allFragments[allFragments.length - 1].breakToken : null)
-            : result.fragments[i - 1].breakToken;
-          allInputBreakTokens.push(inputBT);
-          allFragments.push(result.fragments[i]);
-        }
-      }
-
-      continuation = result.continuation;
-
-      // Allow disposing this measure element since we're done with it
-      group.disposeMeasure(index);
-
-      if (onProgress) {
-        onProgress({ index, total, fragmentCount: allFragments.length });
-      }
-    }
-
-    return new FragmentedFlow(allFragments, contentStyles, allInputBreakTokens);
-  }
-
-  /** Fragment an array of content root elements, merging shared pages. */
-  #fragmentElements(contentRoots) {
-    const allFragments = [];
-    const allInputBreakTokens = [];
-    let continuation = { fragmentainerIndex: 0, blockOffset: 0 };
-
-    for (const root of contentRoots) {
-      const tree = buildLayoutTree(root);
-      const result = createFragments(tree, this.#resolver, continuation);
-
-      // Merge first fragment with previous last fragment if sharing a page
-      if (continuation.blockOffset > 0 && result.fragments.length > 0 && allFragments.length > 0) {
-        const prev = allFragments.pop();
-        allInputBreakTokens.pop();
-        const merged = PhysicalFragment.merge(prev, result.fragments[0]);
-        allFragments.push(merged);
-        allInputBreakTokens.push(allInputBreakTokens.length > 0
-          ? allInputBreakTokens[allInputBreakTokens.length - 1] : null);
-
-        for (let i = 1; i < result.fragments.length; i++) {
-          const inputBT = result.fragments[i - 1].breakToken;
-          allInputBreakTokens.push(inputBT);
-          allFragments.push(result.fragments[i]);
-        }
-      } else {
-        for (let i = 0; i < result.fragments.length; i++) {
-          const inputBT = i === 0
-            ? (allFragments.length > 0 ? allFragments[allFragments.length - 1].breakToken : null)
-            : result.fragments[i - 1].breakToken;
-          allInputBreakTokens.push(inputBT);
-          allFragments.push(result.fragments[i]);
-        }
-      }
-
-      continuation = result.continuation;
-    }
-
-    return { fragments: allFragments, inputBreakTokens: allInputBreakTokens };
-  }
-
-  /** Get or create the measure group (batch: already measured). */
-  #getOrCreateGroup() {
-    if (this.#group) return this.#group;
-    this.#group = this.#ensureGroup();
-    return this.#group;
-  }
-
-  #ensureGroup() {
-    if (this.#group) return this.#group;
-    if (!this.#measureContainer) {
-      throw new Error("measureContainer option is required for DocumentFragment input");
-    }
-    this.#group = new ContentMeasureGroup(this.#measureContainer);
-    return this.#group;
-  }
-
-  /**
-   * Set up a pre-configured ContentMeasureGroup.
-   * Call this before flow() when using DocumentFragment input in batch mode.
-   *
-   * @param {ContentMeasureGroup} group
-   */
-  setMeasureGroup(group) {
-    this.#group = group;
+  flow() {
+    const element = this.#contentElement instanceof DocumentFragment
+      ? this.#contentElement.firstElementChild
+      : this.#contentElement;
+    const tree = buildLayoutTree(element);
+    const fragments = createFragments(tree, this.#resolver);
+    const contentStyles = this.#captureContentStyles(element);
+    return new FragmentedFlow(fragments, contentStyles);
   }
 
   /**
@@ -257,18 +80,14 @@ export class FragmentainerLayout {
 export class FragmentedFlow {
   #fragments;
   #contentStyles;
-  #inputBreakTokens;
 
   /**
    * @param {import('./fragment.js').PhysicalFragment[]} fragments
    * @param {{ sheets: CSSStyleSheet[], cssText: string }|null} contentStyles
-   * @param {(import('./tokens.js').BreakToken|null)[]} [inputBreakTokens] — per-fragment input break tokens
-   *   When omitted, uses the default chain (prev fragment's breakToken).
    */
-  constructor(fragments, contentStyles, inputBreakTokens = null) {
+  constructor(fragments, contentStyles) {
     this.#fragments = fragments;
     this.#contentStyles = contentStyles;
-    this.#inputBreakTokens = inputBreakTokens;
   }
 
   /** @returns {import('./fragment.js').PhysicalFragment[]} */
@@ -286,9 +105,7 @@ export class FragmentedFlow {
   renderFragmentainer(index) {
     const fragment = this.#fragments[index];
     const { contentArea } = fragment.constraints;
-    const prevBreakToken = this.#inputBreakTokens
-      ? this.#inputBreakTokens[index]
-      : (index > 0 ? this.#fragments[index - 1].breakToken : null);
+    const prevBreakToken = index > 0 ? this.#fragments[index - 1].breakToken : null;
 
     const el = document.createElement("fragment-container");
     el.style.width = `${contentArea.inlineSize}px`;

@@ -56,7 +56,7 @@ class ContentMeasureElement extends HTMLElement {
 
   /**
    * Inject pre-processed HTML and CSS into the shadow root.
-   * Used by ContentMeasureGroup to avoid re-processing CSS per element.
+   * Lower-level injection to avoid re-processing CSS.
    *
    * @param {string} html — rebased HTML content
    * @param {string} cssText — rebased + rewritten CSS text
@@ -196,163 +196,6 @@ class FragmentContainerElement extends HTMLElement {
 customElements.define("fragment-container", FragmentContainerElement);
 
 // ---------------------------------------------------------------------------
-// ContentMeasureGroup — per-element measurement
-// ---------------------------------------------------------------------------
-
-/**
- * Coordinates multiple <content-measure> elements, one per top-level child
- * of a DocumentFragment. Processes CSS once and shares it across all measures.
- *
- * Supports two modes:
- * - **batch**: create all measure elements at once, wait for all fonts
- * - **sequential**: create one at a time, yield between each for lower peak cost
- */
-class ContentMeasureGroup {
-  /**
-   * @param {HTMLElement} container — parent element to append measures into
-   *   (typically positioned off-screen)
-   */
-  constructor(container) {
-    this._container = container;
-    /** @type {ContentMeasureElement[]} */
-    this._measures = [];
-    this._cssText = "";
-    this._childHTMLs = [];
-  }
-
-  /**
-   * Parse content and prepare per-element HTML chunks.
-   * Call before measureAll() or measureSequential().
-   *
-   * @param {Object} options
-   * @param {string} options.bodyHTML
-   * @param {{ css: string, cssBaseURL: string }[]} options.cssEntries
-   * @param {string} options.baseURL
-   */
-  prepare({ bodyHTML, cssEntries, baseURL }) {
-    const { cssText, html } = preprocessContent({ bodyHTML, cssEntries, baseURL });
-    this._cssText = cssText;
-
-    // Parse HTML to extract individual top-level elements
-    const temp = document.createElement("div");
-    temp.innerHTML = html;
-    this._childHTMLs = [];
-    for (const child of temp.children) {
-      this._childHTMLs.push(child.outerHTML);
-    }
-  }
-
-  /** @returns {number} Number of top-level elements */
-  get elementCount() {
-    return this._childHTMLs.length;
-  }
-
-  /**
-   * Batch mode: create all <content-measure> elements at once,
-   * then wait for fonts.
-   *
-   * @param {string} width — CSS width for each measure container
-   * @returns {Promise<Element[]>} content root elements (first child of each wrapper)
-   */
-  async measureAll(width) {
-    for (let i = 0; i < this._childHTMLs.length; i++) {
-      this._createMeasure(i, width);
-    }
-
-    // Force style recalc on all measures, then wait for fonts
-    for (const m of this._measures) {
-      void m.offsetHeight;
-    }
-    await document.fonts.ready;
-
-    return this._getContentRoots();
-  }
-
-  /**
-   * Sequential mode: create and measure one element at a time.
-   * Yields after each element is ready for layout.
-   *
-   * @param {string} width — CSS width for each measure container
-   * @yields {{ index: number, contentRoot: Element, total: number }}
-   */
-  async *measureSequential(width) {
-    for (let i = 0; i < this._childHTMLs.length; i++) {
-      const measure = this._createMeasure(i, width);
-
-      // Force style recalc + wait for fonts for this element
-      void measure.offsetHeight;
-      await document.fonts.ready;
-      // Double rAF to ensure layout is complete
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-      yield {
-        index: i,
-        contentRoot: measure.contentRoot.firstElementChild,
-        total: this._childHTMLs.length,
-      };
-    }
-  }
-
-  /**
-   * Get content root elements (first child of each measure's wrapper).
-   * Only valid after measureAll() or after all measureSequential() yields.
-   *
-   * @returns {Element[]}
-   */
-  _getContentRoots() {
-    return this._measures.map(m => m.contentRoot.firstElementChild);
-  }
-
-  /**
-   * Get all content root elements.
-   * @returns {Element[]}
-   */
-  getContentRoots() {
-    return this._getContentRoots();
-  }
-
-  /**
-   * Get content styles from the first measure (shared CSS).
-   * @returns {{ sheets: CSSStyleSheet[], cssText: string }|null}
-   */
-  getContentStyles() {
-    return this._measures[0]?.getContentStyles() || null;
-  }
-
-  /**
-   * Remove all measure elements from the DOM.
-   */
-  dispose() {
-    for (const m of this._measures) {
-      m.remove();
-    }
-    this._measures = [];
-  }
-
-  /**
-   * Remove a specific measure element by index.
-   * @param {number} index
-   */
-  disposeMeasure(index) {
-    const measure = this._measures[index];
-    if (measure) {
-      measure.remove();
-      this._measures[index] = null;
-    }
-  }
-
-  /** @private */
-  _createMeasure(index, width) {
-    const measure = document.createElement("content-measure");
-    measure.style.width = width;
-    this._container.appendChild(measure);
-    measure.injectRawContent(this._childHTMLs[index], this._cssText);
-    this._measures[index] = measure;
-    return measure;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Shared utilities
 // ---------------------------------------------------------------------------
 
@@ -410,7 +253,7 @@ function rewriteBodySelectors(cssText) {
 
 /**
  * Pre-process content: rebase URLs and rewrite CSS selectors.
- * Shared by injectContent() and ContentMeasureGroup.
+ * Shared by injectContent() and external callers.
  *
  * @param {Object} options
  * @param {string} options.bodyHTML
@@ -442,4 +285,4 @@ function preprocessContent({ bodyHTML, cssEntries, baseURL }) {
   return { cssText, html: rebasedHTML };
 }
 
-export { ContentMeasureElement, FragmentContainerElement, ContentMeasureGroup };
+export { ContentMeasureElement, FragmentContainerElement };

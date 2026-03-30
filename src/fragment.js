@@ -14,27 +14,4 @@ export class PhysicalFragment {
     this.lineCount = 0;
     this.counterState = null;
   }
-
-  /**
-   * Merge two fragments that share the same fragmentainer (page).
-   * Combines their child fragments into one. Used when continuing
-   * fragmentation across multiple independent elements.
-   *
-   * @param {PhysicalFragment} fragmentA — earlier element's fragment
-   * @param {PhysicalFragment} fragmentB — later element's fragment
-   * @returns {PhysicalFragment}
-   */
-  static merge(fragmentA, fragmentB) {
-    const merged = new PhysicalFragment(
-      null,
-      fragmentA.blockSize + fragmentB.blockSize,
-      [...fragmentA.childFragments, ...fragmentB.childFragments],
-    );
-    merged.inlineSize = fragmentA.inlineSize;
-    merged.constraints = fragmentA.constraints;
-    // B's break token carries forward (A is done on this page)
-    merged.breakToken = fragmentB.breakToken;
-    merged.counterState = fragmentB.counterState || fragmentA.counterState;
-    return merged;
-  }
 }

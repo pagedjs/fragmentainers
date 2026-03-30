@@ -129,14 +129,6 @@
     <button class="preset-btn" data-w="816" data-h="1056">Letter</button>
     <button class="preset-btn" data-w="595" data-h="842">A4</button>
 
-    <label><input type="checkbox" id="perElement"> Per-element measure</label>
-    <label>
-      <select id="measureMode">
-        <option value="batch">Batch</option>
-        <option value="sequential">Sequential</option>
-      </select>
-    </label>
-
     <button id="runBtn">Paginate</button>
   </div>
 
@@ -145,11 +137,10 @@
   <div id="pages"></div>
 
   <content-measure id="measure"></content-measure>
-  <div id="measure-group" style="position: absolute; left: -99999px; top: 0;"></div>
   <div id="overlay"></div>
 
   <script type="module">
-    import { fetchAndParse, injectContent, waitForFonts, FragmentainerLayout, ContentMeasureGroup, renderPages, showDetail } from './viewer.js';
+    import { fetchAndParse, injectContent, waitForFonts, FragmentainerLayout, renderPages, showDetail } from './viewer.js';
     import { PageSizeResolver } from '../src/page-rules.js';
     import '../src/dom/frag-measure.js';
 
@@ -160,10 +151,7 @@
     const summaryEl = document.getElementById('summary');
     const pagesEl = document.getElementById('pages');
     const measureEl = document.getElementById('measure');
-    const measureGroupEl = document.getElementById('measure-group');
     const overlayEl = document.getElementById('overlay');
-    const perElementCheckbox = document.getElementById('perElement');
-    const measureModeSelect = document.getElementById('measureMode');
 
     // State
     let currentFlow = null;
@@ -228,8 +216,6 @@
       const url = exampleSelect.value;
       const baseW = parseInt(pageWidthInput.value);
       const baseH = parseInt(pageHeightInput.value);
-      const usePerElement = perElementCheckbox.checked;
-      const measureMode = measureModeSelect.value;
       const resolver = new PageSizeResolver([], { inlineSize: baseW, blockSize: baseH });
 
       updateParams();
@@ -239,102 +225,38 @@
       summaryEl.textContent = '';
 
       try {
-        // 1. Fetch and parse
         const parsed = await fetchAndParse(url);
-        const measureWidth = baseW;
-        let flow;
-        let elapsed;
 
-        if (usePerElement) {
-          ({ flow, elapsed } = await runPerElement(parsed, measureWidth, measureMode, resolver));
-        } else {
-          ({ flow, elapsed } = await runSingleMeasure(parsed, measureWidth, resolver));
-        }
+        statusEl.textContent = 'Injecting content for measurement...';
+        measureEl.style.width = `${baseW}px`;
+        const contentRoot = injectContent(parsed, measureEl);
+
+        await waitForFonts(measureEl);
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        statusEl.textContent = 'Running fragmentation...';
+        await new Promise(r => requestAnimationFrame(r));
+        const start = performance.now();
+        const layout = new FragmentainerLayout(contentRoot, { resolver });
+        const flow = layout.flow();
+        const elapsed = Math.round(performance.now() - start);
 
         currentFlow = flow;
 
         const sizeLabel = `${baseW}\u00d7${baseH}px`;
-        const modeLabel = usePerElement ? ` [per-element ${measureMode}]` : '';
 
-        // 4. Render thumbnails via FragmentedFlow
         statusEl.textContent = `Rendering ${flow.fragmentainerCount} pages...`;
         const totalHeight = await renderPages(flow, pagesEl, (idx) => {
           showDetail(idx, currentFlow, overlayEl);
         });
 
-        statusEl.textContent = `${flow.fragmentainerCount} pages in ${elapsed}ms${modeLabel} (${sizeLabel}). Click a page to view full size.`;
+        statusEl.textContent = `${flow.fragmentainerCount} pages in ${elapsed}ms (${sizeLabel}). Click a page to view full size.`;
         summaryEl.textContent = `Total content height: ${Math.round(totalHeight)}px across ${flow.fragmentainerCount} pages`;
 
       } catch (err) {
         statusEl.textContent = `Error: ${err.message}`;
         console.error(err);
       }
-    }
-
-    /** Original single-measure path */
-    async function runSingleMeasure(parsed, measureWidth, resolver) {
-      statusEl.textContent = 'Injecting content for measurement...';
-      measureEl.style.width = `${measureWidth}px`;
-      const contentRoot = injectContent(parsed, measureEl);
-
-      await waitForFonts(measureEl);
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-      statusEl.textContent = 'Running fragmentation...';
-      await new Promise(r => requestAnimationFrame(r));
-      const start = performance.now();
-      const layout = new FragmentainerLayout(contentRoot, { resolver });
-      const flow = layout.flow();
-      const elapsed = Math.round(performance.now() - start);
-      return { flow, elapsed };
-    }
-
-    /** Per-element measurement path */
-    async function runPerElement(parsed, measureWidth, mode, resolver) {
-      statusEl.textContent = 'Preparing per-element measurement...';
-
-      // Clean up previous measures
-      measureGroupEl.innerHTML = '';
-
-      const group = new ContentMeasureGroup(measureGroupEl);
-      group.prepare(parsed);
-
-      statusEl.textContent = `Measuring ${group.elementCount} elements (${mode})...`;
-
-      const width = `${measureWidth}px`;
-      const start = performance.now();
-      let flow;
-
-      if (mode === 'batch') {
-        // Batch: measure all at once, then fragment
-        const contentRoots = await group.measureAll(width);
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-        statusEl.textContent = `Fragmenting ${contentRoots.length} elements...`;
-
-        // Build a DocumentFragment with the content roots for FragmentainerLayout
-        const layout = new FragmentainerLayout(null, {
-          resolver,
-          measureContainer: measureGroupEl,
-        });
-        layout.setMeasureGroup(group);
-        flow = layout.flowMultiElement();
-      } else {
-        // Sequential: measure and fragment one at a time
-        const layout = new FragmentainerLayout(null, {
-          resolver,
-          measureContainer: measureGroupEl,
-        });
-        layout.setMeasureGroup(group);
-        flow = await layout.flowMultiElementAsync({
-          onProgress({ index, total, fragmentCount }) {
-            statusEl.textContent = `Measured ${index + 1}/${total} elements (${fragmentCount} pages so far)...`;
-          },
-        });
-      }
-
-      const elapsed = Math.round(performance.now() - start);
-      return { flow, elapsed };
     }
 
     document.getElementById('runBtn').addEventListener('click', run);

@@ -1,7 +1,6 @@
 import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
-import { ContentMeasureGroup } from "../src/dom/frag-measure.js";
 
-export { FragmentainerLayout, ContentMeasureGroup };
+export { FragmentainerLayout };
 
 /**
  * Fetch an example HTML file, parse it, and extract CSS + body content.
