@@ -1,44 +1,78 @@
 <!doctype html>
+<html lang="en">
 <style>
   body {
     padding: 0;
     margin: 0;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
   }
   .page {
-    width: 10cm;
-    height: 10cm;
-    padding: 0 0.3cm;
+    width: 377.953px;
+    height: 377.953px;
+    padding: 0px 11.3386px;
     box-sizing: border-box;
     overflow: hidden;
     display: flex;
     flex-shrink: 0;
   }
-  p {
-    font-size: 80pt;
-    margin: 0;
-    font-family: arial, sans-serif;
-    padding-left: 0;
-    padding-right: 0;
-    hyphens: auto;
-  }
   .body {
     flex-grow: 1;
   }
+
+  /* Split element overrides (matches compositor shadow DOM) */
+  [data-split-from] {
+    text-indent: unset !important;
+    margin-block-start: unset !important;
+    padding-block-start: unset !important;
+    initial-letter: unset !important;
+    counter-increment: unset !important;
+    counter-set: unset !important;
+  }
+  [data-split-from]:not(ol) {
+    counter-reset: unset !important;
+  }
+  [data-split-from]::before {
+    content: unset !important;
+  }
+  li[data-split-from]:first-of-type {
+    list-style: none !important;
+  }
+  [data-split-to] {
+    margin-block-end: unset !important;
+    padding-block-end: unset !important;
+  }
+  [data-split-to]::after {
+    content: unset !important;
+  }
+
+  /* Test styles */
+  p {
+      font-size: 80pt;
+      margin: 0;
+      font-family: arial, sans-serif;
+      padding-left: 0;
+      padding-right: 0;
+      hyphens: auto;
+    }
 </style>
 <section class="page">
   <section class="body">
-    <p>CSS IS AWE&shy;SOME!</p>
+<p>CSS IS AWE­SOME!</p><p data-split-to=""></p>
   </section>
 </section>
 <section class="page">
   <section class="body">
-    <p>The quick brown fox jumps overrrr</p>
+<p data-split-from="" data-split-to="">The quick brown</p>
   </section>
 </section>
 <section class="page">
   <section class="body">
-    <p>—the lazy dog.</p>
+<p data-split-from="" data-split-to="">fox jumps overrrr</p>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+<p data-split-from="">—the lazy dog.</p>
   </section>
 </section>

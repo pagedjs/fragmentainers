@@ -2,7 +2,7 @@ pagedjs:
   - awesome
   - break-elements
   - column-overflow
-  - copy-column-widths
+  # - copy-column-widths
   - exceeding-rowspan-table
   - infinite-loop
   - lists

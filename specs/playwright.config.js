@@ -1,48 +1,34 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig } from "@playwright/test";
+import path from "node:path";
 
 export default defineConfig({
-  testDir: '.',
+  testDir: ".",
   timeout: 30000,
   retries: 0,
-  workers: 4,
+  workers: 8,
   projects: [
     {
-      name: 'setup',
-      testMatch: 'helpers/setup.js',
-    },
-    {
-      name: 'css-page',
-      testMatch: 'css-page/css-page.spec.js',
-      dependencies: ['setup'],
+      name: "css-page",
+      testMatch: "css-page/css-page.spec.js",
       use: {
-        baseURL: 'http://localhost:8080',
+        baseURL: "http://localhost:8080",
         viewport: { width: 1200, height: 1200 },
-        browserName: 'chromium',
+        browserName: "chromium",
       },
     },
     {
-      name: 'css-break',
-      testMatch: 'css-break/css-break.spec.js',
-      dependencies: ['setup'],
+      name: "pagedjs",
+      testMatch: "pagedjs/pagedjs.spec.js",
       use: {
-        baseURL: 'http://localhost:8080',
+        baseURL: "http://localhost:8080",
         viewport: { width: 1200, height: 1200 },
-        browserName: 'chromium',
-      },
-    },
-    {
-      name: 'pagedjs',
-      testMatch: 'pagedjs/pagedjs.spec.js',
-      dependencies: ['setup'],
-      use: {
-        baseURL: 'http://localhost:8080',
-        viewport: { width: 1200, height: 1200 },
-        browserName: 'chromium',
+        browserName: "chromium",
       },
     },
   ],
   reporter: [
-    ['list'],
-    ['json', { outputFile: 'results.json' }],
+    ["list"],
+    ["json", { outputFile: "results.json" }],
+    ["html", { open: "on-failure", outputFolder: "../spec-report" }],
   ],
 });

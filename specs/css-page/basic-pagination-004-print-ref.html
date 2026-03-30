@@ -1,11 +1,15 @@
-<!DOCTYPE html>
-<link rel="author" title="Morten Stenshorne" href="mailto:mstensho@chromium.org">
+<!doctype html>
+<link
+  rel="author"
+  title="Morten Stenshorne"
+  href="mailto:mstensho@chromium.org"
+/>
 <style>
   body {
     padding: 0;
     margin: 0;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
   }
   .page {
     width: 293px;
@@ -24,9 +28,17 @@
     background: yellow;
     flex-grow: 1;
   }
+  div {
+    min-height: 10px;
+  }
 </style>
 <section class="page">
   <section class="body">
     <div>Page</div>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <div></div>
   </section>
 </section>

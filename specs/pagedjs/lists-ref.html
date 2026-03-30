@@ -1,10 +1,11 @@
 <!doctype html>
+<html lang="en">
 <style>
   body {
     padding: 0;
     margin: 0;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
   }
   .page {
     width: 140mm;
@@ -27,6 +28,12 @@
   }
   .body {
     flex-grow: 1;
+  }
+  .continuation,
+  .continuation > * {
+    margin-block-start: 0;
+    padding-block-start: 0;
+    border-block-start: none;
   }
 </style>
 <section class="page">
@@ -67,6 +74,16 @@
           <li>Item 3</li>
           <li>Item 4</li>
           <li>Item 5</li>
+        </ol>
+      </div>
+    </section>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <section class="continuation">
+      <div class="continuation">
+        <ol start="6" class="continuation">
           <li>Item 6</li>
           <li>Item 7</li>
           <li>Item 8</li>
@@ -111,9 +128,19 @@
           </li>
           <li>
             Sed adipiscing ornare risus. Morbi est est, blandit sit amet, sagittis
-            vel, euismod vel, velit. Pellentesque egestas sem. Suspendisse commodo
-            ullamcorper magna.
+            vel, euismod vel, velit. Pellentesque egestas sem.
           </li>
+        </ul>
+      </div>
+    </section>
+  </section>
+</section>
+<section class="page">
+  <section class="body">
+    <section class="continuation">
+      <div class="continuation">
+        <ul class="continuation">
+          <li>Suspendisse commodo ullamcorper magna.</li>
           <li>
             Nulla sed leo. Class aptent taciti sociosqu ad litora torquent per
             conubia nostra, per inceptos himenaeos. Fusce lacinia arcu et nulla.

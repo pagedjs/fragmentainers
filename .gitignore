@@ -1,6 +1,8 @@
 node_modules/
 test-results/
 playwright-report/
+spec-report/
 specs/results.json
+*-snapshots
 .DS_Store
 viewer/examples
