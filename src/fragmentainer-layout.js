@@ -62,7 +62,7 @@ export class FragmentainerLayout {
 
     const { fragments } = this.#fragmentRoot(tree, measureElement, 0, 0);
     const contentStyles = this.#captureContentStyles(element);
-    return new FragmentedFlow(fragments, contentStyles);
+    return new FragmentedFlow(fragments, contentStyles, true);
   }
 
   /**
@@ -198,14 +198,17 @@ export class FragmentainerLayout {
 export class FragmentedFlow {
   #fragments;
   #contentStyles;
+  #forPrint;
 
   /**
    * @param {import('./fragment.js').PhysicalFragment[]} fragments
    * @param {{ sheets: CSSStyleSheet[], cssText: string }|null} contentStyles
+   * @param {boolean} forPrint — resolve @media print/screen for print context
    */
-  constructor(fragments, contentStyles) {
+  constructor(fragments, contentStyles, forPrint = false) {
     this.#fragments = fragments;
     this.#contentStyles = contentStyles;
+    this.#forPrint = forPrint;
   }
 
   /** @returns {import('./fragment.js').PhysicalFragment[]} */
@@ -232,7 +235,7 @@ export class FragmentedFlow {
     const counterSnapshot = index > 0
       ? this.#fragments[index - 1].counterState
       : null;
-    const wrapper = el.setupForRendering(this.#contentStyles, counterSnapshot);
+    const wrapper = el.setupForRendering(this.#contentStyles, counterSnapshot, this.#forPrint);
     wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken));
     return el;
   }

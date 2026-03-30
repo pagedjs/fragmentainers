@@ -67,10 +67,11 @@ class ContentMeasureElement extends HTMLElement {
    * @param {string} options.bodyHTML — HTML content to inject
    * @param {{ css: string, cssBaseURL: string }[]} options.cssEntries — CSS sources
    * @param {string} options.baseURL — base URL for rebasing relative paths
+   * @param {boolean} [options.forPrint] — resolve @media print/screen for print context
    * @returns {Element} the wrapper element (contentRoot) for buildLayoutTree
    */
-  injectContent({ bodyHTML, cssEntries, baseURL }) {
-    const { cssText, html } = preprocessContent({ bodyHTML, cssEntries, baseURL });
+  injectContent({ bodyHTML, cssEntries, baseURL, forPrint = false }) {
+    const { cssText, html } = preprocessContent({ bodyHTML, cssEntries, baseURL, forPrint });
     return this.injectRawContent(html, cssText);
   }
 
@@ -156,9 +157,11 @@ class FragmentContainerElement extends HTMLElement {
    * document so rendered content matches the page's styling.
    *
    * @param {Object} [contentStyles] — from ContentMeasureElement.getContentStyles()
+   * @param {Object} [counterSnapshot] — counter state from previous fragmentainer
+   * @param {boolean} [forPrint] — resolve @media print/screen for print context
    * @returns {Element} wrapper element to append rendered content into
    */
-  setupForRendering(contentStyles, counterSnapshot = null) {
+  setupForRendering(contentStyles, counterSnapshot = null, forPrint = false) {
     this._shadow.innerHTML = "";
 
     // Host styles
@@ -180,7 +183,7 @@ class FragmentContainerElement extends HTMLElement {
       }
     } else {
       // Copy stylesheets from the current document
-      copyDocumentStyles(this._shadow);
+      copyDocumentStyles(this._shadow, forPrint);
     }
 
     // Seed counter values from the previous fragmentainer's snapshot.
@@ -220,17 +223,71 @@ customElements.define("fragment-container", FragmentContainerElement);
 // ---------------------------------------------------------------------------
 
 /**
+ * Resolve @media rules for a print context:
+ * - `@media print` → unwrap (include child rules without the wrapper)
+ * - `@media screen` (without print) → remove entirely
+ * - Other @media → keep as-is
+ *
+ * Recurses into nested @media and other grouping rules.
+ *
+ * @param {CSSRuleList} rules
+ * @returns {string} filtered CSS text
+ */
+function resolveMediaForPrintRules(rules) {
+  let result = "";
+  for (const rule of rules) {
+    if (rule instanceof CSSMediaRule) {
+      const text = rule.conditionText.toLowerCase();
+      const hasPrint = /\bprint\b/.test(text);
+      const hasScreen = /\bscreen\b/.test(text);
+      if (hasPrint && !hasScreen) {
+        // Print-only media — unwrap child rules
+        result += resolveMediaForPrintRules(rule.cssRules);
+        continue;
+      }
+      if (hasScreen && !hasPrint) {
+        // Screen-only media — remove
+        continue;
+      }
+      // Both, neither, or complex — keep as-is
+    }
+    result += rule.cssText + "\n";
+  }
+  return result;
+}
+
+/**
+ * Filter CSS text to resolve @media print/screen rules.
+ * Parses the text via CSSStyleSheet, resolves media rules, returns filtered text.
+ *
+ * @param {string} cssText
+ * @returns {string} filtered CSS text
+ */
+function resolveMediaForPrintText(cssText) {
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync(cssText);
+  return resolveMediaForPrintRules(sheet.cssRules);
+}
+
+/**
  * Copy document-level stylesheets into a shadow root via adoptedStyleSheets,
  * rewriting body/html selectors to target .frag-body/:host.
+ *
+ * @param {ShadowRoot} shadowRoot
+ * @param {boolean} forPrint — resolve @media print/screen rules for print context
  */
-function copyDocumentStyles(shadowRoot) {
+function copyDocumentStyles(shadowRoot, forPrint = false) {
   const sheets = [];
   for (const sheet of document.styleSheets) {
     try {
       const copy = new CSSStyleSheet();
       let rules = "";
-      for (const rule of sheet.cssRules) {
-        rules += rewriteBodySelectors(rule.cssText) + "\n";
+      if (forPrint) {
+        rules = rewriteBodySelectors(resolveMediaForPrintRules(sheet.cssRules));
+      } else {
+        for (const rule of sheet.cssRules) {
+          rules += rewriteBodySelectors(rule.cssText) + "\n";
+        }
       }
       copy.replaceSync(rules);
       sheets.push(copy);
@@ -279,9 +336,10 @@ function rewriteBodySelectors(cssText) {
  * @param {string} options.bodyHTML
  * @param {{ css: string, cssBaseURL: string }[]} options.cssEntries
  * @param {string} options.baseURL
+ * @param {boolean} [options.forPrint] — resolve @media print/screen for print context
  * @returns {{ cssText: string, html: string }}
  */
-function preprocessContent({ bodyHTML, cssEntries, baseURL }) {
+function preprocessContent({ bodyHTML, cssEntries, baseURL, forPrint = false }) {
   const rebasedCSS = cssEntries
     .map(({ css, cssBaseURL }) =>
       css.replace(
@@ -301,8 +359,16 @@ function preprocessContent({ bodyHTML, cssEntries, baseURL }) {
       (_match, path) => `href="${baseURL}${path}"`,
     );
 
-  const cssText = rewriteBodySelectors(rebasedCSS);
+  let cssText = rewriteBodySelectors(rebasedCSS);
+  if (forPrint) {
+    cssText = resolveMediaForPrintText(cssText);
+  }
   return { cssText, html: rebasedHTML };
 }
 
-export { ContentMeasureElement, FragmentContainerElement };
+export {
+  ContentMeasureElement,
+  FragmentContainerElement,
+  resolveMediaForPrintRules,
+  resolveMediaForPrintText,
+};
