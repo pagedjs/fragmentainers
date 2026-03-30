@@ -206,7 +206,12 @@ function renderMulticolFragment(fragment, inputBreakToken, parentEl) {
  */
 function applySplitAttributes(el, inputBreakToken, fragment) {
   if (inputBreakToken) el.setAttribute("data-split-from", "");
-  if (fragment.breakToken) el.setAttribute("data-split-to", "");
+  if (fragment.breakToken) {
+    el.setAttribute("data-split-to", "");
+    if (getComputedStyle(fragment.node.element).textAlign === "justify") {
+      el.setAttribute("data-justify-last", "");
+    }
+  }
 }
 
 /**

@@ -57,6 +57,10 @@ li[data-split-from]:first-of-type {
   padding-block-end: unset !important;
 }
 
+[data-split-to][data-justify-last] {
+  text-align-last: justify !important;
+}
+
 [data-split-to]::after {
   content: unset !important;
 }
