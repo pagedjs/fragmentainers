@@ -129,7 +129,6 @@
     <button class="preset-btn" data-w="816" data-h="1056">Letter</button>
     <button class="preset-btn" data-w="595" data-h="842">A4</button>
 
-    <label><input type="checkbox" id="randomSizes"> Vary sizes</label>
     <label><input type="checkbox" id="perElement"> Per-element measure</label>
     <label>
       <select id="measureMode">
@@ -184,7 +183,6 @@
       }
       if (params.has('w')) pageWidthInput.value = params.get('w');
       if (params.has('h')) pageHeightInput.value = params.get('h');
-      if (params.has('vary')) document.getElementById('randomSizes').checked = params.get('vary') === '1';
     }
 
     function updateParams() {
@@ -192,7 +190,6 @@
       params.set('example', exampleSelect.value);
       params.set('w', pageWidthInput.value);
       params.set('h', pageHeightInput.value);
-      if (document.getElementById('randomSizes').checked) params.set('vary', '1');
       history.replaceState(null, '', `?${params}`);
     }
 
@@ -226,66 +223,14 @@
       updateParams();
     });
 
-    const randomSizesCheckbox = document.getElementById('randomSizes');
-
-    /**
-     * Build a PageSizeResolver. If "Vary sizes" is checked,
-     * creates @page rules with randomly varied dimensions (within +/-15%
-     * of the base size), simulating different fragmentainer dimensions.
-     */
-    function buildResolver(baseW, baseH, vary) {
-      const defaultSize = { inlineSize: baseW, blockSize: baseH };
-      if (!vary) return new PageSizeResolver([], defaultSize);
-
-      const count = 200;
-      const pageRules = [];
-      // Import PageRule for generating varied-size rules
-      for (let i = 0; i < count; i++) {
-        const wVariation = 1 + (Math.random() * 0.3 - 0.15); // 0.85–1.15
-        const hVariation = 1 + (Math.random() * 0.3 - 0.15);
-        pageRules.push({
-          index: i,
-          inlineSize: Math.round(baseW * wVariation),
-          blockSize: Math.round(baseH * hVariation),
-        });
-      }
-      // Use a custom resolver that maps page index to varied sizes
-      return {
-        resolve(pageIndex, namedPage, totalPages) {
-          const entry = pageRules[pageIndex] || pageRules[pageRules.length - 1];
-          const size = { inlineSize: entry.inlineSize, blockSize: entry.blockSize };
-          return {
-            pageIndex,
-            namedPage,
-            pageBoxSize: size,
-            margins: { top: 0, right: 0, bottom: 0, left: 0 },
-            contentArea: size,
-            isFirstPage: pageIndex === 0,
-            isLeftPage: pageIndex % 2 === 0,
-            toConstraintSpace() {
-              return {
-                availableInlineSize: size.inlineSize,
-                availableBlockSize: size.blockSize,
-                fragmentainerBlockSize: size.blockSize,
-                blockOffsetInFragmentainer: 0,
-                fragmentationType: 'page',
-                isNewFormattingContext: false,
-              };
-            },
-          };
-        },
-      };
-    }
-
     // Run
     async function run() {
       const url = exampleSelect.value;
       const baseW = parseInt(pageWidthInput.value);
       const baseH = parseInt(pageHeightInput.value);
-      const vary = randomSizesCheckbox.checked;
       const usePerElement = perElementCheckbox.checked;
       const measureMode = measureModeSelect.value;
-      const resolver = buildResolver(baseW, baseH, vary);
+      const resolver = new PageSizeResolver([], { inlineSize: baseW, blockSize: baseH });
 
       updateParams();
 
@@ -296,20 +241,19 @@
       try {
         // 1. Fetch and parse
         const parsed = await fetchAndParse(url);
-        const measureWidth = vary ? Math.ceil(baseW * 1.15) : baseW;
+        const measureWidth = baseW;
         let flow;
         let elapsed;
 
         if (usePerElement) {
-          flow = await runPerElement(parsed, measureWidth, measureMode, resolver);
-          elapsed = flow._elapsed;
+          ({ flow, elapsed } = await runPerElement(parsed, measureWidth, measureMode, resolver));
         } else {
           ({ flow, elapsed } = await runSingleMeasure(parsed, measureWidth, resolver));
         }
 
         currentFlow = flow;
 
-        const sizeLabel = vary ? 'varied sizes' : `${baseW}\u00d7${baseH}px each`;
+        const sizeLabel = `${baseW}\u00d7${baseH}px`;
         const modeLabel = usePerElement ? ` [per-element ${measureMode}]` : '';
 
         // 4. Render thumbnails via FragmentedFlow
@@ -374,7 +318,7 @@
           measureContainer: measureGroupEl,
         });
         layout.setMeasureGroup(group);
-        flow = layout._flowMultiElement();
+        flow = layout.flowMultiElement();
       } else {
         // Sequential: measure and fragment one at a time
         const layout = new FragmentainerLayout(null, {
@@ -382,7 +326,7 @@
           measureContainer: measureGroupEl,
         });
         layout.setMeasureGroup(group);
-        flow = await layout._flowMultiElementAsync({
+        flow = await layout.flowMultiElementAsync({
           onProgress({ index, total, fragmentCount }) {
             statusEl.textContent = `Measured ${index + 1}/${total} elements (${fragmentCount} pages so far)...`;
           },
@@ -390,8 +334,7 @@
       }
 
       const elapsed = Math.round(performance.now() - start);
-      flow._elapsed = elapsed;
-      return flow;
+      return { flow, elapsed };
     }
 
     document.getElementById('runBtn').addEventListener('click', run);

@@ -78,9 +78,15 @@
         FragmentainerLayout,
       } from "./viewer.js";
       import "../src/dom/frag-measure.js";
-      import { findChildBreakToken, isMonolithic, debugPrintTokenTree } from "../src/helpers.js";
-      import { renderFragmentTree } from "../src/compositor/index.js";
-      import { parsePageRulesFromStyleSheets, PageSizeResolver } from "../src/page-rules.js";
+      import {
+        findChildBreakToken,
+        isMonolithic,
+        debugPrintTokenTree,
+      } from "../src/helpers.js";
+      import {
+        parsePageRulesFromStyleSheets,
+        PageSizeResolver,
+      } from "../src/page-rules.js";
 
       // Read config from URL params
       // Accepts: ?url=<absolute-or-relative> or legacy ?example=<path>
@@ -111,7 +117,6 @@
       async function run() {
         try {
           const parsed = await fetchAndParse(url);
-          measureEl.style.width = `${pageW}px`;
           const contentRoot = injectContent(parsed, measureEl);
           await waitForFonts(measureEl);
           await new Promise((r) =>
@@ -136,7 +141,8 @@
           }
 
           const t0 = performance.now();
-          const layout = new FragmentainerLayout(contentRoot,
+          const layout = new FragmentainerLayout(
+            contentRoot,
             resolver ? { resolver } : { defaultSize },
           );
           const flow = layout.flow();
@@ -148,7 +154,9 @@
           header.push(`url: ${url}`);
           if (resolver) {
             const first = resolver.resolve(0, null, null);
-            header.push(`pageSize: ${first.pageBoxSize.inlineSize}x${first.pageBoxSize.blockSize} (from @page rules)`);
+            header.push(
+              `pageSize: ${first.pageBoxSize.inlineSize}x${first.pageBoxSize.blockSize} (from @page rules)`,
+            );
           } else {
             header.push(`pageSize: ${pageW}x${pageH}`);
           }
@@ -163,11 +171,17 @@
             // Text-only mode: output everything into #output
             const lines = [...header];
             const limit =
-              maxPages > 0 ? Math.min(maxPages, fragments.length) : fragments.length;
+              maxPages > 0
+                ? Math.min(maxPages, fragments.length)
+                : fragments.length;
             let issueCount = 0;
 
             for (let i = 0; i < limit; i++) {
-              const { text, hasIssues } = buildPageDump(fragments, i, getFragmentainerHeight(fragments[i], pageH));
+              const { text, hasIssues } = buildPageDump(
+                fragments,
+                i,
+                getFragmentainerHeight(fragments[i], pageH),
+              );
               if (hasIssues) issueCount++;
               lines.push(text);
             }
@@ -180,9 +194,10 @@
             reportEl.style.display = "block";
             reportEl.textContent = header.join("\n");
 
-            const contentStyles = measureEl.getContentStyles();
             const limit =
-              maxPages > 0 ? Math.min(maxPages, fragments.length) : fragments.length;
+              maxPages > 0
+                ? Math.min(maxPages, fragments.length)
+                : fragments.length;
             let issueCount = 0;
 
             for (let i = 0; i < limit; i++) {
@@ -201,23 +216,18 @@
               renderBox.style.width = `${fragW * renderScale}px`;
               renderBox.style.height = `${fragH * renderScale}px`;
 
-              const fragEl = document.createElement("fragment-container");
+              const fragEl = flow.renderFragmentainer(i);
               fragEl.style.width = `${fragW}px`;
               fragEl.style.height = `${fragH}px`;
-              fragEl.style.overflow = "hidden";
-              fragEl.style.transform = `scale(${renderScale})`;
-              fragEl.style.transformOrigin = "top left";
               if (c && c.margins) {
+                fragEl.style.boxSizing = "border-box";
                 fragEl.style.paddingTop = `${c.margins.top}px`;
                 fragEl.style.paddingRight = `${c.margins.right}px`;
                 fragEl.style.paddingBottom = `${c.margins.bottom}px`;
                 fragEl.style.paddingLeft = `${c.margins.left}px`;
-                fragEl.style.boxSizing = "border-box";
               }
-              const wrapper = fragEl.setupForRendering(contentStyles);
-
-              const prevBT = i > 0 ? fragments[i - 1].breakToken : null;
-              wrapper.appendChild(renderFragmentTree(fragments[i], prevBT));
+              fragEl.style.transform = `scale(${renderScale})`;
+              fragEl.style.transformOrigin = "top left";
 
               renderBox.appendChild(fragEl);
               row.appendChild(renderBox);
@@ -254,7 +264,8 @@
             }
 
             const summary = document.createElement("div");
-            summary.style.cssText = "white-space:pre-wrap;margin-top:8px;border-top:1px solid #ccc;padding-top:8px;";
+            summary.style.cssText =
+              "white-space:pre-wrap;margin-top:8px;border-top:1px solid #ccc;padding-top:8px;";
             summary.textContent = `---\nPages with issues: ${issueCount}/${limit}`;
             reportEl.appendChild(summary);
           }
@@ -266,7 +277,9 @@
       // --- Helpers ---
 
       function getFragmentainerHeight(fragment, defaultH) {
-        return fragment.constraints ? fragment.constraints.contentArea.blockSize : defaultH;
+        return fragment.constraints
+          ? fragment.constraints.contentArea.blockSize
+          : defaultH;
       }
 
       // --- Page dump (returns { text, hasIssues }) ---
@@ -330,7 +343,9 @@
         if (textSegments.length > 0) {
           log(`  first text: "${truncate(textSegments[0], 80)}"`);
           if (textSegments.length > 1) {
-            log(`  last text:  "${truncate(textSegments[textSegments.length - 1], 80)}"`);
+            log(
+              `  last text:  "${truncate(textSegments[textSegments.length - 1], 80)}"`,
+            );
           }
         }
 
@@ -463,9 +478,12 @@
 
         // Break CSS properties
         const bpParts = [];
-        if (info.breakProps.before) bpParts.push(`break-before:${info.breakProps.before}`);
-        if (info.breakProps.after) bpParts.push(`break-after:${info.breakProps.after}`);
-        if (info.breakProps.inside) bpParts.push(`break-inside:${info.breakProps.inside}`);
+        if (info.breakProps.before)
+          bpParts.push(`break-before:${info.breakProps.before}`);
+        if (info.breakProps.after)
+          bpParts.push(`break-after:${info.breakProps.after}`);
+        if (info.breakProps.inside)
+          bpParts.push(`break-inside:${info.breakProps.inside}`);
         const bpStr = bpParts.length ? ` {${bpParts.join(", ")}}` : "";
 
         let line = `${indent}${info.name}  blockSize=${info.blockSize.toFixed(2)}${measuredStr}  ${mStr} ${pStr}${bStr}${btStr}${monoStr}${bpStr}`;
@@ -577,14 +595,19 @@
         }
 
         lines.push("## Document Summary");
-        lines.push(`  totalContentHeight: ${totalContentHeight.toFixed(1)}px across ${fragments.length} pages`);
-        lines.push(`  overflowPages: ${overflowPages}  forcedBreaks: ${forcedBreaks}`);
+        lines.push(
+          `  totalContentHeight: ${totalContentHeight.toFixed(1)}px across ${fragments.length} pages`,
+        );
+        lines.push(
+          `  overflowPages: ${overflowPages}  forcedBreaks: ${forcedBreaks}`,
+        );
         if (spanning.length > 0) {
           lines.push(`  spanning elements (${spanning.length}):`);
           for (const s of spanning.slice(0, 20)) {
             lines.push(`    - ${s}`);
           }
-          if (spanning.length > 20) lines.push(`    ... and ${spanning.length - 20} more`);
+          if (spanning.length > 20)
+            lines.push(`    ... and ${spanning.length - 20} more`);
         }
         return lines.join("\n");
       }
@@ -600,7 +623,10 @@
       function trackElementSpans(pageFragment, pageIndex, map) {
         for (const child of pageFragment.childFragments) {
           if (!child.node) continue;
-          const name = child.node.debugName || child.node.element?.tagName?.toLowerCase() || "?";
+          const name =
+            child.node.debugName ||
+            child.node.element?.tagName?.toLowerCase() ||
+            "?";
           if (map.has(name)) {
             map.get(name)[1] = pageIndex;
           } else {

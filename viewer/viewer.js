@@ -1,6 +1,5 @@
-import { FragmentainerLayout } from '../src/fragmentainer-layout.js';
-import { ContentMeasureGroup } from '../src/dom/frag-measure.js';
-import { getFragmentainerSize } from '../src/compositor/fragmentainer-builder.js';
+import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
+import { ContentMeasureGroup } from "../src/dom/frag-measure.js";
 
 export { FragmentainerLayout, ContentMeasureGroup };
 
@@ -49,36 +48,12 @@ export async function fetchAndParse(url) {
 }
 
 /**
- * Inject parsed content and CSS into a container, rebasing relative URLs.
- *
- * When `container` is a <content-measure> custom element, delegates to its
- * injectContent() method for Shadow DOM isolation. Returns the content root
- * element (the wrapper inside the shadow root, or the container itself for
- * plain div fallback).
+ * Inject parsed content and CSS into a <content-measure> container.
+ * Delegates to the element's injectContent() for Shadow DOM isolation.
+ * Returns the content root element (wrapper inside the shadow root).
  */
 export function injectContent({ bodyHTML, cssEntries, baseURL }, container) {
-  // Shadow DOM path: <content-measure> custom element
-  if (container.injectContent) {
-    return container.injectContent({ bodyHTML, cssEntries, baseURL });
-  }
-
-  // Legacy path: plain div container
-  const rebasedCSS = cssEntries
-    .map(({ css, cssBaseURL }) => css.replace(/url\(\s*['"]?(?!data:|https?:|\/\/)(.*?)['"]?\s*\)/g, (match, path) => {
-      return `url('${cssBaseURL}${path}')`;
-    }))
-    .join('\n');
-
-  const rebasedHTML = bodyHTML
-    .replace(/src\s*=\s*["'](?!data:|https?:|\/\/)(.*?)["']/g, (match, path) => {
-      return `src="${baseURL}${path}"`;
-    })
-    .replace(/href\s*=\s*["'](?!data:|https?:|\/\/|#)(.*?)["']/g, (match, path) => {
-      return `href="${baseURL}${path}"`;
-    });
-
-  container.innerHTML = `<style>${rebasedCSS}</style>${rebasedHTML}`;
-  return container;
+  return container.injectContent({ bodyHTML, cssEntries, baseURL });
 }
 
 /**

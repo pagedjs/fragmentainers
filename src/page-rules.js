@@ -1,20 +1,5 @@
 import { ConstraintSpace } from "./constraint-space.js";
-import { FRAGMENTATION_PAGE } from "./constants.js";
-
-/**
- * Standard page sizes in CSS pixels at 96 DPI.
- */
-const NAMED_SIZES = {
-  a6:     { inlineSize: 397, blockSize: 559 },
-  a5:     { inlineSize: 559, blockSize: 794 },
-  a4:     { inlineSize: 794, blockSize: 1123 },
-  a3:     { inlineSize: 1123, blockSize: 1587 },
-  b5:     { inlineSize: 499, blockSize: 709 },
-  b4:     { inlineSize: 709, blockSize: 1001 },
-  letter: { inlineSize: 816, blockSize: 1056 },
-  legal:  { inlineSize: 816, blockSize: 1344 },
-  ledger: { inlineSize: 1056, blockSize: 1632 },
-};
+import { FRAGMENTATION_PAGE, NAMED_SIZES } from "./constants.js";
 
 /**
  * Parse a CSS length string to CSS pixels (96 DPI).
@@ -187,11 +172,11 @@ export class PageSizeResolver {
 
     if (typeof sizeValue === "string") {
       const parts = sizeValue.toLowerCase().split(/\s+/);
-      const name = parts.find(p => NAMED_SIZES[p]);
+      const name = parts.find(p => NAMED_SIZES[p.toUpperCase()]);
       const orientation = parts.find(p => p === "landscape" || p === "portrait");
 
       if (name) {
-        const size = { ...NAMED_SIZES[name] };
+        const size = { ...NAMED_SIZES[name.toUpperCase()] };
         if (orientation === "landscape") {
           return { inlineSize: size.blockSize, blockSize: size.inlineSize };
         }
@@ -280,7 +265,7 @@ export function parsePageRulesFromStyleSheets(styleElements) {
       if (sizeMatch) {
         const sizeStr = sizeMatch[1].trim();
         const parts = sizeStr.split(/\s+/);
-        const hasNamedSize = parts.some(p => NAMED_SIZES[p.toLowerCase()]);
+        const hasNamedSize = parts.some(p => NAMED_SIZES[p.toUpperCase()]);
         const hasOrientation = parts.some(p => p === "landscape" || p === "portrait");
 
         if (hasNamedSize || hasOrientation) {
