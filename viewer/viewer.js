@@ -1,5 +1,5 @@
 import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
-import { preprocessContent } from "../src/dom/css-utils.js";
+import { preprocessContent } from "./css-utils.js";
 
 export { FragmentainerLayout, preprocessContent };
 

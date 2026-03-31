@@ -6,8 +6,7 @@
  * reset inherited CSS properties to browser defaults.
  */
 
-import { rewriteNthSelectorsOnSheet } from "../nth-selectors.js";
-import { copyDocumentStyles, preprocessContent } from "./css-utils.js";
+import { buildNthOverrideSheet } from "../nth-selectors.js";
 
 const MEASURE_HOST_STYLES = `
   :host {
@@ -22,7 +21,7 @@ export class ContentMeasureElement extends HTMLElement {
     super();
     this._shadow = this.attachShadow({ mode: "closed" });
     this._wrapper = null;
-    this._contentSheet = null;
+    this._nthOverrideSheet = null;
     this._nthFormulas = new Map();
     this._currentInlineSize = undefined;
     this._refMap = new Map();
@@ -50,33 +49,13 @@ export class ContentMeasureElement extends HTMLElement {
   }
 
   /**
-   * Inject content and CSS into the shadow root for measurement.
-   *
-   * @param {Object} options
-   * @param {string} options.bodyHTML — HTML content to inject
-   * @param {{ css: string, cssBaseURL: string }[]} options.cssEntries — CSS sources
-   * @param {string} options.baseURL — base URL for rebasing relative paths
-   * @returns {Element} the wrapper element (contentRoot) for buildLayoutTree
-   */
-  injectContent({ bodyHTML, cssEntries, baseURL }) {
-    const { html, sheets } = preprocessContent({ bodyHTML, cssEntries, baseURL });
-
-    // Convert HTML string to DocumentFragment
-    const template = document.createElement("template");
-    template.innerHTML = html;
-
-    return this.injectFragment(template.content, sheets);
-  }
-
-  /**
-   * Inject a DocumentFragment and optional CSSStyleSheets into the shadow root.
-   * Used by FragmentainerLayout to set up measurement internally.
+   * Inject a DocumentFragment and CSSStyleSheets into the shadow root.
    *
    * @param {DocumentFragment} fragment — content to inject
-   * @param {CSSStyleSheet[]|null} [styles] — caller-provided sheets, or null to copy document.styleSheets
+   * @param {CSSStyleSheet[]} [styles] — sheets to adopt for measurement
    * @returns {Element} the wrapper element (contentRoot) for buildLayoutTree
    */
-  injectFragment(fragment, styles = null) {
+  injectFragment(fragment, styles = []) {
     this._shadow.innerHTML = "";
 
     // Host styles
@@ -84,24 +63,13 @@ export class ContentMeasureElement extends HTMLElement {
     hostStyle.textContent = MEASURE_HOST_STYLES;
     this._shadow.appendChild(hostStyle);
 
-    if (styles) {
-      // Caller-provided sheets — apply as-is for measurement,
-      // create a rewritten copy with nth-selectors for rendering
-      this._shadow.adoptedStyleSheets = [...styles];
-      const renderSheet = new CSSStyleSheet();
-      for (const s of styles) {
-        for (const rule of s.cssRules) {
-          renderSheet.insertRule(rule.cssText, renderSheet.cssRules.length);
-        }
-      }
-      const nth = rewriteNthSelectorsOnSheet(renderSheet);
-      this._contentSheet = nth.sheet;
-      this._nthFormulas = nth.formulas;
-    } else {
-      // Copy document stylesheets
-      this._contentSheet = null;
-      this._nthFormulas = copyDocumentStyles(this._shadow);
-    }
+    // Adopt caller-provided sheets as-is for measurement.
+    // Build a separate override sheet with attribute-selector equivalents
+    // of nth pseudo-classes for rendering (original sheets stay unmodified).
+    this._shadow.adoptedStyleSheets = [...styles];
+    const nth = buildNthOverrideSheet(styles);
+    this._nthOverrideSheet = nth.sheet;
+    this._nthFormulas = nth.formulas;
 
     // Create wrapper div that content CSS targets via .frag-body
     this._wrapper = document.createElement("div");
@@ -130,13 +98,13 @@ export class ContentMeasureElement extends HTMLElement {
 
   /**
    * Get the content styles and ref maps for reuse in rendering.
-   * Call after injectContent() or injectFragment() to capture styles.
+   * Call after injectFragment() to capture styles.
    *
    * @returns {{ sheets: CSSStyleSheet[], nthFormulas: Map, sourceRefs: WeakMap }}
    */
   getContentStyles() {
-    const sheets = this._contentSheet
-      ? [...this._shadow.adoptedStyleSheets, this._contentSheet]
+    const sheets = this._nthOverrideSheet && this._nthOverrideSheet.cssRules.length > 0
+      ? [...this._shadow.adoptedStyleSheets, this._nthOverrideSheet]
       : [...this._shadow.adoptedStyleSheets];
     return { sheets, nthFormulas: this._nthFormulas, sourceRefs: this._sourceRefs };
   }

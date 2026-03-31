@@ -7,7 +7,6 @@
  */
 
 import { OVERRIDES } from "../compositor/overrides.js";
-import { copyDocumentStyles } from "./css-utils.js";
 
 const CONTAINER_HOST_STYLES = `
   :host {
@@ -127,18 +126,12 @@ export class FragmentContainerElement extends HTMLElement {
     hostStyle.textContent = CONTAINER_HOST_STYLES;
     this._shadow.appendChild(hostStyle);
 
-    if (contentStyles) {
-      // Use cached styles from <content-measure>
-      if (contentStyles.sheets.length > 0) {
-        this._shadow.adoptedStyleSheets = [...contentStyles.sheets, OVERRIDES];
-      } else {
-        this._shadow.adoptedStyleSheets = [OVERRIDES];
-      }
-      this._nthFormulas = contentStyles.nthFormulas || null;
+    if (contentStyles.sheets.length > 0) {
+      this._shadow.adoptedStyleSheets = [...contentStyles.sheets, OVERRIDES];
     } else {
-      // Copy stylesheets from the current document
-      this._nthFormulas = copyDocumentStyles(this._shadow);
+      this._shadow.adoptedStyleSheets = [OVERRIDES];
     }
+    this._nthFormulas = contentStyles.nthFormulas || null;
 
     // Seed counter values from the previous fragmentainer's snapshot.
     // Inserted before OVERRIDES so OVERRIDES has higher cascade priority.

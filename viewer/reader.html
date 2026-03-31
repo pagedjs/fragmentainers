@@ -838,8 +838,9 @@
           styles: sheets,
           resolver,
         });
-        flow = layout.flow();
+        layout.setup();
         await waitForFonts();
+        flow = layout.flow();
 
         totalSpreads = spreadCount(flow.fragmentainerCount);
         buildPageHeadings();

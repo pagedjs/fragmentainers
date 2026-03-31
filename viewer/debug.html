@@ -113,15 +113,16 @@
           const template = document.createElement("template");
           template.innerHTML = html;
 
-          const t0 = performance.now();
           const layout = new FragmentainerLayout(template.content, {
             styles: sheets,
             resolver: resolver.pageRules.length > 0 ? resolver : undefined,
             width: resolver.pageRules.length === 0 ? pageW : undefined,
             height: resolver.pageRules.length === 0 ? pageH : undefined,
           });
-          const flow = layout.flow();
+          layout.setup();
           await waitForFonts();
+          const t0 = performance.now();
+          const flow = layout.flow();
           const fragments = flow.fragments;
           const elapsed = (performance.now() - t0).toFixed(1);
 

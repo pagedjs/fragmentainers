@@ -68,7 +68,7 @@ export class FragmentainerLayout {
 
     this.#styles = options.styles
       ? (Array.isArray(options.styles) ? options.styles : [options.styles])
-      : null;
+      : undefined;
 
     if (options.constraintSpace) {
       this.#constraintSpace = options.constraintSpace;
@@ -255,7 +255,10 @@ export class FragmentainerLayout {
     if (this.#tree && !forceUpdate) return;
     const content = this.#content;
 
-    if (typeof DocumentFragment !== "undefined" && content instanceof DocumentFragment) {
+    if (this.#ownsMeasurer && this.#measureElement) {
+      // Rebuild layout tree from existing measurer (content already injected)
+      this.#tree = buildLayoutTree(this.#measureElement.contentRoot);
+    } else if (typeof DocumentFragment !== "undefined" && content instanceof DocumentFragment) {
       // Create internal <content-measure> and inject the fragment
       const measurer = document.createElement("content-measure");
       document.body.appendChild(measurer);

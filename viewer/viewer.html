@@ -332,13 +332,15 @@
 
           statusEl.textContent = "Running fragmentation...";
 
-          const start = performance.now();
           const layout = new FragmentainerLayout(template.content, {
             styles: sheets,
             resolver,
           });
-          const flow = layout.flow();
+          layout.setup();
           await waitForFonts();
+
+          const start = performance.now();
+          const flow = layout.flow();
           const elapsed = Math.round(performance.now() - start);
 
           currentFlow = flow;

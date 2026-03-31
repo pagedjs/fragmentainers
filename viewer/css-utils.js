@@ -1,12 +1,12 @@
 /**
- * Shared CSS utilities for shadow DOM containers.
+ * CSS utilities for the viewer layer.
  *
- * Used by both <content-measure> (measurement) and <fragment-container>
- * (rendering) to copy document styles and rewrite selectors.
+ * Handles URL rebasing, body/html selector rewriting, and document
+ * stylesheet copying for viewer HTML files that load remote content.
  */
 
-import { OVERRIDES } from "../compositor/overrides.js";
-import { rewriteNthSelectorsOnSheet } from "../nth-selectors.js";
+import { OVERRIDES } from "../src/compositor/overrides.js";
+import { rewriteNthSelectorsOnSheet } from "../src/nth-selectors.js";
 
 /**
  * Copy document-level stylesheets into a shadow root via adoptedStyleSheets,

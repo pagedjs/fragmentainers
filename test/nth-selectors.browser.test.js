@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rewriteNthSelectorsOnSheet } from "../src/nth-selectors.js";
+import { rewriteNthSelectorsOnSheet, buildNthOverrideSheet } from "../src/nth-selectors.js";
 
 // ---------------------------------------------------------------------------
 // rewriteNthSelectorsOnSheet — CSSOM-based rewriting
@@ -115,5 +115,82 @@ describe("rewriteNthSelectorsOnSheet", () => {
     const sheet = createSheet("li:first-child { color: red; }");
     const { sheet: returned } = rewriteNthSelectorsOnSheet(sheet);
     expect(returned).toBe(sheet);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildNthOverrideSheet — non-mutating override sheet generation
+// ---------------------------------------------------------------------------
+
+describe("buildNthOverrideSheet", () => {
+  function createSheet(cssText) {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(cssText);
+    return sheet;
+  }
+
+  it("does not mutate the original sheet", () => {
+    const sheet = createSheet("li:first-child { color: red; }");
+    const originalSelector = sheet.cssRules[0].selectorText;
+    buildNthOverrideSheet([sheet]);
+    expect(sheet.cssRules[0].selectorText).toBe(originalSelector);
+  });
+
+  it("generates override rules for nth pseudo-classes", () => {
+    const sheet = createSheet("li:first-child { color: red; }");
+    const { sheet: overrides } = buildNthOverrideSheet([sheet]);
+    expect(overrides.cssRules.length).toBe(1);
+    expect(overrides.cssRules[0].selectorText).toContain("[data-child-index=\"1\"]");
+  });
+
+  it("skips rules without nth pseudo-classes", () => {
+    const sheet = createSheet("div.foo { color: red; } li:last-child { color: blue; }");
+    const { sheet: overrides } = buildNthOverrideSheet([sheet]);
+    expect(overrides.cssRules.length).toBe(1);
+    expect(overrides.cssRules[0].selectorText).toContain("[data-last-child]");
+  });
+
+  it("collects formulas from formula-based pseudo-classes", () => {
+    const sheet = createSheet("tr:nth-child(odd) { background: #eee; }");
+    const { formulas } = buildNthOverrideSheet([sheet]);
+    expect(formulas.size).toBe(1);
+    const formula = [...formulas.values()][0];
+    expect(formula.a).toBe(2);
+    expect(formula.b).toBe(1);
+  });
+
+  it("works across multiple input sheets", () => {
+    const sheet1 = createSheet("li:first-child { color: red; }");
+    const sheet2 = createSheet("p:last-of-type { margin: 0; }");
+    const { sheet: overrides } = buildNthOverrideSheet([sheet1, sheet2]);
+    expect(overrides.cssRules.length).toBe(2);
+  });
+
+  it("preserves declarations in override rules", () => {
+    const sheet = createSheet("li:nth-child(3) { color: red; font-size: 16px; }");
+    const { sheet: overrides } = buildNthOverrideSheet([sheet]);
+    const cssText = overrides.cssRules[0].cssText;
+    expect(cssText).toContain("color");
+    expect(cssText).toContain("font-size");
+  });
+
+  it("reconstructs grouping rules for @media", () => {
+    const sheet = createSheet("@media (min-width: 0px) { li:first-child { color: red; } }");
+    const { sheet: overrides } = buildNthOverrideSheet([sheet]);
+    expect(overrides.cssRules.length).toBe(1);
+    const mediaRule = overrides.cssRules[0];
+    expect(mediaRule.cssRules[0].selectorText).toContain("[data-child-index=\"1\"]");
+  });
+
+  it("omits grouping rules with no nth matches", () => {
+    const sheet = createSheet("@media (min-width: 0px) { div.foo { color: red; } }");
+    const { sheet: overrides } = buildNthOverrideSheet([sheet]);
+    expect(overrides.cssRules.length).toBe(0);
+  });
+
+  it("returns a new sheet object, not the input", () => {
+    const sheet = createSheet("li:first-child { color: red; }");
+    const { sheet: overrides } = buildNthOverrideSheet([sheet]);
+    expect(overrides).not.toBe(sheet);
   });
 });

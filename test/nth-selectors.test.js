@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAnPlusB, matchesAnPlusB, rewriteNthSelectors, stampNthAttributes } from "../src/nth-selectors.js";
+import { parseAnPlusB, matchesAnPlusB, rewriteSelectorText, stampNthAttributes } from "../src/nth-selectors.js";
 
 // ---------------------------------------------------------------------------
 // parseAnPlusB
@@ -108,53 +108,51 @@ describe("matchesAnPlusB", () => {
 });
 
 // ---------------------------------------------------------------------------
-// rewriteNthSelectors
+// rewriteSelectorText
 // ---------------------------------------------------------------------------
 
-describe("rewriteNthSelectors", () => {
+describe("rewriteSelectorText", () => {
+  function rewrite(selector) {
+    const formulas = new Map();
+    const result = rewriteSelectorText(selector, formulas);
+    return { result, formulas };
+  }
+
   it("rewrites :first-child", () => {
-    const { cssText } = rewriteNthSelectors("li:first-child { color: red; }");
-    expect(cssText).toBe("li[data-child-index=\"1\"] { color: red; }");
+    expect(rewrite("li:first-child").result).toBe("li[data-child-index=\"1\"]");
   });
 
   it("rewrites :last-child", () => {
-    const { cssText } = rewriteNthSelectors("li:last-child { color: blue; }");
-    expect(cssText).toBe("li[data-last-child] { color: blue; }");
+    expect(rewrite("li:last-child").result).toBe("li[data-last-child]");
   });
 
   it("rewrites :first-of-type", () => {
-    const { cssText } = rewriteNthSelectors("p:first-of-type { margin: 0; }");
-    expect(cssText).toBe("p[data-type-index=\"1\"] { margin: 0; }");
+    expect(rewrite("p:first-of-type").result).toBe("p[data-type-index=\"1\"]");
   });
 
   it("rewrites :last-of-type", () => {
-    const { cssText } = rewriteNthSelectors("p:last-of-type { margin: 0; }");
-    expect(cssText).toBe("p[data-last-of-type] { margin: 0; }");
+    expect(rewrite("p:last-of-type").result).toBe("p[data-last-of-type]");
   });
 
   it("rewrites :only-child", () => {
-    const { cssText } = rewriteNthSelectors("div:only-child { width: 100%; }");
-    expect(cssText).toBe("div[data-child-index=\"1\"][data-last-child] { width: 100%; }");
+    expect(rewrite("div:only-child").result).toBe("div[data-child-index=\"1\"][data-last-child]");
   });
 
   it("rewrites :only-of-type", () => {
-    const { cssText } = rewriteNthSelectors("h1:only-of-type { text-align: center; }");
-    expect(cssText).toBe("h1[data-type-index=\"1\"][data-last-of-type] { text-align: center; }");
+    expect(rewrite("h1:only-of-type").result).toBe("h1[data-type-index=\"1\"][data-last-of-type]");
   });
 
   it("rewrites :nth-child(N) to attribute selector", () => {
-    const { cssText } = rewriteNthSelectors("li:nth-child(3) { color: red; }");
-    expect(cssText).toBe("li[data-child-index=\"3\"] { color: red; }");
+    expect(rewrite("li:nth-child(3)").result).toBe("li[data-child-index=\"3\"]");
   });
 
   it("rewrites :nth-of-type(N) to attribute selector", () => {
-    const { cssText } = rewriteNthSelectors("p:nth-of-type(2) { margin: 0; }");
-    expect(cssText).toBe("p[data-type-index=\"2\"] { margin: 0; }");
+    expect(rewrite("p:nth-of-type(2)").result).toBe("p[data-type-index=\"2\"]");
   });
 
   it("rewrites :nth-child(odd) to formula attribute", () => {
-    const { cssText, formulas } = rewriteNthSelectors("tr:nth-child(odd) { background: #eee; }");
-    expect(cssText).toContain("[data-nth-child-2np1]");
+    const { result, formulas } = rewrite("tr:nth-child(odd)");
+    expect(result).toContain("[data-nth-child-2np1]");
     expect(formulas.size).toBe(1);
     const formula = [...formulas.values()][0];
     expect(formula.a).toBe(2);
@@ -164,54 +162,54 @@ describe("rewriteNthSelectors", () => {
   });
 
   it("rewrites :nth-child(even) to formula attribute", () => {
-    const { cssText, formulas } = rewriteNthSelectors("tr:nth-child(even) { background: #ddd; }");
-    expect(cssText).toContain("[data-nth-child-2np0]");
+    const { result, formulas } = rewrite("tr:nth-child(even)");
+    expect(result).toContain("[data-nth-child-2np0]");
     expect(formulas.size).toBe(1);
   });
 
   it("rewrites :nth-child(2n+1) to formula attribute", () => {
-    const { cssText, formulas } = rewriteNthSelectors("li:nth-child(2n+1) { color: red; }");
-    expect(cssText).toContain("[data-nth-child-2np1]");
+    const { result, formulas } = rewrite("li:nth-child(2n+1)");
+    expect(result).toContain("[data-nth-child-2np1]");
     expect(formulas.size).toBe(1);
   });
 
   it("rewrites :nth-last-child(N) to formula attribute", () => {
-    const { cssText, formulas } = rewriteNthSelectors("li:nth-last-child(2) { color: red; }");
-    expect(cssText).toContain("[data-nth-last-child-0np2]");
+    const { result, formulas } = rewrite("li:nth-last-child(2)");
+    expect(result).toContain("[data-nth-last-child-0np2]");
     expect(formulas.size).toBe(1);
     const formula = [...formulas.values()][0];
     expect(formula.isLast).toBe(true);
   });
 
   it("rewrites :nth-last-of-type(odd) to formula attribute", () => {
-    const { cssText, formulas } = rewriteNthSelectors("p:nth-last-of-type(odd) { color: blue; }");
-    expect(cssText).toContain("[data-nth-last-of-type-2np1]");
+    const { result, formulas } = rewrite("p:nth-last-of-type(odd)");
+    expect(result).toContain("[data-nth-last-of-type-2np1]");
     const formula = [...formulas.values()][0];
     expect(formula.isType).toBe(true);
     expect(formula.isLast).toBe(true);
   });
 
-  it("deduplicates identical formulas across rules", () => {
-    const css = "tr:nth-child(odd) { bg: a; } td:nth-child(odd) { bg: b; }";
-    const { formulas } = rewriteNthSelectors(css);
+  it("deduplicates identical formulas", () => {
+    const formulas = new Map();
+    rewriteSelectorText("tr:nth-child(odd)", formulas);
+    rewriteSelectorText("td:nth-child(odd)", formulas);
     expect(formulas.size).toBe(1);
   });
 
-  it("accumulates formulas across calls with shared map", () => {
+  it("accumulates different formulas", () => {
     const formulas = new Map();
-    rewriteNthSelectors("tr:nth-child(odd) { bg: a; }", formulas);
-    rewriteNthSelectors("td:nth-child(even) { bg: b; }", formulas);
+    rewriteSelectorText("tr:nth-child(odd)", formulas);
+    rewriteSelectorText("td:nth-child(even)", formulas);
     expect(formulas.size).toBe(2);
   });
 
   it("preserves non-nth selectors", () => {
-    const { cssText } = rewriteNthSelectors("div.foo > p { color: red; }");
-    expect(cssText).toBe("div.foo > p { color: red; }");
+    expect(rewrite("div.foo > p").result).toBe("div.foo > p");
   });
 
-  it("handles multiple pseudo-classes in one rule", () => {
-    const { cssText } = rewriteNthSelectors("ul > li:first-child:last-child { color: red; }");
-    expect(cssText).toBe("ul > li[data-child-index=\"1\"][data-last-child] { color: red; }");
+  it("handles multiple pseudo-classes in one selector", () => {
+    expect(rewrite("ul > li:first-child:last-child").result)
+      .toBe("ul > li[data-child-index=\"1\"][data-last-child]");
   });
 });
 
@@ -220,18 +218,13 @@ describe("rewriteNthSelectors", () => {
 // ---------------------------------------------------------------------------
 
 describe("stampNthAttributes", () => {
-  /**
-   * Helper: create a minimal mock node with a real parentElement reference.
-   */
   function createMockSiblings(tagNames) {
-    // Use a lightweight approach with objects
     const parent = { children: [], tagName: "DIV" };
     const elements = tagNames.map(tag => ({
       tagName: tag.toUpperCase(),
       parentElement: parent,
     }));
     parent.children = elements;
-    // Make it array-like with length and indexing
     Object.defineProperty(parent.children, "length", { value: elements.length });
     return elements;
   }
@@ -291,17 +284,14 @@ describe("stampNthAttributes", () => {
       attr: "data-nth-child-2np1", isType: false, isLast: false,
     });
 
-    // 1st child (odd) — should match
     const el1 = createMockEl();
     stampNthAttributes(el1, { element: elements[0] }, formulas);
     expect(el1._attrs["data-nth-child-2np1"]).toBe("");
 
-    // 2nd child (even) — should not match
     const el2 = createMockEl();
     stampNthAttributes(el2, { element: elements[1] }, formulas);
     expect(el2._attrs["data-nth-child-2np1"]).toBeUndefined();
 
-    // 3rd child (odd) — should match
     const el3 = createMockEl();
     stampNthAttributes(el3, { element: elements[2] }, formulas);
     expect(el3._attrs["data-nth-child-2np1"]).toBe("");
@@ -315,12 +305,10 @@ describe("stampNthAttributes", () => {
       attr: "data-nth-last-child-0np2", isType: false, isLast: true,
     });
 
-    // 3rd child = 2nd from last — should match
     const el3 = createMockEl();
     stampNthAttributes(el3, { element: elements[2] }, formulas);
     expect(el3._attrs["data-nth-last-child-0np2"]).toBe("");
 
-    // 4th child = 1st from last — should not match
     const el4 = createMockEl();
     stampNthAttributes(el4, { element: elements[3] }, formulas);
     expect(el4._attrs["data-nth-last-child-0np2"]).toBeUndefined();

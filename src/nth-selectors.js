@@ -174,6 +174,65 @@ export function rewriteNthSelectorsOnSheet(sheet, formulas = new Map()) {
 }
 
 // ---------------------------------------------------------------------------
+// Non-mutating nth-selector override sheet
+// ---------------------------------------------------------------------------
+
+/**
+ * Recursively collect override rules for structural pseudo-classes
+ * into a target CSSStyleSheet without mutating the source rules.
+ *
+ * @param {CSSRuleList} ruleList — source rules to scan
+ * @param {CSSStyleSheet|CSSGroupingRule} target — where to insert overrides
+ * @param {Map} formulas — accumulator for formula descriptors
+ */
+function collectNthOverrides(ruleList, target, formulas) {
+  for (const rule of ruleList) {
+    if (rule.selectorText !== undefined) {
+      const rewritten = rewriteSelectorText(rule.selectorText, formulas);
+      if (rewritten !== rule.selectorText) {
+        target.insertRule(
+          `${rewritten} { ${rule.style.cssText} }`,
+          target.cssRules.length,
+        );
+      }
+    } else if (rule.cssRules) {
+      // Grouping rule — reconstruct wrapper, recurse, keep only if non-empty
+      const wrapper = new CSSStyleSheet();
+      collectNthOverrides(rule.cssRules, wrapper, formulas);
+      if (wrapper.cssRules.length > 0) {
+        // Re-wrap child rules inside the grouping rule's condition
+        let innerCSS = "";
+        for (const r of wrapper.cssRules) {
+          innerCSS += r.cssText + "\n";
+        }
+        target.insertRule(
+          `${rule.cssText.substring(0, rule.cssText.indexOf("{"))}{ ${innerCSS} }`,
+          target.cssRules.length,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Build an override CSSStyleSheet containing attribute-selector equivalents
+ * of structural pseudo-classes found in the input sheets. The input sheets
+ * are NOT mutated — the override sheet is meant to be appended after them
+ * in adoptedStyleSheets so attribute selectors win by source order.
+ *
+ * @param {CSSStyleSheet[]} sheets — source sheets to scan
+ * @param {Map} [formulas] — accumulator for formula descriptors
+ * @returns {{ sheet: CSSStyleSheet, formulas: Map }}
+ */
+export function buildNthOverrideSheet(sheets, formulas = new Map()) {
+  const overrideSheet = new CSSStyleSheet();
+  for (const sheet of sheets) {
+    collectNthOverrides(sheet.cssRules, overrideSheet, formulas);
+  }
+  return { sheet: overrideSheet, formulas };
+}
+
+// ---------------------------------------------------------------------------
 // Attribute stamping (called by compositor during rendering)
 // ---------------------------------------------------------------------------
 
