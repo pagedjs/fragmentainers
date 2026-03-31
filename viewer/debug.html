@@ -11,11 +11,6 @@
         background: #fff;
         color: #000;
       }
-      #measure {
-        position: absolute;
-        left: -99999px;
-        top: 0;
-      }
       #layout-root {
         display: flex;
         gap: 16px;
@@ -65,7 +60,6 @@
     </style>
   </head>
   <body>
-    <content-measure id="measure"></content-measure>
     <div id="layout-root">
       <div id="output"></div>
       <div id="report"></div>
@@ -73,16 +67,12 @@
     <script type="module">
       import {
         fetchAndParse,
-        injectContent,
+        preprocessContent,
         waitForFonts,
         FragmentainerLayout,
       } from "./viewer.js";
-      import "../src/dom/content-measure.js";
       import "../src/dom/fragment-container.js";
-      import {
-        parsePageRulesFromCSS,
-        PageSizeResolver,
-      } from "../src/page-rules.js";
+      import { PageSizeResolver } from "../src/page-rules.js";
       import {
         buildPageDump,
         buildDocumentSummary,
@@ -107,7 +97,6 @@
       if (params.has("scale")) canonical.set("scale", String(renderScale));
       history.replaceState(null, "", `?${canonical}`);
 
-      const measureEl = document.getElementById("measure");
       const outputEl = document.getElementById("output");
       const reportEl = document.getElementById("report");
 
@@ -116,27 +105,23 @@
       async function run() {
         try {
           const parsed = await fetchAndParse(url);
-          const contentRoot = injectContent(parsed, measureEl);
-          await waitForFonts(measureEl);
-
-          // Parse @page rules from injected content
-          const contentCSSText = measureEl.getContentStyles().cssText;
-          const pageRules = parsePageRulesFromCSS([contentCSSText]);
+          const { html, sheets } = preprocessContent(parsed);
 
           const size = { inlineSize: pageW, blockSize: pageH };
-          let resolver;
-          if (pageRules.length > 0) {
-            resolver = new PageSizeResolver(pageRules, size);
-            const firstConstraints = resolver.resolve(0, null, null);
-            measureEl.style.width = `${firstConstraints.contentArea.inlineSize}px`;
-          }
+          const resolver = PageSizeResolver.fromStyleSheets(sheets, size);
+
+          const template = document.createElement("template");
+          template.innerHTML = html;
 
           const t0 = performance.now();
-          const layout = new FragmentainerLayout(
-            contentRoot,
-            resolver ? { resolver } : { size },
-          );
+          const layout = new FragmentainerLayout(template.content, {
+            styles: sheets,
+            resolver: resolver.pageRules.length > 0 ? resolver : undefined,
+            width: resolver.pageRules.length === 0 ? pageW : undefined,
+            height: resolver.pageRules.length === 0 ? pageH : undefined,
+          });
           const flow = layout.flow();
+          await waitForFonts();
           const fragments = flow.fragments;
           const elapsed = (performance.now() - t0).toFixed(1);
 

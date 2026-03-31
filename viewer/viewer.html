@@ -186,13 +186,6 @@
         box-sizing: content-box;
       }
 
-      /* Off-screen measurement container */
-      #measure {
-        position: absolute;
-        left: -99999px;
-        top: 0;
-      }
-
       .viewer-ui #summary {
         font-size: 0.85rem;
         color: #555;
@@ -230,20 +223,18 @@
     <div id="summary"></div>
     <div id="pages"></div>
 
-    <content-measure id="measure"></content-measure>
     <div id="overlay"></div>
 
     <script type="module">
       import {
         fetchAndParse,
-        injectContent,
+        preprocessContent,
         waitForFonts,
         FragmentainerLayout,
         renderPages,
         showDetail,
       } from "./viewer.js";
       import { PageSizeResolver } from "../src/page-rules.js";
-      import "../src/dom/content-measure.js";
       import "../src/dom/fragment-container.js";
 
       const exampleSelect = document.getElementById("example");
@@ -252,7 +243,6 @@
       const statusEl = document.getElementById("status");
       const summaryEl = document.getElementById("summary");
       const pagesEl = document.getElementById("pages");
-      const measureEl = document.getElementById("measure");
       const overlayEl = document.getElementById("overlay");
 
       // State
@@ -334,17 +324,21 @@
         try {
           const parsed = await fetchAndParse(url);
 
-          statusEl.textContent = "Injecting content for measurement...";
-          measureEl.style.width = `${baseW}px`;
-          const contentRoot = injectContent(parsed, measureEl);
+          statusEl.textContent = "Preprocessing content...";
+          const { html, sheets } = preprocessContent(parsed);
 
-          await waitForFonts(measureEl);
+          const template = document.createElement("template");
+          template.innerHTML = html;
 
           statusEl.textContent = "Running fragmentation...";
 
           const start = performance.now();
-          const layout = new FragmentainerLayout(contentRoot, { resolver });
+          const layout = new FragmentainerLayout(template.content, {
+            styles: sheets,
+            resolver,
+          });
           const flow = layout.flow();
+          await waitForFonts();
           const elapsed = Math.round(performance.now() - start);
 
           currentFlow = flow;

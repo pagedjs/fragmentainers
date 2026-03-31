@@ -7,8 +7,7 @@
  */
 
 import { OVERRIDES } from "../compositor/overrides.js";
-import { resolveMediaForPrintRules } from "./content-measure.js";
-import { rewriteNthSelectorsOnSheet } from "../nth-selectors.js";
+import { copyDocumentStyles } from "./css-utils.js";
 
 const CONTAINER_HOST_STYLES = `
   :host {
@@ -30,8 +29,12 @@ export class FragmentContainerElement extends HTMLElement {
     this._notifyPending = false;
   }
 
-  get fragmentIndex() { return this._fragmentIndex; }
-  set fragmentIndex(idx) { this._fragmentIndex = idx; }
+  get fragmentIndex() {
+    return this._fragmentIndex;
+  }
+  set fragmentIndex(idx) {
+    this._fragmentIndex = idx;
+  }
 
   /**
    * Coalesce multiple observer fires into one fragment-change event.
@@ -43,10 +46,12 @@ export class FragmentContainerElement extends HTMLElement {
     this._notifyPending = true;
     queueMicrotask(() => {
       this._notifyPending = false;
-      this.dispatchEvent(new CustomEvent("fragment-change", {
-        bubbles: true,
-        detail: { index: this._fragmentIndex },
-      }));
+      this.dispatchEvent(
+        new CustomEvent("fragment-change", {
+          bubbles: true,
+          detail: { index: this._fragmentIndex },
+        }),
+      );
     });
   }
 
@@ -66,7 +71,10 @@ export class FragmentContainerElement extends HTMLElement {
         this._scheduleNotify();
       });
       this._mutationObserver.observe(this._wrapper, {
-        childList: true, subtree: true, characterData: true, attributes: true,
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
       });
     });
   }
@@ -143,7 +151,9 @@ export class FragmentContainerElement extends HTMLElement {
       counterSheet.replaceSync(`.frag-body { counter-set: ${pairs}; }`);
       const sheets = this._shadow.adoptedStyleSheets;
       this._shadow.adoptedStyleSheets = [
-        ...sheets.slice(0, -1), counterSheet, sheets[sheets.length - 1]
+        ...sheets.slice(0, -1),
+        counterSheet,
+        sheets[sheets.length - 1],
       ];
     }
 
@@ -173,56 +183,3 @@ export class FragmentContainerElement extends HTMLElement {
 }
 
 customElements.define("fragment-container", FragmentContainerElement);
-
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
-
-/**
- * Copy document-level stylesheets into a shadow root via adoptedStyleSheets,
- * rewriting body/html selectors to target .frag-body/:host.
- *
- * @param {ShadowRoot} shadowRoot
- * @param {boolean} forPrint — resolve @media print/screen rules for print context
- */
-function copyDocumentStyles(shadowRoot, forPrint = false) {
-  const sheets = [];
-  const nthFormulas = new Map();
-  for (const sheet of document.styleSheets) {
-    try {
-      const copy = new CSSStyleSheet();
-      let rules = "";
-      if (forPrint) {
-        rules = rewriteBodySelectors(resolveMediaForPrintRules(sheet.cssRules));
-      } else {
-        for (const rule of sheet.cssRules) {
-          rules += rewriteBodySelectors(rule.cssText) + "\n";
-        }
-      }
-      copy.replaceSync(rules);
-      rewriteNthSelectorsOnSheet(copy, nthFormulas);
-      sheets.push(copy);
-    } catch (_) {
-      // Cross-origin stylesheet — cssRules access throws SecurityError
-    }
-  }
-  shadowRoot.adoptedStyleSheets = [...sheets, OVERRIDES];
-  return nthFormulas;
-}
-
-/**
- * Rewrite `body` and `html` selectors in CSS text to target
- * the `.frag-body` wrapper inside the shadow root.
- *
- * @param {string} cssText
- * @returns {string}
- */
-function rewriteBodySelectors(cssText) {
-  let result = cssText.replace(/\bhtml\s+body\b/g, "body");
-  result = result.replace(
-    /(?:^|(?<=,\s*|}\s*))\bhtml\b(?=[{\s,.#:[>+~])/gm,
-    ":host",
-  );
-  result = result.replace(/\bbody\b(?=[{\s,.#:[>+~])/g, ".frag-body");
-  return result;
-}

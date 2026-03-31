@@ -68,31 +68,20 @@ describe("ContentMeasureElement ref assignment", () => {
 // ---------------------------------------------------------------------------
 
 describe("Refs in rendered fragments", () => {
-  let container;
-
-  beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-  });
+  let layout;
 
   afterEach(() => {
-    container.remove();
+    layout?.destroy();
   });
 
   it("rendered clones carry the same data-ref as source", () => {
-    container.innerHTML = `<div style="margin:0; padding:0;">
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
       <div id="a" style="height: 100px; margin: 0;"></div>
       <div id="b" style="height: 100px; margin: 0;"></div>
     </div>`;
-    const el = container.firstElementChild;
 
-    // Manually assign refs (simulating what ContentMeasureElement does)
-    let refId = 0;
-    for (const child of el.querySelectorAll("*")) {
-      child.setAttribute("data-ref", String(refId++));
-    }
-
-    const layout = new FragmentainerLayout(el, { width: 400, height: 150 });
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 150 });
     const flow = layout.flow();
     const result = flow.reflow(0);
 
@@ -351,27 +340,22 @@ describe("MutationSync element addition", () => {
 // ---------------------------------------------------------------------------
 
 describe("FragmentContainerElement.takeMutationRecords()", () => {
-  let container;
-
-  beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-  });
+  let layout;
 
   afterEach(() => {
-    container.remove();
+    layout?.destroy();
   });
 
   it("returns buffered mutations and clears the buffer", async () => {
-    container.innerHTML = `<div style="margin:0; padding:0;">
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 200px; margin: 0;"></div>
     </div>`;
-    const el = container.firstElementChild;
-    const layout = new FragmentainerLayout(el, { width: 400, height: 100 });
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
     const flow = layout.flow();
     const result = flow.reflow(0);
     const fragEl = result.elements[0];
-    container.appendChild(fragEl);
+    document.body.appendChild(fragEl);
 
     fragEl.startObserving();
 
@@ -390,6 +374,7 @@ describe("FragmentContainerElement.takeMutationRecords()", () => {
             // Second call should be empty
             const records2 = fragEl.takeMutationRecords();
             expect(records2.length).toBe(0);
+            fragEl.remove();
             resolve();
           });
         });
@@ -403,31 +388,28 @@ describe("FragmentContainerElement.takeMutationRecords()", () => {
 // ---------------------------------------------------------------------------
 
 describe("reflow with rebuild", () => {
-  let container;
-
-  beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-  });
+  let layout;
 
   afterEach(() => {
-    container.remove();
+    layout?.destroy();
   });
 
   it("reflow(0, { rebuild: true }) picks up structural changes", () => {
-    container.innerHTML = `<div style="margin:0; padding:0;">
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 100px; margin: 0;"></div>
     </div>`;
-    const el = container.firstElementChild;
-    const layout = new FragmentainerLayout(el, { width: 400, height: 200 });
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 200 });
     const flow = layout.flow();
     expect(flow.fragmentainerCount).toBe(1);
 
-    // Add a new element to the source DOM
+    // Add a new element to the source DOM (via the internal measurer)
+    const measurer = document.querySelector("content-measure");
+    const wrapper = measurer.contentRoot.firstElementChild;
     const newDiv = document.createElement("div");
     newDiv.style.height = "200px";
     newDiv.style.margin = "0";
-    el.appendChild(newDiv);
+    wrapper.appendChild(newDiv);
 
     // Reflow with rebuild to pick up the structural change
     const result = flow.reflow(0, { rebuild: true });

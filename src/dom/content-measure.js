@@ -7,6 +7,7 @@
  */
 
 import { rewriteNthSelectorsOnSheet } from "../nth-selectors.js";
+import { copyDocumentStyles, rewriteBodySelectors } from "./css-utils.js";
 
 const MEASURE_HOST_STYLES = `
   :host {
@@ -96,6 +97,57 @@ export class ContentMeasureElement extends HTMLElement {
     this._wrapper = document.createElement("div");
     this._wrapper.className = "frag-body";
     this._wrapper.innerHTML = html;
+    this._shadow.appendChild(this._wrapper);
+
+    // Assign data-ref to every element for clone-to-source mapping
+    this._refMap = new Map();
+    this._nextRefId = 0;
+    for (const el of this._wrapper.querySelectorAll("*")) {
+      this._assignRefToElement(el);
+    }
+
+    return this._wrapper;
+  }
+
+  /**
+   * Inject a DocumentFragment and optional CSSStyleSheets into the shadow root.
+   * Used by FragmentainerLayout to set up measurement internally.
+   *
+   * @param {DocumentFragment} fragment — content to inject
+   * @param {CSSStyleSheet[]|null} [styles] — caller-provided sheets, or null to copy document.styleSheets
+   * @returns {Element} the wrapper element (contentRoot) for buildLayoutTree
+   */
+  injectFragment(fragment, styles = null) {
+    this._shadow.innerHTML = "";
+
+    // Host styles
+    const hostStyle = document.createElement("style");
+    hostStyle.textContent = MEASURE_HOST_STYLES;
+    this._shadow.appendChild(hostStyle);
+
+    if (styles) {
+      // Caller-provided sheets — apply as-is for measurement,
+      // create a rewritten copy with nth-selectors for rendering
+      this._shadow.adoptedStyleSheets = [...styles];
+      const renderSheet = new CSSStyleSheet();
+      for (const s of styles) {
+        for (const rule of s.cssRules) {
+          renderSheet.insertRule(rule.cssText, renderSheet.cssRules.length);
+        }
+      }
+      const nth = rewriteNthSelectorsOnSheet(renderSheet);
+      this._contentSheet = nth.sheet;
+      this._nthFormulas = nth.formulas;
+    } else {
+      // Copy document stylesheets
+      this._contentSheet = null;
+      this._nthFormulas = copyDocumentStyles(this._shadow);
+    }
+
+    // Create wrapper div that content CSS targets via .frag-body
+    this._wrapper = document.createElement("div");
+    this._wrapper.className = "frag-body";
+    this._wrapper.appendChild(fragment);
     this._shadow.appendChild(this._wrapper);
 
     // Assign data-ref to every element for clone-to-source mapping
@@ -204,23 +256,6 @@ export function resolveMediaForPrintText(cssText) {
   const sheet = new CSSStyleSheet();
   sheet.replaceSync(cssText);
   return resolveMediaForPrintRules(sheet.cssRules);
-}
-
-/**
- * Rewrite `body` and `html` selectors in CSS text to target
- * the `.frag-body` wrapper inside the shadow root.
- *
- * @param {string} cssText
- * @returns {string}
- */
-function rewriteBodySelectors(cssText) {
-  let result = cssText.replace(/\bhtml\s+body\b/g, "body");
-  result = result.replace(
-    /(?:^|(?<=,\s*|}\s*))\bhtml\b(?=[{\s,.#:[>+~])/gm,
-    ":host",
-  );
-  result = result.replace(/\bbody\b(?=[{\s,.#:[>+~])/g, ".frag-body");
-  return result;
 }
 
 /**

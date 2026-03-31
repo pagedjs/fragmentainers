@@ -134,11 +134,7 @@
     </div>
 
     <script type="module">
-      import { createFragments } from "../src/layout-request.js";
-      import { ConstraintSpace } from "../src/constraint-space.js";
-      import { buildLayoutTree } from "../src/dom/index.js";
-      import { renderFragmentTree } from "../src/compositor/render-fragments.js";
-      import "../src/dom/content-measure.js";
+      import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
       import "../src/dom/fragment-container.js";
 
       // --- Examples ---
@@ -340,7 +336,7 @@
             replaceWithFragmented(outputContainers[i], results[i]);
           }
 
-          const totalCols = results.reduce((s, r) => s + r.fragments.length, 0);
+          const totalCols = results.reduce((s, r) => s + r.flow.fragmentainerCount, 0);
           statusEl.textContent = `Processed ${containers.length} container(s), ${totalCols} column(s) total.`;
         } catch (err) {
           statusEl.textContent = `Error: ${err.message}`;
@@ -380,11 +376,10 @@
 
         if (columnWidth <= 0 || totalHeight <= 0) return null;
 
-        const wrapper = document.createElement("div");
-        wrapper.style.width = `${columnWidth}px`;
-
+        // Move children into a DocumentFragment
+        const frag = document.createDocumentFragment();
         while (container.firstChild) {
-          wrapper.appendChild(container.firstChild);
+          frag.appendChild(container.firstChild);
         }
 
         container.style.columns = "auto";
@@ -393,26 +388,19 @@
         container.style.columnFill = "auto";
         container.style.columnGap = "0";
 
-        container.appendChild(wrapper);
-        await doubleRAF();
+        const layout = new FragmentainerLayout(frag, {
+          width: columnWidth,
+          height: totalHeight,
+        });
+        const flow = layout.flow();
+        layout.destroy();
 
-        const tree = buildLayoutTree(wrapper);
-        const fragments = createFragments(
-          tree,
-          new ConstraintSpace({
-            availableInlineSize: columnWidth,
-            availableBlockSize: totalHeight,
-            fragmentainerBlockSize: totalHeight,
-            fragmentationType: "column",
-          }),
-        );
-
-        return { fragments, columnWidth, columnGap, totalHeight };
+        return { flow, columnGap, totalHeight };
       }
 
       function replaceWithFragmented(
         container,
-        { fragments, columnWidth, columnGap, totalHeight },
+        { flow, columnGap, totalHeight },
       ) {
         container.innerHTML = "";
         container.style.columns = "auto";
@@ -425,16 +413,10 @@
         container.style.alignItems = "flex-start";
         container.style.gap = `${columnGap}px`;
 
-        for (let i = 0; i < fragments.length; i++) {
-          const colEl = document.createElement("div");
-          colEl.style.width = `${columnWidth}px`;
-          colEl.style.height = `${totalHeight}px`;
-          colEl.style.overflow = "hidden";
-          colEl.style.flexShrink = "0";
-
-          const prevBT = i > 0 ? fragments[i - 1].breakToken : null;
-          colEl.appendChild(renderFragmentTree(fragments[i], prevBT));
-          container.appendChild(colEl);
+        const elements = flow.render();
+        for (const el of elements) {
+          el.style.flexShrink = "0";
+          container.appendChild(el);
         }
       }
 

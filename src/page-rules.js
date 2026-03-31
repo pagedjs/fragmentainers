@@ -123,6 +123,21 @@ export class PageSizeResolver {
   }
 
   /**
+   * Create a resolver by collecting @page rules from an array of CSSStyleSheets.
+   *
+   * @param {CSSStyleSheet[]} sheets - Stylesheets to scan for @page rules
+   * @param {{ inlineSize: number, blockSize: number }} [size] - Fallback size (default: US Letter)
+   * @returns {PageSizeResolver}
+   */
+  static fromStyleSheets(sheets, size) {
+    const rules = [];
+    for (const sheet of sheets) {
+      try { collectPageRules(sheet.cssRules, rules); } catch (_) {}
+    }
+    return new PageSizeResolver(rules, size);
+  }
+
+  /**
    * Resolve the constraint space for a specific page.
    *
    * @param {number} pageIndex - Zero-based page number

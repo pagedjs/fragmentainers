@@ -351,8 +351,6 @@
       }
     }
 
-    /* Off-screen measurement */
-    #measure { position: absolute; left: -99999px; top: 0; }
   </style>
 </head>
 <body>
@@ -406,12 +404,9 @@
     </div>
   </div>
 
-  <content-measure id="measure"></content-measure>
-
   <script type="module">
-    import { fetchAndParse, injectContent, waitForFonts, FragmentainerLayout } from './viewer.js';
-    import { PageSizeResolver, parsePageRulesFromCSS } from "../src/page-rules.js";
-    import "../src/dom/content-measure.js";
+    import { fetchAndParse, preprocessContent, waitForFonts, FragmentainerLayout } from "./viewer.js";
+    import { PageSizeResolver } from "../src/page-rules.js";
     import "../src/dom/fragment-container.js";
 
     const A5 = { inlineSize: 559, blockSize: 793 };
@@ -430,7 +425,6 @@
     const spreadArea = document.getElementById('spread-area');
     const gridView = document.getElementById('grid-view');
     const gridContainer = document.getElementById('grid-container');
-    const measureEl = document.getElementById('measure');
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
     const pageIndicator = document.getElementById('page-indicator');
@@ -832,20 +826,21 @@
 
       try {
         const parsed = await fetchAndParse(currentUrl);
+        const { html, sheets } = preprocessContent(parsed);
 
-        const pageRules = parsePageRulesFromCSS(parsed.cssEntries.map(({ css }) => css));
-        const resolver = new PageSizeResolver(pageRules, A5);
-
-        const firstConstraints = resolver.resolve(0, null, null);
-        const measureWidth = firstConstraints.contentArea.inlineSize;
+        const resolver = PageSizeResolver.fromStyleSheets(sheets, A5);
 
         statusEl.textContent = 'Typesetting\u2026';
-        measureEl.style.width = `${measureWidth}px`;
-        const contentRoot = injectContent(parsed, measureEl);
-        await waitForFonts(measureEl);
 
-        const layout = new FragmentainerLayout(contentRoot, { resolver });
+        const template = document.createElement("template");
+        template.innerHTML = html;
+
+        const layout = new FragmentainerLayout(template.content, {
+          styles: sheets,
+          resolver,
+        });
         flow = layout.flow();
+        await waitForFonts();
 
         totalSpreads = spreadCount(flow.fragmentainerCount);
         buildPageHeadings();

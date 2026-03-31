@@ -1,31 +1,29 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
 import "../src/dom/fragment-container.js"; // registers <fragment-container> custom element
 
 describe("FragmentainerLayout.reflow() (browser)", () => {
-  let container;
-
-  beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-  });
+  let layout;
 
   afterEach(() => {
-    container.remove();
+    layout?.destroy();
   });
 
   it("reflow(0) after height change produces different fragment count", () => {
-    container.innerHTML = `<div style="margin:0; padding:0;">
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
       <div id="target" style="height: 200px; margin: 0;"></div>
     </div>`;
-    const el = container.firstElementChild;
-    const layout = new FragmentainerLayout(el, { width: 400, height: 100 });
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
     const flow = layout.flow();
     const originalCount = flow.fragmentainerCount;
     expect(originalCount).toBeGreaterThanOrEqual(2);
 
     // Shrink the content to fit in one fragmentainer
-    document.getElementById("target").style.height = "50px";
+    // Access the source DOM via the internal measurer's content root
+    const measurer = document.querySelector("content-measure");
+    const target = measurer.contentRoot.querySelector("#target");
+    target.style.height = "50px";
 
     layout.reflow(0);
     const flow2 = layout.flow();
@@ -33,16 +31,18 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
   });
 
   it("reflow(0) after height increase produces more fragments", () => {
-    container.innerHTML = `<div style="margin:0; padding:0;">
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
       <div id="target" style="height: 100px; margin: 0;"></div>
     </div>`;
-    const el = container.firstElementChild;
-    const layout = new FragmentainerLayout(el, { width: 400, height: 100 });
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
     const flow = layout.flow();
     expect(flow.fragmentainerCount).toBe(1);
 
     // Grow the content
-    document.getElementById("target").style.height = "350px";
+    const measurer = document.querySelector("content-measure");
+    const target = measurer.contentRoot.querySelector("#target");
+    target.style.height = "350px";
 
     layout.reflow(0);
     const flow2 = layout.flow();
@@ -50,13 +50,13 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
   });
 
   it("reflow(1) preserves fragment 0 and re-layouts from index 1", () => {
-    container.innerHTML = `<div style="margin:0; padding:0;">
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 100px; margin: 0;"></div>
       <div style="height: 100px; margin: 0;"></div>
       <div style="height: 100px; margin: 0;"></div>
     </div>`;
-    const el = container.firstElementChild;
-    const layout = new FragmentainerLayout(el, { width: 400, height: 150 });
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 150 });
     const flow = layout.flow();
 
     const frag0BlockSize = flow.fragments[0].blockSize;
@@ -73,23 +73,18 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
 });
 
 describe("FragmentedFlow.reflow() (browser)", () => {
-  let container;
-
-  beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-  });
+  let layout;
 
   afterEach(() => {
-    container.remove();
+    layout?.destroy();
   });
 
   it("reflow(0) returns rendered elements", () => {
-    container.innerHTML = `<div style="margin:0; padding:0;">
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 200px; margin: 0;"></div>
     </div>`;
-    const el = container.firstElementChild;
-    const layout = new FragmentainerLayout(el, { width: 400, height: 100 });
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
     const flow = layout.flow();
     const originalCount = flow.fragmentainerCount;
 
@@ -101,16 +96,18 @@ describe("FragmentedFlow.reflow() (browser)", () => {
   });
 
   it("reflow(0) after size change updates fragments and rendered elements", () => {
-    container.innerHTML = `<div style="margin:0; padding:0;">
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
       <div id="target" style="height: 200px; margin: 0;"></div>
     </div>`;
-    const el = container.firstElementChild;
-    const layout = new FragmentainerLayout(el, { width: 400, height: 100 });
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
     const flow = layout.flow();
     expect(flow.fragmentainerCount).toBeGreaterThanOrEqual(2);
 
     // Shrink content
-    document.getElementById("target").style.height = "50px";
+    const measurer = document.querySelector("content-measure");
+    const target = measurer.contentRoot.querySelector("#target");
+    target.style.height = "50px";
 
     const result = flow.reflow(0);
     expect(flow.fragmentainerCount).toBe(1);
@@ -119,23 +116,18 @@ describe("FragmentedFlow.reflow() (browser)", () => {
 });
 
 describe("FragmentContainerElement observers (browser)", () => {
-  let container;
-
-  beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-  });
+  let layout;
 
   afterEach(() => {
-    container.remove();
+    layout?.destroy();
   });
 
   it("rendered elements have correct fragmentIndex", () => {
-    container.innerHTML = `<div style="margin:0; padding:0;">
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 200px; margin: 0;"></div>
     </div>`;
-    const el = container.firstElementChild;
-    const layout = new FragmentainerLayout(el, { width: 400, height: 100 });
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
     const flow = layout.flow();
     const result = flow.reflow(0);
 
@@ -145,15 +137,15 @@ describe("FragmentContainerElement observers (browser)", () => {
   });
 
   it("startObserving() fires fragment-change on content mutation", async () => {
-    container.innerHTML = `<div style="margin:0; padding:0;">
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 200px; margin: 0;"></div>
     </div>`;
-    const el = container.firstElementChild;
-    const layout = new FragmentainerLayout(el, { width: 400, height: 100 });
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
     const flow = layout.flow();
     const result = flow.reflow(0);
     const fragEl = result.elements[0];
-    container.appendChild(fragEl);
+    document.body.appendChild(fragEl);
 
     const received = [];
     fragEl.addEventListener("fragment-change", (e) => {
@@ -182,18 +174,19 @@ describe("FragmentContainerElement observers (browser)", () => {
 
     expect(received.length).toBe(1);
     expect(received[0].index).toBe(0);
+    fragEl.remove();
   });
 
   it("stopObserving() prevents further events", async () => {
-    container.innerHTML = `<div style="margin:0; padding:0;">
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 200px; margin: 0;"></div>
     </div>`;
-    const el = container.firstElementChild;
-    const layout = new FragmentainerLayout(el, { width: 400, height: 100 });
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
     const flow = layout.flow();
     const result = flow.reflow(0);
     const fragEl = result.elements[0];
-    container.appendChild(fragEl);
+    document.body.appendChild(fragEl);
 
     const received = [];
     fragEl.addEventListener("fragment-change", (e) => {
@@ -220,5 +213,6 @@ describe("FragmentContainerElement observers (browser)", () => {
     });
 
     expect(received.length).toBe(0);
+    fragEl.remove();
   });
 });

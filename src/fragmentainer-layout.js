@@ -5,6 +5,7 @@ import { PageSizeResolver } from "./page-rules.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
 import { FRAGMENTATION_COLUMN } from "./constants.js";
+import "./dom/content-measure.js";
 
 function buildLayoutTree(rootElement) {
   return new DOMLayoutNode(rootElement);
@@ -30,13 +31,15 @@ const MAX_ZERO_PROGRESS = 5;
  * Module Level 3 terminology throughout.
  */
 export class FragmentainerLayout {
-  #contentElement;
+  #content;
+  #styles;
   #resolver;
   #constraintSpace;
 
   // Stepper state (initialized lazily on first next() call)
   #tree = null;
   #measureElement = null;
+  #ownsMeasurer = false;
   #breakToken = null;
   #fragmentainerIndex = 0;
   #counterState = null;
@@ -45,15 +48,28 @@ export class FragmentainerLayout {
   #fragments = [];
 
   /**
-   * @param {Element} contentElement - The root content element to fragment
+   * @param {DocumentFragment|Element|object} content - Content to fragment
    * @param {object} [options]
+   * @param {CSSStyleSheet[]} [options.styles] - Stylesheets (copies document.styleSheets if omitted)
    * @param {ConstraintSpace} [options.constraintSpace] - Direct constraint space (bypasses @page rules)
    * @param {PageSizeResolver|RegionResolver} [options.resolver] - Pre-configured resolver
    * @param {number} [options.width] - Container width in CSS px (column fragmentation)
    * @param {number} [options.height] - Container height in CSS px (column fragmentation)
    */
-  constructor(contentElement, options = {}) {
-    this.#contentElement = contentElement;
+  constructor(content, options = {}) {
+    // Normalize Element → DocumentFragment (clone into fragment)
+    if (content.nodeType === 1 /* ELEMENT_NODE */) {
+      const frag = document.createDocumentFragment();
+      frag.appendChild(content.cloneNode(true));
+      this.#content = frag;
+    } else {
+      this.#content = content;
+    }
+
+    this.#styles = options.styles
+      ? (Array.isArray(options.styles) ? options.styles : [options.styles])
+      : null;
+
     if (options.constraintSpace) {
       this.#constraintSpace = options.constraintSpace;
       this.#resolver = null;
@@ -66,12 +82,11 @@ export class FragmentainerLayout {
         availableInlineSize: w,
         availableBlockSize: h,
         fragmentainerBlockSize: h,
-        fragmentationType: FRAGMENTATION_COLUMN,
+        fragmentationType: options.type || FRAGMENTATION_COLUMN,
       });
       this.#resolver = null;
-    } else {
-      this.#resolver = PageSizeResolver.fromDocument();
     }
+    // Page resolver auto-created in setup() from styles if neither set
   }
 
   /**
@@ -84,7 +99,7 @@ export class FragmentainerLayout {
    * @returns {import('./fragment.js').PhysicalFragment}
    */
   next() {
-    this.#ensureInit();
+    this.setup();
 
     // Resolve constraint space for this fragmentainer
     let constraintSpace;
@@ -190,10 +205,11 @@ export class FragmentainerLayout {
    * @param {boolean} [options.rebuild=false] - Rebuild the layout tree from source DOM
    */
   reflow(fromIndex = 0, { rebuild = false } = {}) {
-    this.#ensureInit();
     if (rebuild) {
       this.#tree = null;
-      this.#ensureInit();
+      this.setup(true);
+    } else {
+      this.setup();
     }
     const prev = fromIndex > 0 ? this.#fragments[fromIndex - 1] : null;
     this.#breakToken = prev?.breakToken ?? null;
@@ -230,25 +246,42 @@ export class FragmentainerLayout {
   }
 
   /**
-   * Initialize layout tree and measurement state on first next() call.
+   * Initialize layout tree and measurement state.
+   * Called lazily on first next() call. Can also be called explicitly
+   * to force re-initialization (e.g. after structural DOM changes).
+   *
+   * @param {boolean} [forceUpdate=false] - Force re-initialization
    */
-  #ensureInit() {
-    if (this.#tree) return;
-    const content = this.#contentElement;
+  setup(forceUpdate = false) {
+    if (this.#tree && !forceUpdate) return;
+    const content = this.#content;
 
-    // If the content is already a LayoutNode (has children array but no
-    // nodeType), use it directly. Otherwise wrap the DOM element.
-    if (content.nodeType) {
-      const element =
-        typeof DocumentFragment !== "undefined" &&
-        content instanceof DocumentFragment
-          ? content.firstElementChild
-          : content;
-      this.#tree = buildLayoutTree(element);
-      const root = element.getRootNode();
+    if (typeof DocumentFragment !== "undefined" && content instanceof DocumentFragment) {
+      // Create internal <content-measure> and inject the fragment
+      const measurer = document.createElement("content-measure");
+      document.body.appendChild(measurer);
+      const wrapper = measurer.injectFragment(content, this.#styles);
+
+      this.#tree = buildLayoutTree(wrapper);
+      this.#measureElement = measurer;
+      this.#contentStyles = measurer.getContentStyles();
+      this.#ownsMeasurer = true;
+
+      // Auto-create resolver from @page rules in styles if neither set
+      if (!this.#resolver && !this.#constraintSpace) {
+        const sheets = this.#styles || [...document.styleSheets];
+        this.#resolver = PageSizeResolver.fromStyleSheets(sheets);
+      }
+    } else if (content.nodeType) {
+      // DOM element passed directly (legacy path)
+      this.#tree = buildLayoutTree(content);
+      const root = content.getRootNode();
       this.#measureElement = root.host?.applyConstraintSpace ? root.host : null;
-      this.#contentStyles = this.#captureContentStyles(element);
+      if (root.host && typeof root.host.getContentStyles === "function") {
+        this.#contentStyles = root.host.getContentStyles();
+      }
     } else {
+      // Mock node (unit tests)
       this.#tree = content;
     }
 
@@ -256,16 +289,14 @@ export class FragmentainerLayout {
   }
 
   /**
-   * Capture content styles from the shadow host if available.
+   * Clean up the internal measurement container.
+   * Call when the layout is no longer needed.
    */
-  #captureContentStyles(element) {
-    const el = element || this.#contentElement;
-    const root = el.getRootNode();
-    const host = root.host;
-    if (host && typeof host.getContentStyles === "function") {
-      return host.getContentStyles();
+  destroy() {
+    if (this.#ownsMeasurer && this.#measureElement) {
+      this.#measureElement.remove();
+      this.#measureElement = null;
     }
-    return null;
   }
 }
 

@@ -10,6 +10,7 @@ import { buildLayoutTree } from "/src/dom/index.js";
 import { createFragments } from "/src/layout-request.js";
 import { renderFragmentTree } from "/src/compositor/render-fragments.js";
 import { PageSizeResolver } from "/src/page-rules.js";
+import "/src/dom/fragment-container.js";
 
 async function run() {
   try {
@@ -35,25 +36,17 @@ async function run() {
 // ---- Page mode ----
 
 async function runPageMode(resolver) {
-  const firstConstraints = resolver.resolve(0, null, null);
-  const measureWidth = firstConstraints.contentArea.inlineSize;
-
-  const wrapper = document.createElement("div");
-  wrapper.style.width = `${measureWidth}px`;
-
+  const frag = document.createDocumentFragment();
   while (document.body.firstChild) {
-    wrapper.appendChild(document.body.firstChild);
+    frag.appendChild(document.body.firstChild);
   }
 
   document.body.style.margin = "0";
   document.body.style.padding = "0";
   document.body.style.background = "none";
-  document.body.appendChild(wrapper);
 
-  const layout = new FragmentainerLayout(wrapper, { resolver });
+  const layout = new FragmentainerLayout(frag, { resolver });
   const flow = layout.flow();
-
-  document.body.removeChild(wrapper);
 
   // Render each page sized to the full page box, with @page margins
   // as padding (matching the reference HTML pattern).
