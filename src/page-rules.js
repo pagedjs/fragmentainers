@@ -116,7 +116,7 @@ export class PageSizeResolver {
     const rules = [];
     if (typeof document !== "undefined" && document.styleSheets) {
       for (const sheet of document.styleSheets) {
-        try { collectPageRules(sheet.cssRules, rules); } catch (_) {}
+        try { collectPageRules(sheet.cssRules, rules); } catch { /* cross-origin sheet */ }
       }
     }
     return new PageSizeResolver(rules, size);
@@ -132,7 +132,7 @@ export class PageSizeResolver {
   static fromStyleSheets(sheets, size) {
     const rules = [];
     for (const sheet of sheets) {
-      try { collectPageRules(sheet.cssRules, rules); } catch (_) {}
+      try { collectPageRules(sheet.cssRules, rules); } catch { /* cross-origin sheet */ }
     }
     return new PageSizeResolver(rules, size);
   }
@@ -277,7 +277,7 @@ export class PageSizeResolver {
   }
 
   /** Resolve margin declarations to pixel values. */
-  resolveMargins(marginDecl, pageSize) {
+  resolveMargins(marginDecl, _pageSize) {
     const defaults = { top: 0, right: 0, bottom: 0, left: 0 };
     if (!marginDecl) return defaults;
     return {

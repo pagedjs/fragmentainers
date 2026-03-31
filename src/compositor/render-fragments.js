@@ -291,7 +291,7 @@ export function applySliceDecorations(el, inputBreakToken, fragment) {
  * @param {Element} container - DOM element to append content into
  * @param {boolean} [collapseWS=false] - collapse whitespace runs
  */
-export function buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS = false, isHyphenated = false, sourceRefs) {
+export function buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS = false, _isHyphenated = false, sourceRefs) {
   let current = container;
   const stack = [];
   let lastTextNode = null;

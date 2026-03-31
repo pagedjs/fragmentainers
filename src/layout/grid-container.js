@@ -39,9 +39,6 @@ export function* layoutGridContainer(node, constraintSpace, breakToken) {
 
   for (let rowIdx = startRow; rowIdx < gridRows.length; rowIdx++) {
     const rowItems = gridRows[rowIdx];
-    const remainingSpace = constraintSpace.fragmentationType !== FRAGMENTATION_NONE
-      ? constraintSpace.fragmentainerBlockSize - constraintSpace.blockOffsetInFragmentainer - blockOffset
-      : Infinity;
 
     // Lay out this grid row as parallel flows (table-row pattern)
     const rowResult = yield* layoutGridRow(

@@ -20,13 +20,30 @@ export default [
         DOMParser: "readonly",
         URL: "readonly",
         performance: "readonly",
+        CSSPageRule: "readonly",
+        CustomEvent: "readonly",
+        ResizeObserver: "readonly",
+        MutationObserver: "readonly",
+        queueMicrotask: "readonly",
         // Node.js test globals
         console: "readonly",
       },
     },
     rules: {
       quotes: ["error", "double", { avoidEscape: true }],
-      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "no-unused-vars": ["warn", {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        destructuredArrayIgnorePattern: "^_",
+      }],
+      "no-underscore-dangle": ["error", {
+        enforceInClassFields: true,
+        enforceInMethodNames: true,
+        allowAfterThis: false,
+        allowFunctionParams: true,
+        allowInArrayDestructuring: true,
+        allowInObjectDestructuring: true,
+      }],
     },
   },
   {

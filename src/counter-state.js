@@ -45,9 +45,10 @@ export function parseCounterDirective(value) {
  * same-name counter scopes can be added later by upgrading to a scope stack.
  */
 export class CounterState {
+  /** @type {Map<string, number>} */
+  #counters = new Map();
+
   constructor() {
-    /** @type {Map<string, number>} */
-    this._counters = new Map();
   }
 
   /**
@@ -56,7 +57,7 @@ export class CounterState {
    */
   applyReset(entries) {
     for (const { name, value } of entries) {
-      this._counters.set(name, value);
+      this.#counters.set(name, value);
     }
   }
 
@@ -67,8 +68,8 @@ export class CounterState {
    */
   applyIncrement(entries) {
     for (const { name, value } of entries) {
-      const current = this._counters.get(name) || 0;
-      this._counters.set(name, current + value);
+      const current = this.#counters.get(name) || 0;
+      this.#counters.set(name, current + value);
     }
   }
 
@@ -79,7 +80,7 @@ export class CounterState {
    */
   snapshot() {
     const result = {};
-    for (const [name, value] of this._counters) {
+    for (const [name, value] of this.#counters) {
       result[name] = value;
     }
     return Object.freeze(result);
@@ -91,10 +92,10 @@ export class CounterState {
    * @param {Object<string, number>|null} snapshot
    */
   restore(snapshot) {
-    this._counters.clear();
+    this.#counters.clear();
     if (snapshot) {
       for (const [name, value] of Object.entries(snapshot)) {
-        this._counters.set(name, value);
+        this.#counters.set(name, value);
       }
     }
   }
@@ -103,7 +104,7 @@ export class CounterState {
    * @returns {boolean} True if no counters have been tracked.
    */
   isEmpty() {
-    return this._counters.size === 0;
+    return this.#counters.size === 0;
   }
 }
 

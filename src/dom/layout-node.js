@@ -1,5 +1,5 @@
 import { collectInlineItems, collectInlineItemsFromNodes } from "./collect-inlines.js";
-import { createRangeMeasurer, measureElementBlockSize, getLineHeight, parseLength } from "./measure.js";
+import { createRangeMeasurer, measureElementBlockSize, getLineHeight } from "./measure.js";
 import { computedStyleMap } from "./computed-style-map.js";
 import { BOX_DECORATION_SLICE } from "../constants.js";
 
@@ -21,14 +21,14 @@ let sharedRangeMeasurer = null;
  * Does NOT mutate the DOM — read-only measurement only.
  */
 export class DOMLayoutNode {
+  #style = null;
+  #styleMap = null;
+  #children = null;
+  #inlineItemsData = null;
+  #isInlineFormattingContext = null;
+
   constructor(element) {
     this.element = element;
-    this._style = null;
-    this._styleMap = null;
-    this._children = null;
-    this._inlineItemsData = null;
-    this._isInlineFormattingContext = null;
-    this._measurer = null;
   }
 
   get debugName() {
@@ -40,18 +40,18 @@ export class DOMLayoutNode {
     return `${tag}${id}${cls}`;
   }
 
-  _getStyle() {
-    if (!this._style) {
-      this._style = getComputedStyle(this.element);
+  #getStyle() {
+    if (!this.#style) {
+      this.#style = getComputedStyle(this.element);
     }
-    return this._style;
+    return this.#style;
   }
 
-  _getStyleMap() {
-    if (!this._styleMap) {
-      this._styleMap = computedStyleMap(this.element);
+  #getStyleMap() {
+    if (!this.#styleMap) {
+      this.#styleMap = computedStyleMap(this.element);
     }
-    return this._styleMap;
+    return this.#styleMap;
   }
 
   // --- Layout classification ---
@@ -61,63 +61,63 @@ export class DOMLayoutNode {
   }
 
   get isScrollable() {
-    const style = this._getStyle();
+    const style = this.#getStyle();
     return style.overflowY === "scroll" || style.overflowY === "auto" ||
            style.overflowX === "scroll" || style.overflowX === "auto";
   }
 
   get hasOverflowHidden() {
-    return this._getStyle().overflow === "hidden";
+    return this.#getStyle().overflow === "hidden";
   }
 
   get hasExplicitBlockSize() {
-    const h = this._getStyle().height;
+    const h = this.#getStyle().height;
     return h !== "auto" && h !== "" && h !== "0px";
   }
 
   get isTable() {
-    const d = this._getStyle().display;
+    const d = this.#getStyle().display;
     return d === "table" || d === "inline-table";
   }
 
   get isTableRow() {
-    return this._getStyle().display === "table-row";
+    return this.#getStyle().display === "table-row";
   }
 
   get isFlexContainer() {
-    const d = this._getStyle().display;
+    const d = this.#getStyle().display;
     return d === "flex" || d === "inline-flex";
   }
 
   get isGridContainer() {
-    const d = this._getStyle().display;
+    const d = this.#getStyle().display;
     return d === "grid" || d === "inline-grid";
   }
 
   // --- Flex/Grid properties ---
 
   get flexDirection() {
-    return this._getStyle().flexDirection || "row";
+    return this.#getStyle().flexDirection || "row";
   }
 
   get flexWrap() {
-    return this._getStyle().flexWrap || "nowrap";
+    return this.#getStyle().flexWrap || "nowrap";
   }
 
   get gridRowStart() {
-    const v = this._getStyleMap().get("grid-row-start");
+    const v = this.#getStyleMap().get("grid-row-start");
     return (v && v.unit) ? v.value : null;
   }
 
   get gridRowEnd() {
-    const v = this._getStyleMap().get("grid-row-end");
+    const v = this.#getStyleMap().get("grid-row-end");
     return (v && v.unit) ? v.value : null;
   }
 
   // --- Multicol properties ---
 
   get isMulticolContainer() {
-    const map = this._getStyleMap();
+    const map = this.#getStyleMap();
     const cc = map.get("column-count");
     const cw = map.get("column-width");
     return (cc && cc.unit && cc.value > 0) ||
@@ -125,103 +125,103 @@ export class DOMLayoutNode {
   }
 
   get columnCount() {
-    const v = this._getStyleMap().get("column-count");
+    const v = this.#getStyleMap().get("column-count");
     return (v && v.unit) ? v.value : null;
   }
 
   get columnWidth() {
-    const v = this._getStyleMap().get("column-width");
+    const v = this.#getStyleMap().get("column-width");
     return (v && v.unit) ? v.value : null;
   }
 
   get columnGap() {
-    const v = this._getStyleMap().get("column-gap");
+    const v = this.#getStyleMap().get("column-gap");
     return (v && v.unit) ? v.value : null;
   }
 
   get columnFill() {
-    return this._getStyle().columnFill || "balance";
+    return this.#getStyle().columnFill || "balance";
   }
 
   // --- Box model (margins, padding, border) ---
 
   get marginBlockStart() {
-    const v = this._getStyleMap().get("margin-top");
+    const v = this.#getStyleMap().get("margin-top");
     return (v && v.unit) ? v.value : 0;
   }
 
   get marginBlockEnd() {
-    const v = this._getStyleMap().get("margin-bottom");
+    const v = this.#getStyleMap().get("margin-bottom");
     return (v && v.unit) ? v.value : 0;
   }
 
   get paddingBlockStart() {
-    const v = this._getStyleMap().get("padding-top");
+    const v = this.#getStyleMap().get("padding-top");
     return (v && v.unit) ? v.value : 0;
   }
 
   get paddingBlockEnd() {
-    const v = this._getStyleMap().get("padding-bottom");
+    const v = this.#getStyleMap().get("padding-bottom");
     return (v && v.unit) ? v.value : 0;
   }
 
   get borderBlockStart() {
-    const v = this._getStyleMap().get("border-top-width");
+    const v = this.#getStyleMap().get("border-top-width");
     return (v && v.unit) ? v.value : 0;
   }
 
   get borderBlockEnd() {
-    const v = this._getStyleMap().get("border-bottom-width");
+    const v = this.#getStyleMap().get("border-bottom-width");
     return (v && v.unit) ? v.value : 0;
   }
 
   // --- Fragmentation CSS ---
 
   get page() {
-    const val = this._getStyle().page;
+    const val = this.#getStyle().page;
     return (val && val !== "auto") ? val : null;
   }
 
   get breakBefore() {
-    return this._getStyle().breakBefore || "auto";
+    return this.#getStyle().breakBefore || "auto";
   }
 
   get breakAfter() {
-    return this._getStyle().breakAfter || "auto";
+    return this.#getStyle().breakAfter || "auto";
   }
 
   get breakInside() {
-    return this._getStyle().breakInside || "auto";
+    return this.#getStyle().breakInside || "auto";
   }
 
   get boxDecorationBreak() {
-    return this._getStyle().boxDecorationBreak || BOX_DECORATION_SLICE;
+    return this.#getStyle().boxDecorationBreak || BOX_DECORATION_SLICE;
   }
 
   get orphans() {
-    const v = this._getStyleMap().get("orphans");
+    const v = this.#getStyleMap().get("orphans");
     return (v && v.unit) ? v.value : 2;
   }
 
   get widows() {
-    const v = this._getStyleMap().get("widows");
+    const v = this.#getStyleMap().get("widows");
     return (v && v.unit) ? v.value : 2;
   }
 
   // --- Counters ---
 
-  get counterReset() { return this._getStyle().counterReset || "none"; }
-  get counterIncrement() { return this._getStyle().counterIncrement || "none"; }
+  get counterReset() { return this.#getStyle().counterReset || "none"; }
+  get counterIncrement() { return this.#getStyle().counterIncrement || "none"; }
 
   // --- Children ---
 
   get children() {
-    if (this._children !== null) return this._children;
+    if (this.#children !== null) return this.#children;
 
     if (this.isInlineFormattingContext) {
       // Inline FC nodes are leaves from the block layout perspective
-      this._children = [];
-      return this._children;
+      this.#children = [];
+      return this.#children;
     }
 
     // Check for mixed content (inline + block children)
@@ -236,7 +236,7 @@ export class DOMLayoutNode {
       if (hasInline && hasBlock) break;
     }
 
-    this._children = [];
+    this.#children = [];
 
     if (hasInline && hasBlock) {
       // Mixed content: wrap consecutive inline runs in anonymous blocks
@@ -244,16 +244,16 @@ export class DOMLayoutNode {
       for (const child of this.element.childNodes) {
         if (isBlockLevelNode(child)) {
           if (inlineGroup.length > 0) {
-            this._children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
+            this.#children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
             inlineGroup = [];
           }
-          this._children.push(new DOMLayoutNode(child));
+          this.#children.push(new DOMLayoutNode(child));
         } else if (isSignificantInlineNode(child)) {
           inlineGroup.push(child);
         }
       }
       if (inlineGroup.length > 0) {
-        this._children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
+        this.#children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
       }
     } else {
       // Pure block children
@@ -262,11 +262,11 @@ export class DOMLayoutNode {
         if (SKIP_TAGS.has(tag)) continue;
         const display = getComputedStyle(child).display;
         if (display === "none" || SKIP_DISPLAYS.has(display)) continue;
-        this._children.push(new DOMLayoutNode(child));
+        this.#children.push(new DOMLayoutNode(child));
       }
     }
 
-    return this._children;
+    return this.#children;
   }
 
   // --- Block size ---
@@ -275,12 +275,12 @@ export class DOMLayoutNode {
     return measureElementBlockSize(this.element);
   }
 
-  computedBlockSize(availableInlineSize) {
+  computedBlockSize(_availableInlineSize) {
     if (this.isReplacedElement) {
       return measureElementBlockSize(this.element);
     }
 
-    const map = this._getStyleMap();
+    const map = this.#getStyleMap();
     const h = map.get("height");
     if (h && h.unit) {
       // Resolved length — use directly
@@ -294,12 +294,12 @@ export class DOMLayoutNode {
   // --- Inline formatting context ---
 
   get isInlineFormattingContext() {
-    if (this._isInlineFormattingContext !== null) return this._isInlineFormattingContext;
+    if (this.#isInlineFormattingContext !== null) return this.#isInlineFormattingContext;
 
     // An element is an inline FC if it directly contains text nodes
     // or inline-level elements (and is not replaced/table/etc.)
     if (this.isReplacedElement || this.isTable || this.isTableRow) {
-      this._isInlineFormattingContext = false;
+      this.#isInlineFormattingContext = false;
       return false;
     }
 
@@ -331,15 +331,15 @@ export class DOMLayoutNode {
 
     // Mixed: if there's inline content, treat as inline FC
     // (real implementation would wrap anonymous blocks)
-    this._isInlineFormattingContext = hasInlineContent && !hasBlockContent;
-    return this._isInlineFormattingContext;
+    this.#isInlineFormattingContext = hasInlineContent && !hasBlockContent;
+    return this.#isInlineFormattingContext;
   }
 
   get inlineItemsData() {
-    if (this._inlineItemsData !== null) return this._inlineItemsData;
+    if (this.#inlineItemsData !== null) return this.#inlineItemsData;
     if (!this.isInlineFormattingContext) return null;
-    this._inlineItemsData = collectInlineItems(this.element);
-    return this._inlineItemsData;
+    this.#inlineItemsData = collectInlineItems(this.element);
+    return this.#inlineItemsData;
   }
 
   get lineHeight() {
@@ -404,10 +404,13 @@ function isSignificantInlineNode(node) {
  * with neutral defaults.
  */
 export class AnonymousBlockNode {
+  #parentElement;
+  #childNodes;
+  #inlineItemsData = null;
+
   constructor(parentElement, childNodes) {
-    this._parentElement = parentElement;
-    this._childNodes = childNodes;
-    this._inlineItemsData = null;
+    this.#parentElement = parentElement;
+    this.#childNodes = childNodes;
   }
 
   get debugName() { return "[anon]"; }
@@ -416,13 +419,13 @@ export class AnonymousBlockNode {
   get children() { return []; }
 
   get inlineItemsData() {
-    if (!this._inlineItemsData) {
-      this._inlineItemsData = collectInlineItemsFromNodes(this._childNodes);
+    if (!this.#inlineItemsData) {
+      this.#inlineItemsData = collectInlineItemsFromNodes(this.#childNodes);
     }
-    return this._inlineItemsData;
+    return this.#inlineItemsData;
   }
 
-  get lineHeight() { return getLineHeight(this._parentElement); }
+  get lineHeight() { return getLineHeight(this.#parentElement); }
 
   get measurer() {
     if (!sharedRangeMeasurer) {

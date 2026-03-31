@@ -94,14 +94,12 @@ export function resolveNamedPageForBreakToken(rootNode, breakToken) {
 
   // Walk break token children to find the resumption point
   let current = breakToken;
-  let currentNode = rootNode;
   while (current.childBreakTokens && current.childBreakTokens.length > 0) {
     const lastChild = current.childBreakTokens[current.childBreakTokens.length - 1];
     if (lastChild.isBreakBefore) {
       // This child will be the first thing on the next page
       return getNamedPage(lastChild.node);
     }
-    currentNode = lastChild.node;
     current = lastChild;
   }
 

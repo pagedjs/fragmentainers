@@ -50,9 +50,6 @@ export function* layoutFlexContainer(node, constraintSpace, breakToken) {
 
   for (let lineIdx = startLine; lineIdx < flexLines.length; lineIdx++) {
     const lineItems = flexLines[lineIdx];
-    const remainingSpace = constraintSpace.fragmentationType !== FRAGMENTATION_NONE
-      ? constraintSpace.fragmentainerBlockSize - constraintSpace.blockOffsetInFragmentainer - blockOffset
-      : Infinity;
 
     // Lay out this flex line as parallel flows (table-row pattern)
     const lineResult = yield* layoutFlexLine(
