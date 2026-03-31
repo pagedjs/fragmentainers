@@ -5,56 +5,50 @@
  * selectors don't match — the shadow root uses a `.frag-body` wrapper
  * instead of <body> and `:host` instead of <html>.
  *
- * This module builds an override CSSStyleSheet with rewritten selectors,
- * following the same non-mutating pattern as buildNthOverrideSheet in
- * nth-selectors.js. The override sheet is appended after the original
- * sheets so rewritten rules win by source order.
+ * This module builds an override CSSStyleSheet by testing each rule's
+ * selector against the document's body and html elements via
+ * Element.matches(). Rules that target body get duplicated as
+ * `.frag-body` rules; rules that target html become `:host` rules.
+ * The override sheet is appended after the original sheets so
+ * rewritten rules win by source order.
+ *
+ * Follows the same non-mutating override pattern as
+ * buildNthOverrideSheet in nth-selectors.js.
  */
 
 /**
- * Rewrite `body` and `html` selectors in a selectorText string.
- *
- * - `html body` → `.frag-body`
- * - standalone `html` → `:host`
- * - `body` → `.frag-body`
- *
- * @param {string} selectorText
- * @returns {string} rewritten selector text
- */
-export function rewriteBodySelectorText(selectorText) {
-  // Collapse `html body` to a single `.frag-body` match first
-  let result = selectorText.replace(/\bhtml\s+body\b/g, ".frag-body");
-  // Standalone `html` → `:host` (at start of selector or after comma)
-  result = result.replace(
-    /(?:^|(?<=,\s*))\bhtml\b(?=[\s,.#:[>+~]|$)/gm,
-    ":host",
-  );
-  // `body` → `.frag-body` (word-boundary guards prevent matching e.g. `tbody`)
-  result = result.replace(/\bbody\b(?=[\s,.#:[>+~]|$)/g, ".frag-body");
-  return result;
-}
-
-/**
- * Recursively collect override rules for body/html selectors
+ * Recursively collect override rules for body/html-targeting selectors
  * into a target CSSStyleSheet without mutating the source rules.
  *
+ * Uses Element.matches() to test whether each rule's selector targets
+ * the body or html element, avoiding fragile regex-based rewriting.
+ *
  * @param {CSSRuleList} ruleList — source rules to scan
- * @param {CSSStyleSheet|CSSGroupingRule} target — where to insert overrides
+ * @param {CSSStyleSheet} target — where to insert overrides
+ * @param {Element} bodyEl — the document body element to test against
+ * @param {Element} htmlEl — the document html element to test against
  */
-function collectBodyOverrides(ruleList, target) {
+function collectBodyOverrides(ruleList, target, bodyEl, htmlEl) {
   for (const rule of ruleList) {
     if (rule.selectorText !== undefined) {
-      const rewritten = rewriteBodySelectorText(rule.selectorText);
-      if (rewritten !== rule.selectorText) {
+      const matchesBody = safeMatches(bodyEl, rule.selectorText);
+      const matchesHtml = safeMatches(htmlEl, rule.selectorText);
+      if (matchesBody) {
         target.insertRule(
-          `${rewritten} { ${rule.style.cssText} }`,
+          `.frag-body { ${rule.style.cssText} }`,
+          target.cssRules.length,
+        );
+      }
+      if (matchesHtml && !matchesBody) {
+        target.insertRule(
+          `:host { ${rule.style.cssText} }`,
           target.cssRules.length,
         );
       }
     } else if (rule.cssRules) {
       // Grouping rule — reconstruct wrapper, recurse, keep only if non-empty
       const wrapper = new CSSStyleSheet();
-      collectBodyOverrides(rule.cssRules, wrapper);
+      collectBodyOverrides(rule.cssRules, wrapper, bodyEl, htmlEl);
       if (wrapper.cssRules.length > 0) {
         let innerCSS = "";
         for (const r of wrapper.cssRules) {
@@ -70,17 +64,35 @@ function collectBodyOverrides(ruleList, target) {
 }
 
 /**
+ * Test Element.matches() without throwing on invalid or
+ * unsupported selectors (e.g. pseudo-elements).
+ *
+ * @param {Element} el
+ * @param {string} selector
+ * @returns {boolean}
+ */
+function safeMatches(el, selector) {
+  try {
+    return el.matches(selector);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Build an override CSSStyleSheet containing `.frag-body` / `:host`
- * equivalents of `body` / `html` selectors found in the input sheets.
+ * equivalents of rules that target the document's body / html elements.
  * The input sheets are NOT mutated.
  *
  * @param {CSSStyleSheet[]} sheets — source sheets to scan
+ * @param {Element} bodyEl — the document body element
+ * @param {Element} htmlEl — the document html element
  * @returns {{ sheet: CSSStyleSheet }}
  */
-export function buildBodyOverrideSheet(sheets) {
+export function buildBodyOverrideSheet(sheets, bodyEl, htmlEl) {
   const overrideSheet = new CSSStyleSheet();
   for (const sheet of sheets) {
-    collectBodyOverrides(sheet.cssRules, overrideSheet);
+    collectBodyOverrides(sheet.cssRules, overrideSheet, bodyEl, htmlEl);
   }
   return { sheet: overrideSheet };
 }

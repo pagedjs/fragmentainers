@@ -72,7 +72,11 @@ export class ContentMeasureElement extends HTMLElement {
     // Build override sheets for body/html selectors and nth pseudo-classes.
     // Original sheets are NOT mutated — overrides are appended after them
     // in adoptedStyleSheets so rewritten rules win by source order.
-    const body = buildBodyOverrideSheet(styles);
+    const body = buildBodyOverrideSheet(
+      styles,
+      document.body,
+      document.documentElement,
+    );
     this.#bodyOverrideSheet = body.sheet;
     this.#shadow.adoptedStyleSheets =
       this.#bodyOverrideSheet.cssRules.length > 0
