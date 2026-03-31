@@ -1,5 +1,6 @@
 import { findChildBreakToken } from "../helpers.js";
 import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC, BREAK_TOKEN_INLINE, BOX_DECORATION_CLONE } from "../constants.js";
+import { stampNthAttributes } from "../nth-selectors.js";
 
 /**
  * Check if a fragment has block-level child fragments (not line fragments).
@@ -15,14 +16,15 @@ export function hasBlockChildFragments(fragment) {
  *
  * @param {import("../fragment.js").PhysicalFragment} fragment
  * @param {import("../tokens.js").BreakToken|null} inputBreakToken - break token from the previous fragmentainer
+ * @param {Map} [nthFormulas] - formula descriptors from rewriteNthSelectors
  * @returns {DocumentFragment}
  */
-export function renderFragmentTree(fragment, inputBreakToken) {
+export function renderFragmentTree(fragment, inputBreakToken, nthFormulas) {
   const docFragment = document.createDocumentFragment();
   for (const child of fragment.childFragments) {
     if (!child.node) continue;
     const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-    renderFragment(child, childInputBT, docFragment);
+    renderFragment(child, childInputBT, docFragment, nthFormulas);
   }
   return docFragment;
 }
@@ -31,18 +33,19 @@ export function renderFragmentTree(fragment, inputBreakToken) {
  * Render a single fragment into the parent element.
  * Routes to the appropriate renderer based on node type.
  */
-export function renderFragment(fragment, inputBreakToken, parentEl) {
+export function renderFragment(fragment, inputBreakToken, parentEl, nthFormulas) {
   if (!fragment.node) return;
 
   const node = fragment.node;
 
   if (fragment.multicolData) {
-    renderMulticolFragment(fragment, inputBreakToken, parentEl);
+    renderMulticolFragment(fragment, inputBreakToken, parentEl, nthFormulas);
   } else if (node.isInlineFormattingContext) {
-    renderInlineFragment(fragment, inputBreakToken, parentEl);
+    renderInlineFragment(fragment, inputBreakToken, parentEl, nthFormulas);
   } else if (hasBlockChildFragments(fragment)) {
     const el = node.element.cloneNode(false);
     applySplitAttributes(el, inputBreakToken, fragment);
+    if (nthFormulas) stampNthAttributes(el, node, nthFormulas);
     if (inputBreakToken && el.tagName === "OL") {
       applyListContinuation(el, node, inputBreakToken);
     }
@@ -52,7 +55,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
     for (const child of fragment.childFragments) {
       if (!child.node) continue;
       const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-      renderFragment(child, childInputBT, el);
+      renderFragment(child, childInputBT, el, nthFormulas);
     }
     // Skip empty container shells — all rendered children were themselves
     // empty and skipped (e.g. an <ol> whose only <li> had no visible text).
@@ -68,6 +71,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
   } else {
     const el = node.element.cloneNode(true);
     applySplitAttributes(el, inputBreakToken, fragment);
+    if (nthFormulas) stampNthAttributes(el, node, nthFormulas);
     if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
       applySliceDecorations(el, inputBreakToken, fragment);
     }
@@ -95,7 +99,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl) {
  * Uses inlineItemsData + break token offsets to reconstruct
  * only the visible portion of the content.
  */
-function renderInlineFragment(fragment, inputBreakToken, parentEl) {
+function renderInlineFragment(fragment, inputBreakToken, parentEl, nthFormulas) {
   const node = fragment.node;
   const data = node.inlineItemsData;
   const isAnonymous = !node.element;
@@ -130,6 +134,7 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl) {
   } else {
     const el = node.element.cloneNode(false);
     applySplitAttributes(el, inputBreakToken, fragment);
+    if (nthFormulas) stampNthAttributes(el, node, nthFormulas);
     buildInlineContent(data.items, data.textContent, startOffset, endOffset, el, collapseWS, isHyphenated);
     parentEl.appendChild(el);
   }
@@ -140,7 +145,7 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl) {
  * Clones the element, disables native columns, renders each column
  * child as a flex item with correct width and gap.
  */
-function renderMulticolFragment(fragment, inputBreakToken, parentEl) {
+function renderMulticolFragment(fragment, inputBreakToken, parentEl, nthFormulas) {
   const node = fragment.node;
   const { columnWidth, columnGap } = fragment.multicolData;
 
@@ -176,7 +181,7 @@ function renderMulticolFragment(fragment, inputBreakToken, parentEl) {
     for (const child of colFragment.childFragments) {
       if (!child.node) continue;
       const childInputBT = findChildBreakToken(colInputBT, child.node);
-      renderFragment(child, childInputBT, colEl);
+      renderFragment(child, childInputBT, colEl, nthFormulas);
     }
 
     el.appendChild(colEl);

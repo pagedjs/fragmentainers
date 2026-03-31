@@ -8,6 +8,7 @@
 
 import { OVERRIDES } from "../compositor/overrides.js";
 import { resolveMediaForPrintRules } from "./content-measure.js";
+import { rewriteNthSelectors } from "../nth-selectors.js";
 
 const CONTAINER_HOST_STYLES = `
   :host {
@@ -112,6 +113,7 @@ export class FragmentContainerElement extends HTMLElement {
    */
   setupForRendering(contentStyles, counterSnapshot = null, forPrint = false) {
     this._shadow.innerHTML = "";
+    this._nthFormulas = null;
 
     // Host styles
     const hostStyle = document.createElement("style");
@@ -130,9 +132,10 @@ export class FragmentContainerElement extends HTMLElement {
         contentStyle.textContent = contentStyles.cssText;
         this._shadow.appendChild(contentStyle);
       }
+      this._nthFormulas = contentStyles.nthFormulas || null;
     } else {
       // Copy stylesheets from the current document
-      copyDocumentStyles(this._shadow, forPrint);
+      this._nthFormulas = copyDocumentStyles(this._shadow, forPrint);
     }
 
     // Seed counter values from the previous fragmentainer's snapshot.
@@ -163,6 +166,15 @@ export class FragmentContainerElement extends HTMLElement {
   get contentRoot() {
     return this._wrapper;
   }
+
+  /**
+   * Nth-selector formula descriptors extracted during stylesheet rewriting.
+   * Pass to renderFragmentTree() so the compositor can stamp matching attributes.
+   * @returns {Map|null}
+   */
+  get nthFormulas() {
+    return this._nthFormulas;
+  }
 }
 
 customElements.define("fragment-container", FragmentContainerElement);
@@ -180,6 +192,7 @@ customElements.define("fragment-container", FragmentContainerElement);
  */
 function copyDocumentStyles(shadowRoot, forPrint = false) {
   const sheets = [];
+  const nthFormulas = new Map();
   for (const sheet of document.styleSheets) {
     try {
       const copy = new CSSStyleSheet();
@@ -191,13 +204,15 @@ function copyDocumentStyles(shadowRoot, forPrint = false) {
           rules += rewriteBodySelectors(rule.cssText) + "\n";
         }
       }
-      copy.replaceSync(rules);
+      const nth = rewriteNthSelectors(rules, nthFormulas);
+      copy.replaceSync(nth.cssText);
       sheets.push(copy);
     } catch (_) {
       // Cross-origin stylesheet — cssRules access throws SecurityError
     }
   }
   shadowRoot.adoptedStyleSheets = [...sheets, OVERRIDES];
+  return nthFormulas;
 }
 
 /**

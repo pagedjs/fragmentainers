@@ -329,7 +329,7 @@ export class FragmentedFlow {
       counterSnapshot,
       this.#forPrint,
     );
-    wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken));
+    wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, el.nthFormulas));
     return el;
   }
 

@@ -40,6 +40,6 @@ export async function buildFragmentainerElement(fragmentainerIndex, fragments, f
     ? fragments[fragmentainerIndex - 1].counterState
     : null;
   const wrapper = fragEl.setupForRendering(contentStyles, counterSnapshot);
-  wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken));
+  wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, fragEl.nthFormulas));
   return fragEl;
 }

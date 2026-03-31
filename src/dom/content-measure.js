@@ -6,6 +6,8 @@
  * reset inherited CSS properties to browser defaults.
  */
 
+import { rewriteNthSelectors } from "../nth-selectors.js";
+
 const MEASURE_HOST_STYLES = `
   :host {
     all: initial;
@@ -20,6 +22,7 @@ export class ContentMeasureElement extends HTMLElement {
     this._shadow = this.attachShadow({ mode: "open" });
     this._wrapper = null;
     this._contentCSSText = "";
+    this._nthFormulas = new Map();
     this._currentInlineSize = undefined;
     this._refMap = new Map();
     this._nextRefId = 0;
@@ -75,9 +78,14 @@ export class ContentMeasureElement extends HTMLElement {
     hostStyle.textContent = MEASURE_HOST_STYLES;
     this._shadow.appendChild(hostStyle);
 
-    this._contentCSSText = cssText;
+    // Rewrite nth-selectors for rendering containers. The measurement
+    // container keeps the original CSS so structural pseudo-classes still
+    // match the source DOM tree during layout measurement.
+    const nth = rewriteNthSelectors(cssText);
+    this._nthFormulas = nth.formulas;
+    this._contentCSSText = nth.cssText;
     const contentStyle = document.createElement("style");
-    contentStyle.textContent = cssText;
+    contentStyle.textContent = cssText; // original CSS for measurement
     this._shadow.appendChild(contentStyle);
 
     // Create wrapper div that content CSS targets via .frag-body
@@ -114,6 +122,7 @@ export class ContentMeasureElement extends HTMLElement {
     return {
       sheets: [...this._shadow.adoptedStyleSheets],
       cssText: this._contentCSSText,
+      nthFormulas: this._nthFormulas,
     };
   }
 
