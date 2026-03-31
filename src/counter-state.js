@@ -86,6 +86,20 @@ export class CounterState {
   }
 
   /**
+   * Restore counter state from a snapshot (from PhysicalFragment.counterState).
+   * Clears existing state and populates from the snapshot.
+   * @param {Object<string, number>|null} snapshot
+   */
+  restore(snapshot) {
+    this._counters.clear();
+    if (snapshot) {
+      for (const [name, value] of Object.entries(snapshot)) {
+        this._counters.set(name, value);
+      }
+    }
+  }
+
+  /**
    * @returns {boolean} True if no counters have been tracked.
    */
   isEmpty() {

@@ -124,6 +124,33 @@ describe("CounterState", () => {
     state.applyIncrement([{ name: "p", value: 1 }]);
     expect(snap.p).toBe(0);
   });
+
+  it("restore() populates counters from a snapshot", () => {
+    const state = new CounterState();
+    state.restore({ p: 5, s: 2 });
+    expect(state.snapshot()).toEqual({ p: 5, s: 2 });
+  });
+
+  it("restore() clears existing state", () => {
+    const state = new CounterState();
+    state.applyReset([{ name: "old", value: 99 }]);
+    state.restore({ p: 1 });
+    expect(state.snapshot()).toEqual({ p: 1 });
+  });
+
+  it("restore(null) clears all counters", () => {
+    const state = new CounterState();
+    state.applyReset([{ name: "p", value: 5 }]);
+    state.restore(null);
+    expect(state.isEmpty()).toBe(true);
+  });
+
+  it("accumulates after restore", () => {
+    const state = new CounterState();
+    state.restore({ p: 3 });
+    state.applyIncrement([{ name: "p", value: 1 }]);
+    expect(state.snapshot()).toEqual({ p: 4 });
+  });
 });
 
 // ---------------------------------------------------------------------------

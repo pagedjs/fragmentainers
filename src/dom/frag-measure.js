@@ -146,6 +146,62 @@ class FragmentContainerElement extends HTMLElement {
     super();
     this._shadow = this.attachShadow({ mode: "open" });
     this._wrapper = null;
+    this._fragmentIndex = -1;
+    this._resizeObserver = null;
+    this._mutationObserver = null;
+    this._notifyPending = false;
+  }
+
+  get fragmentIndex() { return this._fragmentIndex; }
+  set fragmentIndex(idx) { this._fragmentIndex = idx; }
+
+  /**
+   * Coalesce multiple observer fires into one fragment-change event.
+   * Uses queueMicrotask so a mutation that also causes a resize
+   * dispatches only once.
+   */
+  _scheduleNotify() {
+    if (this._notifyPending) return;
+    this._notifyPending = true;
+    queueMicrotask(() => {
+      this._notifyPending = false;
+      this.dispatchEvent(new CustomEvent("fragment-change", {
+        bubbles: true,
+        detail: { index: this._fragmentIndex },
+      }));
+    });
+  }
+
+  /**
+   * Attach ResizeObserver and MutationObserver on the content wrapper.
+   * Deferred via requestAnimationFrame to skip the initial
+   * ResizeObserver notification.
+   */
+  startObserving() {
+    if (this._resizeObserver) return;
+    requestAnimationFrame(() => {
+      this._resizeObserver = new ResizeObserver(() => this._scheduleNotify());
+      this._resizeObserver.observe(this._wrapper);
+
+      this._mutationObserver = new MutationObserver(() => this._scheduleNotify());
+      this._mutationObserver.observe(this._wrapper, {
+        childList: true, subtree: true, characterData: true,
+      });
+    });
+  }
+
+  /**
+   * Disconnect all observers.
+   */
+  stopObserving() {
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = null;
+    this._mutationObserver?.disconnect();
+    this._mutationObserver = null;
+  }
+
+  disconnectedCallback() {
+    this.stopObserving();
   }
 
   /**

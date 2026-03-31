@@ -43,6 +43,7 @@ export class FragmentainerLayout {
   #counterState = null;
   #contentStyles = null;
   #prevFragment = null;
+  #fragments = [];
 
   /**
    * @param {Element} contentElement - The root content element to fragment
@@ -114,6 +115,13 @@ export class FragmentainerLayout {
     );
     if (constraints) {
       result.fragment.constraints = constraints;
+    } else {
+      result.fragment.constraints = {
+        contentArea: {
+          inlineSize: constraintSpace.availableInlineSize,
+          blockSize: constraintSpace.availableBlockSize,
+        },
+      };
     }
 
     // Counter state accumulation
@@ -127,6 +135,7 @@ export class FragmentainerLayout {
     this.#breakToken = result.breakToken;
     this.#prevFragment = result.fragment;
     this.#fragmentainerIndex++;
+    this.#fragments.push(result.fragment);
 
     return result.fragment;
   }
@@ -162,7 +171,30 @@ export class FragmentainerLayout {
     } while (fragment.breakToken !== null);
 
     const forPrint = this.#resolver !== null;
-    return new FragmentedFlow(fragments, this.#contentStyles, forPrint);
+    return new FragmentedFlow(fragments, this.#contentStyles, forPrint, this);
+  }
+
+  /**
+   * Reset the stepper to re-layout from a specific fragmentainer.
+   *
+   * Used for reflow: when source content changes, reset to the
+   * break token before the affected fragmentainer and re-run next()
+   * forward. Measurements are already live — no cache invalidation
+   * needed for size-only changes.
+   *
+   * @param {number} [fromIndex=0] - Fragmentainer index to restart from
+   */
+  reflow(fromIndex = 0) {
+    this.#ensureInit();
+    const prev = fromIndex > 0 ? this.#fragments[fromIndex - 1] : null;
+    this.#breakToken = prev?.breakToken ?? null;
+    this.#fragmentainerIndex = fromIndex;
+    this.#prevFragment = null;
+    this.#counterState = new CounterState();
+    if (prev?.counterState) {
+      this.#counterState.restore(prev.counterState);
+    }
+    this.#fragments.length = fromIndex;
   }
 
   /**
@@ -239,16 +271,19 @@ export class FragmentedFlow {
   #fragments;
   #contentStyles;
   #forPrint;
+  #layout;
 
   /**
    * @param {import('./fragment.js').PhysicalFragment[]} fragments
    * @param {{ sheets: CSSStyleSheet[], cssText: string }|null} contentStyles
    * @param {boolean} forPrint — resolve @media print/screen for print context
+   * @param {FragmentainerLayout|null} layout — back-reference for reflow
    */
-  constructor(fragments, contentStyles, forPrint = false) {
+  constructor(fragments, contentStyles, forPrint = false, layout = null) {
     this.#fragments = fragments;
     this.#contentStyles = contentStyles;
     this.#forPrint = forPrint;
+    this.#layout = layout;
   }
 
   /** @returns {import('./fragment.js').PhysicalFragment[]} */
@@ -274,6 +309,7 @@ export class FragmentedFlow {
       index > 0 ? this.#fragments[index - 1].breakToken : null;
 
     const el = document.createElement("fragment-container");
+    el.fragmentIndex = index;
     el.style.width = `${contentArea.inlineSize}px`;
     el.style.height = `${contentArea.blockSize}px`;
     el.style.overflow = "hidden";
@@ -299,5 +335,44 @@ export class FragmentedFlow {
       elements.push(this.renderFragmentainer(i));
     }
     return elements;
+  }
+
+  /**
+   * Re-layout from a specific fragmentainer and return new rendered elements.
+   *
+   * Resets the layout stepper to the break token before `fromIndex`,
+   * re-runs layout to completion with live measurements, splices the
+   * new fragments into this flow, and renders them.
+   *
+   * @param {number} [fromIndex=0] - Fragmentainer index to re-layout from
+   * @returns {{ from: number, removedCount: number, elements: Element[] }}
+   */
+  reflow(fromIndex = 0) {
+    this.#layout.reflow(fromIndex);
+
+    // Re-run layout to completion
+    const newFragments = [];
+    let zeroProgressCount = 0;
+    let fragment;
+    do {
+      fragment = this.#layout.next();
+      newFragments.push(fragment);
+      if (fragment.breakToken && fragment.blockSize === 0) {
+        if (++zeroProgressCount >= MAX_ZERO_PROGRESS) break;
+      } else {
+        zeroProgressCount = 0;
+      }
+    } while (fragment.breakToken !== null);
+
+    // Splice new fragments into the array
+    const removedCount = this.#fragments.length - fromIndex;
+    this.#fragments.splice(fromIndex, Infinity, ...newFragments);
+
+    // Render the new fragments
+    const elements = [];
+    for (let i = fromIndex; i < this.#fragments.length; i++) {
+      elements.push(this.renderFragmentainer(i));
+    }
+    return { from: fromIndex, removedCount, elements };
   }
 }
