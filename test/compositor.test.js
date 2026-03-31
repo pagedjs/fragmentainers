@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { PhysicalFragment } from "../src/fragment.js";
 import { BlockBreakToken, InlineBreakToken } from "../src/tokens.js";
-import { blockNode, inlineNode, textToInlineItems } from "./fixtures/nodes.js";
+import { blockNode, textToInlineItems } from "./fixtures/nodes.js";
 import { INLINE_TEXT, INLINE_CONTROL } from "../src/constants.js";
 import { findChildBreakToken } from "../src/helpers.js";
 
@@ -12,10 +12,6 @@ import {
 } from "../src/compositor/index.js";
 
 import { applySliceDecorations } from "../src/compositor/render-fragments.js";
-
-// ---------------------------------------------------------------------------
-// hasBlockChildFragments
-// ---------------------------------------------------------------------------
 
 describe("hasBlockChildFragments", () => {
   it("returns false for empty childFragments", () => {
@@ -44,10 +40,6 @@ describe("hasBlockChildFragments", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// getFragmentainerSize
-// ---------------------------------------------------------------------------
-
 describe("getFragmentainerSize", () => {
   const sizes = [
     { inlineSize: 600, blockSize: 800 },
@@ -70,10 +62,6 @@ describe("getFragmentainerSize", () => {
     expect(getFragmentainerSize(single, 5)).toEqual({ inlineSize: 500, blockSize: 700 });
   });
 });
-
-// ---------------------------------------------------------------------------
-// Fragment tree structure tests (verify compositor contract)
-// ---------------------------------------------------------------------------
 
 describe("compositor fragment tree contract", () => {
   it("PhysicalFragment stores node, blockSize, and childFragments", () => {
@@ -133,10 +121,6 @@ describe("compositor fragment tree contract", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Empty container shell detection
-// ---------------------------------------------------------------------------
-
 describe("empty container shell detection", () => {
   /**
    * Mirrors the condition in renderFragment that skips empty container shells:
@@ -183,10 +167,6 @@ describe("empty container shell detection", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Inline items data structure (used by buildInlineContent)
-// ---------------------------------------------------------------------------
-
 describe("inline items data for compositor", () => {
   it("textToInlineItems creates kText items with correct offsets", () => {
     const data = textToInlineItems("Hello world");
@@ -216,10 +196,6 @@ describe("inline items data for compositor", () => {
     expect(visible).toBe("brown fox jumps");
   });
 });
-
-// ---------------------------------------------------------------------------
-// applySliceDecorations (box-decoration-break: slice)
-// ---------------------------------------------------------------------------
 
 describe("applySliceDecorations", () => {
   /** Mock element with a style object */

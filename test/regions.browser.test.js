@@ -35,7 +35,7 @@ describe("RegionResolver", () => {
   });
 
   it("toConstraintSpace produces region fragmentation type", () => {
-    container.innerHTML = `<div style="width: 300px; height: 200px;"></div>`;
+    container.innerHTML = "<div style=\"width: 300px; height: 200px;\"></div>";
     const resolver = new RegionResolver([container.firstElementChild]);
 
     const cs = resolver.resolve(0).toConstraintSpace();
@@ -75,7 +75,6 @@ describe("FragmentainerLayout with regions", () => {
 
     for (const region of regions) {
       const fragment = layout.next();
-      const prevBreakToken = fragment === layout ? null : null; // first iteration
       region.appendChild(renderFragmentTree(fragment, null));
     }
 
@@ -98,7 +97,7 @@ describe("FragmentainerLayout with regions", () => {
     const layout = new FragmentainerLayout(content, { resolver: new RegionResolver(regions) });
 
     let lastFragment;
-    for (const region of regions) {
+    for (let i = 0; i < regions.length; i++) {
       lastFragment = layout.next();
     }
 

@@ -4,10 +4,6 @@ import { PhysicalFragment } from "../src/fragment.js";
 import { BlockBreakToken } from "../src/tokens.js";
 import { blockNode } from "./fixtures/nodes.js";
 
-// ---------------------------------------------------------------------------
-// parseCounterDirective
-// ---------------------------------------------------------------------------
-
 describe("parseCounterDirective", () => {
   it("returns [] for null", () => {
     expect(parseCounterDirective(null)).toEqual([]);
@@ -62,10 +58,6 @@ describe("parseCounterDirective", () => {
     ]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// CounterState
-// ---------------------------------------------------------------------------
 
 describe("CounterState", () => {
   it("starts empty", () => {
@@ -152,10 +144,6 @@ describe("CounterState", () => {
     expect(state.snapshot()).toEqual({ p: 4 });
   });
 });
-
-// ---------------------------------------------------------------------------
-// walkFragmentTree
-// ---------------------------------------------------------------------------
 
 describe("walkFragmentTree", () => {
   /** Helper: create a PhysicalFragment with mock node and optional children/break token */

@@ -3,10 +3,6 @@ import { ConstraintSpace } from "../src/constraint-space.js";
 import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
 import { blockNode } from "./fixtures/nodes.js";
 
-// ---------------------------------------------------------------------------
-// FragmentainerLayout.reflow()
-// ---------------------------------------------------------------------------
-
 describe("FragmentainerLayout.reflow()", () => {
   function makeLayout(children, blockSize = 300) {
     const root = blockNode({ children });

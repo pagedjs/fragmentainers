@@ -11,10 +11,6 @@ function injectHTML(measurer, html) {
   return measurer.injectFragment(t.content);
 }
 
-// ---------------------------------------------------------------------------
-// Ref assignment
-// ---------------------------------------------------------------------------
-
 describe("ContentMeasureElement ref assignment", () => {
   let measurer;
 
@@ -71,10 +67,6 @@ describe("ContentMeasureElement ref assignment", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Refs survive cloning
-// ---------------------------------------------------------------------------
-
 describe("Refs in rendered fragments", () => {
   let layout;
 
@@ -102,10 +94,6 @@ describe("Refs in rendered fragments", () => {
     }
   });
 });
-
-// ---------------------------------------------------------------------------
-// MutationSync — attribute sync
-// ---------------------------------------------------------------------------
 
 describe("MutationSync attribute sync", () => {
   let measurer;
@@ -197,10 +185,6 @@ describe("MutationSync attribute sync", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// MutationSync — element removal
-// ---------------------------------------------------------------------------
-
 describe("MutationSync element removal", () => {
   let measurer;
 
@@ -239,10 +223,6 @@ describe("MutationSync element removal", () => {
     expect(measurer.contentRoot.querySelectorAll("p").length).toBe(1);
   });
 });
-
-// ---------------------------------------------------------------------------
-// MutationSync — element addition
-// ---------------------------------------------------------------------------
 
 describe("MutationSync element addition", () => {
   let measurer;
@@ -335,10 +315,6 @@ describe("MutationSync element addition", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// takeMutationRecords
-// ---------------------------------------------------------------------------
-
 describe("FragmentContainerElement.takeMutationRecords()", () => {
   let layout;
 
@@ -383,10 +359,6 @@ describe("FragmentContainerElement.takeMutationRecords()", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Reflow with rebuild
-// ---------------------------------------------------------------------------
-
 describe("reflow with rebuild", () => {
   let layout;
 
@@ -412,7 +384,7 @@ describe("reflow with rebuild", () => {
     wrapper.appendChild(newDiv);
 
     // Reflow with rebuild to pick up the structural change
-    const result = flow.reflow(0, { rebuild: true });
+    flow.reflow(0, { rebuild: true });
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
   });
 });

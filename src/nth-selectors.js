@@ -13,10 +13,6 @@
  *      and set matching attributes
  */
 
-// ---------------------------------------------------------------------------
-// An+B formula parsing
-// ---------------------------------------------------------------------------
-
 /**
  * Parse a CSS An+B expression into { a, b } coefficients.
  *
@@ -61,10 +57,6 @@ export function matchesAnPlusB(index, { a, b }) {
   const n = (index - b) / a;
   return Number.isInteger(n) && n >= 0;
 }
-
-// ---------------------------------------------------------------------------
-// Selector rewriting
-// ---------------------------------------------------------------------------
 
 /**
  * Structural pseudo-class patterns to rewrite.
@@ -135,10 +127,6 @@ export function rewriteSelectorText(selectorText, formulas) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// CSSOM-based selector rewriting
-// ---------------------------------------------------------------------------
-
 /**
  * Recursively rewrite structural pseudo-classes in a CSSRuleList.
  *
@@ -172,10 +160,6 @@ export function rewriteNthSelectorsOnSheet(sheet, formulas = new Map()) {
   rewriteRulesInList(sheet.cssRules, formulas);
   return { sheet, formulas };
 }
-
-// ---------------------------------------------------------------------------
-// Non-mutating nth-selector override sheet
-// ---------------------------------------------------------------------------
 
 /**
  * Recursively collect override rules for structural pseudo-classes
@@ -231,10 +215,6 @@ export function buildNthOverrideSheet(sheets, formulas = new Map()) {
   }
   return { sheet: overrideSheet, formulas };
 }
-
-// ---------------------------------------------------------------------------
-// Attribute stamping (called by compositor during rendering)
-// ---------------------------------------------------------------------------
 
 /**
  * Compute and stamp structural-position attributes on a cloned element.

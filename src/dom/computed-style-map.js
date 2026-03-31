@@ -32,8 +32,6 @@ export function computedStyleMap(element) {
   return createFallbackStyleMap(element);
 }
 
-// --- Fallback implementation ---
-
 /**
  * Create a fallback style map from getComputedStyle that returns
  * CSSUnitValue / CSSKeywordValue-shaped objects from .get().

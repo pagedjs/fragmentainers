@@ -294,8 +294,6 @@ export class PageSizeResolver {
   }
 }
 
-// ---- @page rule parsing (CSSOM-based) ----
-
 /**
  * Parse @page rules from CSS text strings using the browser's CSSOM.
  *

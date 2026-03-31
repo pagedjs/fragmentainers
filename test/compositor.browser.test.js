@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { renderFragmentTree, applySliceDecorations, buildInlineContent } from "../src/compositor/render-fragments.js";
 import { PhysicalFragment } from "../src/fragment.js";
-import { BlockBreakToken, InlineBreakToken } from "../src/tokens.js";
+import { BlockBreakToken } from "../src/tokens.js";
 import { DOMLayoutNode } from "../src/dom/layout-node.js";
 import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } from "../src/constants.js";
 
@@ -17,10 +17,6 @@ beforeEach(() => {
 afterEach(() => {
   container.remove();
 });
-
-// ---------------------------------------------------------------------------
-// applySliceDecorations with real elements
-// ---------------------------------------------------------------------------
 
 describe("applySliceDecorations with real elements", () => {
   function makeDiv() {
@@ -77,10 +73,6 @@ describe("applySliceDecorations with real elements", () => {
     expect(el.style.paddingBlockEnd).toBe("0px");
   });
 });
-
-// ---------------------------------------------------------------------------
-// buildInlineContent
-// ---------------------------------------------------------------------------
 
 describe("buildInlineContent", () => {
   it("renders simple text into a container", () => {
@@ -140,10 +132,6 @@ describe("buildInlineContent", () => {
     expect(target.textContent).toBe("line oneline two");
   });
 });
-
-// ---------------------------------------------------------------------------
-// renderFragmentTree
-// ---------------------------------------------------------------------------
 
 describe("renderFragmentTree", () => {
   it("renders child fragments as cloned elements", () => {

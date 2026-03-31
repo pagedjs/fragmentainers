@@ -345,10 +345,6 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
   // No manual hyphen injection needed.
 }
 
-// ---------------------------------------------------------------------------
-// Ref stamping — sets data-ref on clones from the source WeakMap
-// ---------------------------------------------------------------------------
-
 /**
  * Stamp data-ref on a shallow clone from its source element's ref.
  * No-op when sourceRefs is not provided.

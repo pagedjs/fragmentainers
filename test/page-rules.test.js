@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  PageRule, PageConstraints, PageSizeResolver, parseCSSLength,
+  PageRule, PageSizeResolver, parseCSSLength,
 } from "../src/page-rules.js";
 import {
   getNamedPage, resolveNamedPageForBreakToken,
@@ -9,8 +9,6 @@ import { BlockBreakToken } from "../src/tokens.js";
 import { createFragments } from "../src/layout-request.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
 import { blockNode } from "./fixtures/nodes.js";
-
-// -- PageSizeResolver --
 
 describe("PageSizeResolver", () => {
   const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };
@@ -181,8 +179,6 @@ describe("PageSizeResolver", () => {
   });
 });
 
-// -- parseCSSLength --
-
 describe("parseCSSLength", () => {
   it("parses px", () => expect(parseCSSLength("100px")).toBe(100));
   it("parses in", () => expect(parseCSSLength("1in")).toBe(96));
@@ -192,8 +188,6 @@ describe("parseCSSLength", () => {
   it("parses bare number as px", () => expect(parseCSSLength("50")).toBe(50));
   it("returns null for invalid", () => expect(parseCSSLength("abc")).toBe(null));
 });
-
-// -- getNamedPage --
 
 describe("getNamedPage", () => {
   it("returns page property from node", () => {
@@ -208,8 +202,6 @@ describe("getNamedPage", () => {
     expect(getNamedPage(null)).toBe(null);
   });
 });
-
-// -- resolveNamedPageForBreakToken --
 
 describe("resolveNamedPageForBreakToken", () => {
   it("returns first child page when no break token", () => {
@@ -261,8 +253,6 @@ describe("resolveNamedPageForBreakToken", () => {
     expect(resolveNamedPageForBreakToken(root, bt)).toBe("appendix");
   });
 });
-
-// -- Forced breaks from named page changes --
 
 describe("Named page forced breaks", () => {
   it("forces break when page property changes between siblings", () => {
@@ -370,8 +360,6 @@ describe("Named page forced breaks", () => {
     expect(pages[0].breakToken.childBreakTokens[0].isForcedBreak).toBe(true);
   });
 });
-
-// -- createFragments with PageSizeResolver --
 
 describe("createFragments with PageSizeResolver", () => {
   it("resolves page sizes dynamically", () => {

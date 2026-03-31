@@ -268,10 +268,6 @@ describe("Phase 3: Block fragmentation across fragmentainers", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// box-decoration-break: clone layout
-// ---------------------------------------------------------------------------
-
 describe("box-decoration-break: clone layout", () => {
   // Uses a single child that overflows to create exactly 2 fragments.
   // Container: padding-top=10, padding-bottom=10. Fragmentainer: 200px.

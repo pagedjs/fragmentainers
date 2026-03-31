@@ -73,7 +73,7 @@ describe("InlineBreakToken", () => {
 
 describe("Break token tree", () => {
   it("builds a sparse tree mirroring the box tree", () => {
-    const child1 = blockNode({ debugName: "child1" });
+    blockNode({ debugName: "child1" });
     const child2 = blockNode({ debugName: "child2" });
     const grandchild = blockNode({ debugName: "grandchild" });
 

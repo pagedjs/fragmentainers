@@ -54,7 +54,7 @@ export class DOMLayoutNode {
     return this.#styleMap;
   }
 
-  // --- Layout classification ---
+  //Layout classification
 
   get isReplacedElement() {
     return REPLACED_ELEMENTS.has(this.element.tagName?.toLowerCase());
@@ -94,7 +94,7 @@ export class DOMLayoutNode {
     return d === "grid" || d === "inline-grid";
   }
 
-  // --- Flex/Grid properties ---
+  //Flex/Grid properties
 
   get flexDirection() {
     return this.#getStyle().flexDirection || "row";
@@ -114,7 +114,7 @@ export class DOMLayoutNode {
     return (v && v.unit) ? v.value : null;
   }
 
-  // --- Multicol properties ---
+  //Multicol properties
 
   get isMulticolContainer() {
     const map = this.#getStyleMap();
@@ -143,7 +143,7 @@ export class DOMLayoutNode {
     return this.#getStyle().columnFill || "balance";
   }
 
-  // --- Box model (margins, padding, border) ---
+  //Box model (margins, padding, border)
 
   get marginBlockStart() {
     const v = this.#getStyleMap().get("margin-top");
@@ -175,7 +175,7 @@ export class DOMLayoutNode {
     return (v && v.unit) ? v.value : 0;
   }
 
-  // --- Fragmentation CSS ---
+  //Fragmentation CSS
 
   get page() {
     const val = this.#getStyle().page;
@@ -208,12 +208,12 @@ export class DOMLayoutNode {
     return (v && v.unit) ? v.value : 2;
   }
 
-  // --- Counters ---
+  //Counters
 
   get counterReset() { return this.#getStyle().counterReset || "none"; }
   get counterIncrement() { return this.#getStyle().counterIncrement || "none"; }
 
-  // --- Children ---
+  //Children
 
   get children() {
     if (this.#children !== null) return this.#children;
@@ -269,7 +269,7 @@ export class DOMLayoutNode {
     return this.#children;
   }
 
-  // --- Block size ---
+  //Block size
 
   get blockSize() {
     return measureElementBlockSize(this.element);
@@ -291,7 +291,7 @@ export class DOMLayoutNode {
     return null;
   }
 
-  // --- Inline formatting context ---
+  //Inline formatting context
 
   get isInlineFormattingContext() {
     if (this.#isInlineFormattingContext !== null) return this.#isInlineFormattingContext;
@@ -353,7 +353,7 @@ export class DOMLayoutNode {
     return sharedRangeMeasurer;
   }
 
-  // --- Table row support ---
+  //Table row support
 
   get cells() {
     if (!this.isTableRow) return [];
@@ -361,7 +361,7 @@ export class DOMLayoutNode {
   }
 }
 
-// --- Helpers for mixed content detection ---
+// Helpers for mixed content detection
 
 const BLOCK_DISPLAYS = new Set([
   "block", "flex", "grid", "table", "list-item",

@@ -7,10 +7,6 @@ import { blockNode } from "./fixtures/nodes.js";
 import { getFragmentainerSize } from "../src/compositor/fragmentainer-builder.js";
 import { FragmentainerLayout, FragmentedFlow } from "../src/fragmentainer-layout.js";
 
-// ---------------------------------------------------------------------------
-// getFragmentainerSize (renamed from getPageSize)
-// ---------------------------------------------------------------------------
-
 describe("getFragmentainerSize", () => {
   const sizes = [
     { inlineSize: 600, blockSize: 800 },
@@ -46,14 +42,9 @@ describe("getFragmentainerSize", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// FragmentedFlow
-// ---------------------------------------------------------------------------
-
 describe("FragmentedFlow", () => {
   function makeFragments(count) {
     const fragments = [];
-    let prevBreakToken = null;
     for (let i = 0; i < count; i++) {
       const node = blockNode({ debugName: `frag-${i}` });
       const frag = new PhysicalFragment(node, 200, []);
@@ -95,10 +86,6 @@ describe("FragmentedFlow", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// FragmentainerLayout constructor
-// ---------------------------------------------------------------------------
-
 describe("FragmentainerLayout", () => {
   // Construction-only tests: flow() requires a real DOM, so we verify the
   // resolver is configured correctly by passing it in and checking that the
@@ -133,28 +120,10 @@ describe("FragmentainerLayout", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// FragmentainerLayout.next() stepper
-// ---------------------------------------------------------------------------
-
 describe("FragmentainerLayout.next()", () => {
   // next() needs a real-ish element with getRootNode and children for
   // buildLayoutTree. We use a minimal mock that satisfies DOMLayoutNode.
   // These tests use a ConstraintSpace directly to avoid needing document.styleSheets.
-
-  function makeMockElement(children) {
-    // Minimal mock matching what DOMLayoutNode reads
-    const el = {
-      nodeType: 1,
-      tagName: "DIV",
-      children: children || [],
-      childNodes: children || [],
-      firstChild: children?.[0] || null,
-      getRootNode() { return { host: null }; },
-      getComputedStyle: null,
-    };
-    return el;
-  }
 
   it("returns a fragment with breakToken when content overflows", () => {
     const root = blockNode({

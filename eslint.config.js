@@ -31,19 +31,25 @@ export default [
     },
     rules: {
       quotes: ["error", "double", { avoidEscape: true }],
-      "no-unused-vars": ["warn", {
-        argsIgnorePattern: "^_",
-        varsIgnorePattern: "^_",
-        destructuredArrayIgnorePattern: "^_",
-      }],
-      "no-underscore-dangle": ["error", {
-        enforceInClassFields: true,
-        enforceInMethodNames: true,
-        allowAfterThis: false,
-        allowFunctionParams: true,
-        allowInArrayDestructuring: true,
-        allowInObjectDestructuring: true,
-      }],
+      "no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+        },
+      ],
+      "no-underscore-dangle": [
+        "error",
+        {
+          enforceInClassFields: true,
+          enforceInMethodNames: true,
+          allowAfterThis: false,
+          allowFunctionParams: true,
+          allowInArrayDestructuring: true,
+          allowInObjectDestructuring: true,
+        },
+      ],
     },
   },
   {

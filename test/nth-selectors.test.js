@@ -1,10 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseAnPlusB, matchesAnPlusB, rewriteSelectorText, stampNthAttributes } from "../src/nth-selectors.js";
 
-// ---------------------------------------------------------------------------
-// parseAnPlusB
-// ---------------------------------------------------------------------------
-
 describe("parseAnPlusB", () => {
   it("parses 'odd'", () => {
     expect(parseAnPlusB("odd")).toEqual({ a: 2, b: 1 });
@@ -59,10 +55,6 @@ describe("parseAnPlusB", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// matchesAnPlusB
-// ---------------------------------------------------------------------------
-
 describe("matchesAnPlusB", () => {
   it("matches exact index (a=0)", () => {
     expect(matchesAnPlusB(3, { a: 0, b: 3 })).toBe(true);
@@ -106,10 +98,6 @@ describe("matchesAnPlusB", () => {
     expect(matchesAnPlusB(11, { a: 2, b: 1 })).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// rewriteSelectorText
-// ---------------------------------------------------------------------------
 
 describe("rewriteSelectorText", () => {
   function rewrite(selector) {
@@ -213,10 +201,6 @@ describe("rewriteSelectorText", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// stampNthAttributes
-// ---------------------------------------------------------------------------
-
 describe("stampNthAttributes", () => {
   function createMockSiblings(tagNames) {
     const parent = { children: [], tagName: "DIV" };
@@ -234,7 +218,7 @@ describe("stampNthAttributes", () => {
     return {
       setAttribute(name, value) { attrs[name] = value; },
       getAttribute(name) { return attrs[name] ?? null; },
-      _attrs: attrs,
+      attrs,
     };
   }
 
@@ -243,8 +227,8 @@ describe("stampNthAttributes", () => {
     const el = createMockEl();
     const node = { element: elements[1] };
     stampNthAttributes(el, node, new Map());
-    expect(el._attrs["data-child-index"]).toBe("2");
-    expect(el._attrs["data-type-index"]).toBe("2");
+    expect(el.attrs["data-child-index"]).toBe("2");
+    expect(el.attrs["data-type-index"]).toBe("2");
   });
 
   it("stamps data-last-child on last element", () => {
@@ -252,9 +236,9 @@ describe("stampNthAttributes", () => {
     const el = createMockEl();
     const node = { element: elements[2] };
     stampNthAttributes(el, node, new Map());
-    expect(el._attrs["data-child-index"]).toBe("3");
-    expect(el._attrs["data-last-child"]).toBe("");
-    expect(el._attrs["data-last-of-type"]).toBe("");
+    expect(el.attrs["data-child-index"]).toBe("3");
+    expect(el.attrs["data-last-child"]).toBe("");
+    expect(el.attrs["data-last-of-type"]).toBe("");
   });
 
   it("does not stamp data-last-child on non-last element", () => {
@@ -262,7 +246,7 @@ describe("stampNthAttributes", () => {
     const el = createMockEl();
     const node = { element: elements[0] };
     stampNthAttributes(el, node, new Map());
-    expect(el._attrs["data-last-child"]).toBeUndefined();
+    expect(el.attrs["data-last-child"]).toBeUndefined();
   });
 
   it("computes type-index across mixed tag types", () => {
@@ -270,10 +254,10 @@ describe("stampNthAttributes", () => {
     const el = createMockEl();
     const node = { element: elements[4] }; // 3rd <p>
     stampNthAttributes(el, node, new Map());
-    expect(el._attrs["data-child-index"]).toBe("5");
-    expect(el._attrs["data-type-index"]).toBe("3");
-    expect(el._attrs["data-last-child"]).toBe("");
-    expect(el._attrs["data-last-of-type"]).toBe("");
+    expect(el.attrs["data-child-index"]).toBe("5");
+    expect(el.attrs["data-type-index"]).toBe("3");
+    expect(el.attrs["data-last-child"]).toBe("");
+    expect(el.attrs["data-last-of-type"]).toBe("");
   });
 
   it("stamps formula-matching attributes for nth-child(odd)", () => {
@@ -286,15 +270,15 @@ describe("stampNthAttributes", () => {
 
     const el1 = createMockEl();
     stampNthAttributes(el1, { element: elements[0] }, formulas);
-    expect(el1._attrs["data-nth-child-2np1"]).toBe("");
+    expect(el1.attrs["data-nth-child-2np1"]).toBe("");
 
     const el2 = createMockEl();
     stampNthAttributes(el2, { element: elements[1] }, formulas);
-    expect(el2._attrs["data-nth-child-2np1"]).toBeUndefined();
+    expect(el2.attrs["data-nth-child-2np1"]).toBeUndefined();
 
     const el3 = createMockEl();
     stampNthAttributes(el3, { element: elements[2] }, formulas);
-    expect(el3._attrs["data-nth-child-2np1"]).toBe("");
+    expect(el3.attrs["data-nth-child-2np1"]).toBe("");
   });
 
   it("stamps formula-matching attributes for nth-last-child", () => {
@@ -307,24 +291,24 @@ describe("stampNthAttributes", () => {
 
     const el3 = createMockEl();
     stampNthAttributes(el3, { element: elements[2] }, formulas);
-    expect(el3._attrs["data-nth-last-child-0np2"]).toBe("");
+    expect(el3.attrs["data-nth-last-child-0np2"]).toBe("");
 
     const el4 = createMockEl();
     stampNthAttributes(el4, { element: elements[3] }, formulas);
-    expect(el4._attrs["data-nth-last-child-0np2"]).toBeUndefined();
+    expect(el4.attrs["data-nth-last-child-0np2"]).toBeUndefined();
   });
 
   it("skips elements without parentElement", () => {
     const el = createMockEl();
     const node = { element: { tagName: "DIV", parentElement: null } };
     stampNthAttributes(el, node, new Map());
-    expect(el._attrs["data-child-index"]).toBeUndefined();
+    expect(el.attrs["data-child-index"]).toBeUndefined();
   });
 
   it("skips nodes without element", () => {
     const el = createMockEl();
     const node = { element: null };
     stampNthAttributes(el, node, new Map());
-    expect(el._attrs["data-child-index"]).toBeUndefined();
+    expect(el.attrs["data-child-index"]).toBeUndefined();
   });
 });

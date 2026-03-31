@@ -18,7 +18,7 @@ describe("Inline content layout (browser)", () => {
   });
 
   it("lays out inline content that fits on one page", () => {
-    container.innerHTML = `<p style="width: 400px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;">Hello world</p>`;
+    container.innerHTML = "<p style=\"width: 400px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;\">Hello world</p>";
     const p = container.querySelector("p");
     const root = buildLayoutTree(p);
 
@@ -96,7 +96,7 @@ describe("Inline content layout (browser)", () => {
   });
 
   it("handles forced line break with <br>", () => {
-    container.innerHTML = `<p style="width: 400px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;">Line one<br>Line two<br>Line three</p>`;
+    container.innerHTML = "<p style=\"width: 400px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;\">Line one<br>Line two<br>Line three</p>";
     const p = container.querySelector("p");
     const root = buildLayoutTree(p);
 

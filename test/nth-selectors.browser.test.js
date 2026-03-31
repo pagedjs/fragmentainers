@@ -1,10 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { rewriteNthSelectorsOnSheet, buildNthOverrideSheet } from "../src/nth-selectors.js";
 
-// ---------------------------------------------------------------------------
-// rewriteNthSelectorsOnSheet — CSSOM-based rewriting
-// ---------------------------------------------------------------------------
-
 describe("rewriteNthSelectorsOnSheet", () => {
   function createSheet(cssText) {
     const sheet = new CSSStyleSheet();
@@ -117,10 +113,6 @@ describe("rewriteNthSelectorsOnSheet", () => {
     expect(returned).toBe(sheet);
   });
 });
-
-// ---------------------------------------------------------------------------
-// buildNthOverrideSheet — non-mutating override sheet generation
-// ---------------------------------------------------------------------------
 
 describe("buildNthOverrideSheet", () => {
   function createSheet(cssText) {
