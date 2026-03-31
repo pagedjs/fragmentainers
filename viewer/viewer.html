@@ -1,268 +1,372 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fragmentainer Viewer</title>
-  <style>
-    /*
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fragmentainer Viewer</title>
+    <style>
+      /*
      * All viewer UI styles are scoped under .viewer-ui to prevent
      * them from affecting example content rendered inside pages.
      */
-    .viewer-ui { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; background: #f0f0f0; }
-    .viewer-ui h1 { font-size: 1.3rem; margin: 0 0 1rem; }
-
-    .viewer-ui .controls {
-      display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;
-      padding: 1rem; background: #fff; border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem;
-    }
-    .viewer-ui .controls label { font-size: 0.85rem; display: flex; align-items: center; gap: 4px; }
-    .viewer-ui .controls select,
-    .viewer-ui .controls input { font-size: 0.85rem; padding: 4px 8px; }
-    .viewer-ui .controls input[type="number"] { width: 70px; }
-    .viewer-ui .controls button {
-      padding: 6px 16px; font-size: 0.85rem; cursor: pointer;
-      background: #333; color: #fff; border: none; border-radius: 4px;
-    }
-    .viewer-ui .controls button:hover { background: #555; }
-    .viewer-ui .controls .preset-btn {
-      background: #e8e8e8; color: #333; padding: 4px 10px; font-size: 0.78rem;
-    }
-    .viewer-ui .controls .preset-btn:hover { background: #d0d0d0; }
-
-    .viewer-ui #status { padding: 0.5rem 0; font-size: 0.85rem; color: #666; font-style: italic; }
-
-    /* Page thumbnail grid */
-    .viewer-ui #pages {
-      display: flex; flex-wrap: wrap; gap: 20px; padding: 1rem 0;
-      align-items: flex-start;
-    }
-
-    .viewer-ui .page-thumb-wrapper {
-      position: relative; cursor: pointer;
-      background: #fff; border: none;
-      box-shadow: 2px 3px 4px rgba(0,0,0,0.25);
-      overflow: hidden; flex-shrink: 0;
-      transition: box-shadow 0.15s;
-    }
-    .viewer-ui .page-thumb-wrapper:hover {
-      box-shadow: 2px 3px 6px rgba(0,0,0,0.5);
-    }
-
-    .viewer-ui .page-thumb {
-      overflow: hidden;
-      position: relative;
-    }
-
-
-
-    .viewer-ui .page-label {
-      display: none;
-      position: absolute; bottom: 0; left: 0; right: 0;
-      background: rgba(0,0,0,0.55); color: #fff;
-      text-align: center; font-size: 11px; padding: 2px 0;
-      pointer-events: none;
-    }
-
-    /* Detail overlay */
-    #overlay {
-      display: none; position: fixed; inset: 0; z-index: 1000;
-    }
-    #overlay.active { display: flex; flex-direction: column; align-items: center; }
-
-    .detail-backdrop {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-    }
-
-    .detail-container {
-      position: relative; z-index: 1;
-      display: flex; flex-direction: column; align-items: center;
-      max-height: 100vh; padding: 10px;
-    }
-
-    .detail-nav {
-      display: flex; gap: 12px; align-items: center;
-      padding: 8px 16px; background: #fff; border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2); margin-bottom: 10px;
-      font-family: system-ui, sans-serif;
-    }
-    .detail-nav button {
-      padding: 4px 12px; font-size: 0.85rem; cursor: pointer;
-      border: 1px solid #ccc; border-radius: 4px; background: #fff;
-      font-family: system-ui, sans-serif;
-    }
-    .detail-nav button:hover:not(:disabled) { background: #eee; }
-    .detail-nav button:disabled { opacity: 0.4; cursor: default; }
-    .detail-page-info { font-size: 0.85rem; min-width: 120px; text-align: center; font-family: system-ui, sans-serif; }
-
-    .detail-page {
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      background: #fff;
-      padding: 20px;
-      box-sizing: content-box;
-    }
-
-    /* Off-screen measurement container */
-    #measure {
-      position: absolute; left: -99999px; top: 0;
-    }
-
-    .viewer-ui #summary { font-size: 0.85rem; color: #555; padding: 0.5rem 0; }
-  </style>
-</head>
-<body class="viewer-ui">
-  <h1>Fragmentainer Viewer</h1>
-
-  <div class="controls">
-    <label>Example:
-      <select id="example">
-        <option value="examples/aurorae/index.html">Aurorae</option>
-        <option value="examples/moby-dick/index.html">Moby Dick</option>
-      </select>
-    </label>
-
-    <label>Width: <input type="number" id="pageWidth" value="559"> px</label>
-    <label>Height: <input type="number" id="pageHeight" value="793"> px</label>
-
-    <button class="preset-btn" data-w="559" data-h="793">A5</button>
-    <button class="preset-btn" data-w="816" data-h="1056">Letter</button>
-    <button class="preset-btn" data-w="595" data-h="842">A4</button>
-
-    <button id="runBtn">Paginate</button>
-  </div>
-
-  <div id="status">Select an example and click Paginate.</div>
-  <div id="summary"></div>
-  <div id="pages"></div>
-
-  <content-measure id="measure"></content-measure>
-  <div id="overlay"></div>
-
-  <script type="module">
-    import { fetchAndParse, injectContent, waitForFonts, FragmentainerLayout, renderPages, showDetail } from './viewer.js';
-    import { PageSizeResolver } from '../src/page-rules.js';
-    import '../src/dom/frag-measure.js';
-
-    const exampleSelect = document.getElementById('example');
-    const pageWidthInput = document.getElementById('pageWidth');
-    const pageHeightInput = document.getElementById('pageHeight');
-    const statusEl = document.getElementById('status');
-    const summaryEl = document.getElementById('summary');
-    const pagesEl = document.getElementById('pages');
-    const measureEl = document.getElementById('measure');
-    const overlayEl = document.getElementById('overlay');
-
-    // State
-    let currentFlow = null;
-
-    // --- URL params: read on load, write on change ---
-
-    function getParams() {
-      return new URLSearchParams(location.search);
-    }
-
-    function applyParams() {
-      const params = getParams();
-      if (params.has('example')) {
-        const val = params.get('example');
-        const option = [...exampleSelect.options].find(o => o.value === val);
-        if (option) exampleSelect.value = val;
+      .viewer-ui {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 1rem;
+        background: #f0f0f0;
       }
-      if (params.has('w')) pageWidthInput.value = params.get('w');
-      if (params.has('h')) pageHeightInput.value = params.get('h');
-    }
+      .viewer-ui h1 {
+        font-size: 1.3rem;
+        margin: 0 0 1rem;
+      }
 
-    function updateParams() {
-      const params = new URLSearchParams();
-      params.set('example', exampleSelect.value);
-      params.set('w', pageWidthInput.value);
-      params.set('h', pageHeightInput.value);
-      history.replaceState(null, '', `?${params}`);
-    }
+      .viewer-ui .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 1rem;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+      }
+      .viewer-ui .controls label {
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .viewer-ui .controls select,
+      .viewer-ui .controls input {
+        font-size: 0.85rem;
+        padding: 4px 8px;
+      }
+      .viewer-ui .controls input[type="number"] {
+        width: 70px;
+      }
+      .viewer-ui .controls button {
+        padding: 6px 16px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        background: #333;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+      }
+      .viewer-ui .controls button:hover {
+        background: #555;
+      }
+      .viewer-ui .controls .preset-btn {
+        background: #e8e8e8;
+        color: #333;
+        padding: 4px 10px;
+        font-size: 0.78rem;
+      }
+      .viewer-ui .controls .preset-btn:hover {
+        background: #d0d0d0;
+      }
 
-    // Apply URL params on load
-    applyParams();
+      .viewer-ui #status {
+        padding: 0.5rem 0;
+        font-size: 0.85rem;
+        color: #666;
+        font-style: italic;
+      }
 
-    // Sync controls → URL
-    exampleSelect.addEventListener('change', updateParams);
-    pageWidthInput.addEventListener('change', updateParams);
-    pageHeightInput.addEventListener('change', updateParams);
+      /* Page thumbnail grid */
+      .viewer-ui #pages {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        padding: 1rem 0;
+        align-items: flex-start;
+      }
 
-    // Preset buttons
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        pageWidthInput.value = btn.dataset.w;
-        pageHeightInput.value = btn.dataset.h;
+      .viewer-ui .page-thumb-wrapper {
+        position: relative;
+        cursor: pointer;
+        background: #fff;
+        border: none;
+        box-shadow: 2px 3px 4px rgba(0, 0, 0, 0.25);
+        overflow: hidden;
+        flex-shrink: 0;
+        transition: box-shadow 0.15s;
+      }
+      .viewer-ui .page-thumb-wrapper:hover {
+        box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.5);
+      }
+
+      .viewer-ui .page-thumb {
+        overflow: hidden;
+        position: relative;
+      }
+
+      .viewer-ui .page-label {
+        display: none;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        text-align: center;
+        font-size: 11px;
+        padding: 2px 0;
+        pointer-events: none;
+      }
+
+      /* Detail overlay */
+      #overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+      }
+      #overlay.active {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .detail-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+      }
+
+      .detail-container {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        max-height: 100vh;
+        padding: 10px;
+      }
+
+      .detail-nav {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 8px 16px;
+        background: #fff;
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        margin-bottom: 10px;
+        font-family: system-ui, sans-serif;
+      }
+      .detail-nav button {
+        padding: 4px 12px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fff;
+        font-family: system-ui, sans-serif;
+      }
+      .detail-nav button:hover:not(:disabled) {
+        background: #eee;
+      }
+      .detail-nav button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .detail-page-info {
+        font-size: 0.85rem;
+        min-width: 120px;
+        text-align: center;
+        font-family: system-ui, sans-serif;
+      }
+
+      .detail-page {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        background: #fff;
+        padding: 20px;
+        box-sizing: content-box;
+      }
+
+      /* Off-screen measurement container */
+      #measure {
+        position: absolute;
+        left: -99999px;
+        top: 0;
+      }
+
+      .viewer-ui #summary {
+        font-size: 0.85rem;
+        color: #555;
+        padding: 0.5rem 0;
+      }
+    </style>
+  </head>
+  <body class="viewer-ui">
+    <h1>Fragmentainer Viewer</h1>
+
+    <div class="controls">
+      <label
+        >Example:
+        <select id="example">
+          <option value="examples/aurorae/index.html">Aurorae</option>
+          <option value="examples/moby-dick/index.html">Moby Dick</option>
+        </select>
+      </label>
+
+      <label
+        >Width: <input type="number" id="pageWidth" value="559" /> px</label
+      >
+      <label
+        >Height: <input type="number" id="pageHeight" value="793" /> px</label
+      >
+
+      <button class="preset-btn" data-w="559" data-h="793">A5</button>
+      <button class="preset-btn" data-w="816" data-h="1056">Letter</button>
+      <button class="preset-btn" data-w="595" data-h="842">A4</button>
+
+      <button id="runBtn">Paginate</button>
+    </div>
+
+    <div id="status">Select an example and click Paginate.</div>
+    <div id="summary"></div>
+    <div id="pages"></div>
+
+    <content-measure id="measure"></content-measure>
+    <div id="overlay"></div>
+
+    <script type="module">
+      import {
+        fetchAndParse,
+        injectContent,
+        waitForFonts,
+        FragmentainerLayout,
+        renderPages,
+        showDetail,
+      } from "./viewer.js";
+      import { PageSizeResolver } from "../src/page-rules.js";
+      import "../src/dom/frag-measure.js";
+
+      const exampleSelect = document.getElementById("example");
+      const pageWidthInput = document.getElementById("pageWidth");
+      const pageHeightInput = document.getElementById("pageHeight");
+      const statusEl = document.getElementById("status");
+      const summaryEl = document.getElementById("summary");
+      const pagesEl = document.getElementById("pages");
+      const measureEl = document.getElementById("measure");
+      const overlayEl = document.getElementById("overlay");
+
+      // State
+      let currentFlow = null;
+
+      // --- URL params: read on load, write on change ---
+
+      function getParams() {
+        return new URLSearchParams(location.search);
+      }
+
+      function applyParams() {
+        const params = getParams();
+        if (params.has("example")) {
+          const val = params.get("example");
+          const option = [...exampleSelect.options].find(
+            (o) => o.value === val,
+          );
+          if (option) exampleSelect.value = val;
+        }
+        if (params.has("w")) pageWidthInput.value = params.get("w");
+        if (params.has("h")) pageHeightInput.value = params.get("h");
+      }
+
+      function updateParams() {
+        const params = new URLSearchParams();
+        params.set("example", exampleSelect.value);
+        params.set("w", pageWidthInput.value);
+        params.set("h", pageHeightInput.value);
+        history.replaceState(null, "", `?${params}`);
+      }
+
+      // Apply URL params on load
+      applyParams();
+
+      // Sync controls → URL
+      exampleSelect.addEventListener("change", updateParams);
+      pageWidthInput.addEventListener("change", updateParams);
+      pageHeightInput.addEventListener("change", updateParams);
+
+      // Preset buttons
+      document.querySelectorAll(".preset-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          pageWidthInput.value = btn.dataset.w;
+          pageHeightInput.value = btn.dataset.h;
+          updateParams();
+        });
+      });
+
+      // Update presets when example changes
+      exampleSelect.addEventListener("change", () => {
+        const val = exampleSelect.value;
+        if (val.includes("aurorae")) {
+          pageWidthInput.value = 559;
+          pageHeightInput.value = 793;
+        } else if (val.includes("moby")) {
+          pageWidthInput.value = 816;
+          pageHeightInput.value = 1056;
+        }
         updateParams();
       });
-    });
 
-    // Update presets when example changes
-    exampleSelect.addEventListener('change', () => {
-      const val = exampleSelect.value;
-      if (val.includes('aurorae')) {
-        pageWidthInput.value = 559;
-        pageHeightInput.value = 793;
-      } else if (val.includes('moby')) {
-        pageWidthInput.value = 816;
-        pageHeightInput.value = 1056;
-      }
-      updateParams();
-    });
-
-    // Run
-    async function run() {
-      const url = exampleSelect.value;
-      const baseW = parseInt(pageWidthInput.value);
-      const baseH = parseInt(pageHeightInput.value);
-      const resolver = new PageSizeResolver([], { inlineSize: baseW, blockSize: baseH });
-
-      updateParams();
-
-      statusEl.textContent = 'Loading example...';
-      pagesEl.innerHTML = '';
-      summaryEl.textContent = '';
-
-      try {
-        const parsed = await fetchAndParse(url);
-
-        statusEl.textContent = 'Injecting content for measurement...';
-        measureEl.style.width = `${baseW}px`;
-        const contentRoot = injectContent(parsed, measureEl);
-
-        await waitForFonts(measureEl);
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-        statusEl.textContent = 'Running fragmentation...';
-        await new Promise(r => requestAnimationFrame(r));
-        const start = performance.now();
-        const layout = new FragmentainerLayout(contentRoot, { resolver });
-        const flow = layout.flow();
-        const elapsed = Math.round(performance.now() - start);
-
-        currentFlow = flow;
-
-        const sizeLabel = `${baseW}\u00d7${baseH}px`;
-
-        statusEl.textContent = `Rendering ${flow.fragmentainerCount} pages...`;
-        const totalHeight = await renderPages(flow, pagesEl, (idx) => {
-          showDetail(idx, currentFlow, overlayEl);
+      // Run
+      async function run() {
+        const url = exampleSelect.value;
+        const baseW = parseInt(pageWidthInput.value);
+        const baseH = parseInt(pageHeightInput.value);
+        const resolver = new PageSizeResolver([], {
+          inlineSize: baseW,
+          blockSize: baseH,
         });
 
-        statusEl.textContent = `${flow.fragmentainerCount} pages in ${elapsed}ms (${sizeLabel}). Click a page to view full size.`;
-        summaryEl.textContent = `Total content height: ${Math.round(totalHeight)}px across ${flow.fragmentainerCount} pages`;
+        updateParams();
 
-      } catch (err) {
-        statusEl.textContent = `Error: ${err.message}`;
-        console.error(err);
+        statusEl.textContent = "Loading example...";
+        pagesEl.innerHTML = "";
+        summaryEl.textContent = "";
+
+        try {
+          const parsed = await fetchAndParse(url);
+
+          statusEl.textContent = "Injecting content for measurement...";
+          measureEl.style.width = `${baseW}px`;
+          const contentRoot = injectContent(parsed, measureEl);
+
+          await waitForFonts(measureEl);
+
+          statusEl.textContent = "Running fragmentation...";
+
+          const start = performance.now();
+          const layout = new FragmentainerLayout(contentRoot, { resolver });
+          const flow = layout.flow();
+          const elapsed = Math.round(performance.now() - start);
+
+          currentFlow = flow;
+
+          const sizeLabel = `${baseW}\u00d7${baseH}px`;
+
+          statusEl.textContent = `Rendering ${flow.fragmentainerCount} pages...`;
+          const totalHeight = await renderPages(flow, pagesEl, (idx) => {
+            showDetail(idx, currentFlow, overlayEl);
+          });
+
+          statusEl.textContent = `${flow.fragmentainerCount} pages in ${elapsed}ms (${sizeLabel}). Click a page to view full size.`;
+          summaryEl.textContent = `Total content height: ${Math.round(totalHeight)}px across ${flow.fragmentainerCount} pages`;
+        } catch (err) {
+          statusEl.textContent = `Error: ${err.message}`;
+          console.error(err);
+        }
       }
-    }
 
-    document.getElementById('runBtn').addEventListener('click', run);
+      document.getElementById("runBtn").addEventListener("click", run);
 
-    // Auto-run if URL has params
-    if (getParams().has('example')) run();
-  </script>
-</body>
+      // Auto-run if URL has params
+      if (getParams().has("example")) run();
+    </script>
+  </body>
 </html>

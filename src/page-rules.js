@@ -98,11 +98,27 @@ export class PageConstraints {
 export class PageSizeResolver {
   /**
    * @param {PageRule[]} pageRules - Parsed @page rules (document order)
-   * @param {{ inlineSize: number, blockSize: number }} defaultSize
+   * @param {{ inlineSize: number, blockSize: number }} [size] - Fallback size (default: US Letter)
    */
-  constructor(pageRules, defaultSize) {
+  constructor(pageRules, size = NAMED_SIZES.LETTER) {
     this.pageRules = pageRules;
-    this.defaultSize = defaultSize;
+    this.size = size;
+  }
+
+  /**
+   * Create a resolver by collecting @page rules from document.styleSheets.
+   *
+   * @param {{ inlineSize: number, blockSize: number }} [size] - Fallback size (default: US Letter)
+   * @returns {PageSizeResolver}
+   */
+  static fromDocument(size) {
+    const rules = [];
+    if (typeof document !== "undefined" && document.styleSheets) {
+      for (const sheet of document.styleSheets) {
+        try { collectPageRules(sheet.cssRules, rules); } catch (_) {}
+      }
+    }
+    return new PageSizeResolver(rules, size);
   }
 
   /**
@@ -188,7 +204,7 @@ export class PageSizeResolver {
 
   /** Resolve CSS size property to physical dimensions in CSS pixels. */
   resolveSize(sizeValue) {
-    if (!sizeValue || sizeValue === "auto") return { ...this.defaultSize };
+    if (!sizeValue || sizeValue === "auto") return { ...this.size };
 
     if (typeof sizeValue === "string") {
       const parts = sizeValue.toLowerCase().split(/\s+/);
@@ -208,11 +224,11 @@ export class PageSizeResolver {
       // Bare 'landscape' / 'portrait' — rotate the default size
       if (sizeValue === "landscape") {
         return {
-          inlineSize: this.defaultSize.blockSize,
-          blockSize: this.defaultSize.inlineSize,
+          inlineSize: this.size.blockSize,
+          blockSize: this.size.inlineSize,
         };
       }
-      if (sizeValue === "portrait") return { ...this.defaultSize };
+      if (sizeValue === "portrait") return { ...this.size };
 
       // Try parsing as one or two length values
       const lengths = parts.map(parseCSSLength).filter((v) => v !== null);
@@ -230,7 +246,7 @@ export class PageSizeResolver {
       };
     }
 
-    return { ...this.defaultSize };
+    return { ...this.size };
   }
 
   /** Apply page-orientation by swapping dimensions. */
@@ -280,8 +296,12 @@ export function parsePageRulesFromCSS(cssTexts) {
 /**
  * Recursively collect CSSPageRule instances from a rule list,
  * descending into grouping rules like @layer, @supports, @media.
+ *
+ * @param {CSSRuleList} cssRules
+ * @param {PageRule[]} [out] - accumulator (created if omitted)
+ * @returns {PageRule[]}
  */
-function collectPageRules(cssRules, out) {
+export function collectPageRules(cssRules, out = []) {
   for (const rule of cssRules) {
     if (rule instanceof CSSPageRule) {
       out.push(parseOnePageRule(rule));
@@ -289,6 +309,7 @@ function collectPageRules(cssRules, out) {
       collectPageRules(rule.cssRules, out);
     }
   }
+  return out;
 }
 
 /**

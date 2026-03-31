@@ -17,7 +17,7 @@ describe("FragmentainerLayout.flow() (browser)", () => {
     container.innerHTML = `<div style="margin:0; padding:0;"><div style="height: 200px; margin: 0;"></div></div>`;
     const el = container.firstElementChild;
     const layout = new FragmentainerLayout(el, {
-      defaultSize: { inlineSize: 400, blockSize: 100 },
+      width: 400, height: 100,
     });
     const flow = layout.flow();
     expect(flow).toBeInstanceOf(FragmentedFlow);
@@ -28,7 +28,7 @@ describe("FragmentainerLayout.flow() (browser)", () => {
     container.innerHTML = `<div style="margin:0; padding:0;"><div style="height: 50px; margin: 0;"></div></div>`;
     const el = container.firstElementChild;
     const layout = new FragmentainerLayout(el, {
-      defaultSize: { inlineSize: 400, blockSize: 800 },
+      width: 400, height: 800,
     });
     const flow = layout.flow();
     expect(flow.fragmentainerCount).toBe(1);
@@ -38,7 +38,7 @@ describe("FragmentainerLayout.flow() (browser)", () => {
     container.innerHTML = `<div style="width: 200px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;">${"word ".repeat(100)}</div>`;
     const el = container.firstElementChild;
     const layout = new FragmentainerLayout(el, {
-      defaultSize: { inlineSize: 200, blockSize: 60 },
+      width: 200, height: 60,
     });
     const flow = layout.flow();
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
@@ -48,7 +48,7 @@ describe("FragmentainerLayout.flow() (browser)", () => {
     container.innerHTML = `<div style="margin:0; padding:0;"><div style="height: 200px; margin: 0;"></div></div>`;
     const el = container.firstElementChild;
     const layout = new FragmentainerLayout(el, {
-      defaultSize: { inlineSize: 400, blockSize: 100 },
+      width: 400, height: 100,
     });
     const flow = layout.flow();
     const fragments = flow.fragments;

@@ -117,29 +117,23 @@
           const parsed = await fetchAndParse(url);
           const contentRoot = injectContent(parsed, measureEl);
           await waitForFonts(measureEl);
-          await new Promise((r) =>
-            requestAnimationFrame(() => requestAnimationFrame(r)),
-          );
 
           // Parse @page rules from injected content
           const contentCSSText = measureEl.getContentStyles().cssText;
           const pageRules = parsePageRulesFromCSS([contentCSSText]);
 
-          const defaultSize = { inlineSize: pageW, blockSize: pageH };
+          const size = { inlineSize: pageW, blockSize: pageH };
           let resolver;
           if (pageRules.length > 0) {
-            resolver = new PageSizeResolver(pageRules, defaultSize);
+            resolver = new PageSizeResolver(pageRules, size);
             const firstConstraints = resolver.resolve(0, null, null);
             measureEl.style.width = `${firstConstraints.contentArea.inlineSize}px`;
-            await new Promise((r) =>
-              requestAnimationFrame(() => requestAnimationFrame(r)),
-            );
           }
 
           const t0 = performance.now();
           const layout = new FragmentainerLayout(
             contentRoot,
-            resolver ? { resolver } : { defaultSize },
+            resolver ? { resolver } : { size },
           );
           const flow = layout.flow();
           const fragments = flow.fragments;
@@ -232,7 +226,6 @@
           renderBox.appendChild(fragEl);
           row.appendChild(renderBox);
           outputEl.appendChild(row);
-          await new Promise((r) => requestAnimationFrame(r));
 
           // Detect render overflow
           fragEl.style.overflow = "visible";

@@ -5,12 +5,12 @@ import { PageSizeResolver } from "./page-rules.js";
 import { resolveNamedPageForBreakToken } from "./helpers.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
+import { FRAGMENTATION_COLUMN } from "./constants.js";
 
 function buildLayoutTree(rootElement) {
   return new DOMLayoutNode(rootElement);
 }
 
-const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };
 const MAX_ZERO_PROGRESS = 5;
 
 /**
@@ -20,26 +20,48 @@ const MAX_ZERO_PROGRESS = 5;
  * the fragmentainer loop, and return a FragmentedFlow that owns the
  * fragment results and provides rendering methods.
  *
+ * Accepts options in priority order:
+ * - `constraintSpace` — full control, bypasses @page rules entirely
+ * - `resolver` — pre-configured PageSizeResolver with @page rules
+ * - `width` / `height` — sugar for column fragmentation at a fixed size
+ * - (none) — auto-collects @page rules from document.styleSheets,
+ *   defaults to US Letter
+ *
  * Matches Chromium's LayoutView pattern. Uses CSS Fragmentation
  * Module Level 3 terminology throughout.
  */
 export class FragmentainerLayout {
   #contentElement;
   #resolver;
+  #constraintSpace;
 
   /**
    * @param {Element} contentElement - The root content element to fragment
    * @param {object} [options]
+   * @param {ConstraintSpace} [options.constraintSpace] - Direct constraint space (bypasses @page rules)
    * @param {PageSizeResolver} [options.resolver] - Pre-configured resolver with @page rules
-   * @param {{ inlineSize: number, blockSize: number }} [options.defaultSize] - Single default fragmentainer size
+   * @param {number} [options.width] - Container width in CSS px (column fragmentation)
+   * @param {number} [options.height] - Container height in CSS px (column fragmentation)
    */
   constructor(contentElement, options = {}) {
     this.#contentElement = contentElement;
-    if (options.resolver) {
+    if (options.constraintSpace) {
+      this.#constraintSpace = options.constraintSpace;
+      this.#resolver = null;
+    } else if (options.resolver) {
       this.#resolver = options.resolver;
+    } else if (options.width || options.height) {
+      const w = options.width || options.height;
+      const h = options.height || options.width;
+      this.#constraintSpace = new ConstraintSpace({
+        availableInlineSize: w,
+        availableBlockSize: h,
+        fragmentainerBlockSize: h,
+        fragmentationType: FRAGMENTATION_COLUMN,
+      });
+      this.#resolver = null;
     } else {
-      const size = options.defaultSize || DEFAULT_SIZE;
-      this.#resolver = new PageSizeResolver([], size);
+      this.#resolver = PageSizeResolver.fromDocument();
     }
   }
 
@@ -62,7 +84,8 @@ export class FragmentainerLayout {
 
     const { fragments } = this.#fragmentRoot(tree, measureElement, 0, 0);
     const contentStyles = this.#captureContentStyles(element);
-    return new FragmentedFlow(fragments, contentStyles, true);
+    const forPrint = this.#resolver !== null;
+    return new FragmentedFlow(fragments, contentStyles, forPrint);
   }
 
   /**
@@ -106,9 +129,16 @@ export class FragmentainerLayout {
     const counterState = new CounterState();
 
     for (let i = startIndex; breakToken !== null || i === startIndex; i++) {
-      const namedPage = resolveNamedPageForBreakToken(tree, breakToken);
-      const constraints = this.#resolver.resolve(i, namedPage, null);
-      let constraintSpace = constraints.toConstraintSpace();
+      let constraintSpace;
+      let constraints = null;
+
+      if (this.#resolver) {
+        const namedPage = resolveNamedPageForBreakToken(tree, breakToken);
+        constraints = this.#resolver.resolve(i, namedPage, null);
+        constraintSpace = constraints.toConstraintSpace();
+      } else {
+        constraintSpace = this.#constraintSpace;
+      }
 
       // Adjust first fragmentainer's offset when continuing from previous element
       if (i === startIndex && startOffset > 0) {
@@ -131,7 +161,9 @@ export class FragmentainerLayout {
       }
 
       const result = this.#layoutFragmentainer(tree, constraintSpace, breakToken);
-      result.fragment.constraints = constraints;
+      if (constraints) {
+        result.fragment.constraints = constraints;
+      }
       fragments.push(result.fragment);
       breakToken = result.breakToken;
 

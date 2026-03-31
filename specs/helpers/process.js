@@ -9,23 +9,17 @@ import { ConstraintSpace } from "/src/constraint-space.js";
 import { buildLayoutTree } from "/src/dom/index.js";
 import { createFragments } from "/src/layout-request.js";
 import { renderFragmentTree } from "/src/compositor/render-fragments.js";
-import {
-  PageSizeResolver,
-  parsePageRulesFromCSS,
-} from "/src/page-rules.js";
+import { PageSizeResolver } from "/src/page-rules.js";
 
 async function run() {
   try {
     await document.fonts.ready;
-    await doubleRAF();
 
-    const pageRules = parsePageRulesFromCSS(
-      [...document.querySelectorAll("style")].map(el => el.textContent),
-    );
+    const resolver = PageSizeResolver.fromDocument();
     const multicolContainers = findMulticolContainers(document.body);
 
-    if (pageRules.length > 0) {
-      await runPageMode(pageRules);
+    if (resolver.pageRules.length > 0) {
+      await runPageMode(resolver);
     } else if (multicolContainers.length > 0) {
       await runMulticolMode(multicolContainers);
     }
@@ -38,17 +32,9 @@ async function run() {
   }
 }
 
-// ---- Constants ----
-
-// US Letter at 96 CSS px/inch
-const LETTER_WIDTH = 816; // 8.5"
-const LETTER_HEIGHT = 1056; // 11"
-
 // ---- Page mode ----
 
-async function runPageMode(pageRules) {
-  const DEFAULT_SIZE = { inlineSize: LETTER_WIDTH, blockSize: LETTER_HEIGHT };
-  const resolver = new PageSizeResolver(pageRules, DEFAULT_SIZE);
+async function runPageMode(resolver) {
   const firstConstraints = resolver.resolve(0, null, null);
   const measureWidth = firstConstraints.contentArea.inlineSize;
 
@@ -63,7 +49,6 @@ async function runPageMode(pageRules) {
   document.body.style.padding = "0";
   document.body.style.background = "none";
   document.body.appendChild(wrapper);
-  await doubleRAF();
 
   const layout = new FragmentainerLayout(wrapper, { resolver });
   const flow = layout.flow();
@@ -140,7 +125,6 @@ async function processMulticol(container) {
   container.style.columnGap = "0";
 
   container.appendChild(wrapper);
-  await doubleRAF();
 
   const tree = buildLayoutTree(wrapper);
   const fragments = createFragments(
@@ -170,16 +154,6 @@ async function processMulticol(container) {
     colEl.appendChild(renderFragmentTree(fragments[i], prevBT));
     container.appendChild(colEl);
   }
-
-  await doubleRAF();
-}
-
-// ---- Helpers ----
-
-function doubleRAF() {
-  return new Promise((r) =>
-    requestAnimationFrame(() => requestAnimationFrame(r)),
-  );
 }
 
 // Start processing

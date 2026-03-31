@@ -112,9 +112,9 @@ describe("FragmentainerLayout", () => {
     expect(layout).toBeTruthy();
   });
 
-  it("creates a PageSizeResolver from defaultSize", () => {
+  it("creates a ConstraintSpace from width/height", () => {
     const layout = new FragmentainerLayout(mockElement, {
-      defaultSize: { inlineSize: 600, blockSize: 800 },
+      width: 600, height: 800,
     });
     expect(layout).toBeTruthy();
   });

@@ -842,8 +842,6 @@
         measureEl.style.width = `${measureWidth}px`;
         const contentRoot = injectContent(parsed, measureEl);
         await waitForFonts(measureEl);
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        await new Promise(r => requestAnimationFrame(r));
 
         const layout = new FragmentainerLayout(contentRoot, { resolver });
         flow = layout.flow();

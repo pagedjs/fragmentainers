@@ -22,6 +22,12 @@ describe("PageSizeResolver", () => {
     expect(c.margins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
   });
 
+  it("defaults to US Letter when no size given", () => {
+    const resolver = new PageSizeResolver([]);
+    const c = resolver.resolve(0, null, null);
+    expect(c.contentArea).toEqual({ inlineSize: 816, blockSize: 1056 });
+  });
+
   it("universal @page with explicit size", () => {
     const resolver = new PageSizeResolver([
       new PageRule({ size: [600, 800] }),

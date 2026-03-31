@@ -437,14 +437,6 @@
         }
       }
 
-      // --- Helpers ---
-
-      function doubleRAF() {
-        return new Promise((r) =>
-          requestAnimationFrame(() => requestAnimationFrame(r)),
-        );
-      }
-
       // Auto-run on load
       run();
     </script>
