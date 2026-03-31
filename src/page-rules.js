@@ -1,5 +1,6 @@
 import { ConstraintSpace } from "./constraint-space.js";
 import { FRAGMENTATION_PAGE, NAMED_SIZES } from "./constants.js";
+import { resolveNamedPageForBreakToken } from "./helpers.js";
 
 /**
  * Parse a CSS length string to CSS pixels (96 DPI).
@@ -125,12 +126,15 @@ export class PageSizeResolver {
    * Resolve the constraint space for a specific page.
    *
    * @param {number} pageIndex - Zero-based page number
-   * @param {string|null} namedPage - The CSS `page` property value, or null for auto
-   * @param {number|null} totalPages - Total page count (for future use)
+   * @param {import('./helpers.js').LayoutNode|null} rootNode - Root layout node (for named page resolution)
+   * @param {import('./tokens.js').BreakToken|null} breakToken - Current break token
    * @returns {PageConstraints}
    */
-  resolve(pageIndex, namedPage, totalPages) {
-    const matchingRules = this.matchRules(pageIndex, namedPage, totalPages);
+  resolve(pageIndex, rootNode, breakToken) {
+    const namedPage = rootNode
+      ? resolveNamedPageForBreakToken(rootNode, breakToken)
+      : null;
+    const matchingRules = this.matchRules(pageIndex, namedPage);
     const resolved = this.cascadeRules(matchingRules);
     const pageSize = this.resolveSize(resolved.size);
     const orientedSize = this.applyOrientation(

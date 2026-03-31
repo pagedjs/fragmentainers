@@ -113,7 +113,8 @@ describe("PageSizeResolver", () => {
     const cNone = resolver.resolve(0, null, null);
     expect(cNone.contentArea.inlineSize).toBe(600);
 
-    const cChapter = resolver.resolve(1, "chapter", null);
+    const chapterRoot = blockNode({ children: [blockNode({ page: "chapter" })] });
+    const cChapter = resolver.resolve(1, chapterRoot, null);
     expect(cChapter.contentArea.inlineSize).toBe(500);
   });
 
@@ -126,7 +127,8 @@ describe("PageSizeResolver", () => {
     ], DEFAULT_SIZE);
 
     // Page 0, named 'cover' → named+pseudo wins
-    const c = resolver.resolve(0, "cover", null);
+    const coverRoot = blockNode({ children: [blockNode({ page: "cover" })] });
+    const c = resolver.resolve(0, coverRoot, null);
     expect(c.contentArea.inlineSize).toBe(400);
   });
 
@@ -136,7 +138,8 @@ describe("PageSizeResolver", () => {
       new PageRule({ name: "wide", margin: { left: 50, right: 50 } }),
     ], DEFAULT_SIZE);
 
-    const c = resolver.resolve(0, "wide", null);
+    const wideRoot = blockNode({ children: [blockNode({ page: "wide" })] });
+    const c = resolver.resolve(0, wideRoot, null);
     expect(c.margins.top).toBe(10);    // from universal
     expect(c.margins.left).toBe(50);   // overridden by named
     expect(c.margins.right).toBe(50);  // overridden by named

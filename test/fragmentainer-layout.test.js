@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { PhysicalFragment } from "../src/fragment.js";
 import { BlockBreakToken } from "../src/tokens.js";
+import { ConstraintSpace } from "../src/constraint-space.js";
 import { PageSizeResolver, PageRule } from "../src/page-rules.js";
 import { blockNode } from "./fixtures/nodes.js";
 import { getFragmentainerSize } from "../src/compositor/fragmentainer-builder.js";
@@ -129,5 +130,134 @@ describe("FragmentainerLayout", () => {
     const resolver = new PageSizeResolver(rules, { inlineSize: 816, blockSize: 1056 });
     const layout = new FragmentainerLayout(mockElement, { resolver });
     expect(layout).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FragmentainerLayout.next() stepper
+// ---------------------------------------------------------------------------
+
+describe("FragmentainerLayout.next()", () => {
+  // next() needs a real-ish element with getRootNode and children for
+  // buildLayoutTree. We use a minimal mock that satisfies DOMLayoutNode.
+  // These tests use a ConstraintSpace directly to avoid needing document.styleSheets.
+
+  function makeMockElement(children) {
+    // Minimal mock matching what DOMLayoutNode reads
+    const el = {
+      nodeType: 1,
+      tagName: "DIV",
+      children: children || [],
+      childNodes: children || [],
+      firstChild: children?.[0] || null,
+      getRootNode() { return { host: null }; },
+      getComputedStyle: null,
+    };
+    return el;
+  }
+
+  it("returns a fragment with breakToken when content overflows", () => {
+    const root = blockNode({
+      children: [
+        blockNode({ blockSize: 300 }),
+        blockNode({ blockSize: 300 }),
+      ],
+    });
+
+    const cs = new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 400,
+      fragmentainerBlockSize: 400,
+      fragmentationType: "column",
+    });
+
+    const layout = new FragmentainerLayout(root, { constraintSpace: cs });
+    const frag1 = layout.next();
+
+    expect(frag1).toBeDefined();
+    expect(frag1.blockSize).toBeGreaterThan(0);
+    expect(frag1.breakToken).not.toBeNull();
+  });
+
+  it("returns null breakToken on the last fragment", () => {
+    const root = blockNode({
+      children: [
+        blockNode({ blockSize: 300 }),
+        blockNode({ blockSize: 300 }),
+      ],
+    });
+
+    const cs = new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 400,
+      fragmentainerBlockSize: 400,
+      fragmentationType: "column",
+    });
+
+    const layout = new FragmentainerLayout(root, { constraintSpace: cs });
+    const frag1 = layout.next();
+    expect(frag1.breakToken).not.toBeNull();
+
+    const frag2 = layout.next();
+    expect(frag2.breakToken).toBeNull();
+  });
+
+  it("next() repeated matches flow() output", () => {
+    const root = blockNode({
+      children: [
+        blockNode({ blockSize: 200 }),
+        blockNode({ blockSize: 200 }),
+        blockNode({ blockSize: 200 }),
+      ],
+    });
+
+    const cs = new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 300,
+      fragmentainerBlockSize: 300,
+      fragmentationType: "column",
+    });
+
+    // Collect via next()
+    const layout1 = new FragmentainerLayout(root, { constraintSpace: cs });
+    const stepped = [];
+    let frag;
+    do {
+      frag = layout1.next();
+      stepped.push(frag);
+    } while (frag.breakToken !== null);
+
+    // Collect via flow()
+    const layout2 = new FragmentainerLayout(root, { constraintSpace: cs });
+    const flowed = layout2.flow();
+
+    expect(stepped.length).toBe(flowed.fragmentainerCount);
+    for (let i = 0; i < stepped.length; i++) {
+      expect(stepped[i].blockSize).toBe(flowed.fragments[i].blockSize);
+      expect(stepped[i].childFragments.length).toBe(flowed.fragments[i].childFragments.length);
+    }
+  });
+
+  it("stopping early leaves breakToken non-null", () => {
+    const root = blockNode({
+      children: [
+        blockNode({ blockSize: 200 }),
+        blockNode({ blockSize: 200 }),
+        blockNode({ blockSize: 200 }),
+      ],
+    });
+
+    const cs = new ConstraintSpace({
+      availableInlineSize: 600,
+      availableBlockSize: 250,
+      fragmentainerBlockSize: 250,
+      fragmentationType: "column",
+    });
+
+    const layout = new FragmentainerLayout(root, { constraintSpace: cs });
+    // Only consume one fragmentainer (simulating one region)
+    const frag = layout.next();
+    expect(frag.breakToken).not.toBeNull();
+    // Caller stops here — content overflows, which is expected for regions
   });
 });

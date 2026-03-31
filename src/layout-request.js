@@ -1,5 +1,4 @@
 import { ConstraintSpace } from "./constraint-space.js";
-import { resolveNamedPageForBreakToken } from "./helpers.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { layoutBlockContainer } from "./layout/block-container.js";
 import { layoutFlexContainer } from "./layout/flex-container.js";
@@ -116,8 +115,7 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
     let constraints = null;
 
     if (useResolver) {
-      const namedPage = resolveNamedPageForBreakToken(rootNode, breakToken);
-      constraints = constraintSpaceOrResolver.resolve(fragmentainerIndex, namedPage, null);
+      constraints = constraintSpaceOrResolver.resolve(fragmentainerIndex, rootNode, breakToken);
       constraintSpace = constraints.toConstraintSpace();
     } else {
       constraintSpace = constraintSpaceOrResolver;

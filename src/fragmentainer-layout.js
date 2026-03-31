@@ -2,7 +2,7 @@ import { DOMLayoutNode } from "./dom/layout-node.js";
 import { runLayoutGenerator, getLayoutAlgorithm } from "./layout-request.js";
 import { renderFragmentTree } from "./compositor/render-fragments.js";
 import { PageSizeResolver } from "./page-rules.js";
-import { resolveNamedPageForBreakToken } from "./helpers.js";
+import { RegionResolver } from "./region-resolver.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
 import { FRAGMENTATION_COLUMN } from "./constants.js";
@@ -22,7 +22,7 @@ const MAX_ZERO_PROGRESS = 5;
  *
  * Accepts options in priority order:
  * - `constraintSpace` — full control, bypasses @page rules entirely
- * - `resolver` — pre-configured PageSizeResolver with @page rules
+ * - `resolver` — pre-configured PageSizeResolver or RegionResolver
  * - `width` / `height` — sugar for column fragmentation at a fixed size
  * - (none) — auto-collects @page rules from document.styleSheets,
  *   defaults to US Letter
@@ -35,11 +35,20 @@ export class FragmentainerLayout {
   #resolver;
   #constraintSpace;
 
+  // Stepper state (initialized lazily on first next() call)
+  #tree = null;
+  #measureElement = null;
+  #breakToken = null;
+  #fragmentainerIndex = 0;
+  #counterState = null;
+  #contentStyles = null;
+  #prevFragment = null;
+
   /**
    * @param {Element} contentElement - The root content element to fragment
    * @param {object} [options]
    * @param {ConstraintSpace} [options.constraintSpace] - Direct constraint space (bypasses @page rules)
-   * @param {PageSizeResolver} [options.resolver] - Pre-configured resolver with @page rules
+   * @param {PageSizeResolver|RegionResolver} [options.resolver] - Pre-configured resolver
    * @param {number} [options.width] - Container width in CSS px (column fragmentation)
    * @param {number} [options.height] - Container height in CSS px (column fragmentation)
    */
@@ -66,148 +75,147 @@ export class FragmentainerLayout {
   }
 
   /**
-   * Run fragmentation and return a FragmentedFlow.
+   * Lay out the next fragmentainer and return its fragment.
+   *
+   * The caller controls the loop — call next() repeatedly to fill
+   * regions, pages, or any container. Check fragment.breakToken to
+   * know if content remains.
+   *
+   * @returns {import('./fragment.js').PhysicalFragment}
+   */
+  next() {
+    this.#ensureInit();
+
+    // Resolve constraint space for this fragmentainer
+    let constraintSpace;
+    let constraints = null;
+
+    if (this.#resolver) {
+      constraints = this.#resolver.resolve(
+        this.#fragmentainerIndex,
+        this.#tree,
+        this.#breakToken,
+      );
+      constraintSpace = constraints.toConstraintSpace();
+    } else {
+      constraintSpace = this.#constraintSpace;
+    }
+
+    // Sync DOM measurement container
+    if (this.#measureElement) {
+      this.#measureElement.applyConstraintSpace(constraintSpace);
+    }
+
+    // Layout this fragmentainer (with two-pass earlyBreak support)
+    const result = this.#layoutFragmentainer(
+      this.#tree,
+      constraintSpace,
+      this.#breakToken,
+    );
+    if (constraints) {
+      result.fragment.constraints = constraints;
+    }
+
+    // Counter state accumulation
+    const prevBT = this.#prevFragment?.breakToken ?? null;
+    walkFragmentTree(result.fragment, prevBT, this.#counterState);
+    if (!this.#counterState.isEmpty()) {
+      result.fragment.counterState = this.#counterState.snapshot();
+    }
+
+    // Advance state
+    this.#breakToken = result.breakToken;
+    this.#prevFragment = result.fragment;
+    this.#fragmentainerIndex++;
+
+    return result.fragment;
+  }
+
+  /**
+   * Run fragmentation to completion and return a FragmentedFlow.
+   *
+   * Sugar over next() — calls it in a loop until all content is consumed.
    *
    * @returns {FragmentedFlow} The fragmented content with rendering methods
    */
   flow() {
-    const element = this.#contentElement instanceof DocumentFragment
-      ? this.#contentElement.firstElementChild
-      : this.#contentElement;
-    const tree = buildLayoutTree(element);
+    const fragments = [];
+    let zeroProgressCount = 0;
+    let fragment;
 
-    // Resolve the measure element: when content lives inside a
-    // <content-measure> shadow root, the host provides
-    // applyConstraintSpace() for DOM measurement sync.
-    const root = element.getRootNode();
-    const measureElement = root.host?.applyConstraintSpace ? root.host : null;
+    do {
+      fragment = this.next();
+      fragments.push(fragment);
 
-    const { fragments } = this.#fragmentRoot(tree, measureElement, 0, 0);
-    const contentStyles = this.#captureContentStyles(element);
+      // Zero-progress safety
+      if (fragment.breakToken && fragment.blockSize === 0) {
+        zeroProgressCount++;
+        if (zeroProgressCount >= MAX_ZERO_PROGRESS) {
+          console.warn(
+            `Fragmentainer: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers`,
+          );
+          break;
+        }
+      } else {
+        zeroProgressCount = 0;
+      }
+    } while (fragment.breakToken !== null);
+
     const forPrint = this.#resolver !== null;
-    return new FragmentedFlow(fragments, contentStyles, forPrint);
+    return new FragmentedFlow(fragments, this.#contentStyles, forPrint);
   }
 
   /**
    * Lay out one fragmentainer with two-pass earlyBreak support.
-   *
-   * @param {import('./dom/layout-node.js').DOMLayoutNode} rootNode
-   * @param {ConstraintSpace} constraintSpace
-   * @param {import('./tokens.js').BreakToken|null} breakToken
-   * @returns {{ fragment: import('./fragment.js').PhysicalFragment, breakToken: import('./tokens.js').BreakToken|null, earlyBreak?: object }}
    */
   #layoutFragmentainer(rootNode, constraintSpace, breakToken) {
     const rootAlgorithm = getLayoutAlgorithm(rootNode);
-    let result = runLayoutGenerator(rootAlgorithm, rootNode, constraintSpace, breakToken);
+    let result = runLayoutGenerator(
+      rootAlgorithm,
+      rootNode,
+      constraintSpace,
+      breakToken,
+    );
     if (result.earlyBreak) {
       result = runLayoutGenerator(
-        rootAlgorithm, rootNode, constraintSpace, breakToken, result.earlyBreak
+        rootAlgorithm,
+        rootNode,
+        constraintSpace,
+        breakToken,
+        result.earlyBreak,
       );
     }
     return result;
   }
 
   /**
-   * Lay out a single content root across fragmentainers.
-   * Resolves constraints per-fragmentainer, syncs the DOM measurement
-   * container, and collects fragments.
-   *
-   * Analogous to Chromium's constraint propagation — each fragmentainer
-   * gets its own ConstraintSpace, and the browser's layout state is
-   * synchronized before reading DOM measurements.
-   *
-   * @param {import('./dom/layout-node.js').DOMLayoutNode} tree — root layout node
-   * @param {Element|null} measureElement — <content-measure> host, or null
-   * @param {number} startIndex — first fragmentainer index
-   * @param {number} startOffset — block offset into first fragmentainer
-   * @returns {{ fragments: import('./fragment.js').PhysicalFragment[], continuation: { fragmentainerIndex: number, blockOffset: number } }}
+   * Initialize layout tree and measurement state on first next() call.
    */
-  #fragmentRoot(tree, measureElement, startIndex, startOffset) {
-    const fragments = [];
-    let breakToken = null;
-    let zeroProgressCount = 0;
-    const counterState = new CounterState();
+  #ensureInit() {
+    if (this.#tree) return;
+    const content = this.#contentElement;
 
-    for (let i = startIndex; breakToken !== null || i === startIndex; i++) {
-      let constraintSpace;
-      let constraints = null;
-
-      if (this.#resolver) {
-        const namedPage = resolveNamedPageForBreakToken(tree, breakToken);
-        constraints = this.#resolver.resolve(i, namedPage, null);
-        constraintSpace = constraints.toConstraintSpace();
-      } else {
-        constraintSpace = this.#constraintSpace;
-      }
-
-      // Adjust first fragmentainer's offset when continuing from previous element
-      if (i === startIndex && startOffset > 0) {
-        constraintSpace = new ConstraintSpace({
-          availableInlineSize: constraintSpace.availableInlineSize,
-          availableBlockSize: constraintSpace.fragmentainerBlockSize - startOffset,
-          fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
-          blockOffsetInFragmentainer: startOffset,
-          fragmentationType: constraintSpace.fragmentationType,
-          isNewFormattingContext: constraintSpace.isNewFormattingContext,
-        });
-      }
-
-      // Sync DOM measurement container to this fragmentainer's constraints.
-      // Analogous to Chromium's constraint propagation — ensure the browser's
-      // layout state matches the fragmentainer's available inline size before
-      // the engine reads any DOM measurements.
-      if (measureElement) {
-        measureElement.applyConstraintSpace(constraintSpace);
-      }
-
-      const result = this.#layoutFragmentainer(tree, constraintSpace, breakToken);
-      if (constraints) {
-        result.fragment.constraints = constraints;
-      }
-      fragments.push(result.fragment);
-      breakToken = result.breakToken;
-
-      // Counter state accumulation
-      const prevBT = i > startIndex
-        ? fragments[fragments.length - 2]?.breakToken ?? null
-        : null;
-      walkFragmentTree(result.fragment, prevBT, counterState);
-      if (!counterState.isEmpty()) {
-        result.fragment.counterState = counterState.snapshot();
-      }
-
-      // Zero-progress safety
-      if (breakToken && result.fragment.blockSize === 0) {
-        zeroProgressCount++;
-        if (zeroProgressCount >= MAX_ZERO_PROGRESS) {
-          console.warn(`Fragmentainer: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers`);
-          break;
-        }
-      } else {
-        zeroProgressCount = 0;
-      }
+    // If the content is already a LayoutNode (has children array but no
+    // nodeType), use it directly. Otherwise wrap the DOM element.
+    if (content.nodeType) {
+      const element =
+        typeof DocumentFragment !== "undefined" &&
+        content instanceof DocumentFragment
+          ? content.firstElementChild
+          : content;
+      this.#tree = buildLayoutTree(element);
+      const root = element.getRootNode();
+      this.#measureElement = root.host?.applyConstraintSpace ? root.host : null;
+      this.#contentStyles = this.#captureContentStyles(element);
+    } else {
+      this.#tree = content;
     }
 
-    // Build continuation state
-    const lastFragment = fragments[fragments.length - 1];
-    const lastIndex = startIndex + fragments.length - 1;
-    const lastOffset = lastFragment
-      ? lastFragment.blockSize + (fragments.length === 1 ? startOffset : 0) : 0;
-    const pageBlockSize = lastFragment?.constraints?.contentArea?.blockSize ?? 0;
-
-    return {
-      fragments,
-      continuation: {
-        fragmentainerIndex: lastOffset >= pageBlockSize ? lastIndex + 1 : lastIndex,
-        blockOffset: lastOffset >= pageBlockSize ? 0 : lastOffset,
-      },
-    };
+    this.#counterState = new CounterState();
   }
 
   /**
    * Capture content styles from the shadow host if available.
-   * When the content element lives inside a <content-measure> shadow root,
-   * the host exposes getContentStyles() for CSS isolation during rendering.
    */
   #captureContentStyles(element) {
     const el = element || this.#contentElement;
@@ -244,10 +252,14 @@ export class FragmentedFlow {
   }
 
   /** @returns {import('./fragment.js').PhysicalFragment[]} */
-  get fragments() { return this.#fragments; }
+  get fragments() {
+    return this.#fragments;
+  }
 
   /** @returns {number} */
-  get fragmentainerCount() { return this.#fragments.length; }
+  get fragmentainerCount() {
+    return this.#fragments.length;
+  }
 
   /**
    * Render a single fragmentainer as a <fragment-container> element.
@@ -258,16 +270,20 @@ export class FragmentedFlow {
   renderFragmentainer(index) {
     const fragment = this.#fragments[index];
     const { contentArea } = fragment.constraints;
-    const prevBreakToken = index > 0 ? this.#fragments[index - 1].breakToken : null;
+    const prevBreakToken =
+      index > 0 ? this.#fragments[index - 1].breakToken : null;
 
     const el = document.createElement("fragment-container");
     el.style.width = `${contentArea.inlineSize}px`;
     el.style.height = `${contentArea.blockSize}px`;
     el.style.overflow = "hidden";
-    const counterSnapshot = index > 0
-      ? this.#fragments[index - 1].counterState
-      : null;
-    const wrapper = el.setupForRendering(this.#contentStyles, counterSnapshot, this.#forPrint);
+    const counterSnapshot =
+      index > 0 ? this.#fragments[index - 1].counterState : null;
+    const wrapper = el.setupForRendering(
+      this.#contentStyles,
+      counterSnapshot,
+      this.#forPrint,
+    );
     wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken));
     return el;
   }

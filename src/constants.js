@@ -29,6 +29,7 @@ export const BREAK_TOKEN_INLINE = "inline";
 export const FRAGMENTATION_NONE = "none";
 export const FRAGMENTATION_PAGE = "page";
 export const FRAGMENTATION_COLUMN = "column";
+export const FRAGMENTATION_REGION = "region";
 
 // ---------------------------------------------------------------------------
 // Box decoration break (node.boxDecorationBreak)
