@@ -15,6 +15,7 @@ const DEFAULTS = {
   hasExplicitBlockSize: false,
   isTable: false,
   isTableRow: false,
+  isTableHeaderGroup: false,
   isFlexContainer: false,
   isGridContainer: false,
   isMulticolContainer: false,
@@ -248,6 +249,34 @@ export function gridItemNode({ debugName, blockSize = 0, gridRowStart = 1,
     gridRowEnd,
     ...overrides,
   });
+}
+
+/**
+ * Create a table node.
+ */
+export function tableNode({ debugName, children = [], ...overrides } = {}) {
+  return {
+    ...DEFAULTS,
+    debugName: debugName || "table",
+    isTable: true,
+    children,
+    computedBlockSize: () => 0,
+    ...overrides,
+  };
+}
+
+/**
+ * Create a table header group node (thead).
+ */
+export function tableHeaderNode({ debugName, children = [], ...overrides } = {}) {
+  return {
+    ...DEFAULTS,
+    debugName: debugName || "thead",
+    isTableHeaderGroup: true,
+    children,
+    computedBlockSize: () => 0,
+    ...overrides,
+  };
 }
 
 /**

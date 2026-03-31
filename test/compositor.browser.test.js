@@ -103,7 +103,7 @@ describe("buildInlineContent", () => {
     const textContent = "before inside after";
     const items = [
       { type: INLINE_TEXT, startOffset: 0, endOffset: 7 },
-      { type: INLINE_OPEN_TAG, element: span },
+      { type: INLINE_OPEN_TAG, element: span, startOffset: 7, endOffset: 13 },
       { type: INLINE_TEXT, startOffset: 7, endOffset: 13 },
       { type: INLINE_CLOSE_TAG },
       { type: INLINE_TEXT, startOffset: 13, endOffset: 19 },
@@ -117,6 +117,47 @@ describe("buildInlineContent", () => {
     const innerSpan = target.querySelector("span.highlight");
     expect(innerSpan).not.toBeNull();
     expect(innerSpan.textContent).toBe("inside");
+  });
+
+  it("skips inline elements whose content is entirely past the visible range", () => {
+    const italic = document.createElement("i");
+    container.appendChild(italic);
+
+    const textContent = "before break after the break";
+    const items = [
+      { type: INLINE_TEXT, startOffset: 0, endOffset: 13 },
+      { type: INLINE_OPEN_TAG, element: italic, startOffset: 13, endOffset: 28 },
+      { type: INLINE_TEXT, startOffset: 13, endOffset: 28 },
+      { type: INLINE_CLOSE_TAG },
+    ];
+
+    // Visible range ends at offset 13 — the <i> starts exactly at the break
+    const target = document.createElement("div");
+    buildInlineContent(items, textContent, 0, 13, target);
+
+    // Trailing space is trimmed at break boundaries
+    expect(target.textContent).toBe("before break");
+    expect(target.querySelector("i")).toBeNull();
+  });
+
+  it("skips inline elements whose content is entirely before the visible range", () => {
+    const bold = document.createElement("b");
+    container.appendChild(bold);
+
+    const textContent = "before break after the break";
+    const items = [
+      { type: INLINE_OPEN_TAG, element: bold, startOffset: 0, endOffset: 13 },
+      { type: INLINE_TEXT, startOffset: 0, endOffset: 13 },
+      { type: INLINE_CLOSE_TAG },
+      { type: INLINE_TEXT, startOffset: 13, endOffset: 28 },
+    ];
+
+    // Continuation: visible range starts at offset 13
+    const target = document.createElement("div");
+    buildInlineContent(items, textContent, 13, 28, target);
+
+    expect(target.textContent).toBe("after the break");
+    expect(target.querySelector("b")).toBeNull();
   });
 
   it("renders a break element for INLINE_CONTROL items", () => {

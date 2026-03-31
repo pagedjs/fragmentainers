@@ -116,6 +116,34 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     earlyBreakForChild = earlyBreakTarget.childEarlyBreak;
   }
 
+  // Repeating table header: when resuming a table in page mode,
+  // re-lay-out the thead at the top of this fragmentainer.
+  let repeatedHeaderFragments = 0;
+  if (breakToken && node.isTable &&
+      constraintSpace.fragmentationType === FRAGMENTATION_PAGE) {
+    const thead = children.find(c => c.isTableHeaderGroup);
+    if (thead && !findChildBreakToken(breakToken, thead)) {
+      // thead completed in a previous fragmentainer — repeat it
+      const headerConstraint = new ConstraintSpace({
+        availableInlineSize: constraintSpace.availableInlineSize,
+        availableBlockSize: constraintSpace.fragmentainerBlockSize,
+        fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
+        blockOffsetInFragmentainer: containerOffsetInFragmentainer + blockOffset,
+        fragmentationType: FRAGMENTATION_NONE,
+      });
+      const headerResult = yield layoutChild(thead, headerConstraint, null);
+      headerResult.fragment.isRepeated = true;
+      // Use DOM-measured height when available — layoutInlineContent may
+      // underestimate cell heights (missing padding/border in IFC path).
+      if (thead.blockSize > headerResult.fragment.blockSize) {
+        headerResult.fragment.blockSize = thead.blockSize;
+      }
+      childFragments.push(headerResult.fragment);
+      repeatedHeaderFragments = 1;
+      blockOffset += headerResult.fragment.blockSize;
+    }
+  }
+
   for (let i = startIndex; i < children.length; i++) {
     const child = children[i];
     const childBreakToken = findChildBreakToken(breakToken, child);
@@ -204,6 +232,18 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
       }
     }
 
+    // break-inside: avoid elements (e.g. tables): push to next
+    // fragmentainer when they don't fit, rather than stranding a
+    // header row alone at the bottom of the page.
+    if (!isMonolithic(child) && child.breakInside === "avoid" &&
+        !effectiveChildBreakToken && blockOffset > 0) {
+      const childSize = child.blockSize || 0;
+      if (childSize > remainingSpace) {
+        childBreakTokens.push(BlockBreakToken.createBreakBefore(child, false));
+        break;
+      }
+    }
+
     // Build constraint space for the child
     const childConstraint = new ConstraintSpace({
       availableInlineSize: constraintSpace.availableInlineSize,
@@ -223,7 +263,8 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     prevChildMarginEnd = child.marginBlockEnd || 0;
 
     if (result.breakToken) {
-      // Track break quality from child (e.g. orphans/widows violation)
+      // Track break quality from child (e.g. orphans/widows violation,
+      // or break-inside: avoid being violated)
       if (result.breakScore != null && result.breakScore > BreakScore.PERFECT) {
         let childScore = applyBreakInsideAvoid(node, result.breakScore);
         const candidate = new EarlyBreak(child, childScore, EARLY_BREAK_INSIDE);
@@ -267,7 +308,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
   }
 
   hasSeenAllChildren = (childBreakTokens.length === 0) ||
-    (startIndex + childFragments.length >= children.length);
+    (startIndex + childFragments.length - repeatedHeaderFragments >= children.length);
 
   // Add the last child's trailing margin (was deferred for collapsing with next sibling).
   // Per CSS Fragmentation: margins adjoining a break are truncated to zero.

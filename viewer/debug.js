@@ -206,11 +206,17 @@ function dumpFragment(frag, parentBT, depth) {
         `${name}: lines*lineHeight (${computed.toFixed(2)}) > blockSize (${frag.blockSize.toFixed(2)}) by ${(computed - frag.blockSize).toFixed(2)}px`,
       );
     }
-    const remainder = frag.blockSize % lh;
-    if (remainder > 0.01 && remainder < lh - 0.01) {
-      issues.push(
-        `${name}: blockSize ${frag.blockSize.toFixed(2)} is not a multiple of lineHeight ${lh.toFixed(2)} (remainder=${remainder.toFixed(2)})`,
-      );
+    // Check if blockSize is a lineHeight multiple. Skip for table cells
+    // — their blockSize includes padding/border from the measured-height
+    // path, and border-collapse makes the effective insets unpredictable.
+    const isTableCell = tag === "td" || tag === "th";
+    if (!isTableCell) {
+      const remainder = frag.blockSize % lh;
+      if (remainder > 0.01 && remainder < lh - 0.01) {
+        issues.push(
+          `${name}: blockSize ${frag.blockSize.toFixed(2)} is not a multiple of lineHeight ${lh.toFixed(2)} (remainder=${remainder.toFixed(2)})`,
+        );
+      }
     }
   } else {
     for (const child of frag.childFragments) {

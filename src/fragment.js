@@ -12,6 +12,7 @@ export class PhysicalFragment {
     this.constraints = null;
     this.multicolData = null;
     this.lineCount = 0;
+    this.isRepeated = false;
     this.counterState = null;
   }
 }

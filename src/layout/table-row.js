@@ -42,7 +42,19 @@ export function* layoutTableRow(node, constraintSpace, breakToken) {
     const result = yield layoutChild(cell, cellConstraint, effectiveCellBreakToken);
 
     cellFragments.push(result.fragment);
-    maxCellBlockSize = Math.max(maxCellBlockSize, result.fragment.blockSize);
+
+    // Table cells dispatched to layoutInlineContent return content-only
+    // height (lines × lineHeight), missing cell padding/border. Use the
+    // DOM-measured height when it's larger for accurate row sizing.
+    // Only for fresh, non-fragmenting cells — continuation or fragmented
+    // cells must use the layout-computed size.
+    let cellBlockSize = result.fragment.blockSize;
+    if (!effectiveCellBreakToken && !result.breakToken &&
+        cell.blockSize > cellBlockSize) {
+      cellBlockSize = cell.blockSize;
+      result.fragment.blockSize = cellBlockSize;
+    }
+    maxCellBlockSize = Math.max(maxCellBlockSize, cellBlockSize);
 
     if (result.breakToken) {
       cellBreakTokens.push(result.breakToken);

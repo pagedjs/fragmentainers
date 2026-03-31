@@ -69,10 +69,12 @@ export function collectInlineItems(element) {
     }
 
     if (isInline) {
-      items.push({ type: INLINE_OPEN_TAG, element: el });
+      const openItem = { type: INLINE_OPEN_TAG, element: el, startOffset: offset };
+      items.push(openItem);
       for (const child of el.childNodes) {
         walk(child);
       }
+      openItem.endOffset = offset;
       items.push({ type: INLINE_CLOSE_TAG, element: el });
       return;
     }
@@ -158,10 +160,12 @@ export function collectInlineItemsFromNodes(nodes) {
     }
 
     if (isInline) {
-      items.push({ type: INLINE_OPEN_TAG, element: el });
+      const openItem = { type: INLINE_OPEN_TAG, element: el, startOffset: offset };
+      items.push(openItem);
       for (const child of el.childNodes) {
         walk(child);
       }
+      openItem.endOffset = offset;
       items.push({ type: INLINE_CLOSE_TAG, element: el });
       return;
     }

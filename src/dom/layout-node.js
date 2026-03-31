@@ -84,6 +84,10 @@ export class DOMLayoutNode {
     return this.#getStyle().display === "table-row";
   }
 
+  get isTableHeaderGroup() {
+    return this.#getStyle().display === "table-header-group";
+  }
+
   get isFlexContainer() {
     const d = this.#getStyle().display;
     return d === "flex" || d === "inline-flex";
@@ -461,6 +465,7 @@ export class AnonymousBlockNode {
   get hasExplicitBlockSize() { return false; }
   get isTable() { return false; }
   get isTableRow() { return false; }
+  get isTableHeaderGroup() { return false; }
   get isFlexContainer() { return false; }
   get isGridContainer() { return false; }
   get isMulticolContainer() { return false; }

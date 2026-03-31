@@ -46,6 +46,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl, nthFormulas,
   } else if (hasBlockChildFragments(fragment)) {
     const el = node.element.cloneNode(false);
     stampRef(el, node.element, sourceRefs);
+    if (fragment.isRepeated) el.setAttribute("data-repeated", "");
     applySplitAttributes(el, inputBreakToken, fragment);
     if (nthFormulas) stampNthAttributes(el, node, nthFormulas);
     if (inputBreakToken && el.tagName === "OL") {
@@ -73,6 +74,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl, nthFormulas,
   } else {
     const el = node.element.cloneNode(true);
     stampRefDeep(el, node.element, sourceRefs);
+    if (fragment.isRepeated) el.setAttribute("data-repeated", "");
     applySplitAttributes(el, inputBreakToken, fragment);
     if (nthFormulas) stampNthAttributes(el, node, nthFormulas);
     if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
@@ -295,13 +297,16 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
   let current = container;
   const stack = [];
   let lastTextNode = null;
+  let i = 0;
 
-  for (const item of items) {
+  while (i < items.length) {
+    const item = items[i];
+
     if (item.type === INLINE_TEXT) {
       const itemStart = item.startOffset;
       const itemEnd = item.endOffset;
 
-      if (itemEnd <= startOffset) continue;
+      if (itemEnd <= startOffset) { i++; continue; }
       if (itemStart >= endOffset) break;
 
       const visStart = Math.max(itemStart, startOffset);
@@ -314,6 +319,21 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
         current.appendChild(lastTextNode);
       }
     } else if (item.type === INLINE_OPEN_TAG) {
+      // Skip elements whose content is entirely outside the visible range.
+      // Only skip non-empty elements (startOffset < endOffset); truly empty
+      // source elements are always rendered to preserve ::before/::after styling.
+      if (item.startOffset < item.endOffset &&
+          (item.endOffset <= startOffset || item.startOffset >= endOffset)) {
+        // Advance past the matching CLOSE_TAG
+        let depth = 1;
+        i++;
+        while (i < items.length && depth > 0) {
+          if (items[i].type === INLINE_OPEN_TAG) depth++;
+          else if (items[i].type === INLINE_CLOSE_TAG) depth--;
+          i++;
+        }
+        continue;
+      }
       const el = item.element.cloneNode(false);
       stampRef(el, item.element, sourceRefs);
       current.appendChild(el);
@@ -332,6 +352,8 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
         current.appendChild(el);
       }
     }
+
+    i++;
   }
 
   // Trim trailing whitespace at break boundaries — the space before
