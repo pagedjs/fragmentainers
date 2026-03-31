@@ -6,7 +6,6 @@
  */
 
 import { OVERRIDES } from "../compositor/overrides.js";
-import { resolveMediaForPrintRules } from "./content-measure.js";
 import { rewriteNthSelectorsOnSheet } from "../nth-selectors.js";
 
 /**
@@ -14,22 +13,17 @@ import { rewriteNthSelectorsOnSheet } from "../nth-selectors.js";
  * rewriting body/html selectors to target .frag-body/:host.
  *
  * @param {ShadowRoot} shadowRoot
- * @param {boolean} forPrint — resolve @media print/screen rules for print context
  * @returns {Map} nthFormulas from nth-selector rewriting
  */
-export function copyDocumentStyles(shadowRoot, forPrint = false) {
+export function copyDocumentStyles(shadowRoot) {
   const sheets = [];
   const nthFormulas = new Map();
   for (const sheet of document.styleSheets) {
     try {
       const copy = new CSSStyleSheet();
       let rules = "";
-      if (forPrint) {
-        rules = rewriteBodySelectors(resolveMediaForPrintRules(sheet.cssRules));
-      } else {
-        for (const rule of sheet.cssRules) {
-          rules += rewriteBodySelectors(rule.cssText) + "\n";
-        }
+      for (const rule of sheet.cssRules) {
+        rules += rewriteBodySelectors(rule.cssText) + "\n";
       }
       copy.replaceSync(rules);
       rewriteNthSelectorsOnSheet(copy, nthFormulas);
@@ -57,4 +51,41 @@ export function rewriteBodySelectors(cssText) {
   );
   result = result.replace(/\bbody\b(?=[{\s,.#:[>+~])/g, ".frag-body");
   return result;
+}
+
+/**
+ * Pre-process content: rebase URLs, rewrite CSS selectors, and
+ * return CSSStyleSheet objects ready for shadow DOM adoption.
+ *
+ * @param {Object} options
+ * @param {string} options.bodyHTML
+ * @param {{ css: string, cssBaseURL: string }[]} options.cssEntries
+ * @param {string} options.baseURL
+ * @returns {{ html: string, sheets: CSSStyleSheet[] }}
+ */
+export function preprocessContent({ bodyHTML, cssEntries, baseURL }) {
+  const rebasedCSS = cssEntries
+    .map(({ css, cssBaseURL }) =>
+      css.replace(
+        /url\(\s*['"]?(?!data:|https?:|\/\/)(.*?)['"]?\s*\)/g,
+        (_match, path) => `url('${cssBaseURL}${path}')`,
+      ),
+    )
+    .join("\n");
+
+  const rebasedHTML = bodyHTML
+    .replace(
+      /src\s*=\s*["'](?!data:|https?:|\/\/)(.*?)["']/g,
+      (_match, path) => `src="${baseURL}${path}"`,
+    )
+    .replace(
+      /href\s*=\s*["'](?!data:|https?:|\/\/|#)(.*?)["']/g,
+      (_match, path) => `href="${baseURL}${path}"`,
+    );
+
+  const cssText = rewriteBodySelectors(rebasedCSS);
+
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync(cssText);
+  return { html: rebasedHTML, sheets: [sheet] };
 }

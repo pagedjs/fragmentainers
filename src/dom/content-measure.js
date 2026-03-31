@@ -7,7 +7,7 @@
  */
 
 import { rewriteNthSelectorsOnSheet } from "../nth-selectors.js";
-import { copyDocumentStyles, rewriteBodySelectors } from "./css-utils.js";
+import { copyDocumentStyles, preprocessContent } from "./css-utils.js";
 
 const MEASURE_HOST_STYLES = `
   :host {
@@ -20,12 +20,13 @@ const MEASURE_HOST_STYLES = `
 export class ContentMeasureElement extends HTMLElement {
   constructor() {
     super();
-    this._shadow = this.attachShadow({ mode: "open" });
+    this._shadow = this.attachShadow({ mode: "closed" });
     this._wrapper = null;
     this._contentSheet = null;
     this._nthFormulas = new Map();
     this._currentInlineSize = undefined;
     this._refMap = new Map();
+    this._sourceRefs = new WeakMap();
     this._nextRefId = 0;
   }
 
@@ -55,58 +56,16 @@ export class ContentMeasureElement extends HTMLElement {
    * @param {string} options.bodyHTML — HTML content to inject
    * @param {{ css: string, cssBaseURL: string }[]} options.cssEntries — CSS sources
    * @param {string} options.baseURL — base URL for rebasing relative paths
-   * @param {boolean} [options.forPrint] — resolve @media print/screen for print context
    * @returns {Element} the wrapper element (contentRoot) for buildLayoutTree
    */
-  injectContent({ bodyHTML, cssEntries, baseURL, forPrint = false }) {
-    const { cssText, html } = preprocessContent({ bodyHTML, cssEntries, baseURL, forPrint });
-    return this.injectRawContent(html, cssText);
-  }
+  injectContent({ bodyHTML, cssEntries, baseURL }) {
+    const { html, sheets } = preprocessContent({ bodyHTML, cssEntries, baseURL });
 
-  /**
-   * Inject pre-processed HTML and CSS into the shadow root.
-   * Lower-level injection to avoid re-processing CSS.
-   *
-   * @param {string} html — rebased HTML content
-   * @param {string} cssText — rebased + rewritten CSS text
-   * @returns {Element} the wrapper element (contentRoot) for buildLayoutTree
-   */
-  injectRawContent(html, cssText) {
-    this._shadow.innerHTML = "";
+    // Convert HTML string to DocumentFragment
+    const template = document.createElement("template");
+    template.innerHTML = html;
 
-    // Host styles
-    const hostStyle = document.createElement("style");
-    hostStyle.textContent = MEASURE_HOST_STYLES;
-    this._shadow.appendChild(hostStyle);
-
-    // Original CSS goes into <style> for measurement — structural
-    // pseudo-classes match the source DOM tree during layout.
-    const contentStyle = document.createElement("style");
-    contentStyle.textContent = cssText;
-
-    // Create a separate CSSStyleSheet with rewritten nth-selectors
-    // for rendering containers (where the DOM structure differs).
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync(cssText);
-    const nth = rewriteNthSelectorsOnSheet(sheet);
-    this._contentSheet = nth.sheet;
-    this._nthFormulas = nth.formulas;
-    this._shadow.appendChild(contentStyle);
-
-    // Create wrapper div that content CSS targets via .frag-body
-    this._wrapper = document.createElement("div");
-    this._wrapper.className = "frag-body";
-    this._wrapper.innerHTML = html;
-    this._shadow.appendChild(this._wrapper);
-
-    // Assign data-ref to every element for clone-to-source mapping
-    this._refMap = new Map();
-    this._nextRefId = 0;
-    for (const el of this._wrapper.querySelectorAll("*")) {
-      this._assignRefToElement(el);
-    }
-
-    return this._wrapper;
+    return this.injectFragment(template.content, sheets);
   }
 
   /**
@@ -150,11 +109,12 @@ export class ContentMeasureElement extends HTMLElement {
     this._wrapper.appendChild(fragment);
     this._shadow.appendChild(this._wrapper);
 
-    // Assign data-ref to every element for clone-to-source mapping
+    // Build ref maps for clone-to-source mapping (no DOM mutation)
     this._refMap = new Map();
+    this._sourceRefs = new WeakMap();
     this._nextRefId = 0;
     for (const el of this._wrapper.querySelectorAll("*")) {
-      this._assignRefToElement(el);
+      this._trackElement(el);
     }
 
     return this._wrapper;
@@ -170,9 +130,9 @@ export class ContentMeasureElement extends HTMLElement {
 
   /**
    * Get the content styles for reuse in <fragment-container> rendering.
-   * Call after injectContent() to capture styles for rendering.
+   * Call after injectContent() or injectFragment() to capture styles.
    *
-   * @returns {{ sheets: CSSStyleSheet[], cssText: string }}
+   * @returns {{ sheets: CSSStyleSheet[], nthFormulas: Map }}
    */
   getContentStyles() {
     const sheets = this._contentSheet
@@ -184,114 +144,32 @@ export class ContentMeasureElement extends HTMLElement {
   /** @returns {Map<string, Element>} ref string → source element */
   get refMap() { return this._refMap; }
 
+  /** @returns {WeakMap<Element, string>} source element → ref string */
+  get sourceRefs() { return this._sourceRefs; }
+
   /**
-   * Assign a data-ref to a new element and add it to the ref map.
+   * Track a new element in the ref maps (no DOM mutation).
    * @param {Element} el
    * @returns {string} the assigned ref
    */
-  assignRef(el) { return this._assignRefToElement(el); }
+  assignRef(el) { return this._trackElement(el); }
 
   /**
-   * Remove a ref from the map (e.g., when an element is deleted).
+   * Remove a ref from the maps (e.g., when an element is deleted).
    * @param {string} ref
    */
-  removeRef(ref) { this._refMap.delete(ref); }
+  removeRef(ref) {
+    const el = this._refMap.get(ref);
+    if (el) this._sourceRefs.delete(el);
+    this._refMap.delete(ref);
+  }
 
-  _assignRefToElement(el) {
+  _trackElement(el) {
     const ref = String(this._nextRefId++);
-    el.setAttribute("data-ref", ref);
+    this._sourceRefs.set(el, ref);
     this._refMap.set(ref, el);
     return ref;
   }
 }
 
 customElements.define("content-measure", ContentMeasureElement);
-
-// ---------------------------------------------------------------------------
-// CSS utilities
-// ---------------------------------------------------------------------------
-
-/**
- * Resolve @media rules for a print context:
- * - `@media print` → unwrap (include child rules without the wrapper)
- * - `@media screen` (without print) → remove entirely
- * - Other @media → keep as-is
- *
- * Recurses into nested @media and other grouping rules.
- *
- * @param {CSSRuleList} rules
- * @returns {string} filtered CSS text
- */
-export function resolveMediaForPrintRules(rules) {
-  let result = "";
-  for (const rule of rules) {
-    if (rule instanceof CSSMediaRule) {
-      const text = rule.conditionText.toLowerCase();
-      const hasPrint = /\bprint\b/.test(text);
-      const hasScreen = /\bscreen\b/.test(text);
-      if (hasPrint && !hasScreen) {
-        // Print-only media — unwrap child rules
-        result += resolveMediaForPrintRules(rule.cssRules);
-        continue;
-      }
-      if (hasScreen && !hasPrint) {
-        // Screen-only media — remove
-        continue;
-      }
-      // Both, neither, or complex — keep as-is
-    }
-    result += rule.cssText + "\n";
-  }
-  return result;
-}
-
-/**
- * Filter CSS text to resolve @media print/screen rules.
- * Parses the text via CSSStyleSheet, resolves media rules, returns filtered text.
- *
- * @param {string} cssText
- * @returns {string} filtered CSS text
- */
-export function resolveMediaForPrintText(cssText) {
-  const sheet = new CSSStyleSheet();
-  sheet.replaceSync(cssText);
-  return resolveMediaForPrintRules(sheet.cssRules);
-}
-
-/**
- * Pre-process content: rebase URLs and rewrite CSS selectors.
- * Shared by injectContent() and external callers.
- *
- * @param {Object} options
- * @param {string} options.bodyHTML
- * @param {{ css: string, cssBaseURL: string }[]} options.cssEntries
- * @param {string} options.baseURL
- * @param {boolean} [options.forPrint] — resolve @media print/screen for print context
- * @returns {{ cssText: string, html: string }}
- */
-function preprocessContent({ bodyHTML, cssEntries, baseURL, forPrint = false }) {
-  const rebasedCSS = cssEntries
-    .map(({ css, cssBaseURL }) =>
-      css.replace(
-        /url\(\s*['"]?(?!data:|https?:|\/\/)(.*?)['"]?\s*\)/g,
-        (_match, path) => `url('${cssBaseURL}${path}')`,
-      ),
-    )
-    .join("\n");
-
-  const rebasedHTML = bodyHTML
-    .replace(
-      /src\s*=\s*["'](?!data:|https?:|\/\/)(.*?)["']/g,
-      (_match, path) => `src="${baseURL}${path}"`,
-    )
-    .replace(
-      /href\s*=\s*["'](?!data:|https?:|\/\/|#)(.*?)["']/g,
-      (_match, path) => `href="${baseURL}${path}"`,
-    );
-
-  let cssText = rewriteBodySelectors(rebasedCSS);
-  if (forPrint) {
-    cssText = resolveMediaForPrintText(cssText);
-  }
-  return { cssText, html: rebasedHTML };
-}

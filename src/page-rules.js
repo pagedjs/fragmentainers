@@ -359,17 +359,11 @@ function parseOnePageRule(rule) {
 
 /**
  * Extract the `size` descriptor from a CSSPageRule's style.
- * Falls back to cssText extraction if getPropertyValue doesn't expose it.
  * @param {CSSStyleDeclaration} style
  * @returns {string|number[]|null}
  */
 function parsePageSize(style) {
-  let sizeStr = style.getPropertyValue("size").trim();
-  if (!sizeStr) {
-    // Fallback: some browsers don't expose `size` via getPropertyValue
-    const match = style.cssText.match(/\bsize\s*:\s*([^;]+)/);
-    if (match) sizeStr = match[1].trim();
-  }
+  const sizeStr = style.getPropertyValue("size").trim();
   if (!sizeStr) return null;
 
   const parts = sizeStr.split(/\s+/);

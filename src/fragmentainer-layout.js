@@ -184,8 +184,7 @@ export class FragmentainerLayout {
       }
     } while (fragment.breakToken !== null);
 
-    const forPrint = this.#resolver !== null;
-    return new FragmentedFlow(fragments, this.#contentStyles, forPrint, this);
+    return new FragmentedFlow(fragments, this.#contentStyles, this);
   }
 
   /**
@@ -310,19 +309,16 @@ export class FragmentainerLayout {
 export class FragmentedFlow {
   #fragments;
   #contentStyles;
-  #forPrint;
   #layout;
 
   /**
    * @param {import('./fragment.js').PhysicalFragment[]} fragments
-   * @param {{ sheets: CSSStyleSheet[], cssText: string }|null} contentStyles
-   * @param {boolean} forPrint — resolve @media print/screen for print context
+   * @param {{ sheets: CSSStyleSheet[], nthFormulas: Map }|null} contentStyles
    * @param {FragmentainerLayout|null} layout — back-reference for reflow
    */
-  constructor(fragments, contentStyles, forPrint = false, layout = null) {
+  constructor(fragments, contentStyles, layout = null) {
     this.#fragments = fragments;
     this.#contentStyles = contentStyles;
-    this.#forPrint = forPrint;
     this.#layout = layout;
   }
 
@@ -358,7 +354,6 @@ export class FragmentedFlow {
     const wrapper = el.setupForRendering(
       this.#contentStyles,
       counterSnapshot,
-      this.#forPrint,
     );
     wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, el.nthFormulas));
     return el;

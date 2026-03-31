@@ -20,7 +20,7 @@ const CONTAINER_HOST_STYLES = `
 export class FragmentContainerElement extends HTMLElement {
   constructor() {
     super();
-    this._shadow = this.attachShadow({ mode: "open" });
+    this._shadow = this.attachShadow({ mode: "closed" });
     this._wrapper = null;
     this._fragmentIndex = -1;
     this._resizeObserver = null;
@@ -116,10 +116,9 @@ export class FragmentContainerElement extends HTMLElement {
    *
    * @param {Object} [contentStyles] — from ContentMeasureElement.getContentStyles()
    * @param {Object} [counterSnapshot] — counter state from previous fragmentainer
-   * @param {boolean} [forPrint] — resolve @media print/screen for print context
    * @returns {Element} wrapper element to append rendered content into
    */
-  setupForRendering(contentStyles, counterSnapshot = null, forPrint = false) {
+  setupForRendering(contentStyles, counterSnapshot = null) {
     this._shadow.innerHTML = "";
     this._nthFormulas = null;
 
@@ -138,7 +137,7 @@ export class FragmentContainerElement extends HTMLElement {
       this._nthFormulas = contentStyles.nthFormulas || null;
     } else {
       // Copy stylesheets from the current document
-      this._nthFormulas = copyDocumentStyles(this._shadow, forPrint);
+      this._nthFormulas = copyDocumentStyles(this._shadow);
     }
 
     // Seed counter values from the previous fragmentainer's snapshot.

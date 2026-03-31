@@ -6,3 +6,5 @@ specs/results.json
 *-snapshots
 .DS_Store
 viewer/examples
+.vitest-attachments
+test/__screenshots__

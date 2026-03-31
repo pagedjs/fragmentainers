@@ -91,7 +91,7 @@ function formulaKey(pseudo, a, b) {
  * @param {Map} formulas — accumulator for formula descriptors
  * @returns {string} rewritten selector text
  */
-function rewriteSelectorText(selectorText, formulas) {
+export function rewriteSelectorText(selectorText, formulas) {
   return selectorText.replace(NTH_PSEUDO_RE, (match, pseudo, args) => {
     switch (pseudo) {
       case "first-child":
@@ -133,18 +133,6 @@ function rewriteSelectorText(selectorText, formulas) {
         return match;
     }
   });
-}
-
-/**
- * Rewrite structural pseudo-classes in a CSS text string.
- *
- * @param {string} cssText
- * @param {Map<string, { pseudo: string, a: number, b: number, attr: string }>} [formulas]
- *   — accumulator for formula descriptors (shared across multiple calls)
- * @returns {{ cssText: string, formulas: Map }}
- */
-export function rewriteNthSelectors(cssText, formulas = new Map()) {
-  return { cssText: rewriteSelectorText(cssText, formulas), formulas };
 }
 
 // ---------------------------------------------------------------------------
