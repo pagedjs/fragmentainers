@@ -782,8 +782,7 @@
       let lastHeading = '';
       for (let i = 0; i < flow.fragmentainerCount; i++) {
         const pageEl = flow.renderFragmentainer(i);
-        const root = pageEl.shadowRoot || pageEl;
-        const headings = root.querySelectorAll('h1');
+        const headings = pageEl.contentRoot.querySelectorAll('h1');
         if (headings.length > 0) {
           lastHeading = headings[headings.length - 1].textContent.replace(/\s+/g, ' ').trim();
         }

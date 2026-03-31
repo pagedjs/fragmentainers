@@ -134,13 +134,13 @@ export class MutationSync {
       }
 
       // Assign refs to the source clone and all its descendants
-      this._assignRef(sourceClone);
+      const ref = this._assignRef(sourceClone);
       for (const desc of sourceClone.querySelectorAll("*")) {
         this._assignRef(desc);
       }
 
-      // Set data-ref on the original added element too
-      node.setAttribute("data-ref", sourceClone.getAttribute("data-ref"));
+      // Set data-ref on the rendered clone so future mutations can be tracked
+      node.setAttribute("data-ref", ref);
 
       changed = true;
     }

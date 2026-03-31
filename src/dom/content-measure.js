@@ -129,16 +129,16 @@ export class ContentMeasureElement extends HTMLElement {
   }
 
   /**
-   * Get the content styles for reuse in <fragment-container> rendering.
+   * Get the content styles and ref maps for reuse in rendering.
    * Call after injectContent() or injectFragment() to capture styles.
    *
-   * @returns {{ sheets: CSSStyleSheet[], nthFormulas: Map }}
+   * @returns {{ sheets: CSSStyleSheet[], nthFormulas: Map, sourceRefs: WeakMap }}
    */
   getContentStyles() {
     const sheets = this._contentSheet
       ? [...this._shadow.adoptedStyleSheets, this._contentSheet]
       : [...this._shadow.adoptedStyleSheets];
-    return { sheets, nthFormulas: this._nthFormulas };
+    return { sheets, nthFormulas: this._nthFormulas, sourceRefs: this._sourceRefs };
   }
 
   /** @returns {Map<string, Element>} ref string → source element */

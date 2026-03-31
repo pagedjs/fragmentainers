@@ -1,8 +1,7 @@
 import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
-import { rewriteBodySelectors } from "../src/dom/css-utils.js";
-import { resolveMediaForPrintText } from "../src/dom/content-measure.js";
+import { preprocessContent } from "../src/dom/css-utils.js";
 
-export { FragmentainerLayout };
+export { FragmentainerLayout, preprocessContent };
 
 /**
  * Fetch an example HTML file, parse it, and extract CSS + body content.
@@ -46,44 +45,6 @@ export async function fetchAndParse(url) {
   }
 
   return { bodyHTML, cssEntries, baseURL };
-}
-
-/**
- * Pre-process parsed content into HTML string and CSSStyleSheet[].
- * Rebases relative URLs and rewrites body/html selectors.
- *
- * @param {Object} parsed — from fetchAndParse()
- * @param {boolean} [forPrint] — resolve @media print/screen for print context
- * @returns {{ html: string, sheets: CSSStyleSheet[] }}
- */
-export function preprocessContent({ bodyHTML, cssEntries, baseURL, forPrint = false }) {
-  const rebasedCSS = cssEntries
-    .map(({ css, cssBaseURL }) =>
-      css.replace(
-        /url\(\s*['"]?(?!data:|https?:|\/\/)(.*?)['"]?\s*\)/g,
-        (_match, path) => `url('${cssBaseURL}${path}')`,
-      ),
-    )
-    .join("\n");
-
-  const rebasedHTML = bodyHTML
-    .replace(
-      /src\s*=\s*["'](?!data:|https?:|\/\/)(.*?)["']/g,
-      (_match, path) => `src="${baseURL}${path}"`,
-    )
-    .replace(
-      /href\s*=\s*["'](?!data:|https?:|\/\/|#)(.*?)["']/g,
-      (_match, path) => `href="${baseURL}${path}"`,
-    );
-
-  let cssText = rewriteBodySelectors(rebasedCSS);
-  if (forPrint) {
-    cssText = resolveMediaForPrintText(cssText);
-  }
-
-  const sheet = new CSSStyleSheet();
-  sheet.replaceSync(cssText);
-  return { html: rebasedHTML, sheets: [sheet] };
 }
 
 /**
@@ -163,7 +124,11 @@ export async function showDetail(fragmentainerIndex, flow, overlay) {
   const detailPadding = 20;
   const maxWidth = window.innerWidth - 120 - detailPadding * 2;
   const maxHeight = window.innerHeight - 120 - detailPadding * 2;
-  const fitScale = Math.min(1, maxWidth / contentArea.inlineSize, maxHeight / contentArea.blockSize);
+  const fitScale = Math.min(
+    1,
+    maxWidth / contentArea.inlineSize,
+    maxHeight / contentArea.blockSize,
+  );
 
   // Backdrop
   const backdrop = document.createElement("div");
@@ -231,7 +196,10 @@ export async function showDetail(fragmentainerIndex, flow, overlay) {
     if (e.key === "ArrowLeft" && fragmentainerIndex > 0) {
       showDetail(fragmentainerIndex - 1, flow, overlay);
     }
-    if (e.key === "ArrowRight" && fragmentainerIndex < flow.fragmentainerCount - 1) {
+    if (
+      e.key === "ArrowRight" &&
+      fragmentainerIndex < flow.fragmentainerCount - 1
+    ) {
       showDetail(fragmentainerIndex + 1, flow, overlay);
     }
   };

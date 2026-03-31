@@ -17,14 +17,15 @@ export function hasBlockChildFragments(fragment) {
  * @param {import("../fragment.js").PhysicalFragment} fragment
  * @param {import("../tokens.js").BreakToken|null} inputBreakToken - break token from the previous fragmentainer
  * @param {Map} [nthFormulas] - formula descriptors from rewriteNthSelectors
+ * @param {WeakMap} [sourceRefs] - source element → ref string (stamps data-ref on clones)
  * @returns {DocumentFragment}
  */
-export function renderFragmentTree(fragment, inputBreakToken, nthFormulas) {
+export function renderFragmentTree(fragment, inputBreakToken, nthFormulas, sourceRefs) {
   const docFragment = document.createDocumentFragment();
   for (const child of fragment.childFragments) {
     if (!child.node) continue;
     const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-    renderFragment(child, childInputBT, docFragment, nthFormulas);
+    renderFragment(child, childInputBT, docFragment, nthFormulas, sourceRefs);
   }
   return docFragment;
 }
@@ -33,17 +34,18 @@ export function renderFragmentTree(fragment, inputBreakToken, nthFormulas) {
  * Render a single fragment into the parent element.
  * Routes to the appropriate renderer based on node type.
  */
-export function renderFragment(fragment, inputBreakToken, parentEl, nthFormulas) {
+export function renderFragment(fragment, inputBreakToken, parentEl, nthFormulas, sourceRefs) {
   if (!fragment.node) return;
 
   const node = fragment.node;
 
   if (fragment.multicolData) {
-    renderMulticolFragment(fragment, inputBreakToken, parentEl, nthFormulas);
+    renderMulticolFragment(fragment, inputBreakToken, parentEl, nthFormulas, sourceRefs);
   } else if (node.isInlineFormattingContext) {
-    renderInlineFragment(fragment, inputBreakToken, parentEl, nthFormulas);
+    renderInlineFragment(fragment, inputBreakToken, parentEl, nthFormulas, sourceRefs);
   } else if (hasBlockChildFragments(fragment)) {
     const el = node.element.cloneNode(false);
+    stampRef(el, node.element, sourceRefs);
     applySplitAttributes(el, inputBreakToken, fragment);
     if (nthFormulas) stampNthAttributes(el, node, nthFormulas);
     if (inputBreakToken && el.tagName === "OL") {
@@ -55,7 +57,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl, nthFormulas)
     for (const child of fragment.childFragments) {
       if (!child.node) continue;
       const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-      renderFragment(child, childInputBT, el, nthFormulas);
+      renderFragment(child, childInputBT, el, nthFormulas, sourceRefs);
     }
     // Skip empty container shells — all rendered children were themselves
     // empty and skipped (e.g. an <ol> whose only <li> had no visible text).
@@ -70,6 +72,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl, nthFormulas)
     return;
   } else {
     const el = node.element.cloneNode(true);
+    stampRefDeep(el, node.element, sourceRefs);
     applySplitAttributes(el, inputBreakToken, fragment);
     if (nthFormulas) stampNthAttributes(el, node, nthFormulas);
     if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
@@ -99,13 +102,17 @@ export function renderFragment(fragment, inputBreakToken, parentEl, nthFormulas)
  * Uses inlineItemsData + break token offsets to reconstruct
  * only the visible portion of the content.
  */
-function renderInlineFragment(fragment, inputBreakToken, parentEl, nthFormulas) {
+function renderInlineFragment(fragment, inputBreakToken, parentEl, nthFormulas, sourceRefs) {
   const node = fragment.node;
   const data = node.inlineItemsData;
   const isAnonymous = !node.element;
 
   if (!data || !data.items || data.items.length === 0) {
-    if (!isAnonymous) parentEl.appendChild(node.element.cloneNode(false));
+    if (!isAnonymous) {
+      const el = node.element.cloneNode(false);
+      stampRef(el, node.element, sourceRefs);
+      parentEl.appendChild(el);
+    }
     return;
   }
 
@@ -133,9 +140,10 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl, nthFormulas) 
     parentEl.appendChild(docFragment);
   } else {
     const el = node.element.cloneNode(false);
+    stampRef(el, node.element, sourceRefs);
     applySplitAttributes(el, inputBreakToken, fragment);
     if (nthFormulas) stampNthAttributes(el, node, nthFormulas);
-    buildInlineContent(data.items, data.textContent, startOffset, endOffset, el, collapseWS, isHyphenated);
+    buildInlineContent(data.items, data.textContent, startOffset, endOffset, el, collapseWS, isHyphenated, sourceRefs);
     parentEl.appendChild(el);
   }
 }
@@ -145,11 +153,12 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl, nthFormulas) 
  * Clones the element, disables native columns, renders each column
  * child as a flex item with correct width and gap.
  */
-function renderMulticolFragment(fragment, inputBreakToken, parentEl, nthFormulas) {
+function renderMulticolFragment(fragment, inputBreakToken, parentEl, nthFormulas, sourceRefs) {
   const node = fragment.node;
   const { columnWidth, columnGap } = fragment.multicolData;
 
   const el = node.element.cloneNode(false);
+  stampRef(el, node.element, sourceRefs);
   el.style.columns = "auto";
   el.style.columnCount = "auto";
   el.style.columnWidth = "auto";
@@ -181,7 +190,7 @@ function renderMulticolFragment(fragment, inputBreakToken, parentEl, nthFormulas
     for (const child of colFragment.childFragments) {
       if (!child.node) continue;
       const childInputBT = findChildBreakToken(colInputBT, child.node);
-      renderFragment(child, childInputBT, colEl, nthFormulas);
+      renderFragment(child, childInputBT, colEl, nthFormulas, sourceRefs);
     }
 
     el.appendChild(colEl);
@@ -282,7 +291,7 @@ export function applySliceDecorations(el, inputBreakToken, fragment) {
  * @param {Element} container - DOM element to append content into
  * @param {boolean} [collapseWS=false] - collapse whitespace runs
  */
-export function buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS = false, isHyphenated = false) {
+export function buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS = false, isHyphenated = false, sourceRefs) {
   let current = container;
   const stack = [];
   let lastTextNode = null;
@@ -306,6 +315,7 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
       }
     } else if (item.type === INLINE_OPEN_TAG) {
       const el = item.element.cloneNode(false);
+      stampRef(el, item.element, sourceRefs);
       current.appendChild(el);
       stack.push(current);
       current = el;
@@ -317,7 +327,9 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
       }
     } else if (item.type === INLINE_ATOMIC) {
       if (item.startOffset >= startOffset && item.startOffset < endOffset) {
-        current.appendChild(item.element.cloneNode(true));
+        const el = item.element.cloneNode(true);
+        stampRefDeep(el, item.element, sourceRefs);
+        current.appendChild(el);
       }
     }
   }
@@ -331,4 +343,32 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
   // Soft hyphens (U+00AD) are preserved in the text — the browser renders
   // them as visible hyphens at line break positions and invisible otherwise.
   // No manual hyphen injection needed.
+}
+
+// ---------------------------------------------------------------------------
+// Ref stamping — sets data-ref on clones from the source WeakMap
+// ---------------------------------------------------------------------------
+
+/**
+ * Stamp data-ref on a shallow clone from its source element's ref.
+ * No-op when sourceRefs is not provided.
+ */
+function stampRef(clone, source, sourceRefs) {
+  if (!sourceRefs) return;
+  const ref = sourceRefs.get(source);
+  if (ref !== undefined) clone.setAttribute("data-ref", ref);
+}
+
+/**
+ * Stamp data-ref on a deep clone and all its descendants.
+ * Walks both trees in parallel to match clone children to source children.
+ */
+function stampRefDeep(clone, source, sourceRefs) {
+  if (!sourceRefs) return;
+  stampRef(clone, source, sourceRefs);
+  const sourceChildren = source.children;
+  const cloneChildren = clone.children;
+  for (let i = 0; i < sourceChildren.length && i < cloneChildren.length; i++) {
+    stampRefDeep(cloneChildren[i], sourceChildren[i], sourceRefs);
+  }
 }

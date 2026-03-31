@@ -355,7 +355,7 @@ export class FragmentedFlow {
       this.#contentStyles,
       counterSnapshot,
     );
-    wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, el.nthFormulas));
+    wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, el.nthFormulas, this.#contentStyles?.sourceRefs));
     return el;
   }
 

@@ -4,6 +4,13 @@ import { MutationSync } from "../src/mutation-sync.js";
 import "../src/dom/content-measure.js";
 import "../src/dom/fragment-container.js";
 
+/** Inject an HTML string into a content-measure element. */
+function injectHTML(measurer, html) {
+  const t = document.createElement("template");
+  t.innerHTML = html;
+  return measurer.injectFragment(t.content);
+}
+
 // ---------------------------------------------------------------------------
 // Ref assignment
 // ---------------------------------------------------------------------------
@@ -20,30 +27,27 @@ describe("ContentMeasureElement ref assignment", () => {
     measurer.remove();
   });
 
-  it("assigns sequential data-ref to all elements", () => {
-    measurer.injectRawContent(
-      "<div><p>Hello</p><p>World</p></div>",
-      "",
-    );
-    const els = measurer.contentRoot.querySelectorAll("[data-ref]");
-    expect(els.length).toBe(3); // div + 2 p's
-    expect(els[0].getAttribute("data-ref")).toBe("0");
-    expect(els[1].getAttribute("data-ref")).toBe("1");
-    expect(els[2].getAttribute("data-ref")).toBe("2");
-  });
-
-  it("populates refMap with all elements", () => {
-    measurer.injectRawContent(
-      "<div><span>A</span><span>B</span></div>",
-      "",
-    );
-    expect(measurer.refMap.size).toBe(3); // div + 2 spans
+  it("tracks all elements in refMap and sourceRefs", () => {
+    injectHTML(measurer, "<div><p>Hello</p><p>World</p></div>");
+    // refMap tracks all 3 elements (div + 2 p's)
+    expect(measurer.refMap.size).toBe(3);
     expect(measurer.refMap.get("0").tagName).toBe("DIV");
-    expect(measurer.refMap.get("1").tagName).toBe("SPAN");
+    expect(measurer.refMap.get("1").tagName).toBe("P");
+    expect(measurer.refMap.get("2").tagName).toBe("P");
+
+    // sourceRefs maps source elements to their ref strings
+    const div = measurer.refMap.get("0");
+    expect(measurer.sourceRefs.get(div)).toBe("0");
   });
 
-  it("assignRef() increments counter and adds to map", () => {
-    measurer.injectRawContent("<div></div>", "");
+  it("does not set data-ref attributes on source elements", () => {
+    injectHTML(measurer, "<div><p>Hello</p></div>");
+    const els = measurer.contentRoot.querySelectorAll("[data-ref]");
+    expect(els.length).toBe(0);
+  });
+
+  it("assignRef() increments counter and adds to maps", () => {
+    injectHTML(measurer, "<div></div>");
     const existingCount = measurer.refMap.size;
 
     const newEl = document.createElement("p");
@@ -52,14 +56,18 @@ describe("ContentMeasureElement ref assignment", () => {
 
     expect(ref).toBe(String(existingCount));
     expect(measurer.refMap.get(ref)).toBe(newEl);
-    expect(newEl.getAttribute("data-ref")).toBe(ref);
+    expect(measurer.sourceRefs.get(newEl)).toBe(ref);
   });
 
-  it("removeRef() cleans up the map", () => {
-    measurer.injectRawContent("<div><p>Test</p></div>", "");
+  it("removeRef() cleans up both maps", () => {
+    injectHTML(measurer, "<div><p>Test</p></div>");
+    const el = measurer.refMap.get("1");
     expect(measurer.refMap.has("1")).toBe(true);
+    expect(measurer.sourceRefs.get(el)).toBe("1");
+
     measurer.removeRef("1");
     expect(measurer.refMap.has("1")).toBe(false);
+    expect(measurer.sourceRefs.has(el)).toBe(false);
   });
 });
 
@@ -112,10 +120,7 @@ describe("MutationSync attribute sync", () => {
   });
 
   it("syncs attribute changes to source", () => {
-    measurer.injectRawContent(
-      "<div><p>Hello</p></div>",
-      "",
-    );
+    injectHTML(measurer, "<div><p>Hello</p></div>");
     const sync = new MutationSync(
       measurer.refMap,
       measurer.contentRoot,
@@ -144,7 +149,7 @@ describe("MutationSync attribute sync", () => {
   });
 
   it("skips compositor-managed attributes", () => {
-    measurer.injectRawContent("<div></div>", "");
+    injectHTML(measurer, "<div></div>");
     const sync = new MutationSync(
       measurer.refMap, measurer.contentRoot,
       (el) => measurer.assignRef(el),
@@ -166,7 +171,7 @@ describe("MutationSync attribute sync", () => {
   });
 
   it("removes attribute from source when removed from clone", () => {
-    measurer.injectRawContent("<div class=\"old\"></div>", "");
+    injectHTML(measurer, "<div class=\"old\"></div>");
     const source = measurer.refMap.get("0");
     expect(source.getAttribute("class")).toBe("old");
 
@@ -209,10 +214,7 @@ describe("MutationSync element removal", () => {
   });
 
   it("removes source element when clone is removed", () => {
-    measurer.injectRawContent(
-      "<div><p>Keep</p><p>Remove</p></div>",
-      "",
-    );
+    injectHTML(measurer, "<div><p>Keep</p><p>Remove</p></div>");
     const sync = new MutationSync(
       measurer.refMap, measurer.contentRoot,
       (el) => measurer.assignRef(el),
@@ -255,10 +257,7 @@ describe("MutationSync element addition", () => {
   });
 
   it("inserts new element at correct position in source", () => {
-    measurer.injectRawContent(
-      "<div><p>First</p><p>Second</p></div>",
-      "",
-    );
+    injectHTML(measurer, "<div><p>First</p><p>Second</p></div>");
     const sync = new MutationSync(
       measurer.refMap, measurer.contentRoot,
       (el) => measurer.assignRef(el),
@@ -295,11 +294,12 @@ describe("MutationSync element addition", () => {
     const sourceDiv = measurer.refMap.get("0");
     expect(sourceDiv.children.length).toBe(3);
     expect(sourceDiv.children[1].tagName).toBe("H2");
-    expect(sourceDiv.children[1].hasAttribute("data-ref")).toBe(true);
+    // New element is tracked in sourceRefs (no data-ref attribute on source)
+    expect(measurer.sourceRefs.has(sourceDiv.children[1])).toBe(true);
   });
 
   it("assigns data-ref to added element and its descendants", () => {
-    measurer.injectRawContent("<div><p>Existing</p></div>", "");
+    injectHTML(measurer, "<div><p>Existing</p></div>");
     const sync = new MutationSync(
       measurer.refMap, measurer.contentRoot,
       (el) => measurer.assignRef(el),
@@ -327,11 +327,11 @@ describe("MutationSync element addition", () => {
 
     sync.applyMutations([mutation]);
 
-    // Both the added div and its span child should have refs in source
+    // Both the added div and its span child should be tracked in sourceRefs
     const sourceDiv = measurer.refMap.get("0");
     const addedDiv = sourceDiv.children[1];
-    expect(addedDiv.hasAttribute("data-ref")).toBe(true);
-    expect(addedDiv.querySelector("span").hasAttribute("data-ref")).toBe(true);
+    expect(measurer.sourceRefs.has(addedDiv)).toBe(true);
+    expect(measurer.sourceRefs.has(addedDiv.querySelector("span"))).toBe(true);
   });
 });
 
