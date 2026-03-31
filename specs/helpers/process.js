@@ -45,7 +45,8 @@ async function runPageMode(resolver) {
   document.body.style.padding = "0";
   document.body.style.background = "none";
 
-  const layout = new FragmentainerLayout(frag, { resolver });
+  const styles = collectConstructedSheets();
+  const layout = new FragmentainerLayout(frag, { resolver, styles });
   const flow = layout.flow();
 
   // Render each page sized to the full page box, with @page margins
@@ -147,6 +148,28 @@ async function processMulticol(container) {
     colEl.appendChild(renderFragmentTree(fragments[i], prevBT));
     container.appendChild(colEl);
   }
+}
+
+/**
+ * Convert document stylesheets into constructed CSSStyleSheets
+ * so they can be adopted into shadow roots.
+ */
+function collectConstructedSheets() {
+  const sheets = [];
+  for (const sheet of document.styleSheets) {
+    try {
+      const constructed = new CSSStyleSheet();
+      let css = "";
+      for (const rule of sheet.cssRules) {
+        css += rule.cssText + "\n";
+      }
+      constructed.replaceSync(css);
+      sheets.push(constructed);
+    } catch {
+      // Cross-origin sheets can't be read — skip
+    }
+  }
+  return sheets;
 }
 
 // Start processing
