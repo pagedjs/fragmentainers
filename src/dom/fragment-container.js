@@ -14,6 +14,9 @@ const CONTAINER_HOST_STYLES = `
     display: block;
     contain: strict;
   }
+  .frag-body {
+    min-height: 100%;
+  }
 `;
 
 export class FragmentContainerElement extends HTMLElement {

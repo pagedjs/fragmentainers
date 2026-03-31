@@ -7,6 +7,7 @@
  */
 
 import { buildNthOverrideSheet } from "../nth-selectors.js";
+import { buildBodyOverrideSheet } from "../body-selectors.js";
 
 const MEASURE_HOST_STYLES = `
   :host {
@@ -14,13 +15,14 @@ const MEASURE_HOST_STYLES = `
     display: block;
     position: fixed;
     left: -99999px;
-    contain: layout paint;
+    contain: strict;
   }
 `;
 
 export class ContentMeasureElement extends HTMLElement {
   #shadow;
   #wrapper = null;
+  #bodyOverrideSheet = null;
   #nthOverrideSheet = null;
   #nthFormulas = new Map();
   #currentInlineSize = undefined;
@@ -67,10 +69,15 @@ export class ContentMeasureElement extends HTMLElement {
     hostStyle.textContent = MEASURE_HOST_STYLES;
     this.#shadow.appendChild(hostStyle);
 
-    // Adopt caller-provided sheets as-is for measurement.
-    // Build a separate override sheet with attribute-selector equivalents
-    // of nth pseudo-classes for rendering (original sheets stay unmodified).
-    this.#shadow.adoptedStyleSheets = [...styles];
+    // Build override sheets for body/html selectors and nth pseudo-classes.
+    // Original sheets are NOT mutated — overrides are appended after them
+    // in adoptedStyleSheets so rewritten rules win by source order.
+    const body = buildBodyOverrideSheet(styles);
+    this.#bodyOverrideSheet = body.sheet;
+    this.#shadow.adoptedStyleSheets =
+      this.#bodyOverrideSheet.cssRules.length > 0
+        ? [...styles, this.#bodyOverrideSheet]
+        : [...styles];
     const nth = buildNthOverrideSheet(styles);
     this.#nthOverrideSheet = nth.sheet;
     this.#nthFormulas = nth.formulas;
@@ -107,24 +114,35 @@ export class ContentMeasureElement extends HTMLElement {
    * @returns {{ sheets: CSSStyleSheet[], nthFormulas: Map, sourceRefs: WeakMap }}
    */
   getContentStyles() {
-    const sheets = this.#nthOverrideSheet && this.#nthOverrideSheet.cssRules.length > 0
-      ? [...this.#shadow.adoptedStyleSheets, this.#nthOverrideSheet]
-      : [...this.#shadow.adoptedStyleSheets];
-    return { sheets, nthFormulas: this.#nthFormulas, sourceRefs: this.#sourceRefs };
+    const sheets =
+      this.#nthOverrideSheet && this.#nthOverrideSheet.cssRules.length > 0
+        ? [...this.#shadow.adoptedStyleSheets, this.#nthOverrideSheet]
+        : [...this.#shadow.adoptedStyleSheets];
+    return {
+      sheets,
+      nthFormulas: this.#nthFormulas,
+      sourceRefs: this.#sourceRefs,
+    };
   }
 
   /** @returns {Map<string, Element>} ref string → source element */
-  get refMap() { return this.#refMap; }
+  get refMap() {
+    return this.#refMap;
+  }
 
   /** @returns {WeakMap<Element, string>} source element → ref string */
-  get sourceRefs() { return this.#sourceRefs; }
+  get sourceRefs() {
+    return this.#sourceRefs;
+  }
 
   /**
    * Track a new element in the ref maps (no DOM mutation).
    * @param {Element} el
    * @returns {string} the assigned ref
    */
-  assignRef(el) { return this.#trackElement(el); }
+  assignRef(el) {
+    return this.#trackElement(el);
+  }
 
   /**
    * Remove a ref from the maps (e.g., when an element is deleted).
