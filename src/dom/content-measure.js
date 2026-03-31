@@ -6,7 +6,7 @@
  * reset inherited CSS properties to browser defaults.
  */
 
-import { rewriteNthSelectors } from "../nth-selectors.js";
+import { rewriteNthSelectorsOnSheet } from "../nth-selectors.js";
 
 const MEASURE_HOST_STYLES = `
   :host {
@@ -21,7 +21,7 @@ export class ContentMeasureElement extends HTMLElement {
     super();
     this._shadow = this.attachShadow({ mode: "open" });
     this._wrapper = null;
-    this._contentCSSText = "";
+    this._contentSheet = null;
     this._nthFormulas = new Map();
     this._currentInlineSize = undefined;
     this._refMap = new Map();
@@ -78,14 +78,18 @@ export class ContentMeasureElement extends HTMLElement {
     hostStyle.textContent = MEASURE_HOST_STYLES;
     this._shadow.appendChild(hostStyle);
 
-    // Rewrite nth-selectors for rendering containers. The measurement
-    // container keeps the original CSS so structural pseudo-classes still
-    // match the source DOM tree during layout measurement.
-    const nth = rewriteNthSelectors(cssText);
-    this._nthFormulas = nth.formulas;
-    this._contentCSSText = nth.cssText;
+    // Original CSS goes into <style> for measurement — structural
+    // pseudo-classes match the source DOM tree during layout.
     const contentStyle = document.createElement("style");
-    contentStyle.textContent = cssText; // original CSS for measurement
+    contentStyle.textContent = cssText;
+
+    // Create a separate CSSStyleSheet with rewritten nth-selectors
+    // for rendering containers (where the DOM structure differs).
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(cssText);
+    const nth = rewriteNthSelectorsOnSheet(sheet);
+    this._contentSheet = nth.sheet;
+    this._nthFormulas = nth.formulas;
     this._shadow.appendChild(contentStyle);
 
     // Create wrapper div that content CSS targets via .frag-body
@@ -119,11 +123,10 @@ export class ContentMeasureElement extends HTMLElement {
    * @returns {{ sheets: CSSStyleSheet[], cssText: string }}
    */
   getContentStyles() {
-    return {
-      sheets: [...this._shadow.adoptedStyleSheets],
-      cssText: this._contentCSSText,
-      nthFormulas: this._nthFormulas,
-    };
+    const sheets = this._contentSheet
+      ? [...this._shadow.adoptedStyleSheets, this._contentSheet]
+      : [...this._shadow.adoptedStyleSheets];
+    return { sheets, nthFormulas: this._nthFormulas };
   }
 
   /** @returns {Map<string, Element>} ref string → source element */

@@ -8,7 +8,7 @@
 
 import { OVERRIDES } from "../compositor/overrides.js";
 import { resolveMediaForPrintRules } from "./content-measure.js";
-import { rewriteNthSelectors } from "../nth-selectors.js";
+import { rewriteNthSelectorsOnSheet } from "../nth-selectors.js";
 
 const CONTAINER_HOST_STYLES = `
   :host {
@@ -127,11 +127,6 @@ export class FragmentContainerElement extends HTMLElement {
       } else {
         this._shadow.adoptedStyleSheets = [OVERRIDES];
       }
-      if (contentStyles.cssText) {
-        const contentStyle = document.createElement("style");
-        contentStyle.textContent = contentStyles.cssText;
-        this._shadow.appendChild(contentStyle);
-      }
       this._nthFormulas = contentStyles.nthFormulas || null;
     } else {
       // Copy stylesheets from the current document
@@ -204,8 +199,8 @@ function copyDocumentStyles(shadowRoot, forPrint = false) {
           rules += rewriteBodySelectors(rule.cssText) + "\n";
         }
       }
-      const nth = rewriteNthSelectors(rules, nthFormulas);
-      copy.replaceSync(nth.cssText);
+      copy.replaceSync(rules);
+      rewriteNthSelectorsOnSheet(copy, nthFormulas);
       sheets.push(copy);
     } catch (_) {
       // Cross-origin stylesheet — cssRules access throws SecurityError

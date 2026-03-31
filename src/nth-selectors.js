@@ -85,18 +85,14 @@ function formulaKey(pseudo, a, b) {
 }
 
 /**
- * Rewrite structural pseudo-classes in a CSS text string.
+ * Rewrite structural pseudo-classes in a selector string.
  *
- * Returns the rewritten CSS text and a Map of formula descriptors that the
- * compositor needs to evaluate during rendering.
- *
- * @param {string} cssText
- * @param {Map<string, { pseudo: string, a: number, b: number, attr: string }>} [formulas]
- *   — accumulator for formula descriptors (shared across multiple calls)
- * @returns {{ cssText: string, formulas: Map }}
+ * @param {string} selectorText
+ * @param {Map} formulas — accumulator for formula descriptors
+ * @returns {string} rewritten selector text
  */
-export function rewriteNthSelectors(cssText, formulas = new Map()) {
-  const rewritten = cssText.replace(NTH_PSEUDO_RE, (match, pseudo, args) => {
+function rewriteSelectorText(selectorText, formulas) {
+  return selectorText.replace(NTH_PSEUDO_RE, (match, pseudo, args) => {
     switch (pseudo) {
       case "first-child":
         return "[data-child-index=\"1\"]";
@@ -137,8 +133,56 @@ export function rewriteNthSelectors(cssText, formulas = new Map()) {
         return match;
     }
   });
+}
 
-  return { cssText: rewritten, formulas };
+/**
+ * Rewrite structural pseudo-classes in a CSS text string.
+ *
+ * @param {string} cssText
+ * @param {Map<string, { pseudo: string, a: number, b: number, attr: string }>} [formulas]
+ *   — accumulator for formula descriptors (shared across multiple calls)
+ * @returns {{ cssText: string, formulas: Map }}
+ */
+export function rewriteNthSelectors(cssText, formulas = new Map()) {
+  return { cssText: rewriteSelectorText(cssText, formulas), formulas };
+}
+
+// ---------------------------------------------------------------------------
+// CSSOM-based selector rewriting
+// ---------------------------------------------------------------------------
+
+/**
+ * Recursively rewrite structural pseudo-classes in a CSSRuleList.
+ *
+ * @param {CSSRuleList} ruleList
+ * @param {Map} formulas — accumulator for formula descriptors
+ */
+function rewriteRulesInList(ruleList, formulas) {
+  for (const rule of ruleList) {
+    if (rule.selectorText !== undefined) {
+      // CSSStyleRule — rewrite selector in place
+      const rewritten = rewriteSelectorText(rule.selectorText, formulas);
+      if (rewritten !== rule.selectorText) {
+        rule.selectorText = rewritten;
+      }
+    } else if (rule.cssRules) {
+      // Grouping rule (@media, @supports, @layer, @scope, etc.) — recurse
+      rewriteRulesInList(rule.cssRules, formulas);
+    }
+  }
+}
+
+/**
+ * Rewrite structural pseudo-classes on a CSSStyleSheet by mutating
+ * selectorText on each CSSStyleRule in place.
+ *
+ * @param {CSSStyleSheet} sheet
+ * @param {Map} [formulas] — accumulator for formula descriptors (shared across sheets)
+ * @returns {{ sheet: CSSStyleSheet, formulas: Map }}
+ */
+export function rewriteNthSelectorsOnSheet(sheet, formulas = new Map()) {
+  rewriteRulesInList(sheet.cssRules, formulas);
+  return { sheet, formulas };
 }
 
 // ---------------------------------------------------------------------------
