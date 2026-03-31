@@ -12,6 +12,8 @@ const MEASURE_HOST_STYLES = `
   :host {
     all: initial;
     display: block;
+    position: fixed;
+    left: -99999px;
     contain: layout paint;
   }
 `;

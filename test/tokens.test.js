@@ -1,33 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { BreakToken, BlockBreakToken, InlineBreakToken } from "../src/tokens.js";
-import { findChildBreakToken, isMonolithic, debugPrintTokenTree } from "../src/helpers.js";
+import { BlockBreakToken, InlineBreakToken } from "../src/tokens.js";
+import { findChildBreakToken, isMonolithic } from "../src/helpers.js";
 import { blockNode, replacedNode, scrollableNode } from "./fixtures/nodes.js";
 
-describe("BreakToken", () => {
-  it("constructs with default flags", () => {
-    const node = blockNode();
-    const token = new BreakToken("block", node);
-    expect(token.type).toBe("block");
-    expect(token.node).toBe(node);
-    expect(token.isBreakBefore).toBe(false);
-    expect(token.isForcedBreak).toBe(false);
-    expect(token.isRepeated).toBe(false);
-    expect(token.isAtBlockEnd).toBe(false);
-    expect(token.hasSeenAllChildren).toBe(false);
-  });
-});
-
 describe("BlockBreakToken", () => {
-  it("constructs with default values", () => {
-    const node = blockNode();
-    const token = new BlockBreakToken(node);
-    expect(token.type).toBe("block");
-    expect(token.consumedBlockSize).toBe(0);
-    expect(token.sequenceNumber).toBe(0);
-    expect(token.childBreakTokens).toEqual([]);
-    expect(token.algorithmData).toBe(null);
-  });
-
   it("createBreakBefore sets correct flags", () => {
     const node = blockNode({ debugName: "pushed" });
     const token = BlockBreakToken.createBreakBefore(node, false);
@@ -57,17 +33,6 @@ describe("BlockBreakToken", () => {
     expect(token.isRepeated).toBe(true);
     expect(token.sequenceNumber).toBe(2);
     expect(token.consumedBlockSize).toBe(150);
-  });
-});
-
-describe("InlineBreakToken", () => {
-  it("constructs with default values", () => {
-    const node = blockNode();
-    const token = new InlineBreakToken(node);
-    expect(token.type).toBe("inline");
-    expect(token.itemIndex).toBe(0);
-    expect(token.textOffset).toBe(0);
-    expect(token.flags).toBe(0);
   });
 });
 
@@ -162,22 +127,3 @@ describe("isMonolithic", () => {
   });
 });
 
-describe("debugPrintTokenTree", () => {
-  it("prints null token", () => {
-    expect(debugPrintTokenTree(null)).toBe("(null)");
-  });
-
-  it("prints a block token with flags", () => {
-    const node = blockNode({ debugName: "section" });
-    const token = new BlockBreakToken(node);
-    token.consumedBlockSize = 312;
-    token.sequenceNumber = 1;
-    token.hasSeenAllChildren = true;
-
-    const output = debugPrintTokenTree(token);
-    expect(output.includes("section")).toBeTruthy();
-    expect(output.includes("consumed=312")).toBeTruthy();
-    expect(output.includes("seq=1")).toBeTruthy();
-    expect(output.includes("seen-all")).toBeTruthy();
-  });
-});

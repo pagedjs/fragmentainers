@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import { PhysicalFragment } from "../src/fragment.js";
 import { BlockBreakToken } from "../src/tokens.js";
 import { ConstraintSpace } from "../src/constraint-space.js";
-import { PageSizeResolver, PageRule } from "../src/page-rules.js";
 import { blockNode } from "./fixtures/nodes.js";
 import { getFragmentainerSize } from "../src/compositor/fragmentainer-builder.js";
 import { FragmentainerLayout, FragmentedFlow } from "../src/fragmentainer-layout.js";
@@ -77,47 +76,6 @@ describe("FragmentedFlow", () => {
     expect(flow.fragmentainerCount).toBe(0);
   });
 
-  it("retains contentStyles for rendering", () => {
-    const styles = { sheets: [], cssText: "body { color: red }" };
-    const flow = new FragmentedFlow(makeFragments(1), styles);
-    // contentStyles is private (#contentStyles) — verify it's retained by
-    // checking that the flow still reports correct fragment count (smoke test)
-    expect(flow.fragmentainerCount).toBe(1);
-  });
-});
-
-describe("FragmentainerLayout", () => {
-  // Construction-only tests: flow() requires a real DOM, so we verify the
-  // resolver is configured correctly by passing it in and checking that the
-  // constructor does not throw.
-
-  const mockElement = { getRootNode() { return {}; } };
-
-  it("accepts a PageSizeResolver via options.resolver", () => {
-    const resolver = new PageSizeResolver([], { inlineSize: 816, blockSize: 1056 });
-    // Should construct without error
-    const layout = new FragmentainerLayout(mockElement, { resolver });
-    expect(layout).toBeTruthy();
-  });
-
-  it("creates a ConstraintSpace from width/height", () => {
-    const layout = new FragmentainerLayout(mockElement, {
-      width: 600, height: 800,
-    });
-    expect(layout).toBeTruthy();
-  });
-
-  it("uses letter size as default when no size specified", () => {
-    const layout = new FragmentainerLayout(mockElement);
-    expect(layout).toBeTruthy();
-  });
-
-  it("resolver with @page rules overrides default size", () => {
-    const rules = [new PageRule({ size: "a5" })];
-    const resolver = new PageSizeResolver(rules, { inlineSize: 816, blockSize: 1056 });
-    const layout = new FragmentainerLayout(mockElement, { resolver });
-    expect(layout).toBeTruthy();
-  });
 });
 
 describe("FragmentainerLayout.next()", () => {

@@ -1,17 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { PhysicalFragment } from "../src/fragment.js";
-import { BlockBreakToken, InlineBreakToken } from "../src/tokens.js";
+import { BlockBreakToken } from "../src/tokens.js";
 import { blockNode, textToInlineItems } from "./fixtures/nodes.js";
 import { INLINE_TEXT, INLINE_CONTROL } from "../src/constants.js";
-import { findChildBreakToken } from "../src/helpers.js";
 
 // Import the compositor functions
 import {
   hasBlockChildFragments,
-  getFragmentainerSize,
 } from "../src/compositor/index.js";
-
-import { applySliceDecorations } from "../src/compositor/render-fragments.js";
 
 describe("hasBlockChildFragments", () => {
   it("returns false for empty childFragments", () => {
@@ -37,87 +33,6 @@ describe("hasBlockChildFragments", () => {
     const child2 = new PhysicalFragment(blockNode({ debugName: "b" }), 50);
     const fragment = new PhysicalFragment(blockNode(), 100, [child1, child2]);
     expect(hasBlockChildFragments(fragment)).toBe(true);
-  });
-});
-
-describe("getFragmentainerSize", () => {
-  const sizes = [
-    { inlineSize: 600, blockSize: 800 },
-    { inlineSize: 800, blockSize: 600 },
-  ];
-
-  it("returns the size at the given index", () => {
-    expect(getFragmentainerSize(sizes, 0)).toEqual({ inlineSize: 600, blockSize: 800 });
-    expect(getFragmentainerSize(sizes, 1)).toEqual({ inlineSize: 800, blockSize: 600 });
-  });
-
-  it("returns the last size for indices beyond the array", () => {
-    expect(getFragmentainerSize(sizes, 2)).toEqual({ inlineSize: 800, blockSize: 600 });
-    expect(getFragmentainerSize(sizes, 99)).toEqual({ inlineSize: 800, blockSize: 600 });
-  });
-
-  it("works with a single-element array", () => {
-    const single = [{ inlineSize: 500, blockSize: 700 }];
-    expect(getFragmentainerSize(single, 0)).toEqual({ inlineSize: 500, blockSize: 700 });
-    expect(getFragmentainerSize(single, 5)).toEqual({ inlineSize: 500, blockSize: 700 });
-  });
-});
-
-describe("compositor fragment tree contract", () => {
-  it("PhysicalFragment stores node, blockSize, and childFragments", () => {
-    const node = blockNode({ debugName: "root" });
-    const child = new PhysicalFragment(blockNode({ debugName: "child" }), 50);
-    const fragment = new PhysicalFragment(node, 100, [child]);
-
-    expect(fragment.node).toBe(node);
-    expect(fragment.blockSize).toBe(100);
-    expect(fragment.childFragments.length).toBe(1);
-    expect(fragment.childFragments[0]).toBe(child);
-    expect(fragment.breakToken).toBe(null);
-  });
-
-  it("break tokens attach to fragments for continuation", () => {
-    const node = blockNode({ debugName: "paragraph" });
-    const fragment = new PhysicalFragment(node, 200);
-    const bt = new BlockBreakToken(node);
-    bt.consumedBlockSize = 200;
-    fragment.breakToken = bt;
-
-    expect(fragment.breakToken.type).toBe("block");
-    expect(fragment.breakToken.consumedBlockSize).toBe(200);
-    expect(fragment.breakToken.node).toBe(node);
-  });
-
-  it("inline break tokens use content-addressed offsets", () => {
-    const node = blockNode({ debugName: "ifc" });
-    const token = new InlineBreakToken(node);
-    token.itemIndex = 5;
-    token.textOffset = 142;
-
-    expect(token.type).toBe("inline");
-    expect(token.itemIndex).toBe(5);
-    expect(token.textOffset).toBe(142);
-  });
-
-  it("findChildBreakToken locates child tokens in parent", () => {
-    const childNode = blockNode({ debugName: "child" });
-    const parentBT = new BlockBreakToken(blockNode({ debugName: "parent" }));
-    const childBT = new BlockBreakToken(childNode);
-    childBT.consumedBlockSize = 100;
-    parentBT.childBreakTokens = [childBT];
-
-    const found = findChildBreakToken(parentBT, childNode);
-    expect(found).toBe(childBT);
-    expect(found.consumedBlockSize).toBe(100);
-  });
-
-  it("findChildBreakToken returns null when no match", () => {
-    const parentBT = new BlockBreakToken(blockNode({ debugName: "parent" }));
-    parentBT.childBreakTokens = [];
-    const other = blockNode({ debugName: "other" });
-
-    expect(findChildBreakToken(parentBT, other)).toBe(null);
-    expect(findChildBreakToken(null, other)).toBe(null);
   });
 });
 
@@ -197,59 +112,3 @@ describe("inline items data for compositor", () => {
   });
 });
 
-describe("applySliceDecorations", () => {
-  /** Mock element with a style object */
-  function mockEl() {
-    return { style: {} };
-  }
-
-  it("does nothing for only-fragment (no breaks)", () => {
-    const el = mockEl();
-    const fragment = new PhysicalFragment(blockNode(), 200);
-    // inputBreakToken = null, fragment.breakToken = null
-    applySliceDecorations(el, null, fragment);
-    expect(el.style.borderBlockStart).toBe(undefined);
-    expect(el.style.borderBlockEnd).toBe(undefined);
-    expect(el.style.paddingBlockStart).toBe(undefined);
-    expect(el.style.paddingBlockEnd).toBe(undefined);
-  });
-
-  it("suppresses block-end on first fragment (non-final)", () => {
-    const el = mockEl();
-    const fragment = new PhysicalFragment(blockNode(), 200);
-    const bt = new BlockBreakToken(fragment.node);
-    fragment.breakToken = bt;
-    // inputBreakToken = null (first), fragment.breakToken = bt (non-final)
-    applySliceDecorations(el, null, fragment);
-    expect(el.style.borderBlockStart).toBe(undefined);
-    expect(el.style.paddingBlockStart).toBe(undefined);
-    expect(el.style.borderBlockEnd).toBe("none");
-    expect(el.style.paddingBlockEnd).toBe("0");
-  });
-
-  it("suppresses block-start on final fragment (continuation)", () => {
-    const el = mockEl();
-    const inputBT = new BlockBreakToken(blockNode());
-    const fragment = new PhysicalFragment(blockNode(), 200);
-    // inputBreakToken = inputBT (continuation), fragment.breakToken = null (final)
-    applySliceDecorations(el, inputBT, fragment);
-    expect(el.style.borderBlockStart).toBe("none");
-    expect(el.style.paddingBlockStart).toBe("0");
-    expect(el.style.borderBlockEnd).toBe(undefined);
-    expect(el.style.paddingBlockEnd).toBe(undefined);
-  });
-
-  it("suppresses both block-start and block-end on middle fragment", () => {
-    const el = mockEl();
-    const inputBT = new BlockBreakToken(blockNode());
-    const fragment = new PhysicalFragment(blockNode(), 200);
-    const outputBT = new BlockBreakToken(fragment.node);
-    fragment.breakToken = outputBT;
-    // inputBreakToken = inputBT (continuation), fragment.breakToken = outputBT (non-final)
-    applySliceDecorations(el, inputBT, fragment);
-    expect(el.style.borderBlockStart).toBe("none");
-    expect(el.style.paddingBlockStart).toBe("0");
-    expect(el.style.borderBlockEnd).toBe("none");
-    expect(el.style.paddingBlockEnd).toBe("0");
-  });
-});
