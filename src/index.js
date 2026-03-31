@@ -13,3 +13,4 @@ export { renderFragmentTree, renderFragment, hasBlockChildFragments, buildInline
 export { FragmentainerLayout, FragmentedFlow } from "./fragmentainer-layout.js";
 export { RegionResolver, RegionConstraints } from "./region-resolver.js";
 export { CounterState, parseCounterDirective, walkFragmentTree } from "./counter-state.js";
+export { MutationSync } from "./mutation-sync.js";

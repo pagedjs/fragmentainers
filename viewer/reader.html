@@ -411,7 +411,8 @@
   <script type="module">
     import { fetchAndParse, injectContent, waitForFonts, FragmentainerLayout } from './viewer.js';
     import { PageSizeResolver, parsePageRulesFromCSS } from "../src/page-rules.js";
-    import '../src/dom/frag-measure.js';
+    import "../src/dom/content-measure.js";
+    import "../src/dom/fragment-container.js";
 
     const A5 = { inlineSize: 559, blockSize: 793 };
     const PAGE_PADDING = 32;

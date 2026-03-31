@@ -2,7 +2,6 @@ import { DOMLayoutNode } from "./dom/layout-node.js";
 import { runLayoutGenerator, getLayoutAlgorithm } from "./layout-request.js";
 import { renderFragmentTree } from "./compositor/render-fragments.js";
 import { PageSizeResolver } from "./page-rules.js";
-import { RegionResolver } from "./region-resolver.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
 import { FRAGMENTATION_COLUMN } from "./constants.js";
@@ -182,10 +181,20 @@ export class FragmentainerLayout {
    * forward. Measurements are already live — no cache invalidation
    * needed for size-only changes.
    *
+   * Pass `{ rebuild: true }` after structural DOM changes (add/remove
+   * elements) to force a layout tree reconstruction. This is needed
+   * because DOMLayoutNode caches are stale after structural mutations.
+   *
    * @param {number} [fromIndex=0] - Fragmentainer index to restart from
+   * @param {Object} [options]
+   * @param {boolean} [options.rebuild=false] - Rebuild the layout tree from source DOM
    */
-  reflow(fromIndex = 0) {
+  reflow(fromIndex = 0, { rebuild = false } = {}) {
     this.#ensureInit();
+    if (rebuild) {
+      this.#tree = null;
+      this.#ensureInit();
+    }
     const prev = fromIndex > 0 ? this.#fragments[fromIndex - 1] : null;
     this.#breakToken = prev?.breakToken ?? null;
     this.#fragmentainerIndex = fromIndex;
@@ -345,10 +354,12 @@ export class FragmentedFlow {
    * new fragments into this flow, and renders them.
    *
    * @param {number} [fromIndex=0] - Fragmentainer index to re-layout from
+   * @param {Object} [options]
+   * @param {boolean} [options.rebuild=false] - Rebuild layout tree (for structural DOM changes)
    * @returns {{ from: number, removedCount: number, elements: Element[] }}
    */
-  reflow(fromIndex = 0) {
-    this.#layout.reflow(fromIndex);
+  reflow(fromIndex = 0, options = {}) {
+    this.#layout.reflow(fromIndex, options);
 
     // Re-run layout to completion
     const newFragments = [];

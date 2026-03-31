@@ -71,7 +71,7 @@ describe("FragmentainerLayout with regions", () => {
     const content = container.querySelector("#content");
     const regions = [...container.querySelectorAll(".region")];
 
-    const layout = new FragmentainerLayout(content, { regions });
+    const layout = new FragmentainerLayout(content, { resolver: new RegionResolver(regions) });
 
     for (const region of regions) {
       const fragment = layout.next();
@@ -95,7 +95,7 @@ describe("FragmentainerLayout with regions", () => {
     const content = container.querySelector("#content");
     const regions = [...container.querySelectorAll(".region")];
 
-    const layout = new FragmentainerLayout(content, { regions });
+    const layout = new FragmentainerLayout(content, { resolver: new RegionResolver(regions) });
 
     let lastFragment;
     for (const region of regions) {
@@ -106,7 +106,7 @@ describe("FragmentainerLayout with regions", () => {
     expect(lastFragment.breakToken).not.toBeNull();
   });
 
-  it("regions option creates a RegionResolver internally", () => {
+  it("content fits in a single region", () => {
     container.innerHTML = `
       <div id="content" style="margin:0; padding:0;">
         <div style="height: 50px; margin: 0;"></div>
@@ -117,7 +117,7 @@ describe("FragmentainerLayout with regions", () => {
     const content = container.querySelector("#content");
     const regions = [...container.querySelectorAll(".region")];
 
-    const layout = new FragmentainerLayout(content, { regions });
+    const layout = new FragmentainerLayout(content, { resolver: new RegionResolver(regions) });
     const fragment = layout.next();
 
     // Content fits in one region
@@ -138,7 +138,7 @@ describe("FragmentainerLayout with regions", () => {
     const content = container.querySelector("#content");
     const regions = [...container.querySelectorAll(".region")];
 
-    const layout = new FragmentainerLayout(content, { regions });
+    const layout = new FragmentainerLayout(content, { resolver: new RegionResolver(regions) });
 
     const frag1 = layout.next();
     expect(frag1.breakToken).not.toBeNull();
