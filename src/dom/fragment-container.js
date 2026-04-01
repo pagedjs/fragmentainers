@@ -175,6 +175,32 @@ export class FragmentContainerElement extends HTMLElement {
    * Pass to renderFragmentTree() so the compositor can stamp matching attributes.
    * @returns {Map|null}
    */
+  /**
+   * Report overflow based on layout-level data. Dispatches a
+   * `fragment-overflow` event when the fragment's content exceeds
+   * the available space or continues on the next fragmentainer.
+   *
+   * @param {number} blockSize — layout-computed content height
+   * @param {number} availableBlockSize — page/column content area height
+   * @param {boolean} hasMore — true if content continues (break token exists)
+   */
+  reportOverflow(blockSize, availableBlockSize, hasMore) {
+    if (blockSize > availableBlockSize || hasMore) {
+      this.dispatchEvent(
+        new CustomEvent("fragment-overflow", {
+          bubbles: true,
+          detail: {
+            index: this.#fragmentIndex,
+            blockSize,
+            availableBlockSize,
+            overflow: Math.max(0, blockSize - availableBlockSize),
+            hasMore,
+          },
+        }),
+      );
+    }
+  }
+
   get nthFormulas() {
     return this.#nthFormulas;
   }
