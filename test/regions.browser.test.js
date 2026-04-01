@@ -57,7 +57,7 @@ describe("FragmentainerLayout with regions", () => {
     container.remove();
   });
 
-  it("flows content across region elements via next()", () => {
+  it("flows content across region elements via next()", async () => {
     // Content: tall block that won't fit in one region
     container.innerHTML = `
       <div id="content" style="margin:0; padding:0;">
@@ -72,6 +72,7 @@ describe("FragmentainerLayout with regions", () => {
     const regions = [...container.querySelectorAll(".region")];
 
     const layout = new FragmentainerLayout(content, { resolver: new RegionResolver(regions) });
+    await layout.setup();
 
     for (const region of regions) {
       const fragment = layout.next();
@@ -83,7 +84,7 @@ describe("FragmentainerLayout with regions", () => {
     expect(regions[0].childNodes.length).toBeGreaterThan(0);
   });
 
-  it("stops when regions run out with content remaining", () => {
+  it("stops when regions run out with content remaining", async () => {
     container.innerHTML = `
       <div id="content" style="margin:0; padding:0;">
         <div style="height: 500px; margin: 0;"></div>
@@ -95,6 +96,7 @@ describe("FragmentainerLayout with regions", () => {
     const regions = [...container.querySelectorAll(".region")];
 
     const layout = new FragmentainerLayout(content, { resolver: new RegionResolver(regions) });
+    await layout.setup();
 
     let lastFragment;
     for (let i = 0; i < regions.length; i++) {
@@ -105,7 +107,7 @@ describe("FragmentainerLayout with regions", () => {
     expect(lastFragment.breakToken).not.toBeNull();
   });
 
-  it("content fits in a single region", () => {
+  it("content fits in a single region", async () => {
     container.innerHTML = `
       <div id="content" style="margin:0; padding:0;">
         <div style="height: 50px; margin: 0;"></div>
@@ -117,6 +119,7 @@ describe("FragmentainerLayout with regions", () => {
     const regions = [...container.querySelectorAll(".region")];
 
     const layout = new FragmentainerLayout(content, { resolver: new RegionResolver(regions) });
+    await layout.setup();
     const fragment = layout.next();
 
     // Content fits in one region
@@ -124,7 +127,7 @@ describe("FragmentainerLayout with regions", () => {
     expect(fragment.blockSize).toBe(50);
   });
 
-  it("supports variable-sized regions", () => {
+  it("supports variable-sized regions", async () => {
     container.innerHTML = `
       <div id="content" style="margin:0; padding:0;">
         <div style="height: 80px; margin: 0;"></div>
@@ -138,6 +141,7 @@ describe("FragmentainerLayout with regions", () => {
     const regions = [...container.querySelectorAll(".region")];
 
     const layout = new FragmentainerLayout(content, { resolver: new RegionResolver(regions) });
+    await layout.setup();
 
     const frag1 = layout.next();
     expect(frag1.breakToken).not.toBeNull();

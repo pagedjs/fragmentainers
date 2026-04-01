@@ -405,7 +405,7 @@
   </div>
 
   <script type="module">
-    import { fetchAndParse, preprocessContent, FragmentainerLayout } from "./viewer.js";
+    import { ContentParser, FragmentainerLayout } from "./viewer.js";
     import { PageSizeResolver } from "../src/atpage/page-rules.js";
     import "../src/dom/fragment-container.js";
 
@@ -824,18 +824,17 @@
       document.title = currentTitle;
 
       try {
-        const parsed = await fetchAndParse(currentUrl);
-        const { html, sheets } = preprocessContent(parsed);
+        const response = await fetch(currentUrl);
+        const content = await response.text();
+        const baseURL = currentUrl.substring(0, currentUrl.lastIndexOf("/") + 1);
+        const parsed = await ContentParser.parse(content, baseURL);
 
-        const resolver = PageSizeResolver.fromStyleSheets(sheets, A5);
+        const resolver = PageSizeResolver.fromStyleSheets(parsed.styles, A5);
 
         statusEl.textContent = 'Typesetting\u2026';
 
-        const template = document.createElement("template");
-        template.innerHTML = html;
-
-        const layout = new FragmentainerLayout(template.content, {
-          styles: sheets,
+        const layout = new FragmentainerLayout(parsed.fragment, {
+          styles: parsed.styles,
           resolver,
         });
         flow = await layout.flow();

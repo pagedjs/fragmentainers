@@ -1,15 +1,31 @@
-import { collectInlineItems, collectInlineItemsFromNodes } from "./collect-inlines.js";
-import { createRangeMeasurer, measureElementBlockSize, getLineHeight } from "./measure.js";
+import {
+  collectInlineItems,
+} from "./collect-inlines.js";
+import {
+  createRangeMeasurer,
+  measureElementBlockSize,
+  getLineHeight,
+} from "./measure.js";
 import { computedStyleMap } from "./computed-style-map.js";
 import { BOX_DECORATION_SLICE } from "../core/constants.js";
 import { buildCumulativeHeights } from "../core/speculative-layout.js";
 
 const REPLACED_ELEMENTS = new Set([
-  "img", "video", "canvas", "iframe", "embed", "object", "svg",
+  "img",
+  "video",
+  "canvas",
+  "iframe",
+  "embed",
+  "object",
+  "svg",
 ]);
 
 const INLINE_DISPLAYS = new Set([
-  "inline", "inline-block", "inline-table", "inline-flex", "inline-grid",
+  "inline",
+  "inline-block",
+  "inline-table",
+  "inline-flex",
+  "inline-grid",
 ]);
 
 // Shared Range-based text measurer instance
@@ -72,8 +88,12 @@ export class DOMLayoutNode {
 
   get isScrollable() {
     const style = this.#getStyle();
-    return style.overflowY === "scroll" || style.overflowY === "auto" ||
-           style.overflowX === "scroll" || style.overflowX === "auto";
+    return (
+      style.overflowY === "scroll" ||
+      style.overflowY === "auto" ||
+      style.overflowX === "scroll" ||
+      style.overflowX === "auto"
+    );
   }
 
   get hasOverflowHidden() {
@@ -120,12 +140,12 @@ export class DOMLayoutNode {
 
   get gridRowStart() {
     const v = this.#getStyleMap().get("grid-row-start");
-    return (v && v.unit) ? v.value : null;
+    return v && v.unit ? v.value : null;
   }
 
   get gridRowEnd() {
     const v = this.#getStyleMap().get("grid-row-end");
-    return (v && v.unit) ? v.value : null;
+    return v && v.unit ? v.value : null;
   }
 
   //Multicol properties
@@ -134,23 +154,22 @@ export class DOMLayoutNode {
     const map = this.#getStyleMap();
     const cc = map.get("column-count");
     const cw = map.get("column-width");
-    return (cc && cc.unit && cc.value > 0) ||
-           (cw && cw.unit !== undefined);
+    return (cc && cc.unit && cc.value > 0) || (cw && cw.unit !== undefined);
   }
 
   get columnCount() {
     const v = this.#getStyleMap().get("column-count");
-    return (v && v.unit) ? v.value : null;
+    return v && v.unit ? v.value : null;
   }
 
   get columnWidth() {
     const v = this.#getStyleMap().get("column-width");
-    return (v && v.unit) ? v.value : null;
+    return v && v.unit ? v.value : null;
   }
 
   get columnGap() {
     const v = this.#getStyleMap().get("column-gap");
-    return (v && v.unit) ? v.value : null;
+    return v && v.unit ? v.value : null;
   }
 
   get columnFill() {
@@ -161,39 +180,39 @@ export class DOMLayoutNode {
 
   get marginBlockStart() {
     const v = this.#getStyleMap().get("margin-top");
-    return (v && v.unit) ? v.value : 0;
+    return v && v.unit ? v.value : 0;
   }
 
   get marginBlockEnd() {
     const v = this.#getStyleMap().get("margin-bottom");
-    return (v && v.unit) ? v.value : 0;
+    return v && v.unit ? v.value : 0;
   }
 
   get paddingBlockStart() {
     const v = this.#getStyleMap().get("padding-top");
-    return (v && v.unit) ? v.value : 0;
+    return v && v.unit ? v.value : 0;
   }
 
   get paddingBlockEnd() {
     const v = this.#getStyleMap().get("padding-bottom");
-    return (v && v.unit) ? v.value : 0;
+    return v && v.unit ? v.value : 0;
   }
 
   get borderBlockStart() {
     const v = this.#getStyleMap().get("border-top-width");
-    return (v && v.unit) ? v.value : 0;
+    return v && v.unit ? v.value : 0;
   }
 
   get borderBlockEnd() {
     const v = this.#getStyleMap().get("border-bottom-width");
-    return (v && v.unit) ? v.value : 0;
+    return v && v.unit ? v.value : 0;
   }
 
   //Fragmentation CSS
 
   get page() {
     const val = this.#getStyle().page;
-    return (val && val !== "auto") ? val : null;
+    return val && val !== "auto" ? val : null;
   }
 
   get breakBefore() {
@@ -214,18 +233,22 @@ export class DOMLayoutNode {
 
   get orphans() {
     const v = this.#getStyleMap().get("orphans");
-    return (v && v.unit) ? v.value : 2;
+    return v && v.unit ? v.value : 2;
   }
 
   get widows() {
     const v = this.#getStyleMap().get("widows");
-    return (v && v.unit) ? v.value : 2;
+    return v && v.unit ? v.value : 2;
   }
 
   //Counters
 
-  get counterReset() { return this.#getStyle().counterReset || "none"; }
-  get counterIncrement() { return this.#getStyle().counterIncrement || "none"; }
+  get counterReset() {
+    return this.#getStyle().counterReset || "none";
+  }
+  get counterIncrement() {
+    return this.#getStyle().counterIncrement || "none";
+  }
 
   //Compositor-accessed styles (snapshot values so they survive detachment)
 
@@ -270,7 +293,9 @@ export class DOMLayoutNode {
       for (const child of this.element.childNodes) {
         if (isBlockLevelNode(child)) {
           if (inlineGroup.length > 0) {
-            this.#children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
+            this.#children.push(
+              new AnonymousBlockNode(this.element, [...inlineGroup]),
+            );
             inlineGroup = [];
           }
           this.#children.push(new DOMLayoutNode(child));
@@ -279,7 +304,9 @@ export class DOMLayoutNode {
         }
       }
       if (inlineGroup.length > 0) {
-        this.#children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
+        this.#children.push(
+          new AnonymousBlockNode(this.element, [...inlineGroup]),
+        );
       }
     } else {
       // Pure block children
@@ -333,7 +360,8 @@ export class DOMLayoutNode {
   //Inline formatting context
 
   get isInlineFormattingContext() {
-    if (this.#isInlineFormattingContext !== null) return this.#isInlineFormattingContext;
+    if (this.#isInlineFormattingContext !== null)
+      return this.#isInlineFormattingContext;
 
     // An element is an inline FC if it directly contains text nodes
     // or inline-level elements (and is not replaced/table/etc.)
@@ -377,7 +405,7 @@ export class DOMLayoutNode {
   get inlineItemsData() {
     if (this.#inlineItemsData !== null) return this.#inlineItemsData;
     if (!this.isInlineFormattingContext) return null;
-    this.#inlineItemsData = collectInlineItems(this.element);
+    this.#inlineItemsData = collectInlineItems(this.element.childNodes);
     return this.#inlineItemsData;
   }
 
@@ -405,9 +433,17 @@ export class DOMLayoutNode {
 // Helpers for mixed content detection
 
 const BLOCK_DISPLAYS = new Set([
-  "block", "flex", "grid", "table", "list-item",
-  "table-row-group", "table-header-group", "table-footer-group",
-  "table-row", "table-cell", "table-caption",
+  "block",
+  "flex",
+  "grid",
+  "table",
+  "list-item",
+  "table-row-group",
+  "table-header-group",
+  "table-footer-group",
+  "table-row",
+  "table-cell",
+  "table-caption",
 ]);
 
 // Display types that don't participate in content flow — skipped during
@@ -454,19 +490,29 @@ export class AnonymousBlockNode {
     this.#childNodes = childNodes;
   }
 
-  get debugName() { return "[anon]"; }
-  get element() { return null; }
-  get isInlineFormattingContext() { return true; }
-  get children() { return []; }
+  get debugName() {
+    return "[anon]";
+  }
+  get element() {
+    return null;
+  }
+  get isInlineFormattingContext() {
+    return true;
+  }
+  get children() {
+    return [];
+  }
 
   get inlineItemsData() {
     if (!this.#inlineItemsData) {
-      this.#inlineItemsData = collectInlineItemsFromNodes(this.#childNodes);
+      this.#inlineItemsData = collectInlineItems(this.#childNodes);
     }
     return this.#inlineItemsData;
   }
 
-  get lineHeight() { return getLineHeight(this.#parentElement); }
+  get lineHeight() {
+    return getLineHeight(this.#parentElement);
+  }
 
   get measurer() {
     if (!sharedRangeMeasurer) {
@@ -475,48 +521,120 @@ export class AnonymousBlockNode {
     return sharedRangeMeasurer;
   }
 
-  get blockSize() { return 0; }
-  computedBlockSize() { return null; }
+  get blockSize() {
+    return 0;
+  }
+  computedBlockSize() {
+    return null;
+  }
 
   // Neutral box model
-  get marginBlockStart() { return 0; }
-  get marginBlockEnd() { return 0; }
-  get paddingBlockStart() { return 0; }
-  get paddingBlockEnd() { return 0; }
-  get borderBlockStart() { return 0; }
-  get borderBlockEnd() { return 0; }
+  get marginBlockStart() {
+    return 0;
+  }
+  get marginBlockEnd() {
+    return 0;
+  }
+  get paddingBlockStart() {
+    return 0;
+  }
+  get paddingBlockEnd() {
+    return 0;
+  }
+  get borderBlockStart() {
+    return 0;
+  }
+  get borderBlockEnd() {
+    return 0;
+  }
 
   // No fragmentation properties
-  get page() { return null; }
-  get breakBefore() { return "auto"; }
-  get breakAfter() { return "auto"; }
-  get breakInside() { return "auto"; }
-  get boxDecorationBreak() { return BOX_DECORATION_SLICE; }
-  get orphans() { return 2; }
-  get widows() { return 2; }
+  get page() {
+    return null;
+  }
+  get breakBefore() {
+    return "auto";
+  }
+  get breakAfter() {
+    return "auto";
+  }
+  get breakInside() {
+    return "auto";
+  }
+  get boxDecorationBreak() {
+    return BOX_DECORATION_SLICE;
+  }
+  get orphans() {
+    return 2;
+  }
+  get widows() {
+    return 2;
+  }
 
   // Classification
-  get isReplacedElement() { return false; }
-  get isScrollable() { return false; }
-  get hasOverflowHidden() { return false; }
-  get hasExplicitBlockSize() { return false; }
-  get isTable() { return false; }
-  get isTableRow() { return false; }
-  get isTableHeaderGroup() { return false; }
-  get isFlexContainer() { return false; }
-  get isGridContainer() { return false; }
-  get isMulticolContainer() { return false; }
-  get flexDirection() { return "row"; }
-  get flexWrap() { return "nowrap"; }
-  get gridRowStart() { return null; }
-  get gridRowEnd() { return null; }
-  get columnCount() { return null; }
-  get columnWidth() { return null; }
-  get columnGap() { return null; }
-  get columnFill() { return "balance"; }
-  get cells() { return []; }
+  get isReplacedElement() {
+    return false;
+  }
+  get isScrollable() {
+    return false;
+  }
+  get hasOverflowHidden() {
+    return false;
+  }
+  get hasExplicitBlockSize() {
+    return false;
+  }
+  get isTable() {
+    return false;
+  }
+  get isTableRow() {
+    return false;
+  }
+  get isTableHeaderGroup() {
+    return false;
+  }
+  get isFlexContainer() {
+    return false;
+  }
+  get isGridContainer() {
+    return false;
+  }
+  get isMulticolContainer() {
+    return false;
+  }
+  get flexDirection() {
+    return "row";
+  }
+  get flexWrap() {
+    return "nowrap";
+  }
+  get gridRowStart() {
+    return null;
+  }
+  get gridRowEnd() {
+    return null;
+  }
+  get columnCount() {
+    return null;
+  }
+  get columnWidth() {
+    return null;
+  }
+  get columnGap() {
+    return null;
+  }
+  get columnFill() {
+    return "balance";
+  }
+  get cells() {
+    return [];
+  }
 
   // Counters
-  get counterReset() { return "none"; }
-  get counterIncrement() { return "none"; }
+  get counterReset() {
+    return "none";
+  }
+  get counterIncrement() {
+    return "none";
+  }
 }

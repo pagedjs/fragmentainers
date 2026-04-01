@@ -84,7 +84,7 @@ describe("Refs in rendered fragments", () => {
 
     layout = new FragmentainerLayout(template.content, { width: 400, height: 150, trackRefs: true });
     const flow = await layout.flow();
-    const result = flow.reflow(0);
+    const result = await flow.reflow(0);
 
     // Check that clones in rendered containers have data-ref
     for (const fragEl of result.elements) {
@@ -333,7 +333,7 @@ describe("FragmentContainerElement.takeMutationRecords()", () => {
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100, trackRefs: true });
     const flow = await layout.flow();
-    const result = flow.reflow(0);
+    const result = await flow.reflow(0);
     const fragEl = result.elements[0];
     document.body.appendChild(fragEl);
 
@@ -388,7 +388,7 @@ describe("reflow with rebuild", () => {
     wrapper.appendChild(newDiv);
 
     // Reflow with rebuild to pick up the structural change
-    flow.reflow(0, { rebuild: true });
+    await flow.reflow(0, { rebuild: true });
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
   });
 });

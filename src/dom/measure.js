@@ -42,6 +42,32 @@ export function measureElementBlockSize(element) {
 }
 
 /**
+ * Count the number of rendered line boxes in an element using getClientRects().
+ *
+ * Creates a Range spanning the element's contents and counts distinct
+ * vertical positions in the returned rects (one rect per line box).
+ *
+ * @param {Element} element
+ * @returns {number}
+ */
+export function countLines(element) {
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  const rects = range.getClientRects();
+  if (rects.length === 0) return 0;
+
+  let count = 1;
+  let prevTop = rects[0].top;
+  for (let i = 1; i < rects.length; i++) {
+    if (rects[i].top > prevTop + 0.5) {
+      count++;
+      prevTop = rects[i].top;
+    }
+  }
+  return count;
+}
+
+/**
  * Get the computed line height of an element in pixels.
  */
 export function getLineHeight(element) {

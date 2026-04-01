@@ -98,11 +98,7 @@
     <div id="header"></div>
     <div id="output"></div>
     <script type="module">
-      import {
-        fetchAndParse,
-        preprocessContent,
-        FragmentainerLayout,
-      } from "./viewer.js";
+      import { ContentParser, FragmentainerLayout } from "./viewer.js";
       import "../src/dom/fragment-container.js";
       import { PageSizeResolver } from "../src/atpage/page-rules.js";
       import {
@@ -112,7 +108,7 @@
       } from "./debug.js";
 
       const params = new URLSearchParams(location.search);
-      const url = params.get("url") || "examples/moby-dick/index.html";
+      const url = params.get("url") || "examples/aurorae/index.html";
       const pageW = parseInt(params.get("w") || "816");
       const pageH = parseInt(params.get("h") || "1056");
       const maxPages = parseInt(params.get("pages") || "0");
@@ -137,17 +133,19 @@
 
       async function run() {
         try {
-          const parsed = await fetchAndParse(url);
-          const { html, sheets } = preprocessContent(parsed);
+          const response = await fetch(url);
+          const content = await response.text();
+          const baseURL = url.substring(0, url.lastIndexOf("/") + 1);
+          const parsed = await ContentParser.parse(content, baseURL);
 
           const size = { inlineSize: pageW, blockSize: pageH };
-          const resolver = PageSizeResolver.fromStyleSheets(sheets, size);
+          const resolver = PageSizeResolver.fromStyleSheets(
+            parsed.styles,
+            size,
+          );
 
-          const template = document.createElement("template");
-          template.innerHTML = html;
-
-          const layout = new FragmentainerLayout(template.content, {
-            styles: sheets,
+          const layout = new FragmentainerLayout(parsed.fragment, {
+            styles: parsed.styles,
             resolver: resolver.pageRules.length > 0 ? resolver : undefined,
             width: resolver.pageRules.length === 0 ? pageW : undefined,
             height: resolver.pageRules.length === 0 ? pageH : undefined,
@@ -275,8 +273,8 @@
 
         for (let i = 0; i < limit; i++) {
           const c = fragments[i].constraints;
-          const fragW = c ? c.pageBoxSize.inlineSize : pageW;
-          const fragH = c ? c.pageBoxSize.blockSize : pageH;
+          const fragW = c?.pageBoxSize ? c.pageBoxSize.inlineSize : pageW;
+          const fragH = c?.pageBoxSize ? c.pageBoxSize.blockSize : pageH;
           const effH = fragmentainerHeight(fragments[i], pageH);
           const dump = buildPageDump(fragments, i, effH);
 

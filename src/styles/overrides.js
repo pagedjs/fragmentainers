@@ -64,6 +64,7 @@ li[data-split-from]:first-of-type {
 [data-split-to]::after {
   content: unset !important;
 }
+
 `);
 
 export { OVERRIDES };

@@ -25,7 +25,7 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
     const target = measurer.contentRoot.querySelector("#target");
     target.style.height = "50px";
 
-    layout.reflow(0);
+    await layout.reflow(0);
     const flow2 = await layout.flow();
     expect(flow2.fragmentainerCount).toBe(1);
   });
@@ -44,7 +44,7 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
     const target = measurer.contentRoot.querySelector("#target");
     target.style.height = "350px";
 
-    layout.reflow(0);
+    await layout.reflow(0);
     const flow2 = await layout.flow();
     expect(flow2.fragmentainerCount).toBeGreaterThan(1);
   });
@@ -64,7 +64,7 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
     expect(originalCount).toBe(2);
 
     // Reflow from index 1 — fragment 0 should be untouched
-    layout.reflow(1);
+    await layout.reflow(1);
     const frag1 = layout.next();
     expect(frag1.blockSize).toBeGreaterThan(0);
     // Fragment 0 in the original flow should still be the same object
@@ -88,7 +88,7 @@ describe("FragmentedFlow.reflow() (browser)", () => {
     const flow = await layout.flow();
     const originalCount = flow.fragmentainerCount;
 
-    const result = flow.reflow(0);
+    const result = await flow.reflow(0);
     expect(result.from).toBe(0);
     expect(result.removedCount).toBe(originalCount);
     expect(result.elements.length).toBe(flow.fragmentainerCount);
@@ -109,7 +109,7 @@ describe("FragmentedFlow.reflow() (browser)", () => {
     const target = measurer.contentRoot.querySelector("#target");
     target.style.height = "50px";
 
-    const result = flow.reflow(0);
+    const result = await flow.reflow(0);
     expect(flow.fragmentainerCount).toBe(1);
     expect(result.elements.length).toBe(1);
   });
@@ -129,7 +129,7 @@ describe("FragmentContainerElement observers (browser)", () => {
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
     const flow = await layout.flow();
-    const result = flow.reflow(0);
+    const result = await flow.reflow(0);
 
     for (let i = 0; i < result.elements.length; i++) {
       expect(result.elements[i].fragmentIndex).toBe(i);
@@ -143,7 +143,7 @@ describe("FragmentContainerElement observers (browser)", () => {
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
     const flow = await layout.flow();
-    const result = flow.reflow(0);
+    const result = await flow.reflow(0);
     const fragEl = result.elements[0];
     document.body.appendChild(fragEl);
 
@@ -184,7 +184,7 @@ describe("FragmentContainerElement observers (browser)", () => {
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
     const flow = await layout.flow();
-    const result = flow.reflow(0);
+    const result = await flow.reflow(0);
     const fragEl = result.elements[0];
     document.body.appendChild(fragEl);
 

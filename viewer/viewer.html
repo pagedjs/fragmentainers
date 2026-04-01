@@ -227,8 +227,7 @@
 
     <script type="module">
       import {
-        fetchAndParse,
-        preprocessContent,
+        ContentParser,
         FragmentainerLayout,
         renderPages,
         showDetail,
@@ -321,18 +320,17 @@
         summaryEl.textContent = "";
 
         try {
-          const parsed = await fetchAndParse(url);
+          const response = await fetch(url);
+          const content = await response.text();
+          const baseURL = url.substring(0, url.lastIndexOf("/") + 1);
 
-          statusEl.textContent = "Preprocessing content...";
-          const { html, sheets } = preprocessContent(parsed);
-
-          const template = document.createElement("template");
-          template.innerHTML = html;
+          statusEl.textContent = "Parsing content...";
+          const parsed = await ContentParser.parse(content, baseURL);
 
           statusEl.textContent = "Running fragmentation...";
 
-          const layout = new FragmentainerLayout(template.content, {
-            styles: sheets,
+          const layout = new FragmentainerLayout(parsed.fragment, {
+            styles: parsed.styles,
             resolver,
           });
 

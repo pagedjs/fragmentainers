@@ -15,7 +15,8 @@ describe("FragmentainerLayout.reflow()", () => {
     return new FragmentainerLayout(root, { constraintSpace: cs });
   }
 
-  function collectAll(layout) {
+  async function collectAll(layout) {
+    await layout.setup();
     const fragments = [];
     let frag;
     do {
@@ -25,19 +26,19 @@ describe("FragmentainerLayout.reflow()", () => {
     return fragments;
   }
 
-  it("reflow(0) then stepping matches a fresh layout", () => {
+  it("reflow(0) then stepping matches a fresh layout", async () => {
     const children = [
       blockNode({ blockSize: 200 }),
       blockNode({ blockSize: 200 }),
       blockNode({ blockSize: 200 }),
     ];
 
-    const fresh = collectAll(makeLayout(children));
+    const fresh = await collectAll(makeLayout(children));
 
     const layout2 = makeLayout(children);
-    collectAll(layout2);
-    layout2.reflow(0);
-    const reflowed = collectAll(layout2);
+    await collectAll(layout2);
+    await layout2.reflow(0);
+    const reflowed = await collectAll(layout2);
 
     expect(reflowed.length).toBe(fresh.length);
     for (let i = 0; i < fresh.length; i++) {
@@ -46,19 +47,19 @@ describe("FragmentainerLayout.reflow()", () => {
     }
   });
 
-  it("reflow(1) then next() matches original fragments from index 1", () => {
+  it("reflow(1) then next() matches original fragments from index 1", async () => {
     const children = [
       blockNode({ blockSize: 200 }),
       blockNode({ blockSize: 200 }),
       blockNode({ blockSize: 200 }),
     ];
 
-    const fresh = collectAll(makeLayout(children));
+    const fresh = await collectAll(makeLayout(children));
 
     const layout2 = makeLayout(children);
-    collectAll(layout2);
-    layout2.reflow(1);
-    const reflowed = collectAll(layout2);
+    await collectAll(layout2);
+    await layout2.reflow(1);
+    const reflowed = await collectAll(layout2);
 
     expect(reflowed.length).toBe(fresh.length - 1);
     for (let i = 0; i < reflowed.length; i++) {
@@ -66,7 +67,7 @@ describe("FragmentainerLayout.reflow()", () => {
     }
   });
 
-  it("reflow() restores counter state from preceding fragment", () => {
+  it("reflow() restores counter state from preceding fragment", async () => {
     const section = blockNode({
       counterReset: "paragraph 0",
       children: [
@@ -77,11 +78,11 @@ describe("FragmentainerLayout.reflow()", () => {
     });
 
     const layout = makeLayout([section]);
-    const fragments = collectAll(layout);
+    const fragments = await collectAll(layout);
 
     const countersBefore = fragments[0].counterState;
 
-    layout.reflow(1);
+    await layout.reflow(1);
     const frag = layout.next();
 
     if (countersBefore) {
@@ -89,14 +90,14 @@ describe("FragmentainerLayout.reflow()", () => {
     }
   });
 
-  it("reflow(0) on single-fragment content produces identical result", () => {
+  it("reflow(0) on single-fragment content produces identical result", async () => {
     const children = [blockNode({ blockSize: 100 })];
 
     const layout = makeLayout(children);
-    const fresh = collectAll(layout);
+    const fresh = await collectAll(layout);
     expect(fresh.length).toBe(1);
 
-    layout.reflow(0);
+    await layout.reflow(0);
     const frag = layout.next();
     expect(frag.blockSize).toBe(fresh[0].blockSize);
     expect(frag.breakToken).toBeNull();

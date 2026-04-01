@@ -83,7 +83,7 @@ describe("FragmentainerLayout.next()", () => {
   // buildLayoutTree. We use a minimal mock that satisfies DOMLayoutNode.
   // These tests use a ConstraintSpace directly to avoid needing document.styleSheets.
 
-  it("returns a fragment with breakToken when content overflows", () => {
+  it("returns a fragment with breakToken when content overflows", async () => {
     const root = blockNode({
       children: [
         blockNode({ blockSize: 300 }),
@@ -99,6 +99,7 @@ describe("FragmentainerLayout.next()", () => {
     });
 
     const layout = new FragmentainerLayout(root, { constraintSpace: cs });
+    await layout.setup();
     const frag1 = layout.next();
 
     expect(frag1).toBeDefined();
@@ -106,7 +107,7 @@ describe("FragmentainerLayout.next()", () => {
     expect(frag1.breakToken).not.toBeNull();
   });
 
-  it("returns null breakToken on the last fragment", () => {
+  it("returns null breakToken on the last fragment", async () => {
     const root = blockNode({
       children: [
         blockNode({ blockSize: 300 }),
@@ -122,6 +123,7 @@ describe("FragmentainerLayout.next()", () => {
     });
 
     const layout = new FragmentainerLayout(root, { constraintSpace: cs });
+    await layout.setup();
     const frag1 = layout.next();
     expect(frag1.breakToken).not.toBeNull();
 
@@ -129,7 +131,7 @@ describe("FragmentainerLayout.next()", () => {
     expect(frag2.breakToken).toBeNull();
   });
 
-  it("next() loop collects all fragments", () => {
+  it("next() loop collects all fragments", async () => {
     const root = blockNode({
       children: [
         blockNode({ blockSize: 200 }),
@@ -146,6 +148,7 @@ describe("FragmentainerLayout.next()", () => {
     });
 
     const layout = new FragmentainerLayout(root, { constraintSpace: cs });
+    await layout.setup();
     const fragments = [];
     let frag;
     do {
@@ -157,7 +160,7 @@ describe("FragmentainerLayout.next()", () => {
     expect(fragments[fragments.length - 1].breakToken).toBeNull();
   });
 
-  it("stopping early leaves breakToken non-null", () => {
+  it("stopping early leaves breakToken non-null", async () => {
     const root = blockNode({
       children: [
         blockNode({ blockSize: 200 }),
@@ -174,6 +177,7 @@ describe("FragmentainerLayout.next()", () => {
     });
 
     const layout = new FragmentainerLayout(root, { constraintSpace: cs });
+    await layout.setup();
     // Only consume one fragmentainer (simulating one region)
     const frag = layout.next();
     expect(frag.breakToken).not.toBeNull();

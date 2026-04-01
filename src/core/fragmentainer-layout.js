@@ -69,7 +69,9 @@ export class FragmentainerLayout {
     }
 
     this.#styles = options.styles
-      ? (Array.isArray(options.styles) ? options.styles : [options.styles])
+      ? Array.isArray(options.styles)
+        ? options.styles
+        : [options.styles]
       : undefined;
 
     this.#trackRefs = !!options.trackRefs;
@@ -96,14 +98,13 @@ export class FragmentainerLayout {
   /**
    * Lay out the next fragmentainer and return its fragment.
    *
-   * The caller controls the loop — call next() repeatedly to fill
-   * regions, pages, or any container. Check fragment.breakToken to
-   * know if content remains.
+   * The caller controls the loop — call await setup() once, then
+   * call next() repeatedly to fill regions, pages, or any container.
+   * Check fragment.breakToken to know if content remains.
    *
    * @returns {import('./fragment.js').PhysicalFragment}
    */
   next() {
-    this.setup();
 
     // Resolve constraint space for this fragmentainer
     let constraintSpace;
@@ -167,16 +168,7 @@ export class FragmentainerLayout {
    * @returns {Promise<FragmentedFlow>}
    */
   async flow() {
-    this.setup();
-
-    // Force a style/layout pass so the browser discovers @font-face
-    // references in the newly injected content, then wait for fonts
-    // and images to finish loading before measuring.
-    void this.#measureElement.offsetHeight;
-    if (document.fonts?.ready) {
-      await document.fonts.ready;
-    }
-    await this.#waitForImages(this.#measureElement.contentRoot);
+    await this.setup();
 
     const fragments = [];
     let zeroProgressCount = 0;
@@ -211,10 +203,12 @@ export class FragmentainerLayout {
     const pending = [];
     for (const img of root.querySelectorAll("img")) {
       if (!img.complete) {
-        pending.push(new Promise((r) => {
-          img.addEventListener("load", r, { once: true });
-          img.addEventListener("error", r, { once: true });
-        }));
+        pending.push(
+          new Promise((r) => {
+            img.addEventListener("load", r, { once: true });
+            img.addEventListener("error", r, { once: true });
+          }),
+        );
       }
     }
     return pending.length > 0 ? Promise.all(pending) : Promise.resolve();
@@ -236,12 +230,12 @@ export class FragmentainerLayout {
    * @param {Object} [options]
    * @param {boolean} [options.rebuild=false] - Rebuild the layout tree from source DOM
    */
-  reflow(fromIndex = 0, { rebuild = false } = {}) {
+  async reflow(fromIndex = 0, { rebuild = false } = {}) {
     if (rebuild) {
       this.#tree = null;
-      this.setup(true);
+      await this.setup(true);
     } else {
-      this.setup();
+      await this.setup();
     }
     const prev = fromIndex > 0 ? this.#fragments[fromIndex - 1] : null;
     this.#breakToken = prev?.breakToken ?? null;
@@ -284,19 +278,32 @@ export class FragmentainerLayout {
    *
    * @param {boolean} [forceUpdate=false] - Force re-initialization
    */
-  setup(forceUpdate = false) {
+  async setup(forceUpdate = false) {
     if (this.#tree && !forceUpdate) return;
     const content = this.#content;
 
     if (this.#ownsMeasurer && this.#measureElement) {
       // Rebuild layout tree from existing measurer (content already injected)
       this.#tree = buildLayoutTree(this.#measureElement.contentRoot);
-    } else if (typeof DocumentFragment !== "undefined" && content instanceof DocumentFragment) {
+    } else if (
+      typeof DocumentFragment !== "undefined" &&
+      content instanceof DocumentFragment
+    ) {
       // Create internal <content-measure> and inject the fragment
       const measurer = document.createElement("content-measure");
       measurer.trackRefs = this.#trackRefs;
-      document.body.appendChild(measurer);
       const wrapper = measurer.injectFragment(content, this.#styles);
+
+      document.body.appendChild(measurer);
+
+      // Force a style/layout pass so the browser discovers @font-face
+      // references in the newly injected content, then wait for fonts
+      // and images to finish loading before measuring.
+      void measurer.offsetHeight;
+      if (document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+      await this.#waitForImages(measurer.contentRoot);
 
       this.#tree = buildLayoutTree(wrapper);
       this.#measureElement = measurer;
@@ -388,11 +395,15 @@ export class FragmentedFlow {
     el.style.overflow = "hidden";
     const counterSnapshot =
       index > 0 ? this.#fragments[index - 1].counterState : null;
-    const wrapper = el.setupForRendering(
-      this.#contentStyles,
-      counterSnapshot,
+    const wrapper = el.setupForRendering(this.#contentStyles, counterSnapshot);
+    wrapper.appendChild(
+      renderFragmentTree(
+        fragment,
+        prevBreakToken,
+        el.nthFormulas,
+        this.#contentStyles?.sourceRefs,
+      ),
     );
-    wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, el.nthFormulas, this.#contentStyles?.sourceRefs));
     el.expectedBlockSize = contentArea.blockSize;
     el.overflowThreshold = fragment.node?.lineHeight || 20;
     return el;
@@ -423,8 +434,8 @@ export class FragmentedFlow {
    * @param {boolean} [options.rebuild=false] - Rebuild layout tree (for structural DOM changes)
    * @returns {{ from: number, removedCount: number, elements: Element[] }}
    */
-  reflow(fromIndex = 0, options = {}) {
-    this.#layout.reflow(fromIndex, options);
+  async reflow(fromIndex = 0, options = {}) {
+    await this.#layout.reflow(fromIndex, options);
 
     // Re-run layout to completion
     const newFragments = [];

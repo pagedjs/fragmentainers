@@ -1,51 +1,7 @@
 import { FragmentainerLayout } from "../src/core/fragmentainer-layout.js";
-import { preprocessContent } from "./css-utils.js";
+import { ContentParser } from "./content-parser.js";
 
-export { FragmentainerLayout, preprocessContent };
-
-/**
- * Fetch an example HTML file, parse it, and extract CSS + body content.
- */
-export async function fetchAndParse(url) {
-  const baseURL = url.substring(0, url.lastIndexOf("/") + 1);
-  const response = await fetch(url);
-  const html = await response.text();
-  const doc = new DOMParser().parseFromString(html, "text/html");
-
-  // Collect CSS from <style> elements.
-  // Each entry is { css, cssBaseURL } so url() paths can be resolved
-  // relative to the stylesheet's location, not the HTML document.
-  const cssEntries = [];
-  for (const style of doc.querySelectorAll("style")) {
-    cssEntries.push({ css: style.textContent, cssBaseURL: baseURL });
-  }
-
-  // Fetch linked stylesheets
-  for (const link of doc.querySelectorAll('link[rel="stylesheet"]')) {
-    const href = link.getAttribute("href");
-    if (href) {
-      try {
-        const cssURL = new URL(href, new URL(url, location.href)).href;
-        const cssResponse = await fetch(cssURL);
-        const cssBaseURL = cssURL.substring(0, cssURL.lastIndexOf("/") + 1);
-        cssEntries.push({ css: await cssResponse.text(), cssBaseURL });
-      } catch (e) {
-        console.warn(`Failed to fetch stylesheet: ${href}`, e);
-      }
-    }
-  }
-
-  // Extract body content. Special case: <template id="flow">
-  let bodyHTML;
-  const template = doc.querySelector("template#flow");
-  if (template) {
-    bodyHTML = template.innerHTML;
-  } else {
-    bodyHTML = doc.body.innerHTML;
-  }
-
-  return { bodyHTML, cssEntries, baseURL };
-}
+export { FragmentainerLayout, ContentParser };
 
 /**
  * Wait for all fonts used by the content to finish loading.
