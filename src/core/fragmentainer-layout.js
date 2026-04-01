@@ -638,11 +638,7 @@ export class FragmentedFlow {
       counterSnapshot,
     );
     wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, el.nthFormulas, this.#contentStyles?.sourceRefs));
-    el.reportOverflow(
-      fragment.blockSize,
-      contentArea.blockSize,
-      fragment.breakToken !== null,
-    );
+    el.expectedBlockSize = contentArea.blockSize;
     return el;
   }
 

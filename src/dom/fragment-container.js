@@ -28,6 +28,7 @@ export class FragmentContainerElement extends HTMLElement {
   #mutationBuffer = [];
   #notifyPending = false;
   #nthFormulas = null;
+  #expectedBlockSize = null;
 
   constructor() {
     super();
@@ -61,6 +62,33 @@ export class FragmentContainerElement extends HTMLElement {
   }
 
   /**
+   * Check whether the rendered content height diverges from the
+   * layout-computed expected size. Dispatches an `overflow` event
+   * when the rendered output is taller than what layout predicted.
+   */
+  #checkOverflow(entries) {
+    if (this.#expectedBlockSize === null) return;
+    for (const entry of entries) {
+      const renderedBlockSize = entry.contentBoxSize?.[0]?.blockSize
+        ?? entry.contentRect.height;
+      const delta = renderedBlockSize - this.#expectedBlockSize;
+      if (delta > 1.0) {
+        this.dispatchEvent(
+          new CustomEvent("overflow", {
+            bubbles: true,
+            detail: {
+              index: this.#fragmentIndex,
+              expectedBlockSize: this.#expectedBlockSize,
+              renderedBlockSize,
+              overflow: delta,
+            },
+          }),
+        );
+      }
+    }
+  }
+
+  /**
    * Attach ResizeObserver and MutationObserver on the content wrapper.
    * Deferred via requestAnimationFrame to skip the initial
    * ResizeObserver notification.
@@ -68,7 +96,10 @@ export class FragmentContainerElement extends HTMLElement {
   startObserving() {
     if (this.#resizeObserver) return;
     requestAnimationFrame(() => {
-      this.#resizeObserver = new ResizeObserver(() => this.#scheduleNotify());
+      this.#resizeObserver = new ResizeObserver((entries) => {
+        this.#checkOverflow(entries);
+        this.#scheduleNotify();
+      });
       this.#resizeObserver.observe(this.#wrapper);
 
       this.#mutationObserver = new MutationObserver((mutations) => {
@@ -176,29 +207,14 @@ export class FragmentContainerElement extends HTMLElement {
    * @returns {Map|null}
    */
   /**
-   * Report overflow based on layout-level data. Dispatches a
-   * `fragment-overflow` event when the fragment's content exceeds
-   * the available space or continues on the next fragmentainer.
+   * Set the expected block size from layout. The ResizeObserver
+   * compares the rendered content height against this value to
+   * detect when rendering diverges from the layout computation.
    *
    * @param {number} blockSize — layout-computed content height
-   * @param {number} availableBlockSize — page/column content area height
-   * @param {boolean} hasMore — true if content continues (break token exists)
    */
-  reportOverflow(blockSize, availableBlockSize, hasMore) {
-    if (blockSize > availableBlockSize || hasMore) {
-      this.dispatchEvent(
-        new CustomEvent("overflow", {
-          bubbles: true,
-          detail: {
-            index: this.#fragmentIndex,
-            blockSize,
-            availableBlockSize,
-            overflow: Math.max(0, blockSize - availableBlockSize),
-            hasMore,
-          },
-        }),
-      );
-    }
+  set expectedBlockSize(blockSize) {
+    this.#expectedBlockSize = blockSize;
   }
 
   get nthFormulas() {

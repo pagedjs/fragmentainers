@@ -207,15 +207,6 @@
           fragEl.style.transform = `scale(${renderScale})`;
           fragEl.style.transformOrigin = "top left";
 
-          // Listen for layout-level overflow from the fragment container
-          fragEl.addEventListener("overflow", (e) => {
-            if (e.detail.overflow > 0) {
-              dump.text += `\n  ISSUES:\n    - OVERFLOW: ${e.detail.overflow.toFixed(1)}px exceeds content area (${e.detail.blockSize.toFixed(1)}px content in ${e.detail.availableBlockSize.toFixed(1)}px area)`;
-              dump.hasIssues = true;
-              row.classList.add("has-issues");
-            }
-          });
-
           renderBox.appendChild(fragEl);
           row.appendChild(renderBox);
           outputEl.appendChild(row);
@@ -229,6 +220,16 @@
           dataBox.className = "page-row-data";
           dataBox.textContent = dump.text;
           row.appendChild(dataBox);
+
+          // Listen for render overflow — fires async from the
+          // ResizeObserver when rendered content height diverges
+          // from the layout-computed expected size.
+          fragEl.addEventListener("overflow", (e) => {
+            const d = e.detail;
+            dataBox.textContent += `\n  ISSUES:\n    - RENDER OVERFLOW: rendered ${d.renderedBlockSize.toFixed(1)}px vs expected ${d.expectedBlockSize.toFixed(1)}px (delta ${d.overflow.toFixed(1)}px)`;
+            row.classList.add("has-issues");
+          });
+          fragEl.startObserving();
         }
 
         const summary = document.createElement("div");
