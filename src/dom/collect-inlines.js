@@ -1,4 +1,4 @@
-import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC } from "../constants.js";
+import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC } from "../core/constants.js";
 
 /**
  * Walk DOM inline content and build a flat InlineItemsData structure.

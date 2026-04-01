@@ -9,7 +9,7 @@ import {
   INLINE_OPEN_TAG,
   INLINE_CLOSE_TAG,
   INLINE_ATOMIC,
-} from "../../src/constants.js";
+} from "../../src/core/constants.js";
 
 let container;
 

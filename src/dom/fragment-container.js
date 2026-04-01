@@ -6,7 +6,7 @@
  * properties to browser defaults.
  */
 
-import { OVERRIDES } from "../compositor/overrides.js";
+import { OVERRIDES } from "../styles/overrides.js";
 
 const CONTAINER_HOST_STYLES = `
   :host {

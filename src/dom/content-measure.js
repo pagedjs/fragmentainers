@@ -6,8 +6,8 @@
  * reset inherited CSS properties to browser defaults.
  */
 
-import { buildNthOverrideSheet } from "../nth-selectors.js";
-import { buildBodyOverrideSheet } from "../body-selectors.js";
+import { buildNthOverrideSheet } from "../styles/nth-selectors.js";
+import { buildBodyOverrideSheet } from "../styles/body-selectors.js";
 
 const MEASURE_HOST_STYLES = `
   :host {

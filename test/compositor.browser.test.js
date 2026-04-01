@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { renderFragmentTree, applySliceDecorations, buildInlineContent } from "../src/compositor/render-fragments.js";
-import { PhysicalFragment } from "../src/fragment.js";
-import { BlockBreakToken } from "../src/tokens.js";
+import { PhysicalFragment } from "../src/core/fragment.js";
+import { BlockBreakToken } from "../src/core/tokens.js";
 import { DOMLayoutNode } from "../src/dom/layout-node.js";
-import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } from "../src/constants.js";
+import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } from "../src/core/constants.js";
 
 let container;
 

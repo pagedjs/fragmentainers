@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
-import { ConstraintSpace } from "../src/constraint-space.js";
-import { FRAGMENTATION_PAGE } from "../src/constants.js";
+import { FragmentainerLayout } from "../src/core/fragmentainer-layout.js";
+import { ConstraintSpace } from "../src/core/constraint-space.js";
+import { FRAGMENTATION_PAGE } from "../src/core/constants.js";
 
 let layout;
 

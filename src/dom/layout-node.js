@@ -1,7 +1,7 @@
 import { collectInlineItems, collectInlineItemsFromNodes } from "./collect-inlines.js";
 import { createRangeMeasurer, measureElementBlockSize, getLineHeight } from "./measure.js";
 import { computedStyleMap } from "./computed-style-map.js";
-import { BOX_DECORATION_SLICE } from "../constants.js";
+import { BOX_DECORATION_SLICE } from "../core/constants.js";
 
 const REPLACED_ELEMENTS = new Set([
   "img", "video", "canvas", "iframe", "embed", "object", "svg",

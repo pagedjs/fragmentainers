@@ -1,7 +1,7 @@
-import { InlineBreakToken } from "../tokens.js";
-import { PhysicalFragment } from "../fragment.js";
-import { BreakScore } from "../break-scoring.js";
-import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../constants.js";
+import { InlineBreakToken } from "../core/tokens.js";
+import { PhysicalFragment } from "../core/fragment.js";
+import { BreakScore } from "../core/break-scoring.js";
+import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../core/constants.js";
 
 /**
  * Break a single line from inline items starting at the given position.

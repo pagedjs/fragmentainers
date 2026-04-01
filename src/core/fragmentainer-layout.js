@@ -1,11 +1,11 @@
-import { DOMLayoutNode } from "./dom/layout-node.js";
+import { DOMLayoutNode } from "../dom/layout-node.js";
 import { runLayoutGenerator, getLayoutAlgorithm } from "./layout-request.js";
-import { renderFragmentTree } from "./compositor/render-fragments.js";
-import { PageSizeResolver } from "./page-rules.js";
+import { renderFragmentTree } from "../compositor/render-fragments.js";
+import { PageSizeResolver } from "../atpage/page-rules.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
 import { FRAGMENTATION_COLUMN } from "./constants.js";
-import "./dom/content-measure.js";
+import "../dom/content-measure.js";
 
 function buildLayoutTree(rootElement) {
   return new DOMLayoutNode(rootElement);

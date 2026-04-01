@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
-import { MutationSync } from "../src/mutation-sync.js";
+import { FragmentainerLayout } from "../src/core/fragmentainer-layout.js";
+import { MutationSync } from "../src/dom/mutation-sync.js";
 import "../src/dom/content-measure.js";
 import "../src/dom/fragment-container.js";
 

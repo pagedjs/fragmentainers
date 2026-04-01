@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { BlockBreakToken, InlineBreakToken } from "../src/tokens.js";
-import { findChildBreakToken, isMonolithic } from "../src/helpers.js";
+import { BlockBreakToken, InlineBreakToken } from "../src/core/tokens.js";
+import { findChildBreakToken, isMonolithic } from "../src/core/helpers.js";
 import { blockNode, replacedNode, scrollableNode } from "./fixtures/nodes.js";
 
 describe("BlockBreakToken", () => {

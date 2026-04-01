@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rewriteNthSelectorsOnSheet, buildNthOverrideSheet } from "../src/nth-selectors.js";
+import { rewriteNthSelectorsOnSheet, buildNthOverrideSheet } from "../src/styles/nth-selectors.js";
 
 describe("rewriteNthSelectorsOnSheet", () => {
   function createSheet(cssText) {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { DOMLayoutNode, AnonymousBlockNode } from "../../src/dom/layout-node.js";
-import { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } from "../../src/constants.js";
+import { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } from "../../src/core/constants.js";
 
 let container;
 

@@ -1,9 +1,9 @@
-import { BlockBreakToken } from "../tokens.js";
-import { ConstraintSpace } from "../constraint-space.js";
-import { PhysicalFragment } from "../fragment.js";
-import { layoutChild } from "../layout-request.js";
-import { findChildBreakToken } from "../helpers.js";
-import { ALGORITHM_TABLE_ROW } from "../constants.js";
+import { BlockBreakToken } from "../core/tokens.js";
+import { ConstraintSpace } from "../core/constraint-space.js";
+import { PhysicalFragment } from "../core/fragment.js";
+import { layoutChild } from "../core/layout-request.js";
+import { findChildBreakToken } from "../core/helpers.js";
+import { ALGORITHM_TABLE_ROW } from "../core/constants.js";
 
 /**
  * Table row layout generator — parallel flow.

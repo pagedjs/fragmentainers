@@ -1,4 +1,4 @@
-import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
+import { FragmentainerLayout } from "../src/core/fragmentainer-layout.js";
 import { preprocessContent } from "./css-utils.js";
 
 export { FragmentainerLayout, preprocessContent };
@@ -66,7 +66,7 @@ export async function waitForFonts() {
 
 /**
  * Render a grid of fragmentainer thumbnails built from a FragmentedFlow.
- * @param {import('../src/fragmentainer-layout.js').FragmentedFlow} flow
+ * @param {import('../src/core/fragmentainer-layout.js').FragmentedFlow} flow
  * @param {HTMLElement} gridContainer
  * @param {function(number): void} onPageClick
  */
@@ -111,7 +111,7 @@ export async function renderPages(flow, gridContainer, onPageClick) {
 /**
  * Show a single fragmentainer at full size in an overlay.
  * @param {number} fragmentainerIndex
- * @param {import('../src/fragmentainer-layout.js').FragmentedFlow} flow
+ * @param {import('../src/core/fragmentainer-layout.js').FragmentedFlow} flow
  * @param {HTMLElement} overlay
  */
 export async function showDetail(fragmentainerIndex, flow, overlay) {

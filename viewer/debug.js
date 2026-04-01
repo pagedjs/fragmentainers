@@ -2,7 +2,7 @@ import {
   findChildBreakToken,
   isMonolithic,
   debugPrintTokenTree,
-} from "../src/helpers.js";
+} from "../src/core/helpers.js";
 
 /**
  * Build a text dump for a single page fragment.

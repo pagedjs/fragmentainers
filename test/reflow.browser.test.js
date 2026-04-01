@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
+import { FragmentainerLayout } from "../src/core/fragmentainer-layout.js";
 import "../src/dom/fragment-container.js"; // registers <fragment-container> custom element
 
 describe("FragmentainerLayout.reflow() (browser)", () => {

@@ -1,9 +1,9 @@
-import { BlockBreakToken } from "../tokens.js";
-import { ConstraintSpace } from "../constraint-space.js";
-import { PhysicalFragment } from "../fragment.js";
-import { layoutChild } from "../layout-request.js";
-import { findChildBreakToken } from "../helpers.js";
-import { FRAGMENTATION_NONE, ALGORITHM_FLEX, ALGORITHM_FLEX_LINE } from "../constants.js";
+import { BlockBreakToken } from "../core/tokens.js";
+import { ConstraintSpace } from "../core/constraint-space.js";
+import { PhysicalFragment } from "../core/fragment.js";
+import { layoutChild } from "../core/layout-request.js";
+import { findChildBreakToken } from "../core/helpers.js";
+import { FRAGMENTATION_NONE, ALGORITHM_FLEX, ALGORITHM_FLEX_LINE } from "../core/constants.js";
 
 /**
  * Flex container layout algorithm (generator).

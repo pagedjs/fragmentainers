@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   PageRule, PageSizeResolver, parseCSSLength,
-} from "../src/page-rules.js";
+} from "../src/atpage/page-rules.js";
 import {
   getNamedPage, resolveNamedPageForBreakToken,
-} from "../src/helpers.js";
-import { BlockBreakToken } from "../src/tokens.js";
-import { createFragments } from "../src/layout-request.js";
-import { ConstraintSpace } from "../src/constraint-space.js";
+} from "../src/core/helpers.js";
+import { BlockBreakToken } from "../src/core/tokens.js";
+import { createFragments } from "../src/core/layout-request.js";
+import { ConstraintSpace } from "../src/core/constraint-space.js";
 import { blockNode } from "./fixtures/nodes.js";
 
 describe("PageSizeResolver", () => {

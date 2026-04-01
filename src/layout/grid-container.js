@@ -1,9 +1,9 @@
-import { BlockBreakToken } from "../tokens.js";
-import { ConstraintSpace } from "../constraint-space.js";
-import { PhysicalFragment } from "../fragment.js";
-import { layoutChild } from "../layout-request.js";
-import { findChildBreakToken } from "../helpers.js";
-import { FRAGMENTATION_NONE, ALGORITHM_GRID } from "../constants.js";
+import { BlockBreakToken } from "../core/tokens.js";
+import { ConstraintSpace } from "../core/constraint-space.js";
+import { PhysicalFragment } from "../core/fragment.js";
+import { layoutChild } from "../core/layout-request.js";
+import { findChildBreakToken } from "../core/helpers.js";
+import { FRAGMENTATION_NONE, ALGORITHM_GRID } from "../core/constants.js";
 
 /**
  * Grid container layout algorithm (generator).

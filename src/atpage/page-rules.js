@@ -1,6 +1,6 @@
-import { ConstraintSpace } from "./constraint-space.js";
-import { FRAGMENTATION_PAGE, NAMED_SIZES } from "./constants.js";
-import { resolveNamedPageForBreakToken } from "./helpers.js";
+import { ConstraintSpace } from "../core/constraint-space.js";
+import { FRAGMENTATION_PAGE, NAMED_SIZES } from "../core/constants.js";
+import { resolveNamedPageForBreakToken } from "../core/helpers.js";
 
 /**
  * Parse a CSS length string to CSS pixels (96 DPI).

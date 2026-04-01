@@ -4,12 +4,12 @@
  * Detects whether the page uses @page rules (pagination) or CSS columns
  * (multicol), then runs the library's fragmentation engine accordingly.
  */
-import { FragmentainerLayout } from "/src/fragmentainer-layout.js";
-import { ConstraintSpace } from "/src/constraint-space.js";
+import { FragmentainerLayout } from "/src/core/fragmentainer-layout.js";
+import { ConstraintSpace } from "/src/core/constraint-space.js";
 import { buildLayoutTree } from "/src/dom/index.js";
-import { createFragments } from "/src/layout-request.js";
+import { createFragments } from "/src/core/layout-request.js";
 import { renderFragmentTree } from "/src/compositor/render-fragments.js";
-import { PageSizeResolver } from "/src/page-rules.js";
+import { PageSizeResolver } from "/src/atpage/page-rules.js";
 import "/src/dom/fragment-container.js";
 
 async function run() {

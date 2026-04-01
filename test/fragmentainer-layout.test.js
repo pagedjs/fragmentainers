@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { PhysicalFragment } from "../src/fragment.js";
-import { BlockBreakToken } from "../src/tokens.js";
-import { ConstraintSpace } from "../src/constraint-space.js";
+import { PhysicalFragment } from "../src/core/fragment.js";
+import { BlockBreakToken } from "../src/core/tokens.js";
+import { ConstraintSpace } from "../src/core/constraint-space.js";
 import { blockNode } from "./fixtures/nodes.js";
 import { getFragmentainerSize } from "../src/compositor/fragmentainer-builder.js";
-import { FragmentainerLayout, FragmentedFlow } from "../src/fragmentainer-layout.js";
+import { FragmentainerLayout, FragmentedFlow } from "../src/core/fragmentainer-layout.js";
 
 describe("getFragmentainerSize", () => {
   const sizes = [

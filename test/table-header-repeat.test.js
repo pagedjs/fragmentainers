@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { createFragments, runLayoutGenerator } from "../src/layout-request.js";
+import { createFragments, runLayoutGenerator } from "../src/core/layout-request.js";
 import { layoutBlockContainer } from "../src/layout/block-container.js";
-import { ConstraintSpace } from "../src/constraint-space.js";
+import { ConstraintSpace } from "../src/core/constraint-space.js";
 import { blockNode, tableNode, tableHeaderNode } from "./fixtures/nodes.js";
-import { FRAGMENTATION_PAGE, FRAGMENTATION_COLUMN } from "../src/constants.js";
+import { FRAGMENTATION_PAGE, FRAGMENTATION_COLUMN } from "../src/core/constants.js";
 
 describe("Repeating table headers", () => {
   function pageSpace(blockSize = 300) {

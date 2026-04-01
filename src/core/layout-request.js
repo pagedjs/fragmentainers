@@ -1,11 +1,11 @@
 import { ConstraintSpace } from "./constraint-space.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
-import { layoutBlockContainer } from "./layout/block-container.js";
-import { layoutFlexContainer } from "./layout/flex-container.js";
-import { layoutGridContainer } from "./layout/grid-container.js";
-import { layoutInlineContent } from "./layout/inline-content.js";
-import { layoutMulticolContainer } from "./layout/multicol-container.js";
-import { layoutTableRow } from "./layout/table-row.js";
+import { layoutBlockContainer } from "../layout/block-container.js";
+import { layoutFlexContainer } from "../layout/flex-container.js";
+import { layoutGridContainer } from "../layout/grid-container.js";
+import { layoutInlineContent } from "../layout/inline-content.js";
+import { layoutMulticolContainer } from "../layout/multicol-container.js";
+import { layoutTableRow } from "../layout/table-row.js";
 
 /**
  * Yielded from layout generators to the driver.

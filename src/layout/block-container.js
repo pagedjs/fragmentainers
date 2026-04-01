@@ -1,10 +1,10 @@
-import { BlockBreakToken } from "../tokens.js";
-import { ConstraintSpace } from "../constraint-space.js";
-import { PhysicalFragment } from "../fragment.js";
-import { layoutChild } from "../layout-request.js";
-import { findChildBreakToken, isMonolithic, getMonolithicBlockSize } from "../helpers.js";
-import { EarlyBreak, BreakScore, scoreClassABreak, isBetterBreak, applyBreakInsideAvoid } from "../break-scoring.js";
-import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE, BOX_DECORATION_CLONE, EARLY_BREAK_BEFORE, EARLY_BREAK_INSIDE } from "../constants.js";
+import { BlockBreakToken } from "../core/tokens.js";
+import { ConstraintSpace } from "../core/constraint-space.js";
+import { PhysicalFragment } from "../core/fragment.js";
+import { layoutChild } from "../core/layout-request.js";
+import { findChildBreakToken, isMonolithic, getMonolithicBlockSize } from "../core/helpers.js";
+import { EarlyBreak, BreakScore, scoreClassABreak, isBetterBreak, applyBreakInsideAvoid } from "../core/break-scoring.js";
+import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE, BOX_DECORATION_CLONE, EARLY_BREAK_BEFORE, EARLY_BREAK_INSIDE } from "../core/constants.js";
 
 /**
  * Core block container layout algorithm (generator).

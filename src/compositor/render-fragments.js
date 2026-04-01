@@ -1,6 +1,6 @@
-import { findChildBreakToken } from "../helpers.js";
-import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC, BREAK_TOKEN_INLINE, BOX_DECORATION_CLONE } from "../constants.js";
-import { stampNthAttributes } from "../nth-selectors.js";
+import { findChildBreakToken } from "../core/helpers.js";
+import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC, BREAK_TOKEN_INLINE, BOX_DECORATION_CLONE } from "../core/constants.js";
+import { stampNthAttributes } from "../styles/nth-selectors.js";
 
 /**
  * Check if a fragment has block-level child fragments (not line fragments).

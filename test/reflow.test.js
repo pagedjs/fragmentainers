@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { ConstraintSpace } from "../src/constraint-space.js";
-import { FragmentainerLayout } from "../src/fragmentainer-layout.js";
+import { ConstraintSpace } from "../src/core/constraint-space.js";
+import { FragmentainerLayout } from "../src/core/fragmentainer-layout.js";
 import { blockNode } from "./fixtures/nodes.js";
 
 describe("FragmentainerLayout.reflow()", () => {

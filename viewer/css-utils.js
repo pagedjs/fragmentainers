@@ -5,8 +5,8 @@
  * stylesheet copying for viewer HTML files that load remote content.
  */
 
-import { OVERRIDES } from "../src/compositor/overrides.js";
-import { rewriteNthSelectorsOnSheet } from "../src/nth-selectors.js";
+import { OVERRIDES } from "../src/styles/overrides.js";
+import { rewriteNthSelectorsOnSheet } from "../src/styles/nth-selectors.js";
 
 /**
  * Copy document-level stylesheets into a shadow root via adoptedStyleSheets,
