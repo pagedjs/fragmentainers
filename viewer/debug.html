@@ -211,11 +211,12 @@
           row.appendChild(renderBox);
           outputEl.appendChild(row);
 
-          // Note: render-level overflow detection was removed because
-          // the compositor's clone-and-clip model means deep clones
-          // intentionally extend past break boundaries (clipped by
-          // overflow:hidden). No DOM measurement can distinguish that
-          // from a real overflow. The layout-level check in buildPageDump
+          // Render-level overflow detection is intentionally omitted.
+          // The compositor renders shallow clones into a shadow DOM
+          // context that may compute different heights than the
+          // measurement container (inherited styles, containment
+          // differences). overflow:hidden clips correctly so content
+          // looks right. The layout-level check in buildPageDump
           // (fragment.blockSize > pageH) is the authoritative source.
 
           if (dump.hasIssues) {
