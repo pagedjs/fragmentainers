@@ -58,7 +58,7 @@ export function buildPageDump(fragments, i, pageH) {
     log(`  first text: "${truncate(textSegments[0], 80)}"`);
     if (textSegments.length > 1) {
       log(
-        `  last text:  "${truncate(textSegments[textSegments.length - 1], 80)}"`,
+        `  last text:  "${truncateStart(textSegments[textSegments.length - 1], 80)}"`,
       );
     }
   }
@@ -355,4 +355,8 @@ function trackElementSpans(pageFragment, pageIndex, map) {
 
 function truncate(str, maxLen) {
   return str.length <= maxLen ? str : str.slice(0, maxLen - 3) + "...";
+}
+
+function truncateStart(str, maxLen) {
+  return str.length <= maxLen ? str : "..." + str.slice(str.length - maxLen + 3);
 }
