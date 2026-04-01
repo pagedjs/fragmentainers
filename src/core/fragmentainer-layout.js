@@ -1,25 +1,14 @@
 import { DOMLayoutNode } from "../dom/layout-node.js";
 import { runLayoutGenerator, getLayoutAlgorithm } from "./layout-request.js";
-import { createFragments } from "./layout-request.js";
-import { PhysicalFragment } from "./fragment.js";
-import { BlockBreakToken } from "./tokens.js";
 import { renderFragmentTree } from "../compositor/render-fragments.js";
 import { PageSizeResolver } from "../atpage/page-rules.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
-import { isMonolithic, isForcedBreakValue } from "./helpers.js";
 import { FRAGMENTATION_COLUMN } from "./constants.js";
-import { MeasurementBatch } from "../dom/measurement-batch.js";
 import "../dom/content-measure.js";
 
 function buildLayoutTree(rootElement) {
   return new DOMLayoutNode(rootElement);
-}
-
-function* chunks(array, size) {
-  for (let i = 0; i < array.length; i += size) {
-    yield array.slice(i, i + size);
-  }
 }
 
 const MAX_ZERO_PROGRESS = 5;
@@ -172,49 +161,22 @@ export class FragmentainerLayout {
   /**
    * Run fragmentation to completion and return a FragmentedFlow.
    *
-   * When content is a large DocumentFragment (more children than
-   * `batchSize`), uses the batched pipeline: elements are injected
-   * into the measurement container a batch at a time, measured,
-   * laid out, then detached so memory stays bounded.
+   * Waits for fonts and images to load, then runs the stepper loop
+   * (next() calls) until all content is placed.
    *
-   * For small content or mock nodes, falls through to `#flowStepper()`.
-   *
-   * @param {Object} [options]
-   * @param {number} [options.batchSize=10] — elements per batch
-   * @param {boolean} [options.progressive=false] — reserved for future use
-   * @returns {Promise<FragmentedFlow>} The fragmented content with rendering methods
-   */
-  async flow({ batchSize = 10, progressive = false } = {}) {
-    // Batched pipeline: large DocumentFragments with page resolver
-    if (typeof DocumentFragment !== "undefined" &&
-        this.#content instanceof DocumentFragment &&
-        this.#content.children.length > batchSize &&
-        !this.#constraintSpace) {
-      return this.#initBatchedPipeline(batchSize, progressive);
-    }
-
-    return this.#flowStepper();
-  }
-
-  /**
-   * Simple stepper path — lay out all content in one pass.
    * @returns {Promise<FragmentedFlow>}
    */
-  async #flowStepper() {
+  async flow() {
     this.setup();
 
     // Force a style/layout pass so the browser discovers @font-face
     // references in the newly injected content, then wait for fonts
     // and images to finish loading before measuring.
-    if (this.#measureElement) {
-      void this.#measureElement.offsetHeight;
-    }
-    if (typeof document !== "undefined" && document.fonts?.ready) {
+    void this.#measureElement.offsetHeight;
+    if (document.fonts?.ready) {
       await document.fonts.ready;
     }
-    if (this.#measureElement) {
-      await this.#waitForImages(this.#measureElement.contentRoot);
-    }
+    await this.#waitForImages(this.#measureElement.contentRoot);
 
     const fragments = [];
     let zeroProgressCount = 0;
@@ -224,7 +186,6 @@ export class FragmentainerLayout {
       fragment = this.next();
       fragments.push(fragment);
 
-      // Zero-progress safety
       if (fragment.breakToken && fragment.blockSize === 0) {
         zeroProgressCount++;
         if (zeroProgressCount >= MAX_ZERO_PROGRESS) {
@@ -239,130 +200,6 @@ export class FragmentainerLayout {
     } while (fragment.breakToken !== null);
 
     return new FragmentedFlow(fragments, this.#contentStyles, this);
-  }
-
-  /**
-   * Batched pipeline — process elements in chunks.
-   *
-   * 1. Set up an empty measurement container.
-   * 2. For each batch of top-level children:
-   *    a. Inject into measurer, build layout tree, batch-read sizes.
-   *    b. Run createFragments for this batch.
-   *    c. Detach elements from measurer.
-   * 3. Compose per-batch fragments into page-level fragments.
-   *
-   * @param {number} batchSize
-   * @param {boolean} _progressive — reserved
-   * @returns {Promise<FragmentedFlow>}
-   */
-  async #initBatchedPipeline(batchSize, _progressive) {
-    const content = this.#content;
-    const children = [...content.children];
-
-    // Set up measurement container
-    const measurer = document.createElement("content-measure");
-    measurer.trackRefs = this.#trackRefs;
-    document.body.appendChild(measurer);
-    this.#measureElement = measurer;
-    this.#ownsMeasurer = true;
-
-    const styles = this.#styles || [...document.styleSheets];
-    measurer.setupEmpty(styles);
-    this.#contentStyles = measurer.getContentStyles();
-
-    // Auto-create resolver from @page rules in styles if neither set
-    if (!this.#resolver && !this.#constraintSpace) {
-      this.#resolver = PageSizeResolver.fromStyleSheets(styles);
-    }
-
-    const state = this.#createBatchState();
-
-    for (const batch of chunks(children, batchSize)) {
-      await this.#processBatch(batch, measurer, state);
-    }
-
-    const pageFragments = this.#composePageFragments(state);
-    this.#fragments = pageFragments;
-    measurer.remove();
-
-    return new FragmentedFlow(pageFragments, this.#contentStyles, this);
-  }
-
-  /**
-   * Create fresh state for the batched pipeline.
-   */
-  #createBatchState() {
-    return {
-      allChildFragments: [],
-      breakToken: null,
-      fragmentainerIndex: 0,
-      counterState: new CounterState(),
-    };
-  }
-
-  /**
-   * Process a single batch of elements.
-   */
-  async #processBatch(batch, measurer, state) {
-    // Inject batch elements
-    for (const el of batch) {
-      measurer.injectChild(el);
-    }
-
-    // Apply constraint space first — forces a synchronous reflow
-    // (via offsetHeight) so the browser discovers @font-face
-    // references in the newly injected content.
-    const constraintSpace = this.#resolveConstraintSpace(state);
-    measurer.applyConstraintSpace(constraintSpace);
-
-    // Wait for fonts and images to finish loading before measuring.
-    if (typeof document !== "undefined" && document.fonts?.ready) {
-      await document.fonts.ready;
-    }
-    await this.#waitForImages(measurer.contentRoot);
-
-    // Build layout tree and batch-read all measurements (now that
-    // fonts and images are loaded, sizes are accurate).
-    const tree = buildLayoutTree(measurer.contentRoot);
-    const mb = new MeasurementBatch();
-    mb.collectAll(tree);
-
-    // Run fragmentation on this batch
-    const fragments = createFragments(tree, constraintSpace);
-
-    // Collect child fragments from each fragmentainer
-    for (const frag of fragments) {
-      state.allChildFragments.push(...frag.childFragments);
-    }
-
-    // Update break token from the last fragment
-    if (fragments.length > 0) {
-      const lastFrag = fragments[fragments.length - 1];
-      state.breakToken = lastFrag.breakToken;
-    }
-
-    // Detach batch elements from measurer
-    for (const el of batch) {
-      measurer.detachChild(el);
-    }
-  }
-
-  /**
-   * Resolve constraint space for the current batch.
-   */
-  #resolveConstraintSpace(state) {
-    if (this.#constraintSpace) return this.#constraintSpace;
-    if (this.#resolver) {
-      const constraints = this.#resolver.resolve(state.fragmentainerIndex, null, null);
-      return constraints.toConstraintSpace();
-    }
-    // Default fallback
-    return new ConstraintSpace({
-      availableInlineSize: 816,
-      availableBlockSize: 1056,
-      fragmentainerBlockSize: 1056,
-      fragmentationType: "page",
-    });
   }
 
   /**
@@ -381,94 +218,6 @@ export class FragmentainerLayout {
       }
     }
     return pending.length > 0 ? Promise.all(pending) : Promise.resolve();
-  }
-
-  /**
-   * Compose collected child fragments into page-level fragments.
-   */
-  #composePageFragments(state) {
-    if (state.allChildFragments.length === 0) return [];
-
-    const fragments = [];
-    let pageChildren = [];
-    let pageBlockOffset = 0;
-    let pageIndex = 0;
-
-    const getConstraints = (idx) => {
-      if (this.#resolver) {
-        return this.#resolver.resolve(idx, null, null);
-      }
-      return null;
-    };
-
-    const constraints = getConstraints(pageIndex);
-    const cs = constraints
-      ? constraints.toConstraintSpace()
-      : this.#constraintSpace;
-    let pageBlockSize = cs.fragmentainerBlockSize;
-
-    for (const childFrag of state.allChildFragments) {
-      const childSize = childFrag.blockSize;
-
-      // Check if this child would overflow the current page
-      if (pageBlockOffset + childSize > pageBlockSize && pageChildren.length > 0) {
-        // Finish current page
-        const pageFrag = this.#buildPageFragment(pageChildren, pageBlockOffset, pageIndex, constraints);
-        fragments.push(pageFrag);
-
-        // Start new page
-        pageIndex++;
-        pageChildren = [];
-        pageBlockOffset = 0;
-        const newConstraints = getConstraints(pageIndex);
-        const newCs = newConstraints
-          ? newConstraints.toConstraintSpace()
-          : this.#constraintSpace;
-        pageBlockSize = newCs.fragmentainerBlockSize;
-      }
-
-      pageChildren.push(childFrag);
-      pageBlockOffset += childSize;
-    }
-
-    // Flush remaining children into a final page
-    if (pageChildren.length > 0) {
-      const finalConstraints = getConstraints(pageIndex);
-      const pageFrag = this.#buildPageFragment(pageChildren, pageBlockOffset, pageIndex, finalConstraints);
-      fragments.push(pageFrag);
-    }
-
-    return fragments;
-  }
-
-  /**
-   * Build a page-level PhysicalFragment from child fragments.
-   */
-  #buildPageFragment(children, blockOffset, pageIndex, constraints) {
-    const frag = new PhysicalFragment(null, blockOffset, children);
-    if (constraints) {
-      frag.constraints = constraints;
-    } else if (this.#constraintSpace) {
-      frag.constraints = {
-        contentArea: {
-          inlineSize: this.#constraintSpace.availableInlineSize,
-          blockSize: this.#constraintSpace.availableBlockSize,
-        },
-      };
-    }
-    frag.inlineSize = constraints
-      ? constraints.toConstraintSpace().availableInlineSize
-      : this.#constraintSpace?.availableInlineSize || 816;
-
-    // Build a break token if there are more children to come
-    if (children.length > 0) {
-      const lastChild = children[children.length - 1];
-      if (lastChild.breakToken) {
-        frag.breakToken = lastChild.breakToken;
-      }
-    }
-
-    return frag;
   }
 
   /**

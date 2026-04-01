@@ -7,7 +7,6 @@ export { createRangeMeasurer, measureElementBlockSize, getLineHeight, parseLengt
 export { ContentMeasureElement } from "./content-measure.js";
 export { FragmentContainerElement } from "./fragment-container.js";
 export { MutationSync } from "./mutation-sync.js";
-export { MeasurementBatch } from "./measurement-batch.js";
 
 /**
  * Build a layout tree from a DOM element.

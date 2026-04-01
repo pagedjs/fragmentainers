@@ -2,6 +2,7 @@ import { collectInlineItems, collectInlineItemsFromNodes } from "./collect-inlin
 import { createRangeMeasurer, measureElementBlockSize, getLineHeight } from "./measure.js";
 import { computedStyleMap } from "./computed-style-map.js";
 import { BOX_DECORATION_SLICE } from "../core/constants.js";
+import { buildCumulativeHeights } from "../core/speculative-layout.js";
 
 const REPLACED_ELEMENTS = new Set([
   "img", "video", "canvas", "iframe", "embed", "object", "svg",
@@ -305,9 +306,13 @@ export class DOMLayoutNode {
     this.#blockSizeCache = value;
   }
 
-  /** @type {Float64Array|null} Prefix sum of child block sizes (set by MeasurementBatch) */
-  get cumulativeHeights() { return this.#cumulativeHeights; }
-  set cumulativeHeights(value) { this.#cumulativeHeights = value; }
+  /** @type {Float64Array|null} Prefix sum of child block sizes (lazy, >= 20 children) */
+  get cumulativeHeights() {
+    if (this.#cumulativeHeights === null && this.children.length >= 20) {
+      this.#cumulativeHeights = buildCumulativeHeights(this);
+    }
+    return this.#cumulativeHeights;
+  }
 
   computedBlockSize(_availableInlineSize) {
     if (this.isReplacedElement) {

@@ -87,10 +87,6 @@ export class ContentMeasureElement extends HTMLElement {
   /**
    * Set up the shadow DOM, stylesheets, and wrapper — but inject no content.
    *
-   * Used by the batched layout pipeline: elements are added one batch
-   * at a time via injectChild(), measured, laid out, then removed via
-   * detachChild().
-   *
    * @param {CSSStyleSheet[]} [styles] — sheets to adopt for measurement
    * @returns {Element} the wrapper element (contentRoot)
    */
@@ -129,35 +125,6 @@ export class ContentMeasureElement extends HTMLElement {
     this.#nextRefId = 0;
 
     return this.#wrapper;
-  }
-
-  /**
-   * Inject a single element into the measurement wrapper.
-   * Tracks all descendant elements in the ref maps.
-   *
-   * @param {Element} element
-   */
-  injectChild(element) {
-    this.#wrapper.appendChild(element);
-    if (this.#trackRefs) {
-      this.#trackElement(element);
-      for (const el of element.querySelectorAll("*")) {
-        this.#trackElement(el);
-      }
-    }
-  }
-
-  /**
-   * Detach an element from the measurement wrapper after layout.
-   * Ref map entries are preserved (WeakMap keeps them alive as long
-   * as the DOMLayoutNode holds its element reference).
-   *
-   * @param {Element} element
-   */
-  detachChild(element) {
-    if (element.parentNode === this.#wrapper) {
-      this.#wrapper.removeChild(element);
-    }
   }
 
   /**
