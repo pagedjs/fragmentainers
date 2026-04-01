@@ -207,17 +207,18 @@
           fragEl.style.transform = `scale(${renderScale})`;
           fragEl.style.transformOrigin = "top left";
 
+          // Listen for layout-level overflow from the fragment container
+          fragEl.addEventListener("overflow", (e) => {
+            if (e.detail.overflow > 0) {
+              dump.text += `\n  ISSUES:\n    - OVERFLOW: ${e.detail.overflow.toFixed(1)}px exceeds content area (${e.detail.blockSize.toFixed(1)}px content in ${e.detail.availableBlockSize.toFixed(1)}px area)`;
+              dump.hasIssues = true;
+              row.classList.add("has-issues");
+            }
+          });
+
           renderBox.appendChild(fragEl);
           row.appendChild(renderBox);
           outputEl.appendChild(row);
-
-          // Render-level overflow detection is intentionally omitted.
-          // The compositor renders shallow clones into a shadow DOM
-          // context that may compute different heights than the
-          // measurement container (inherited styles, containment
-          // differences). overflow:hidden clips correctly so content
-          // looks right. The layout-level check in buildPageDump
-          // (fragment.blockSize > pageH) is the authoritative source.
 
           if (dump.hasIssues) {
             issueCount++;

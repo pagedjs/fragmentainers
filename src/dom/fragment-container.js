@@ -187,7 +187,7 @@ export class FragmentContainerElement extends HTMLElement {
   reportOverflow(blockSize, availableBlockSize, hasMore) {
     if (blockSize > availableBlockSize || hasMore) {
       this.dispatchEvent(
-        new CustomEvent("fragment-overflow", {
+        new CustomEvent("overflow", {
           bubbles: true,
           detail: {
             index: this.#fragmentIndex,
