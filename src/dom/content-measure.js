@@ -26,6 +26,7 @@ export class ContentMeasureElement extends HTMLElement {
   #nthOverrideSheet = null;
   #nthFormulas = new Map();
   #currentInlineSize = undefined;
+  #trackRefs = false;
   #refMap = new Map();
   #sourceRefs = new WeakMap();
   #nextRefId = 0;
@@ -54,6 +55,15 @@ export class ContentMeasureElement extends HTMLElement {
     void this.offsetHeight; // Force synchronous reflow
   }
 
+  /** Enable ref tracking for clone-to-source mapping (needed for MutationSync). */
+  set trackRefs(value) {
+    this.#trackRefs = !!value;
+  }
+
+  get trackRefs() {
+    return this.#trackRefs;
+  }
+
   /**
    * Inject a DocumentFragment and CSSStyleSheets into the shadow root.
    *
@@ -65,9 +75,10 @@ export class ContentMeasureElement extends HTMLElement {
     this.setupEmpty(styles);
     this.#wrapper.appendChild(fragment);
 
-    // Build ref maps for clone-to-source mapping (no DOM mutation)
-    for (const el of this.#wrapper.querySelectorAll("*")) {
-      this.#trackElement(el);
+    if (this.#trackRefs) {
+      for (const el of this.#wrapper.querySelectorAll("*")) {
+        this.#trackElement(el);
+      }
     }
 
     return this.#wrapper;
@@ -128,9 +139,11 @@ export class ContentMeasureElement extends HTMLElement {
    */
   injectChild(element) {
     this.#wrapper.appendChild(element);
-    this.#trackElement(element);
-    for (const el of element.querySelectorAll("*")) {
-      this.#trackElement(el);
+    if (this.#trackRefs) {
+      this.#trackElement(element);
+      for (const el of element.querySelectorAll("*")) {
+        this.#trackElement(el);
+      }
     }
   }
 
@@ -169,7 +182,7 @@ export class ContentMeasureElement extends HTMLElement {
     return {
       sheets,
       nthFormulas: this.#nthFormulas,
-      sourceRefs: this.#sourceRefs,
+      sourceRefs: this.#trackRefs ? this.#sourceRefs : null,
     };
   }
 

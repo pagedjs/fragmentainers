@@ -46,6 +46,7 @@ export class FragmentainerLayout {
   #styles;
   #resolver;
   #constraintSpace;
+  #trackRefs;
 
   // Stepper state (initialized lazily on first next() call)
   #tree = null;
@@ -66,6 +67,7 @@ export class FragmentainerLayout {
    * @param {PageSizeResolver|RegionResolver} [options.resolver] - Pre-configured resolver
    * @param {number} [options.width] - Container width in CSS px (column fragmentation)
    * @param {number} [options.height] - Container height in CSS px (column fragmentation)
+   * @param {boolean} [options.trackRefs=false] - Enable ref tracking for clone-to-source mapping (needed for MutationSync)
    */
   constructor(content, options = {}) {
     // Normalize Element → DocumentFragment (clone into fragment)
@@ -80,6 +82,8 @@ export class FragmentainerLayout {
     this.#styles = options.styles
       ? (Array.isArray(options.styles) ? options.styles : [options.styles])
       : undefined;
+
+    this.#trackRefs = !!options.trackRefs;
 
     if (options.constraintSpace) {
       this.#constraintSpace = options.constraintSpace;
@@ -257,6 +261,7 @@ export class FragmentainerLayout {
 
     // Set up measurement container
     const measurer = document.createElement("content-measure");
+    measurer.trackRefs = this.#trackRefs;
     document.body.appendChild(measurer);
     this.#measureElement = measurer;
     this.#ownsMeasurer = true;
@@ -540,6 +545,7 @@ export class FragmentainerLayout {
     } else if (typeof DocumentFragment !== "undefined" && content instanceof DocumentFragment) {
       // Create internal <content-measure> and inject the fragment
       const measurer = document.createElement("content-measure");
+      measurer.trackRefs = this.#trackRefs;
       document.body.appendChild(measurer);
       const wrapper = measurer.injectFragment(content, this.#styles);
 
