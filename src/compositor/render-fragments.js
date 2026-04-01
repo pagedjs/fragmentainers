@@ -132,7 +132,7 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl, nthFormulas, 
     return;
   }
 
-  const ws = isAnonymous ? "normal" : getComputedStyle(node.element).whiteSpace;
+  const ws = isAnonymous ? "normal" : node.whiteSpace;
   const collapseWS = !ws.startsWith("pre");
   const isHyphenated = fragment.breakToken?.isHyphenated ?? false;
 
@@ -224,7 +224,7 @@ function applySplitAttributes(el, inputBreakToken, fragment) {
   if (inputBreakToken) el.setAttribute("data-split-from", "");
   if (fragment.breakToken) {
     el.setAttribute("data-split-to", "");
-    if (getComputedStyle(fragment.node.element).textAlign === "justify") {
+    if (fragment.node.textAlign === "justify") {
       el.setAttribute("data-justify-last", "");
     }
   }

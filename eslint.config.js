@@ -25,6 +25,7 @@ export default [
         ResizeObserver: "readonly",
         MutationObserver: "readonly",
         queueMicrotask: "readonly",
+        setTimeout: "readonly",
         // Node.js test globals
         console: "readonly",
       },

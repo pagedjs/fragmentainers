@@ -249,4 +249,76 @@ describe("renderFragmentTree", () => {
     expect(docFrag.childNodes.length).toBe(1);
     expect(docFrag.childNodes[0].hasAttribute("data-split-to")).toBe(true);
   });
+
+  it("sets data-justify-last on split fragments with text-align: justify", () => {
+    const outer = document.createElement("div");
+    const child = document.createElement("div");
+    child.style.textAlign = "justify";
+    child.textContent = "Justified content that breaks across pages";
+    outer.appendChild(child);
+    container.appendChild(outer);
+
+    const outerNode = new DOMLayoutNode(outer);
+    const childNodes = outerNode.children;
+
+    const childFrag = new PhysicalFragment(childNodes[0], 50);
+    childFrag.breakToken = new BlockBreakToken(childNodes[0]);
+    const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+
+    const docFrag = renderFragmentTree(rootFragment, null);
+
+    const rendered = docFrag.childNodes[0];
+    expect(rendered.hasAttribute("data-split-to")).toBe(true);
+    expect(rendered.hasAttribute("data-justify-last")).toBe(true);
+  });
+
+  it("does not set data-justify-last when text-align is not justify", () => {
+    const outer = document.createElement("div");
+    const child = document.createElement("div");
+    child.style.textAlign = "left";
+    child.textContent = "Left-aligned content";
+    outer.appendChild(child);
+    container.appendChild(outer);
+
+    const outerNode = new DOMLayoutNode(outer);
+    const childNodes = outerNode.children;
+
+    const childFrag = new PhysicalFragment(childNodes[0], 50);
+    childFrag.breakToken = new BlockBreakToken(childNodes[0]);
+    const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+
+    const docFrag = renderFragmentTree(rootFragment, null);
+
+    const rendered = docFrag.childNodes[0];
+    expect(rendered.hasAttribute("data-split-to")).toBe(true);
+    expect(rendered.hasAttribute("data-justify-last")).toBe(false);
+  });
+
+  it("sets data-justify-last after element is detached from DOM", () => {
+    const outer = document.createElement("div");
+    const child = document.createElement("div");
+    child.style.textAlign = "justify";
+    child.textContent = "Justified content";
+    outer.appendChild(child);
+    container.appendChild(outer);
+
+    const outerNode = new DOMLayoutNode(outer);
+    const childNodes = outerNode.children;
+    // Access a style property to trigger #getStyle() while attached,
+    // simulating what layout does before the compositor runs.
+    void childNodes[0].breakBefore;
+
+    // Detach — simulates the batched pipeline detaching after layout
+    container.removeChild(outer);
+
+    const childFrag = new PhysicalFragment(childNodes[0], 50);
+    childFrag.breakToken = new BlockBreakToken(childNodes[0]);
+    const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+
+    const docFrag = renderFragmentTree(rootFragment, null);
+
+    const rendered = docFrag.childNodes[0];
+    expect(rendered.hasAttribute("data-split-to")).toBe(true);
+    expect(rendered.hasAttribute("data-justify-last")).toBe(true);
+  });
 });

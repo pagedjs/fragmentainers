@@ -47,7 +47,7 @@ async function runPageMode(resolver) {
 
   const styles = collectConstructedSheets();
   const layout = new FragmentainerLayout(frag, { resolver, styles });
-  const flow = layout.flow();
+  const flow = await layout.flow();
 
   // Render each page sized to the full page box, with @page margins
   // as padding (matching the reference HTML pattern).

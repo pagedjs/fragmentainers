@@ -229,7 +229,6 @@
       import {
         fetchAndParse,
         preprocessContent,
-        waitForFonts,
         FragmentainerLayout,
         renderPages,
         showDetail,
@@ -336,11 +335,9 @@
             styles: sheets,
             resolver,
           });
-          layout.setup();
-          await waitForFonts();
 
           const start = performance.now();
-          const flow = layout.flow();
+          const flow = await layout.flow();
           const elapsed = Math.round(performance.now() - start);
 
           currentFlow = flow;

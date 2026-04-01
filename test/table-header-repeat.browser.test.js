@@ -19,7 +19,7 @@ function pageConstraint(height = 200) {
 }
 
 describe("Repeating table headers (browser)", () => {
-  it("repeats thead in each fragment after the first", () => {
+  it("repeats thead in each fragment after the first", async () => {
     const template = document.createElement("template");
     template.innerHTML = `
       <table style="border-collapse: collapse; margin: 0; padding: 0;">
@@ -35,7 +35,7 @@ describe("Repeating table headers (browser)", () => {
     layout = new FragmentainerLayout(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = layout.flow();
+    const flow = await layout.flow();
 
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
 
@@ -48,7 +48,7 @@ describe("Repeating table headers (browser)", () => {
     }
   });
 
-  it("does not repeat thead when table fits on one page", () => {
+  it("does not repeat thead when table fits on one page", async () => {
     const template = document.createElement("template");
     template.innerHTML = `
       <table style="border-collapse: collapse; margin: 0; padding: 0;">
@@ -61,7 +61,7 @@ describe("Repeating table headers (browser)", () => {
     layout = new FragmentainerLayout(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = layout.flow();
+    const flow = await layout.flow();
 
     expect(flow.fragmentainerCount).toBe(1);
     const tableFragment = flow.fragments[0].childFragments[0];
@@ -70,7 +70,7 @@ describe("Repeating table headers (browser)", () => {
     }
   });
 
-  it("repeated header uses measured DOM height for accurate space accounting", () => {
+  it("repeated header uses measured DOM height for accurate space accounting", async () => {
     // Use cell padding to create a discrepancy between layout-computed
     // and browser-measured height. Layout computes text content only;
     // measured includes padding.
@@ -90,7 +90,7 @@ describe("Repeating table headers (browser)", () => {
     layout = new FragmentainerLayout(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = layout.flow();
+    const flow = await layout.flow();
 
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
 
@@ -105,7 +105,7 @@ describe("Repeating table headers (browser)", () => {
     expect(repeated.blockSize).toBeGreaterThan(10);
   });
 
-  it("repeated header reduces available space for body content", () => {
+  it("repeated header reduces available space for body content", async () => {
     const template = document.createElement("template");
     template.innerHTML = `
       <table style="border-collapse: collapse; margin: 0; padding: 0;">
@@ -120,7 +120,7 @@ describe("Repeating table headers (browser)", () => {
     layout = new FragmentainerLayout(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = layout.flow();
+    const flow = await layout.flow();
 
     const fragments = flow.fragments;
     for (let i = 1; i < fragments.length; i++) {
@@ -131,7 +131,7 @@ describe("Repeating table headers (browser)", () => {
     }
   });
 
-  it("hasSeenAllChildren is correct across multi-page table with repeated header", () => {
+  it("hasSeenAllChildren is correct across multi-page table with repeated header", async () => {
     const template = document.createElement("template");
     template.innerHTML = `
       <table style="border-collapse: collapse; margin: 0; padding: 0;">
@@ -146,7 +146,7 @@ describe("Repeating table headers (browser)", () => {
     layout = new FragmentainerLayout(template.content, {
       constraintSpace: pageConstraint(100),
     });
-    const flow = layout.flow();
+    const flow = await layout.flow();
 
     // Table should break across multiple pages and eventually complete
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
@@ -163,7 +163,7 @@ describe("Repeating table headers (browser)", () => {
 });
 
 describe("break-inside: avoid push for tables (browser)", () => {
-  it("pushes a break-inside:avoid table when it does not fit at page bottom", () => {
+  it("pushes a break-inside:avoid table when it does not fit at page bottom", async () => {
     const template = document.createElement("template");
     template.innerHTML = `
       <div style="margin: 0; padding: 0;">
@@ -177,7 +177,7 @@ describe("break-inside: avoid push for tables (browser)", () => {
     layout = new FragmentainerLayout(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = layout.flow();
+    const flow = await layout.flow();
 
     expect(flow.fragmentainerCount).toBe(2);
 
@@ -192,7 +192,7 @@ describe("break-inside: avoid push for tables (browser)", () => {
     expect(tableFragment.node.isTable).toBe(true);
   });
 
-  it("does not push when break-inside:avoid table fits in remaining space", () => {
+  it("does not push when break-inside:avoid table fits in remaining space", async () => {
     const template = document.createElement("template");
     template.innerHTML = `
       <div style="margin: 0; padding: 0;">
@@ -205,7 +205,7 @@ describe("break-inside: avoid push for tables (browser)", () => {
     layout = new FragmentainerLayout(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = layout.flow();
+    const flow = await layout.flow();
 
     // Should fit on one page
     expect(flow.fragmentainerCount).toBe(1);

@@ -56,6 +56,17 @@ export function isMonolithic(node) {
 }
 
 /**
+ * Check if a CSS break-before/break-after value is a forced break.
+ * Values like "page", "column", "always", "left", "right" force a
+ * break; "auto" and "avoid" do not.
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function isForcedBreakValue(value) {
+  return value && value !== "auto" && value !== "avoid";
+}
+
+/**
  * Get the block size of a monolithic element without full layout.
  * @param {LayoutNode} node
  * @param {import("./constraint-space.js").ConstraintSpace} constraintSpace

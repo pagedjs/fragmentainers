@@ -26,6 +26,11 @@ export class DOMLayoutNode {
   #children = null;
   #inlineItemsData = null;
   #isInlineFormattingContext = null;
+  #blockSizeCache = null;
+  #cumulativeHeights = null;
+  #textAlign = null;
+  #whiteSpace = null;
+  #lineHeightCache = null;
 
   constructor(element) {
     this.element = element;
@@ -43,6 +48,10 @@ export class DOMLayoutNode {
   #getStyle() {
     if (!this.#style) {
       this.#style = getComputedStyle(this.element);
+      // Snapshot compositor-accessed values now, while the element is
+      // still attached and getComputedStyle returns valid results.
+      this.#textAlign = this.#style.textAlign || "start";
+      this.#whiteSpace = this.#style.whiteSpace || "normal";
     }
     return this.#style;
   }
@@ -217,6 +226,18 @@ export class DOMLayoutNode {
   get counterReset() { return this.#getStyle().counterReset || "none"; }
   get counterIncrement() { return this.#getStyle().counterIncrement || "none"; }
 
+  //Compositor-accessed styles (snapshot values so they survive detachment)
+
+  get textAlign() {
+    if (this.#textAlign === null) this.#getStyle();
+    return this.#textAlign;
+  }
+
+  get whiteSpace() {
+    if (this.#whiteSpace === null) this.#getStyle();
+    return this.#whiteSpace;
+  }
+
   //Children
 
   get children() {
@@ -276,8 +297,17 @@ export class DOMLayoutNode {
   //Block size
 
   get blockSize() {
+    if (this.#blockSizeCache !== null) return this.#blockSizeCache;
     return measureElementBlockSize(this.element);
   }
+
+  setBlockSizeCache(value) {
+    this.#blockSizeCache = value;
+  }
+
+  /** @type {Float64Array|null} Prefix sum of child block sizes (set by MeasurementBatch) */
+  get cumulativeHeights() { return this.#cumulativeHeights; }
+  set cumulativeHeights(value) { this.#cumulativeHeights = value; }
 
   computedBlockSize(_availableInlineSize) {
     if (this.isReplacedElement) {
@@ -347,7 +377,9 @@ export class DOMLayoutNode {
   }
 
   get lineHeight() {
-    return getLineHeight(this.element);
+    if (this.#lineHeightCache !== null) return this.#lineHeightCache;
+    this.#lineHeightCache = getLineHeight(this.element);
+    return this.#lineHeightCache;
   }
 
   get measurer() {

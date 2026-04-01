@@ -9,13 +9,13 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
     layout?.destroy();
   });
 
-  it("reflow(0) after height change produces different fragment count", () => {
+  it("reflow(0) after height change produces different fragment count", async () => {
     const template = document.createElement("template");
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div id="target" style="height: 200px; margin: 0;"></div>
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
-    const flow = layout.flow();
+    const flow = await layout.flow();
     const originalCount = flow.fragmentainerCount;
     expect(originalCount).toBeGreaterThanOrEqual(2);
 
@@ -26,17 +26,17 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
     target.style.height = "50px";
 
     layout.reflow(0);
-    const flow2 = layout.flow();
+    const flow2 = await layout.flow();
     expect(flow2.fragmentainerCount).toBe(1);
   });
 
-  it("reflow(0) after height increase produces more fragments", () => {
+  it("reflow(0) after height increase produces more fragments", async () => {
     const template = document.createElement("template");
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div id="target" style="height: 100px; margin: 0;"></div>
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
-    const flow = layout.flow();
+    const flow = await layout.flow();
     expect(flow.fragmentainerCount).toBe(1);
 
     // Grow the content
@@ -45,11 +45,11 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
     target.style.height = "350px";
 
     layout.reflow(0);
-    const flow2 = layout.flow();
+    const flow2 = await layout.flow();
     expect(flow2.fragmentainerCount).toBeGreaterThan(1);
   });
 
-  it("reflow(1) preserves fragment 0 and re-layouts from index 1", () => {
+  it("reflow(1) preserves fragment 0 and re-layouts from index 1", async () => {
     const template = document.createElement("template");
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 100px; margin: 0;"></div>
@@ -57,7 +57,7 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
       <div style="height: 100px; margin: 0;"></div>
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 150 });
-    const flow = layout.flow();
+    const flow = await layout.flow();
 
     const frag0BlockSize = flow.fragments[0].blockSize;
     const originalCount = flow.fragmentainerCount;
@@ -79,13 +79,13 @@ describe("FragmentedFlow.reflow() (browser)", () => {
     layout?.destroy();
   });
 
-  it("reflow(0) returns rendered elements", () => {
+  it("reflow(0) returns rendered elements", async () => {
     const template = document.createElement("template");
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 200px; margin: 0;"></div>
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
-    const flow = layout.flow();
+    const flow = await layout.flow();
     const originalCount = flow.fragmentainerCount;
 
     const result = flow.reflow(0);
@@ -95,13 +95,13 @@ describe("FragmentedFlow.reflow() (browser)", () => {
     expect(result.elements[0].tagName.toLowerCase()).toBe("fragment-container");
   });
 
-  it("reflow(0) after size change updates fragments and rendered elements", () => {
+  it("reflow(0) after size change updates fragments and rendered elements", async () => {
     const template = document.createElement("template");
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div id="target" style="height: 200px; margin: 0;"></div>
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
-    const flow = layout.flow();
+    const flow = await layout.flow();
     expect(flow.fragmentainerCount).toBeGreaterThanOrEqual(2);
 
     // Shrink content
@@ -122,13 +122,13 @@ describe("FragmentContainerElement observers (browser)", () => {
     layout?.destroy();
   });
 
-  it("rendered elements have correct fragmentIndex", () => {
+  it("rendered elements have correct fragmentIndex", async () => {
     const template = document.createElement("template");
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 200px; margin: 0;"></div>
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
-    const flow = layout.flow();
+    const flow = await layout.flow();
     const result = flow.reflow(0);
 
     for (let i = 0; i < result.elements.length; i++) {
@@ -142,7 +142,7 @@ describe("FragmentContainerElement observers (browser)", () => {
       <div style="height: 200px; margin: 0;"></div>
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
-    const flow = layout.flow();
+    const flow = await layout.flow();
     const result = flow.reflow(0);
     const fragEl = result.elements[0];
     document.body.appendChild(fragEl);
@@ -183,7 +183,7 @@ describe("FragmentContainerElement observers (browser)", () => {
       <div style="height: 200px; margin: 0;"></div>
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
-    const flow = layout.flow();
+    const flow = await layout.flow();
     const result = flow.reflow(0);
     const fragEl = result.elements[0];
     document.body.appendChild(fragEl);

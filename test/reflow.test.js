@@ -15,7 +15,7 @@ describe("FragmentainerLayout.reflow()", () => {
     return new FragmentainerLayout(root, { constraintSpace: cs });
   }
 
-  it("reflow(0) then flow() matches a fresh layout", () => {
+  it("reflow(0) then flow() matches a fresh layout", async () => {
     const children = [
       blockNode({ blockSize: 200 }),
       blockNode({ blockSize: 200 }),
@@ -24,13 +24,13 @@ describe("FragmentainerLayout.reflow()", () => {
 
     // Fresh layout
     const layout1 = makeLayout(children);
-    const flow1 = layout1.flow();
+    const flow1 = await layout1.flow();
 
     // Second layout: flow once, then reflow from 0 and flow again
     const layout2 = makeLayout(children);
-    layout2.flow();
+    await layout2.flow();
     layout2.reflow(0);
-    const flow2 = layout2.flow();
+    const flow2 = await layout2.flow();
 
     expect(flow2.fragmentainerCount).toBe(flow1.fragmentainerCount);
     for (let i = 0; i < flow1.fragmentainerCount; i++) {
@@ -41,7 +41,7 @@ describe("FragmentainerLayout.reflow()", () => {
     }
   });
 
-  it("reflow(1) then next() matches original fragments from index 1", () => {
+  it("reflow(1) then next() matches original fragments from index 1", async () => {
     const children = [
       blockNode({ blockSize: 200 }),
       blockNode({ blockSize: 200 }),
@@ -50,11 +50,11 @@ describe("FragmentainerLayout.reflow()", () => {
 
     // Fresh layout — collect all fragments
     const layout1 = makeLayout(children);
-    const flow1 = layout1.flow();
+    const flow1 = await layout1.flow();
 
     // Same layout — reflow from index 1
     const layout2 = makeLayout(children);
-    layout2.flow();
+    await layout2.flow();
     layout2.reflow(1);
 
     const reflowed = [];
@@ -71,7 +71,7 @@ describe("FragmentainerLayout.reflow()", () => {
     }
   });
 
-  it("reflow() restores counter state from preceding fragment", () => {
+  it("reflow() restores counter state from preceding fragment", async () => {
     const section = blockNode({
       counterReset: "paragraph 0",
       children: [
@@ -82,7 +82,7 @@ describe("FragmentainerLayout.reflow()", () => {
     });
 
     const layout = makeLayout([section]);
-    const flow = layout.flow();
+    const flow = await layout.flow();
 
     // Fragment 0 should have accumulated some counter state
     const countersBefore = flow.fragments[0].counterState;
@@ -97,11 +97,11 @@ describe("FragmentainerLayout.reflow()", () => {
     }
   });
 
-  it("reflow(0) on single-fragment content produces identical result", () => {
+  it("reflow(0) on single-fragment content produces identical result", async () => {
     const children = [blockNode({ blockSize: 100 })];
 
     const layout = makeLayout(children);
-    const flow1 = layout.flow();
+    const flow1 = await layout.flow();
     expect(flow1.fragmentainerCount).toBe(1);
 
     layout.reflow(0);

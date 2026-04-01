@@ -151,9 +151,7 @@ function dumpFragment(frag, parentBT, depth) {
   const tag = node.element?.tagName?.toLowerCase() || "?";
   const name = node.debugName || tag;
   const isIFC = node.isInlineFormattingContext;
-  const measured = node.element
-    ? node.element.getBoundingClientRect().height
-    : null;
+  const measured = node.blockSize || null;
 
   const breakProps = {};
   if (node.breakBefore && node.breakBefore !== "auto")
@@ -201,16 +199,16 @@ function dumpFragment(frag, parentBT, depth) {
       endOffset: outputBT?.textOffset ?? (data?.textContent?.length || 0),
     };
 
-    if (computed > frag.blockSize + 0.5) {
+    // Skip lineHeight checks for table cells (border-collapse makes
+    // effective insets unpredictable) and anonymous blocks (lineHeight
+    // is inherited from the parent element, not the actual content).
+    const skipLineHeightChecks = tag === "td" || tag === "th" || !node.element;
+    if (!skipLineHeightChecks && computed > frag.blockSize + 0.5) {
       issues.push(
         `${name}: lines*lineHeight (${computed.toFixed(2)}) > blockSize (${frag.blockSize.toFixed(2)}) by ${(computed - frag.blockSize).toFixed(2)}px`,
       );
     }
-    // Check if blockSize is a lineHeight multiple. Skip for table cells
-    // — their blockSize includes padding/border from the measured-height
-    // path, and border-collapse makes the effective insets unpredictable.
-    const isTableCell = tag === "td" || tag === "th";
-    if (!isTableCell) {
+    if (!skipLineHeightChecks) {
       const remainder = frag.blockSize % lh;
       if (remainder > 0.01 && remainder < lh - 0.01) {
         issues.push(
@@ -322,9 +320,7 @@ function extractInlineText(fragment, breakToken, segments) {
       ? fragment.breakToken.textOffset
       : data.textContent.length;
   let text = data.textContent.slice(start, end);
-  const ws = fragment.node.element
-    ? getComputedStyle(fragment.node.element).whiteSpace
-    : "normal";
+  const ws = fragment.node.whiteSpace || "normal";
   if (!ws.startsWith("pre")) {
     text = text.replace(/\s+/g, " ").trim();
   }

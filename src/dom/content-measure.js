@@ -62,6 +62,28 @@ export class ContentMeasureElement extends HTMLElement {
    * @returns {Element} the wrapper element (contentRoot) for buildLayoutTree
    */
   injectFragment(fragment, styles = []) {
+    this.setupEmpty(styles);
+    this.#wrapper.appendChild(fragment);
+
+    // Build ref maps for clone-to-source mapping (no DOM mutation)
+    for (const el of this.#wrapper.querySelectorAll("*")) {
+      this.#trackElement(el);
+    }
+
+    return this.#wrapper;
+  }
+
+  /**
+   * Set up the shadow DOM, stylesheets, and wrapper — but inject no content.
+   *
+   * Used by the batched layout pipeline: elements are added one batch
+   * at a time via injectChild(), measured, laid out, then removed via
+   * detachChild().
+   *
+   * @param {CSSStyleSheet[]} [styles] — sheets to adopt for measurement
+   * @returns {Element} the wrapper element (contentRoot)
+   */
+  setupEmpty(styles = []) {
     this.#shadow.innerHTML = "";
 
     // Host styles
@@ -89,18 +111,40 @@ export class ContentMeasureElement extends HTMLElement {
     // Create wrapper div that content CSS targets via .frag-body
     this.#wrapper = document.createElement("div");
     this.#wrapper.className = "frag-body";
-    this.#wrapper.appendChild(fragment);
     this.#shadow.appendChild(this.#wrapper);
 
-    // Build ref maps for clone-to-source mapping (no DOM mutation)
     this.#refMap = new Map();
     this.#sourceRefs = new WeakMap();
     this.#nextRefId = 0;
-    for (const el of this.#wrapper.querySelectorAll("*")) {
-      this.#trackElement(el);
-    }
 
     return this.#wrapper;
+  }
+
+  /**
+   * Inject a single element into the measurement wrapper.
+   * Tracks all descendant elements in the ref maps.
+   *
+   * @param {Element} element
+   */
+  injectChild(element) {
+    this.#wrapper.appendChild(element);
+    this.#trackElement(element);
+    for (const el of element.querySelectorAll("*")) {
+      this.#trackElement(el);
+    }
+  }
+
+  /**
+   * Detach an element from the measurement wrapper after layout.
+   * Ref map entries are preserved (WeakMap keeps them alive as long
+   * as the DOMLayoutNode holds its element reference).
+   *
+   * @param {Element} element
+   */
+  detachChild(element) {
+    if (element.parentNode === this.#wrapper) {
+      this.#wrapper.removeChild(element);
+    }
   }
 
   /**

@@ -129,7 +129,7 @@ describe("FragmentainerLayout.next()", () => {
     expect(frag2.breakToken).toBeNull();
   });
 
-  it("next() repeated matches flow() output", () => {
+  it("next() repeated matches flow() output", async () => {
     const root = blockNode({
       children: [
         blockNode({ blockSize: 200 }),
@@ -156,7 +156,7 @@ describe("FragmentainerLayout.next()", () => {
 
     // Collect via flow()
     const layout2 = new FragmentainerLayout(root, { constraintSpace: cs });
-    const flowed = layout2.flow();
+    const flowed = await layout2.flow();
 
     expect(stepped.length).toBe(flowed.fragmentainerCount);
     for (let i = 0; i < stepped.length; i++) {

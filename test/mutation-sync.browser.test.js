@@ -16,6 +16,7 @@ describe("ContentMeasureElement ref assignment", () => {
 
   beforeEach(() => {
     measurer = document.createElement("content-measure");
+    measurer.trackRefs = true;
     document.body.appendChild(measurer);
   });
 
@@ -74,15 +75,15 @@ describe("Refs in rendered fragments", () => {
     layout?.destroy();
   });
 
-  it("rendered clones carry the same data-ref as source", () => {
+  it("rendered clones carry the same data-ref as source", async () => {
     const template = document.createElement("template");
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div id="a" style="height: 100px; margin: 0;"></div>
       <div id="b" style="height: 100px; margin: 0;"></div>
     </div>`;
 
-    layout = new FragmentainerLayout(template.content, { width: 400, height: 150 });
-    const flow = layout.flow();
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 150, trackRefs: true });
+    const flow = await layout.flow();
     const result = flow.reflow(0);
 
     // Check that clones in rendered containers have data-ref
@@ -100,6 +101,7 @@ describe("MutationSync attribute sync", () => {
 
   beforeEach(() => {
     measurer = document.createElement("content-measure");
+    measurer.trackRefs = true;
     document.body.appendChild(measurer);
   });
 
@@ -190,6 +192,7 @@ describe("MutationSync element removal", () => {
 
   beforeEach(() => {
     measurer = document.createElement("content-measure");
+    measurer.trackRefs = true;
     document.body.appendChild(measurer);
   });
 
@@ -229,6 +232,7 @@ describe("MutationSync element addition", () => {
 
   beforeEach(() => {
     measurer = document.createElement("content-measure");
+    measurer.trackRefs = true;
     document.body.appendChild(measurer);
   });
 
@@ -327,8 +331,8 @@ describe("FragmentContainerElement.takeMutationRecords()", () => {
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 200px; margin: 0;"></div>
     </div>`;
-    layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
-    const flow = layout.flow();
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 100, trackRefs: true });
+    const flow = await layout.flow();
     const result = flow.reflow(0);
     const fragEl = result.elements[0];
     document.body.appendChild(fragEl);
@@ -366,13 +370,13 @@ describe("reflow with rebuild", () => {
     layout?.destroy();
   });
 
-  it("reflow(0, { rebuild: true }) picks up structural changes", () => {
+  it("reflow(0, { rebuild: true }) picks up structural changes", async () => {
     const template = document.createElement("template");
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 100px; margin: 0;"></div>
     </div>`;
-    layout = new FragmentainerLayout(template.content, { width: 400, height: 200 });
-    const flow = layout.flow();
+    layout = new FragmentainerLayout(template.content, { width: 400, height: 200, trackRefs: true });
+    const flow = await layout.flow();
     expect(flow.fragmentainerCount).toBe(1);
 
     // Add a new element to the source DOM (via the internal measurer)

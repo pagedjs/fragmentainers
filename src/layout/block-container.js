@@ -6,6 +6,11 @@ import { findChildBreakToken, isMonolithic, getMonolithicBlockSize } from "../co
 import { EarlyBreak, BreakScore, scoreClassABreak, isBetterBreak, applyBreakInsideAvoid } from "../core/break-scoring.js";
 import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE, BOX_DECORATION_CLONE, EARLY_BREAK_BEFORE, EARLY_BREAK_INSIDE } from "../core/constants.js";
 
+// Skip break scoring when cumulative child content fills less than
+// this fraction of the fragmentainer — children this far from the
+// boundary can't be the optimal break point.
+const SCORING_SKIP_THRESHOLD = 0.75;
+
 /**
  * Core block container layout algorithm (generator).
  *
@@ -189,16 +194,27 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
       break;
     }
 
-    // Track Class A breakpoint score (between siblings)
+    // Track Class A breakpoint score (between siblings).
+    // Fast-path: when cumulative heights show this child is well within
+    // the fragmentainer (< 75% full), skip break scoring — no chance of
+    // this being the best break point.
     if (constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
         i > startIndex && blockOffset > 0) {
-      const prevChild = children[i - 1];
-      let score = scoreClassABreak(prevChild, child);
-      score = applyBreakInsideAvoid(node, score);
+      const cum = node.cumulativeHeights;
+      const skipScoring = cum &&
+        !earlyBreakTarget &&
+        (cum[i + 1] - cum[startIndex] + containerBoxStart) <
+        (constraintSpace.fragmentainerBlockSize - containerOffsetInFragmentainer) * SCORING_SKIP_THRESHOLD;
 
-      const candidate = new EarlyBreak(child, score, EARLY_BREAK_BEFORE);
-      if (isBetterBreak(candidate, bestEarlyBreak)) {
-        bestEarlyBreak = candidate;
+      if (!skipScoring) {
+        const prevChild = children[i - 1];
+        let score = scoreClassABreak(prevChild, child);
+        score = applyBreakInsideAvoid(node, score);
+
+        const candidate = new EarlyBreak(child, score, EARLY_BREAK_BEFORE);
+        if (isBetterBreak(candidate, bestEarlyBreak)) {
+          bestEarlyBreak = candidate;
+        }
       }
     }
 
@@ -333,7 +349,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     (isClone && childBreakTokens.length > 0)) ? containerBoxEnd : 0;
   const contentHeight = blockOffset - boxStartIncluded - boxEndIncluded;
   if (contentHeight === 0 && childFragments.length > 0 && node.element) {
-    const measuredHeight = node.element.getBoundingClientRect().height;
+    const measuredHeight = node.blockSize;
     if (measuredHeight > blockOffset) {
       blockOffset = measuredHeight;
     }

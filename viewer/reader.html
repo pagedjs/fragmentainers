@@ -405,7 +405,7 @@
   </div>
 
   <script type="module">
-    import { fetchAndParse, preprocessContent, waitForFonts, FragmentainerLayout } from "./viewer.js";
+    import { fetchAndParse, preprocessContent, FragmentainerLayout } from "./viewer.js";
     import { PageSizeResolver } from "../src/atpage/page-rules.js";
     import "../src/dom/fragment-container.js";
 
@@ -838,9 +838,7 @@
           styles: sheets,
           resolver,
         });
-        layout.setup();
-        await waitForFonts();
-        flow = layout.flow();
+        flow = await layout.flow();
 
         totalSpreads = spreadCount(flow.fragmentainerCount);
         buildPageHeadings();
