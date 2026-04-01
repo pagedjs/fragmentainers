@@ -639,6 +639,7 @@ export class FragmentedFlow {
     );
     wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, el.nthFormulas, this.#contentStyles?.sourceRefs));
     el.expectedBlockSize = contentArea.blockSize;
+    el.overflowThreshold = fragment.node?.lineHeight || 20;
     return el;
   }
 

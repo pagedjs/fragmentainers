@@ -42,5 +42,6 @@ export async function buildFragmentainerElement(fragmentainerIndex, fragments, f
   const wrapper = fragEl.setupForRendering(contentStyles, counterSnapshot);
   wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, fragEl.nthFormulas));
   fragEl.expectedBlockSize = size.blockSize;
+  fragEl.overflowThreshold = fragment.node?.lineHeight || 20;
   return fragEl;
 }

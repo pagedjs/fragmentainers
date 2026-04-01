@@ -29,6 +29,7 @@ export class FragmentContainerElement extends HTMLElement {
   #notifyPending = false;
   #nthFormulas = null;
   #expectedBlockSize = null;
+  #overflowThreshold = 0;
 
   constructor() {
     super();
@@ -72,7 +73,7 @@ export class FragmentContainerElement extends HTMLElement {
       const renderedBlockSize = entry.contentBoxSize?.[0]?.blockSize
         ?? entry.contentRect.height;
       const delta = renderedBlockSize - this.#expectedBlockSize;
-      if (delta > 1.0) {
+      if (delta > this.#overflowThreshold) {
         this.dispatchEvent(
           new CustomEvent("overflow", {
             bubbles: true,
@@ -211,10 +212,20 @@ export class FragmentContainerElement extends HTMLElement {
    * compares the rendered content height against this value to
    * detect when rendering diverges from the layout computation.
    *
-   * @param {number} blockSize — layout-computed content height
+   * @param {number} blockSize — constraint area height
    */
   set expectedBlockSize(blockSize) {
     this.#expectedBlockSize = blockSize;
+  }
+
+  /**
+   * Set the overflow threshold. The `overflow` event only fires
+   * when the delta exceeds this value (e.g. one line height).
+   *
+   * @param {number} threshold — minimum delta in px to trigger event
+   */
+  set overflowThreshold(threshold) {
+    this.#overflowThreshold = threshold;
   }
 
   get nthFormulas() {
