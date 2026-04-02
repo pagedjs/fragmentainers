@@ -85,6 +85,12 @@ export class FragmentainerLayout {
       this.#content = content;
     }
 
+    // Add lazy loading to images with explicit dimensions so the browser
+    // doesn't fetch them eagerly before they're needed for layout.
+    for (const img of this.#content.querySelectorAll("img[width][height]")) {
+      img.setAttribute("loading", "lazy");
+    }
+
     this.#styles = options.styles
       ? Array.isArray(options.styles)
         ? options.styles
@@ -265,7 +271,7 @@ export class FragmentainerLayout {
   #waitForImages(root) {
     if (!root) return Promise.resolve();
     const pending = [];
-    for (const img of root.querySelectorAll("img")) {
+    for (const img of root.querySelectorAll("img:not([loading=lazy])")) {
       if (!img.complete) {
         pending.push(
           new Promise((r) => {

@@ -65,6 +65,54 @@ describe("FragmentainerLayout.flow() (browser)", () => {
     expect(last.breakToken).toBeNull();
   });
 
+  it("adds loading=lazy to images with width and height", async () => {
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" width="100" height="100">
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" width="200" height="150">
+    </div>`;
+    layout = new FragmentainerLayout(template.content, {
+      width: 400, height: 800,
+    });
+    const root = layout.contentRoot;
+    const imgs = root.querySelectorAll("img");
+    for (const img of imgs) {
+      expect(img.getAttribute("loading")).toBe("lazy");
+    }
+  });
+
+  it("does not add loading=lazy to images missing width or height", async () => {
+    const template = document.createElement("template");
+    template.innerHTML = `<div style="margin:0; padding:0;">
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" width="100">
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" height="100">
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+    </div>`;
+    layout = new FragmentainerLayout(template.content, {
+      width: 400, height: 800,
+    });
+    const root = layout.contentRoot;
+    const imgs = root.querySelectorAll("img");
+    for (const img of imgs) {
+      expect(img.hasAttribute("loading")).toBe(false);
+    }
+  });
+
+  it("does not wait for lazy-loaded images during setup", async () => {
+    const template = document.createElement("template");
+    // Use a broken src that would hang if waited on; dimensions trigger lazy
+    template.innerHTML = `<div style="margin:0; padding:0;">
+      <img src="http://192.0.2.1/hang.png" width="100" height="100">
+      <div style="height: 50px; margin: 0;"></div>
+    </div>`;
+    layout = new FragmentainerLayout(template.content, {
+      width: 400, height: 800,
+    });
+    // flow() should complete quickly — it must not wait for the lazy image
+    const flow = await layout.flow();
+    expect(flow.fragmentainerCount).toBeGreaterThanOrEqual(1);
+  });
+
   it("accepts an Element and clones it into a DocumentFragment", async () => {
     const container = document.createElement("div");
     container.innerHTML = "<div style=\"margin:0; padding:0;\"><div style=\"height: 200px; margin: 0;\"></div></div>";
