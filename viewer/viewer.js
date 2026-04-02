@@ -1,5 +1,5 @@
 import { FragmentainerLayout } from "../src/core/fragmentainer-layout.js";
-import { ContentParser } from "./content-parser.js";
+import { ContentParser } from "../src/dom/content-parser.js";
 
 export { FragmentainerLayout, ContentParser };
 

@@ -75,8 +75,8 @@ export class ContentMeasureElement extends HTMLElement {
   applyConstraintSpace(constraintSpace) {
     const inlineSize = constraintSpace.availableInlineSize;
     if (this.#currentInlineSize === inlineSize) return;
-    this.#currentInlineSize = Math.floor(inlineSize);
-    this.style.width = `${this.#currentInlineSize}px`;
+    this.#currentInlineSize = inlineSize;
+    this.style.width = `${inlineSize}px`;
     void this.offsetHeight; // Force synchronous reflow
   }
 

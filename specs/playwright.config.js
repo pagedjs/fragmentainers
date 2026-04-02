@@ -25,6 +25,15 @@ export default defineConfig({
         browserName: "chromium",
       },
     },
+    {
+      name: "fragmentation",
+      testMatch: "fragmentation/fragmentation.spec.js",
+      use: {
+        baseURL: "http://localhost:8080",
+        viewport: { width: 1200, height: 1200 },
+        browserName: "chromium",
+      },
+    },
   ],
   reporter: [
     ["list"],

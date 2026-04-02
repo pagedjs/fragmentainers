@@ -130,6 +130,10 @@ export function resolveNextPageBreakBefore(rootNode, breakToken) {
     }
     current = lastChild;
   }
+  // If the deepest break is inline (mid-paragraph), the same content
+  // continues on the next page — no new child starts at blockOffset 0.
+  if (current.type === BREAK_TOKEN_INLINE) return null;
+
   const nextChild = findNextUnvisitedChild(rootNode, breakToken);
   return nextChild?.breakBefore || null;
 }
@@ -182,6 +186,12 @@ export function resolveNamedPageForBreakToken(rootNode, breakToken) {
     current = lastChild;
   }
 
+  // If the deepest break is inline (mid-paragraph), the same element
+  // continues — its named page applies to the next fragmentainer.
+  if (current.type === BREAK_TOKEN_INLINE) {
+    return getNamedPage(current.node);
+  }
+
   // The break is inside `currentNode`. Find the next unvisited sibling
   // by walking back up the tree.
   return getNamedPage(findNextUnvisitedChild(rootNode, breakToken));
@@ -196,25 +206,28 @@ export function resolveNamedPageForBreakToken(rootNode, breakToken) {
  * @returns {LayoutNode|null}
  */
 function findNextUnvisitedChild(rootNode, breakToken) {
-  // Build a path from root break token to deepest child
+  // Build a path from root break token to deepest child,
+  // paired with the corresponding layout node at each level.
   const path = [];
   let current = breakToken;
+  let parentNode = rootNode;
   while (current.childBreakTokens && current.childBreakTokens.length > 0) {
     const lastChild = current.childBreakTokens[current.childBreakTokens.length - 1];
-    path.push({ token: current, childToken: lastChild });
+    path.push({ parentNode, childToken: lastChild });
+    parentNode = lastChild.node;
     current = lastChild;
   }
 
-  // Walk from deepest to shallowest looking for a next sibling
-  const nodes = [rootNode];
-  for (const { childToken } of path) {
-    const parentNode = nodes[nodes.length - 1];
-    const children = parentNode.children;
+  // Walk from deepest to shallowest looking for a next sibling.
+  // The deepest level is where the break occurred; its sibling is
+  // the closest element that will start fresh on the next page.
+  for (let i = path.length - 1; i >= 0; i--) {
+    const { parentNode: parent, childToken } = path[i];
+    const children = parent.children;
     const idx = children.indexOf(childToken.node);
     if (idx !== -1 && idx + 1 < children.length) {
       return children[idx + 1];
     }
-    nodes.push(childToken.node);
   }
 
   return null;

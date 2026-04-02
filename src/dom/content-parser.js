@@ -48,22 +48,53 @@ export class ContentParser {
    * @param {string} baseURL — base URL for resolving relative paths
    * @returns {Promise<ContentParser>}
    */
-  static async parse(content, baseURL) {
-    // Ensure baseURL is absolute — callers may pass relative paths like
-    // "examples/moby-dick/" which new URL() cannot use as a base.
+  static async fromString(content, baseURL) {
     baseURL = new URL(baseURL, document.baseURI).href;
-
     const doc = new DOMParser().parseFromString(content, "text/html");
 
-    // --- Collect CSS entries (each with its own base URL) ---
+    const fragment = ContentParser.html(doc, baseURL);
+    const styles = await ContentParser.css(doc, baseURL);
 
+    return new ContentParser(fragment, styles);
+  }
+
+  /**
+   * Extract body content from a parsed document into a DocumentFragment
+   * with all relative URLs resolved.
+   *
+   * @param {Document} doc — parsed HTML document
+   * @param {string} baseURL — absolute base URL for resolving relative paths
+   * @returns {DocumentFragment}
+   */
+  static html(doc, baseURL) {
+    const fragment = document.createDocumentFragment();
+    const template = doc.querySelector("template#flow");
+    const source = template ? template.content : doc.body;
+
+    while (source.firstChild) {
+      fragment.appendChild(document.adoptNode(source.firstChild));
+    }
+
+    ContentParser.#resolveFragmentURLs(fragment, baseURL);
+    return fragment;
+  }
+
+  /**
+   * Collect and build CSSStyleSheets from a parsed document's
+   * inline styles and linked stylesheets, with resolved URLs.
+   *
+   * @param {Document} doc — parsed HTML document
+   * @param {string} baseURL — absolute base URL for resolving relative paths
+   * @returns {Promise<CSSStyleSheet[]>}
+   */
+  static async css(doc, baseURL) {
     const cssEntries = [];
 
     for (const style of doc.querySelectorAll("style")) {
       cssEntries.push({ css: style.textContent, cssBaseURL: baseURL });
     }
 
-    for (const link of doc.querySelectorAll("link[rel=\"stylesheet\"]")) {
+    for (const link of doc.querySelectorAll('link[rel="stylesheet"]')) {
       const href = link.getAttribute("href");
       if (!href) continue;
       try {
@@ -76,22 +107,34 @@ export class ContentParser {
       }
     }
 
-    // --- Extract body content into a DocumentFragment ---
+    return ContentParser.#buildSheets(cssEntries);
+  }
 
-    const fragment = document.createDocumentFragment();
-    const template = doc.querySelector("template#flow");
-    const source = template ? template.content : doc.body;
-
-    while (source.firstChild) {
-      fragment.appendChild(document.adoptNode(source.firstChild));
+  /**
+   * Convert the current document's styleSheets into constructed
+   * CSSStyleSheets that can be adopted into shadow roots.
+   * Cross-origin sheets that cannot be read are silently skipped.
+   *
+   * @returns {CSSStyleSheet[]}
+   */
+  static collectDocumentStyles() {
+    if (typeof document === "undefined") return [];
+    const sheets = [];
+    for (const sheet of document.styleSheets) {
+      try {
+        const constructed = new CSSStyleSheet();
+        let css = "";
+        for (const rule of sheet.cssRules) {
+          css += rule.cssText + "\n";
+        }
+        constructed.replaceSync(css);
+        sheets.push(constructed);
+      } catch {
+        // Cross-origin sheets can't be read — skip
+      }
     }
 
-    // --- Resolve URLs ---
-
-    ContentParser.#resolveFragmentURLs(fragment, baseURL);
-    const styles = ContentParser.#buildSheets(cssEntries);
-
-    return new ContentParser(fragment, styles);
+    return sheets;
   }
 
   // ---------------------------------------------------------------------------
@@ -131,7 +174,10 @@ export class ContentParser {
     const override = new CSSStyleSheet();
 
     for (let { css, cssBaseURL } of cssEntries) {
-      css = css.replace(RUNNING_POSITION_RE, "--page-position: $1; display: none");
+      css = css.replace(
+        RUNNING_POSITION_RE,
+        "--page-position: $1; display: none",
+      );
       const sheet = new CSSStyleSheet();
       sheet.replaceSync(css);
       sheets.push(sheet);
@@ -231,15 +277,11 @@ export class ContentParser {
     let declarations = "";
     for (let i = 0; i < rule.style.length; i++) {
       const prop = rule.style[i];
-      const val =
-        prop === "src" ? resolved : rule.style.getPropertyValue(prop);
+      const val = prop === "src" ? resolved : rule.style.getPropertyValue(prop);
       declarations += `${prop}: ${val}; `;
     }
 
-    target.insertRule(
-      `@font-face { ${declarations} }`,
-      target.cssRules.length,
-    );
+    target.insertRule(`@font-face { ${declarations} }`, target.cssRules.length);
   }
 
   /**

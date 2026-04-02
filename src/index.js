@@ -14,4 +14,5 @@ export { FragmentainerLayout, FragmentedFlow } from "./core/fragmentainer-layout
 export { RegionResolver, RegionConstraints } from "./regions/region-resolver.js";
 export { CounterState, parseCounterDirective, walkFragmentTree } from "./core/counter-state.js";
 export { MutationSync } from "./dom/mutation-sync.js";
+export { ContentParser } from "./dom/content-parser.js";
 export { buildCumulativeHeights } from "./core/speculative-layout.js";

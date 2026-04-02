@@ -273,14 +273,13 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 
   // Use availableBlockSize (set by parent), which accounts for ancestor
   // padding/border reservations. Fall back to fragmentainer math if not set.
-  // Floor the result — browsers round fragmentainer sizes down to integers
-  // when printing, and fractional line-heights accumulate floating-point error.
-  const rawAvailable =
+  // Chromium preserves subpixel precision for fragmentainer dimensions
+  // (LayoutUnit), so no rounding is applied here.
+  const availableBlockSpace =
     constraintSpace.availableBlockSize > 0
       ? constraintSpace.availableBlockSize
       : constraintSpace.fragmentainerBlockSize -
         constraintSpace.blockOffsetInFragmentainer;
-  const availableBlockSpace = Math.floor(rawAvailable);
 
   // If not enough space for even one line and there's content above us in
   // this fragmentainer, produce a zero-height fragment. The parent will record the

@@ -325,7 +325,7 @@
           const baseURL = url.substring(0, url.lastIndexOf("/") + 1);
 
           statusEl.textContent = "Parsing content...";
-          const parsed = await ContentParser.parse(content, baseURL);
+          const parsed = await ContentParser.fromString(content, baseURL);
 
           statusEl.textContent = "Running fragmentation...";
 

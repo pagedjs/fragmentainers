@@ -112,6 +112,7 @@
       const pageW = parseInt(params.get("w") || "816");
       const pageH = parseInt(params.get("h") || "1056");
       const maxPages = parseInt(params.get("pages") || "0");
+      const singlePage = parseInt(params.get("page") || "0"); // 1-based; 0 = show all
       const doRender = params.get("render") !== "0";
 
       // Persist canonical params in the URL
@@ -120,6 +121,7 @@
       canonical.set("w", String(pageW));
       canonical.set("h", String(pageH));
       if (maxPages > 0) canonical.set("pages", String(maxPages));
+      if (singlePage > 0) canonical.set("page", String(singlePage));
       if (!doRender) canonical.set("render", "0");
       history.replaceState(null, "", `?${canonical}`);
 
@@ -136,7 +138,7 @@
           const response = await fetch(url);
           const content = await response.text();
           const baseURL = url.substring(0, url.lastIndexOf("/") + 1);
-          const parsed = await ContentParser.parse(content, baseURL);
+          const parsed = await ContentParser.fromString(content, baseURL);
 
           const size = { inlineSize: pageW, blockSize: pageH };
           const resolver = PageSizeResolver.fromStyleSheets(
@@ -156,15 +158,19 @@
           const elapsed = (performance.now() - t0).toFixed(1);
 
           const header = buildHeader(fragments, resolver, elapsed);
-          const limit =
-            maxPages > 0
-              ? Math.min(maxPages, fragments.length)
-              : fragments.length;
+          let startIdx = 0;
+          let endIdx = fragments.length;
+          if (singlePage > 0 && singlePage <= fragments.length) {
+            startIdx = singlePage - 1;
+            endIdx = singlePage;
+          } else if (maxPages > 0) {
+            endIdx = Math.min(maxPages, fragments.length);
+          }
 
           if (!doRender) {
-            renderTextMode(fragments, header, limit);
+            renderTextMode(fragments, header, startIdx, endIdx);
           } else {
-            await renderVisualMode(fragments, flow, header, limit, t0);
+            await renderVisualMode(fragments, flow, header, startIdx, endIdx, t0);
           }
         } catch (err) {
           outputEl.textContent = `ERROR: ${err.message}\n${err.stack}`;
@@ -247,17 +253,18 @@
         return controls;
       }
 
-      function renderTextMode(fragments, header, limit) {
+      function renderTextMode(fragments, header, startIdx, endIdx) {
         const lines = [...header];
         let issueCount = 0;
-        for (let i = 0; i < limit; i++) {
+        for (let i = startIdx; i < endIdx; i++) {
           const effH = fragmentainerHeight(fragments[i], pageH);
           const { text, hasIssues } = buildPageDump(fragments, i, effH);
           if (hasIssues) issueCount++;
           lines.push(text);
         }
+        const shown = endIdx - startIdx;
         lines.push("---");
-        lines.push(`Pages with issues: ${issueCount}/${limit}`);
+        lines.push(`Pages with issues: ${issueCount}/${shown}`);
 
         fullDebugText = lines.join("\n");
         headerEl.style.display = "block";
@@ -267,11 +274,11 @@
         outputEl.textContent = lines.slice(header.length).join("\n");
       }
 
-      async function renderVisualMode(fragments, flow, header, limit, t0) {
+      async function renderVisualMode(fragments, flow, header, startIdx, endIdx, t0) {
         const debugLines = [...header];
         let issueCount = 0;
 
-        for (let i = 0; i < limit; i++) {
+        for (let i = startIdx; i < endIdx; i++) {
           const c = fragments[i].constraints;
           const fragW = c?.pageBoxSize ? c.pageBoxSize.inlineSize : pageW;
           const fragH = c?.pageBoxSize ? c.pageBoxSize.blockSize : pageH;
@@ -337,14 +344,15 @@
           fragEl.startObserving();
         }
 
+        const shown = endIdx - startIdx;
         debugLines.push("---");
-        debugLines.push(`Pages with issues: ${issueCount}/${limit}`);
+        debugLines.push(`Pages with issues: ${issueCount}/${shown}`);
         debugLines.push(`renderTime: ${(performance.now() - t0).toFixed(1)}ms`);
         fullDebugText = debugLines.join("\n");
 
         headerEl.style.display = "block";
         headerEl.textContent = header.join("\n");
-        headerEl.textContent += `pageIssues: ${issueCount}/${limit}\n`;
+        headerEl.textContent += `pageIssues: ${issueCount}/${shown}\n`;
         headerEl.textContent += `renderTime: ${(performance.now() - t0).toFixed(1)}ms`;
         headerEl.appendChild(buildHeaderControls());
       }

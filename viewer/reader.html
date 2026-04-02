@@ -827,7 +827,7 @@
         const response = await fetch(currentUrl);
         const content = await response.text();
         const baseURL = currentUrl.substring(0, currentUrl.lastIndexOf("/") + 1);
-        const parsed = await ContentParser.parse(content, baseURL);
+        const parsed = await ContentParser.fromString(content, baseURL);
 
         const resolver = PageSizeResolver.fromStyleSheets(parsed.styles, A5);
 

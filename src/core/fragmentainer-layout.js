@@ -5,9 +5,19 @@ import { PageSizeResolver } from "../atpage/page-rules.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
 import { PhysicalFragment } from "./fragment.js";
-import { FRAGMENTATION_COLUMN, DEFAULT_OVERFLOW_THRESHOLD } from "./constants.js";
-import { resolveForcedBreakValue, resolveNextPageBreakBefore, requiredPageSide, isSideSpecificBreak } from "./helpers.js";
+import {
+  FRAGMENTATION_COLUMN,
+  DEFAULT_OVERFLOW_THRESHOLD,
+} from "./constants.js";
+import {
+  resolveForcedBreakValue,
+  resolveNextPageBreakBefore,
+  requiredPageSide,
+  isSideSpecificBreak,
+} from "./helpers.js";
 import "../dom/content-measure.js";
+import "../dom/fragment-container.js";
+import { ContentParser } from "../dom/content-parser.js";
 
 function buildLayoutTree(rootElement) {
   return new DOMLayoutNode(rootElement);
@@ -111,14 +121,16 @@ export class FragmentainerLayout {
    * @returns {import('./fragment.js').PhysicalFragment}
    */
   next() {
-
     // Check if a side-specific break requires a blank page before layout.
     // Two sources: (a) forcedBreakValue on the break token, (b) breakBefore
     // CSS on the first child when blockOffset === 0 suppressed the forced break.
     if (this.#resolver) {
       let sideValue = resolveForcedBreakValue(this.#breakToken);
       if (!isSideSpecificBreak(sideValue)) {
-        const nextBreakBefore = resolveNextPageBreakBefore(this.#tree, this.#breakToken);
+        const nextBreakBefore = resolveNextPageBreakBefore(
+          this.#tree,
+          this.#breakToken,
+        );
         if (isSideSpecificBreak(nextBreakBefore)) {
           sideValue = nextBreakBefore;
         } else {
@@ -221,7 +233,11 @@ export class FragmentainerLayout {
       fragment = this.next();
       fragments.push(fragment);
 
-      if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
+      if (
+        fragment.breakToken &&
+        fragment.blockSize === 0 &&
+        !fragment.isBlank
+      ) {
         zeroProgressCount++;
         if (zeroProgressCount >= MAX_ZERO_PROGRESS) {
           console.warn(
@@ -328,17 +344,20 @@ export class FragmentainerLayout {
   async setup(forceUpdate = false) {
     if (this.#tree && this.#measureElement && !forceUpdate) return;
     const content = this.#content;
-
-    if (this.#tree && !this.#measureElement &&
+    const styles = this.#styles || ContentParser.collectDocumentStyles();
+    if (
+      this.#tree &&
+      !this.#measureElement &&
       typeof DocumentFragment !== "undefined" &&
-      content instanceof DocumentFragment) {
+      content instanceof DocumentFragment
+    ) {
       // Measurer was released — recreate it without rebuilding tree.
       // The tree's DOMLayoutNode wrappers still reference the same
       // element objects; moving them back into the measurer restores
       // live measurement capability.
       const measurer = document.createElement("content-measure");
       measurer.trackRefs = this.#trackRefs;
-      measurer.injectFragment(content, this.#styles);
+      measurer.injectFragment(content, styles);
       if (this.#savedRefMap) {
         measurer.transferRefs(
           this.#savedRefMap,
@@ -368,10 +387,10 @@ export class FragmentainerLayout {
       typeof DocumentFragment !== "undefined" &&
       content instanceof DocumentFragment
     ) {
-      // Create internal <content-measure> and inject the fragment
+      // Create internal <content-measure> and inject the fragment.
       const measurer = document.createElement("content-measure");
       measurer.trackRefs = this.#trackRefs;
-      const wrapper = measurer.injectFragment(content, this.#styles);
+      const wrapper = measurer.injectFragment(content, styles);
 
       // Transfer saved refs from a previous measurer cycle
       if (this.#savedRefMap) {
@@ -400,8 +419,7 @@ export class FragmentainerLayout {
       this.#contentStyles = measurer.getContentStyles();
       // Auto-create resolver from @page rules in styles if neither set
       if (!this.#resolver && !this.#constraintSpace) {
-        const sheets = this.#styles || [...document.styleSheets];
-        this.#resolver = PageSizeResolver.fromStyleSheets(sheets);
+        this.#resolver = PageSizeResolver.fromStyleSheets(styles);
       }
     } else {
       // Mock node (unit tests)
@@ -541,7 +559,8 @@ export class FragmentedFlow {
       ),
     );
     el.expectedBlockSize = contentArea.blockSize;
-    el.overflowThreshold = fragment.node?.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
+    el.overflowThreshold =
+      fragment.node?.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
     return el;
   }
 
@@ -580,7 +599,11 @@ export class FragmentedFlow {
     do {
       fragment = this.#layout.next();
       newFragments.push(fragment);
-      if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
+      if (
+        fragment.breakToken &&
+        fragment.blockSize === 0 &&
+        !fragment.isBlank
+      ) {
         if (++zeroProgressCount >= MAX_ZERO_PROGRESS) break;
       } else {
         zeroProgressCount = 0;
