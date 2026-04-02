@@ -164,8 +164,6 @@ function matchesAllParts(pos, nthParts) {
   return true;
 }
 
-// ── Descriptor extraction (Phase 1) ────────────────────────────────
-
 /**
  * @typedef {Object} NthDescriptor
  * @property {string} baseSelector — selector with nth pseudo-classes removed
@@ -217,8 +215,6 @@ export function extractNthDescriptors(sheets) {
   }
   return descriptors;
 }
-
-// ── Per-fragment stylesheet builder (Phase 2) ──────────────────────
 
 /**
  * Build a per-fragment override stylesheet that targets elements by data-ref.
@@ -291,7 +287,7 @@ export function buildPerFragmentNthSheet(slot, descriptors, refMap) {
   return sheet;
 }
 
-// ── Legacy API (kept for rewriteNthSelectorsOnSheet) ───────────────
+// Legacy API (kept for rewriteNthSelectorsOnSheet)
 
 /**
  * Canonical key for a formula — used to deduplicate identical An+B

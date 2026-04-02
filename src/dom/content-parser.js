@@ -137,9 +137,7 @@ export class ContentParser {
     return sheets;
   }
 
-  // ---------------------------------------------------------------------------
   // DOM URL resolution
-  // ---------------------------------------------------------------------------
 
   /**
    * Walk every element in the fragment and resolve relative URL attributes.
@@ -159,9 +157,7 @@ export class ContentParser {
     }
   }
 
-  // ---------------------------------------------------------------------------
   // CSS sheet construction + CSSOM URL override
-  // ---------------------------------------------------------------------------
 
   /**
    * Build CSSStyleSheets from CSS entries and append a URL override sheet.
