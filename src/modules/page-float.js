@@ -40,19 +40,19 @@ export const pageFloatModule = {
       reservedBlockEnd,
       afterRender(fragment, contentStyles) {
         if (placed.length === 0) return;
-        fragment.style.position = "relative";
+        fragment.style.setProperty("position", "relative");
         for (const pf of placed) {
           const floatContent = renderFragmentTree(
             pf.fragment, null, contentStyles?.sourceRefs,
           );
           const floatWrapper = document.createElement("div");
-          floatWrapper.style.position = "absolute";
-          floatWrapper.style.left = "0";
-          floatWrapper.style.right = "0";
+          floatWrapper.style.setProperty("position", "absolute");
+          floatWrapper.style.setProperty("left", "0");
+          floatWrapper.style.setProperty("right", "0");
           if (pf.placement === "top") {
-            floatWrapper.style.top = "0";
+            floatWrapper.style.setProperty("top", "0");
           } else {
-            floatWrapper.style.bottom = "0";
+            floatWrapper.style.setProperty("bottom", "0");
           }
           floatWrapper.appendChild(floatContent);
           fragment.appendChild(floatWrapper);
