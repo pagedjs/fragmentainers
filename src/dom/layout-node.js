@@ -80,6 +80,10 @@ export class DOMLayoutNode {
     return this.#getStyle().getPropertyValue(`--${name}`).trim() || null;
   }
 
+  get position() {
+    return this.#getStyle().position || "static";
+  }
+
   #getStyleMap() {
     if (!this.#styleMap) {
       this.#styleMap = computedStyleMap(this.element);
@@ -588,6 +592,9 @@ export class AnonymousBlockNode {
   }
 
   // Classification
+  get position() {
+    return "static";
+  }
   get isReplacedElement() {
     return false;
   }
@@ -652,5 +659,9 @@ export class AnonymousBlockNode {
   }
   get counterIncrement() {
     return "none";
+  }
+
+  getCustomProperty() {
+    return null;
   }
 }

@@ -11,6 +11,7 @@ const DEFAULTS = {
   element: null,
   querySelectorAll() { return []; },
   getCustomProperty() { return null; },
+  position: "static",
   isInlineFormattingContext: false,
   isReplacedElement: false,
   isScrollable: false,
@@ -317,6 +318,32 @@ export function floatNode({ debugName, placement = "top", blockSize = 0, childre
     getCustomProperty(name) {
       return customProps[name] || null;
     },
+    ...overrides,
+  });
+}
+
+/**
+ * Create a position: fixed node for testing the fixed-position module.
+ * @param {Object} opts
+ * @param {string} [opts.anchorEdge="block-start"] - "block-start", "block-end", or "overlay"
+ * @param {number} [opts.blockSize=0] - Intrinsic block size
+ */
+export function fixedNode({ debugName, anchorEdge = "block-start", blockSize = 0, children = [], ...overrides } = {}) {
+  // Build mock inline style for anchor edge classification.
+  // The module reads element.style.top / element.style.bottom to
+  // classify which edge the fixed element anchors to.
+  const inlineStyle = {
+    "block-start": { top: "0px", bottom: "" },
+    "block-end": { top: "", bottom: "0px" },
+    "overlay": { top: "", bottom: "" },
+  }[anchorEdge];
+
+  return blockNode({
+    debugName: debugName || `fixed-${anchorEdge}(${blockSize})`,
+    blockSize,
+    children,
+    position: "fixed",
+    element: { style: inlineStyle },
     ...overrides,
   });
 }
