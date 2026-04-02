@@ -3,7 +3,11 @@
  *
  * Wraps rendered fragment output to prevent CSS leakage from the
  * host page. Uses `all: initial` on :host to reset inherited CSS
- * properties to browser defaults.
+ * properties to browser defaults. Body/html-targeting rules are
+ * re-applied as :host overrides via the adopted stylesheet pipeline.
+ *
+ * Content is appended to a <slot> element as fallback content,
+ * keeping it inside the shadow DOM where only adopted stylesheets apply.
  */
 
 import { OVERRIDES } from "../styles/overrides.js";
@@ -13,16 +17,17 @@ const CONTAINER_HOST_STYLES = `
     all: initial;
     display: block;
     contain: strict;
-  }
-  .frag-body {
-    min-height: 100%;
     text-rendering: geometricPrecision;
+  }
+  slot {
+    display: block;
+    min-height: 100%;
   }
 `;
 
 export class FragmentContainerElement extends HTMLElement {
   #shadow;
-  #wrapper = null;
+  #slot = null;
   #fragmentIndex = -1;
   #resizeObserver = null;
   #mutationObserver = null;
@@ -35,6 +40,23 @@ export class FragmentContainerElement extends HTMLElement {
   constructor() {
     super();
     this.#shadow = this.attachShadow({ mode: "closed" });
+  }
+
+  connectedCallback() {
+    this.#ensureSetup();
+  }
+
+  /**
+   * Build the one-time shadow DOM structure (host styles + slot).
+   * Called lazily — safe to invoke before or after connection.
+   */
+  #ensureSetup() {
+    if (this.#slot) return;
+    const style = document.createElement("style");
+    style.textContent = CONTAINER_HOST_STYLES;
+    this.#shadow.appendChild(style);
+    this.#slot = document.createElement("slot");
+    this.#shadow.appendChild(this.#slot);
   }
 
   get fragmentIndex() {
@@ -91,7 +113,7 @@ export class FragmentContainerElement extends HTMLElement {
   }
 
   /**
-   * Attach ResizeObserver and MutationObserver on the content wrapper.
+   * Attach ResizeObserver and MutationObserver on the content slot.
    * Deferred via requestAnimationFrame to skip the initial
    * ResizeObserver notification.
    */
@@ -102,13 +124,13 @@ export class FragmentContainerElement extends HTMLElement {
         this.#checkOverflow(entries);
         this.#scheduleNotify();
       });
-      this.#resizeObserver.observe(this.#wrapper);
+      this.#resizeObserver.observe(this.#slot);
 
       this.#mutationObserver = new MutationObserver((mutations) => {
         this.#mutationBuffer.push(...mutations);
         this.#scheduleNotify();
       });
-      this.#mutationObserver.observe(this.#wrapper, {
+      this.#mutationObserver.observe(this.#slot, {
         childList: true,
         subtree: true,
         characterData: true,
@@ -145,25 +167,19 @@ export class FragmentContainerElement extends HTMLElement {
   }
 
   /**
-   * Set up the shadow root with content styles for rendering.
-   * Dimensions must be set on the host element by the caller.
+   * Adopt content styles and prepare the slot for rendering.
    *
-   * When contentStyles is provided (from ContentMeasureElement.getContentStyles()),
-   * uses those cached styles. Otherwise copies stylesheets from the current
-   * document so rendered content matches the page's styling.
+   * When contentStyles is provided (from ContentMeasureElement.getContentStyles())
+   * uses those cached styles. Clears any existing content in the slot.
    *
    * @param {Object} [contentStyles] — from ContentMeasureElement.getContentStyles()
    * @param {Object} [counterSnapshot] — counter state from previous fragmentainer
-   * @returns {Element} wrapper element to append rendered content into
+   * @returns {Element} slot element to append rendered content into
    */
   setupForRendering(contentStyles, counterSnapshot = null) {
-    this.#shadow.innerHTML = "";
+    this.#ensureSetup();
+    this.#slot.innerHTML = "";
     this.#nthFormulas = null;
-
-    // Host styles
-    const hostStyle = document.createElement("style");
-    hostStyle.textContent = CONTAINER_HOST_STYLES;
-    this.#shadow.appendChild(hostStyle);
 
     if (contentStyles.sheets.length > 0) {
       this.#shadow.adoptedStyleSheets = [...contentStyles.sheets, OVERRIDES];
@@ -179,7 +195,7 @@ export class FragmentContainerElement extends HTMLElement {
       const pairs = Object.entries(counterSnapshot)
         .map(([name, value]) => `${name} ${value}`)
         .join(" ");
-      counterSheet.replaceSync(`.frag-body { counter-set: ${pairs}; }`);
+      counterSheet.replaceSync(`:host { counter-set: ${pairs}; }`);
       const sheets = this.#shadow.adoptedStyleSheets;
       this.#shadow.adoptedStyleSheets = [
         ...sheets.slice(0, -1),
@@ -188,26 +204,16 @@ export class FragmentContainerElement extends HTMLElement {
       ];
     }
 
-    // Create wrapper div that content CSS targets via .frag-body
-    this.#wrapper = document.createElement("div");
-    this.#wrapper.className = "frag-body";
-
-    this.#shadow.appendChild(this.#wrapper);
-    return this.#wrapper;
+    return this.#slot;
   }
 
   /**
-   * The wrapper element inside the shadow root.
+   * The slot element inside the shadow root — content container.
    */
   get contentRoot() {
-    return this.#wrapper;
+    return this.#slot;
   }
 
-  /**
-   * Nth-selector formula descriptors extracted during stylesheet rewriting.
-   * Pass to renderFragmentTree() so the compositor can stamp matching attributes.
-   * @returns {Map|null}
-   */
   /**
    * Set the expected block size from layout. The ResizeObserver
    * compares the rendered content height against this value to
@@ -229,6 +235,11 @@ export class FragmentContainerElement extends HTMLElement {
     this.#overflowThreshold = threshold;
   }
 
+  /**
+   * Nth-selector formula descriptors extracted during stylesheet rewriting.
+   * Pass to renderFragmentTree() so the compositor can stamp matching attributes.
+   * @returns {Map|null}
+   */
   get nthFormulas() {
     return this.#nthFormulas;
   }

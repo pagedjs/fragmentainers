@@ -2,15 +2,14 @@
  * Body/html selector rewriting for shadow DOM fragmentation.
  *
  * When content is rendered inside shadow DOM containers, `body` and `html`
- * selectors don't match — the shadow root uses a `.frag-body` wrapper
- * instead of <body> and `:host` instead of <html>.
+ * selectors don't match. The shadow DOM uses a `<slot>` element as the
+ * body stand-in and `:host` as the html stand-in.
  *
  * This module builds an override CSSStyleSheet by testing each rule's
  * selector against the document's body and html elements via
- * Element.matches(). Rules that target body get duplicated as
- * `.frag-body` rules; rules that target html become `:host` rules.
- * The override sheet is appended after the original sheets so
- * rewritten rules win by source order.
+ * Element.matches(). Rules that target body become `slot` rules;
+ * rules that target html become `:host` rules. The override sheet is
+ * appended after the original sheets so rewritten rules win by source order.
  *
  * Follows the same non-mutating override pattern as
  * buildNthOverrideSheet in nth-selectors.js.
@@ -35,7 +34,7 @@ function collectBodyOverrides(ruleList, target, bodyEl, htmlEl) {
       const matchesHtml = safeMatches(htmlEl, rule.selectorText);
       if (matchesBody) {
         target.insertRule(
-          `.frag-body { ${rule.style.cssText} }`,
+          `slot { ${rule.style.cssText} }`,
           target.cssRules.length,
         );
       }
@@ -80,7 +79,7 @@ function safeMatches(el, selector) {
 }
 
 /**
- * Build an override CSSStyleSheet containing `.frag-body` / `:host`
+ * Build an override CSSStyleSheet containing `slot` / `:host`
  * equivalents of rules that target the document's body / html elements.
  * The input sheets are NOT mutated.
  *

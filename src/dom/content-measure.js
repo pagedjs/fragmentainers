@@ -3,7 +3,12 @@
  *
  * Injects content + CSS into a shadow root so the host page's styles
  * don't affect layout measurements. Uses `all: initial` on :host to
- * reset inherited CSS properties to browser defaults.
+ * reset inherited CSS properties to browser defaults. Body/html-targeting
+ * rules are re-applied as :host overrides so inherited properties
+ * flow correctly to content inside the slot.
+ *
+ * Content is appended to a <slot> element as fallback content,
+ * keeping it inside the shadow DOM where only adopted stylesheets apply.
  */
 
 import { buildNthOverrideSheet } from "../styles/nth-selectors.js";
@@ -17,11 +22,14 @@ const MEASURE_HOST_STYLES = `
     left: -99999px;
     contain: strict;
   }
+  slot {
+    display: block;
+  }
 `;
 
 export class ContentMeasureElement extends HTMLElement {
   #shadow;
-  #wrapper = null;
+  #slot = null;
   #bodyOverrideSheet = null;
   #nthOverrideSheet = null;
   #nthFormulas = new Map();
@@ -34,6 +42,23 @@ export class ContentMeasureElement extends HTMLElement {
   constructor() {
     super();
     this.#shadow = this.attachShadow({ mode: "closed" });
+  }
+
+  connectedCallback() {
+    this.#ensureSetup();
+  }
+
+  /**
+   * Build the one-time shadow DOM structure (host styles + slot).
+   * Called lazily — safe to invoke before or after connection.
+   */
+  #ensureSetup() {
+    if (this.#slot) return;
+    const style = document.createElement("style");
+    style.textContent = MEASURE_HOST_STYLES;
+    this.#shadow.appendChild(style);
+    this.#slot = document.createElement("slot");
+    this.#shadow.appendChild(this.#slot);
   }
 
   /**
@@ -65,38 +90,34 @@ export class ContentMeasureElement extends HTMLElement {
   }
 
   /**
-   * Inject a DocumentFragment and CSSStyleSheets into the shadow root.
+   * Inject a DocumentFragment and adopt CSSStyleSheets for measurement.
    *
    * @param {DocumentFragment} fragment — content to inject
    * @param {CSSStyleSheet[]} [styles] — sheets to adopt for measurement
-   * @returns {Element} the wrapper element (contentRoot) for buildLayoutTree
+   * @returns {Element} the slot element (contentRoot) for buildLayoutTree
    */
   injectFragment(fragment, styles = []) {
     this.setupEmpty(styles);
-    this.#wrapper.appendChild(fragment);
+    this.#slot.appendChild(fragment);
 
     if (this.#trackRefs) {
-      for (const el of this.#wrapper.querySelectorAll("*")) {
+      for (const el of this.#slot.querySelectorAll("*")) {
         this.#trackElement(el);
       }
     }
 
-    return this.#wrapper;
+    return this.#slot;
   }
 
   /**
-   * Set up the shadow DOM, stylesheets, and wrapper — but inject no content.
+   * Set up stylesheets and clear content — but inject nothing.
    *
    * @param {CSSStyleSheet[]} [styles] — sheets to adopt for measurement
-   * @returns {Element} the wrapper element (contentRoot)
+   * @returns {Element} the slot element (contentRoot)
    */
   setupEmpty(styles = []) {
-    this.#shadow.innerHTML = "";
-
-    // Host styles
-    const hostStyle = document.createElement("style");
-    hostStyle.textContent = MEASURE_HOST_STYLES;
-    this.#shadow.appendChild(hostStyle);
+    this.#ensureSetup();
+    this.#slot.innerHTML = "";
 
     // Build override sheets for body/html selectors and nth pseudo-classes.
     // Original sheets are NOT mutated — overrides are appended after them
@@ -115,24 +136,19 @@ export class ContentMeasureElement extends HTMLElement {
     this.#nthOverrideSheet = nth.sheet;
     this.#nthFormulas = nth.formulas;
 
-    // Create wrapper div that content CSS targets via .frag-body
-    this.#wrapper = document.createElement("div");
-    this.#wrapper.className = "frag-body";
-    this.#shadow.appendChild(this.#wrapper);
-
     this.#refMap = new Map();
     this.#sourceRefs = new WeakMap();
     this.#nextRefId = 0;
 
-    return this.#wrapper;
+    return this.#slot;
   }
 
   /**
-   * The wrapper element inside the shadow root.
+   * The slot element inside the shadow root — content container.
    * Pass this to buildLayoutTree().
    */
   get contentRoot() {
-    return this.#wrapper;
+    return this.#slot;
   }
 
   /**
