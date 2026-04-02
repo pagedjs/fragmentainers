@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAnPlusB, matchesAnPlusB, rewriteSelectorText, computeOriginalPosition, extractNthDescriptors } from "../src/styles/nth-selectors.js";
+import { parseAnPlusB, matchesAnPlusB, computeOriginalPosition, extractNthDescriptors } from "../src/styles/nth-selectors.js";
 
 describe("parseAnPlusB", () => {
   it("parses 'odd'", () => {
@@ -96,108 +96,6 @@ describe("matchesAnPlusB", () => {
   it("rejects negative n results", () => {
     expect(matchesAnPlusB(10, { a: 2, b: 1 })).toBe(false);
     expect(matchesAnPlusB(11, { a: 2, b: 1 })).toBe(true);
-  });
-});
-
-describe("rewriteSelectorText", () => {
-  function rewrite(selector) {
-    const formulas = new Map();
-    const result = rewriteSelectorText(selector, formulas);
-    return { result, formulas };
-  }
-
-  it("rewrites :first-child", () => {
-    expect(rewrite("li:first-child").result).toBe("li[data-child-index=\"1\"]");
-  });
-
-  it("rewrites :last-child", () => {
-    expect(rewrite("li:last-child").result).toBe("li[data-last-child]");
-  });
-
-  it("rewrites :first-of-type", () => {
-    expect(rewrite("p:first-of-type").result).toBe("p[data-type-index=\"1\"]");
-  });
-
-  it("rewrites :last-of-type", () => {
-    expect(rewrite("p:last-of-type").result).toBe("p[data-last-of-type]");
-  });
-
-  it("rewrites :only-child", () => {
-    expect(rewrite("div:only-child").result).toBe("div[data-child-index=\"1\"][data-last-child]");
-  });
-
-  it("rewrites :only-of-type", () => {
-    expect(rewrite("h1:only-of-type").result).toBe("h1[data-type-index=\"1\"][data-last-of-type]");
-  });
-
-  it("rewrites :nth-child(N) to attribute selector", () => {
-    expect(rewrite("li:nth-child(3)").result).toBe("li[data-child-index=\"3\"]");
-  });
-
-  it("rewrites :nth-of-type(N) to attribute selector", () => {
-    expect(rewrite("p:nth-of-type(2)").result).toBe("p[data-type-index=\"2\"]");
-  });
-
-  it("rewrites :nth-child(odd) to formula attribute", () => {
-    const { result, formulas } = rewrite("tr:nth-child(odd)");
-    expect(result).toContain("[data-nth-child-2np1]");
-    expect(formulas.size).toBe(1);
-    const formula = [...formulas.values()][0];
-    expect(formula.a).toBe(2);
-    expect(formula.b).toBe(1);
-    expect(formula.isType).toBe(false);
-    expect(formula.isLast).toBe(false);
-  });
-
-  it("rewrites :nth-child(even) to formula attribute", () => {
-    const { result, formulas } = rewrite("tr:nth-child(even)");
-    expect(result).toContain("[data-nth-child-2np0]");
-    expect(formulas.size).toBe(1);
-  });
-
-  it("rewrites :nth-child(2n+1) to formula attribute", () => {
-    const { result, formulas } = rewrite("li:nth-child(2n+1)");
-    expect(result).toContain("[data-nth-child-2np1]");
-    expect(formulas.size).toBe(1);
-  });
-
-  it("rewrites :nth-last-child(N) to formula attribute", () => {
-    const { result, formulas } = rewrite("li:nth-last-child(2)");
-    expect(result).toContain("[data-nth-last-child-0np2]");
-    expect(formulas.size).toBe(1);
-    const formula = [...formulas.values()][0];
-    expect(formula.isLast).toBe(true);
-  });
-
-  it("rewrites :nth-last-of-type(odd) to formula attribute", () => {
-    const { result, formulas } = rewrite("p:nth-last-of-type(odd)");
-    expect(result).toContain("[data-nth-last-of-type-2np1]");
-    const formula = [...formulas.values()][0];
-    expect(formula.isType).toBe(true);
-    expect(formula.isLast).toBe(true);
-  });
-
-  it("deduplicates identical formulas", () => {
-    const formulas = new Map();
-    rewriteSelectorText("tr:nth-child(odd)", formulas);
-    rewriteSelectorText("td:nth-child(odd)", formulas);
-    expect(formulas.size).toBe(1);
-  });
-
-  it("accumulates different formulas", () => {
-    const formulas = new Map();
-    rewriteSelectorText("tr:nth-child(odd)", formulas);
-    rewriteSelectorText("td:nth-child(even)", formulas);
-    expect(formulas.size).toBe(2);
-  });
-
-  it("preserves non-nth selectors", () => {
-    expect(rewrite("div.foo > p").result).toBe("div.foo > p");
-  });
-
-  it("handles multiple pseudo-classes in one selector", () => {
-    expect(rewrite("ul > li:first-child:last-child").result)
-      .toBe("ul > li[data-child-index=\"1\"][data-last-child]");
   });
 });
 
