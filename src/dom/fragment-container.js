@@ -26,7 +26,8 @@ const CONTAINER_HOST_STYLES = `
 `;
 
 export class FragmentContainerElement extends HTMLElement {
-  #shadow;
+  #shadow = null;
+  #shadowMode = "open";
   #slot = null;
   #fragmentIndex = -1;
   #resizeObserver = null;
@@ -40,11 +41,21 @@ export class FragmentContainerElement extends HTMLElement {
 
   constructor() {
     super();
-    this.#shadow = this.attachShadow({ mode: "closed" });
   }
 
   connectedCallback() {
     this.#ensureSetup();
+  }
+
+  /**
+   * Shadow DOM mode — "closed" (default, for pages) or "open"
+   * (for regions/columns). Must be set before setupForRendering().
+   */
+  get shadowMode() {
+    return this.#shadowMode;
+  }
+  set shadowMode(mode) {
+    this.#shadowMode = mode;
   }
 
   /**
@@ -53,6 +64,9 @@ export class FragmentContainerElement extends HTMLElement {
    */
   #ensureSetup() {
     if (this.#slot) return;
+    if (!this.#shadow) {
+      this.#shadow = this.attachShadow({ mode: this.#shadowMode });
+    }
     const style = document.createElement("style");
     style.textContent = CONTAINER_HOST_STYLES;
     this.#shadow.appendChild(style);

@@ -12,11 +12,18 @@ import { DEFAULT_OVERFLOW_THRESHOLD } from "../core/constants.js";
  * @param {import('../fragment.js').PhysicalFragment[]} [fragments]
  * @returns {{ inlineSize: number, blockSize: number }}
  */
-export function getFragmentainerSize(fragmentainerSizes, fragmentainerIndex, fragments) {
+export function getFragmentainerSize(
+  fragmentainerSizes,
+  fragmentainerIndex,
+  fragments,
+) {
   if (fragments?.[fragmentainerIndex]?.constraints) {
     return fragments[fragmentainerIndex].constraints.contentArea;
   }
-  return fragmentainerSizes[fragmentainerIndex] || fragmentainerSizes[fragmentainerSizes.length - 1];
+  return (
+    fragmentainerSizes[fragmentainerIndex] ||
+    fragmentainerSizes[fragmentainerSizes.length - 1]
+  );
 }
 
 /**
@@ -28,10 +35,18 @@ export function getFragmentainerSize(fragmentainerSizes, fragmentainerIndex, fra
  * @param {{ sheets: CSSStyleSheet[], cssText: string }} [contentStyles] — when omitted, styles are copied from the document
  * @returns {Promise<Element>}
  */
-export async function buildFragmentainerElement(fragmentainerIndex, fragments, fragmentainerSizes, contentStyles) {
+export async function buildFragmentainerElement(
+  fragmentainerIndex,
+  fragments,
+  fragmentainerSizes,
+  contentStyles,
+) {
   const fragment = fragments[fragmentainerIndex];
   const size = getFragmentainerSize(fragmentainerSizes, fragmentainerIndex);
-  const prevBreakToken = fragmentainerIndex > 0 ? fragments[fragmentainerIndex - 1].breakToken : null;
+  const prevBreakToken =
+    fragmentainerIndex > 0
+      ? fragments[fragmentainerIndex - 1].breakToken
+      : null;
 
   const fragEl = document.createElement("fragment-container");
   fragEl.fragmentIndex = fragmentainerIndex;
@@ -41,9 +56,10 @@ export async function buildFragmentainerElement(fragmentainerIndex, fragments, f
   fragEl.style.height = `${size.blockSize}px`;
   fragEl.style.overflow = "hidden";
 
-  const counterSnapshot = fragmentainerIndex > 0
-    ? fragments[fragmentainerIndex - 1].counterState
-    : null;
+  const counterSnapshot =
+    fragmentainerIndex > 0
+      ? fragments[fragmentainerIndex - 1].counterState
+      : null;
 
   if (fragment.isBlank) {
     fragEl.setupForRendering(contentStyles, counterSnapshot);
@@ -54,7 +70,9 @@ export async function buildFragmentainerElement(fragmentainerIndex, fragments, f
   }
 
   const wrapper = fragEl.setupForRendering(contentStyles, counterSnapshot);
-  wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, contentStyles?.sourceRefs));
+  wrapper.appendChild(
+    renderFragmentTree(fragment, prevBreakToken, contentStyles?.sourceRefs),
+  );
 
   // Build and adopt a per-fragment nth-selector override stylesheet
   const nthDescriptors = contentStyles?.nthDescriptors;
@@ -65,6 +83,7 @@ export async function buildFragmentainerElement(fragmentainerIndex, fragments, f
   }
 
   fragEl.expectedBlockSize = size.blockSize;
-  fragEl.overflowThreshold = fragment.node?.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
+  fragEl.overflowThreshold =
+    fragment.node?.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
   return fragEl;
 }
