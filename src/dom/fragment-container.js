@@ -16,6 +16,7 @@ const CONTAINER_HOST_STYLES = `
   }
   .frag-body {
     min-height: 100%;
+    text-rendering: geometricPrecision;
   }
 `;
 
@@ -70,8 +71,8 @@ export class FragmentContainerElement extends HTMLElement {
   #checkOverflow(entries) {
     if (this.#expectedBlockSize === null) return;
     for (const entry of entries) {
-      const renderedBlockSize = entry.contentBoxSize?.[0]?.blockSize
-        ?? entry.contentRect.height;
+      const renderedBlockSize =
+        entry.contentBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
       const delta = renderedBlockSize - this.#expectedBlockSize;
       if (delta > this.#overflowThreshold) {
         this.dispatchEvent(

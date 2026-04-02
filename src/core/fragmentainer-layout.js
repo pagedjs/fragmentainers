@@ -40,7 +40,6 @@ export class FragmentainerLayout {
   // Stepper state (initialized lazily on first next() call)
   #tree = null;
   #measureElement = null;
-  #ownsMeasurer = false;
   #breakToken = null;
   #fragmentainerIndex = 0;
   #counterState = null;
@@ -282,7 +281,7 @@ export class FragmentainerLayout {
     if (this.#tree && !forceUpdate) return;
     const content = this.#content;
 
-    if (this.#ownsMeasurer && this.#measureElement) {
+    if (this.#measureElement) {
       // Rebuild layout tree from existing measurer (content already injected)
       this.#tree = buildLayoutTree(this.#measureElement.contentRoot);
     } else if (
@@ -308,20 +307,10 @@ export class FragmentainerLayout {
       this.#tree = buildLayoutTree(wrapper);
       this.#measureElement = measurer;
       this.#contentStyles = measurer.getContentStyles();
-      this.#ownsMeasurer = true;
-
       // Auto-create resolver from @page rules in styles if neither set
       if (!this.#resolver && !this.#constraintSpace) {
         const sheets = this.#styles || [...document.styleSheets];
         this.#resolver = PageSizeResolver.fromStyleSheets(sheets);
-      }
-    } else if (content.nodeType) {
-      // DOM element passed directly (legacy path)
-      this.#tree = buildLayoutTree(content);
-      const root = content.getRootNode();
-      this.#measureElement = root.host?.applyConstraintSpace ? root.host : null;
-      if (root.host && typeof root.host.getContentStyles === "function") {
-        this.#contentStyles = root.host.getContentStyles();
       }
     } else {
       // Mock node (unit tests)
@@ -336,7 +325,7 @@ export class FragmentainerLayout {
    * Call when the layout is no longer needed.
    */
   destroy() {
-    if (this.#ownsMeasurer && this.#measureElement) {
+    if (this.#measureElement) {
       this.#measureElement.remove();
       this.#measureElement = null;
     }
