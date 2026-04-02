@@ -406,7 +406,7 @@
 
   <script type="module">
     import { ContentParser, FragmentainerLayout } from "./viewer.js";
-    import { PageSizeResolver } from "../src/atpage/page-rules.js";
+    import { PageResolver } from "../src/atpage/page-resolver.js";
     import "../src/dom/fragment-container.js";
 
     const A5 = { inlineSize: 559, blockSize: 793 };
@@ -829,7 +829,7 @@
         const baseURL = currentUrl.substring(0, currentUrl.lastIndexOf("/") + 1);
         const parsed = await ContentParser.fromString(content, baseURL);
 
-        const resolver = PageSizeResolver.fromStyleSheets(parsed.styles, A5);
+        const resolver = PageResolver.fromStyleSheets(parsed.styles, A5);
 
         statusEl.textContent = 'Typesetting\u2026';
 

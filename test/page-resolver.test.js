@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  PageRule, PageSizeResolver, parseCSSLength,
-} from "../src/atpage/page-rules.js";
+  PageRule, PageResolver, parseCSSLength,
+} from "../src/atpage/page-resolver.js";
 import {
   getNamedPage, resolveNamedPageForBreakToken,
 } from "../src/core/helpers.js";
@@ -10,24 +10,24 @@ import { createFragments } from "../src/core/layout-request.js";
 import { ConstraintSpace } from "../src/core/constraint-space.js";
 import { blockNode } from "./fixtures/nodes.js";
 
-describe("PageSizeResolver", () => {
+describe("PageResolver", () => {
   const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };
 
   it("returns default size when no rules", () => {
-    const resolver = new PageSizeResolver([], DEFAULT_SIZE);
+    const resolver = new PageResolver([], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
     expect(c.contentArea).toEqual(DEFAULT_SIZE);
     expect(c.margins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
   });
 
   it("defaults to US Letter when no size given", () => {
-    const resolver = new PageSizeResolver([]);
+    const resolver = new PageResolver([]);
     const c = resolver.resolve(0, null, null);
     expect(c.contentArea).toEqual({ inlineSize: 816, blockSize: 1056 });
   });
 
   it("universal @page with explicit size", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: [600, 800] }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
@@ -36,7 +36,7 @@ describe("PageSizeResolver", () => {
   });
 
   it("universal @page with named size (a4)", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: "a4" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
@@ -45,7 +45,7 @@ describe("PageSizeResolver", () => {
   });
 
   it("named size with landscape orientation", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: "letter landscape" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
@@ -54,7 +54,7 @@ describe("PageSizeResolver", () => {
   });
 
   it("bare landscape rotates default", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: "landscape" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
@@ -63,7 +63,7 @@ describe("PageSizeResolver", () => {
   });
 
   it("applies margins and computes content area", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: [800, 1000], margin: { top: 50, right: 40, bottom: 50, left: 40 } }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
@@ -72,7 +72,7 @@ describe("PageSizeResolver", () => {
   });
 
   it(":first pseudo-class matches only page 0", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: [600, 800] }),
       new PageRule({ pseudoClass: "first", size: [400, 500] }),
     ], DEFAULT_SIZE);
@@ -85,7 +85,7 @@ describe("PageSizeResolver", () => {
   });
 
   it(":left/:right alternate by page index", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: [600, 800] }),
       new PageRule({ pseudoClass: "right", margin: { top: 0, right: 100, bottom: 0, left: 0 } }),
       new PageRule({ pseudoClass: "left", margin: { top: 0, right: 0, bottom: 0, left: 100 } }),
@@ -103,7 +103,7 @@ describe("PageSizeResolver", () => {
   });
 
   it("named page rule matches only its named page", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: [600, 800] }),
       new PageRule({ name: "chapter", size: [500, 700] }),
     ], DEFAULT_SIZE);
@@ -117,7 +117,7 @@ describe("PageSizeResolver", () => {
   });
 
   it("cascade: named+pseudo overrides named overrides pseudo overrides universal", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: [100, 100] }),                                        // universal
       new PageRule({ pseudoClass: "first", size: [200, 200] }),                  // pseudo
       new PageRule({ name: "cover", size: [300, 300] }),                         // named
@@ -131,7 +131,7 @@ describe("PageSizeResolver", () => {
   });
 
   it("cascade: margins merge from multiple rules", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: [600, 800], margin: { top: 10, right: 10, bottom: 10, left: 10 } }),
       new PageRule({ name: "wide", margin: { left: 50, right: 50 } }),
     ], DEFAULT_SIZE);
@@ -144,7 +144,7 @@ describe("PageSizeResolver", () => {
   });
 
   it("page-orientation: rotate-left swaps dimensions", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: [600, 800], pageOrientation: "rotate-left" }),
     ], DEFAULT_SIZE);
     const c = resolver.resolve(0, null, null);
@@ -153,7 +153,7 @@ describe("PageSizeResolver", () => {
   });
 
   it("toConstraintSpace() produces correct values", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: [600, 800], margin: { top: 20, right: 20, bottom: 20, left: 20 } }),
     ], DEFAULT_SIZE);
 
@@ -167,7 +167,7 @@ describe("PageSizeResolver", () => {
   });
 
   it("isFirstPage and isLeftPage flags", () => {
-    const resolver = new PageSizeResolver([], DEFAULT_SIZE);
+    const resolver = new PageResolver([], DEFAULT_SIZE);
 
     const c0 = resolver.resolve(0, null, null);
     expect(c0.isFirstPage).toBe(true);
@@ -361,10 +361,10 @@ describe("Named page forced breaks", () => {
   });
 });
 
-describe("createFragments with PageSizeResolver", () => {
+describe("createFragments with PageResolver", () => {
   it("resolves page sizes dynamically", () => {
     const DEFAULT_SIZE = { inlineSize: 600, blockSize: 1000 };
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: [600, 1000] }),
     ], DEFAULT_SIZE);
 
@@ -382,7 +382,7 @@ describe("createFragments with PageSizeResolver", () => {
   });
 
   it("uses named page sizes for different pages", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ size: [600, 200] }),
       new PageRule({ name: "wide", size: [800, 200] }),
     ], { inlineSize: 600, blockSize: 200 });

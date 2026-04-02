@@ -36,6 +36,7 @@ export class FragmentContainerElement extends HTMLElement {
   #expectedBlockSize = null;
   #overflowThreshold = 0;
   #namedPage = null;
+  #pageConstraints = null;
 
   constructor() {
     super();
@@ -71,6 +72,13 @@ export class FragmentContainerElement extends HTMLElement {
   }
   set namedPage(value) {
     this.#namedPage = value || null;
+  }
+
+  get pageConstraints() {
+    return this.#pageConstraints;
+  }
+  set pageConstraints(value) {
+    this.#pageConstraints = value || null;
   }
 
   /**

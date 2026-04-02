@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createFragments } from "../src/core/layout-request.js";
 import { BlockBreakToken } from "../src/core/tokens.js";
-import { PageRule, PageSizeResolver } from "../src/atpage/page-rules.js";
+import { PageRule, PageResolver } from "../src/atpage/page-resolver.js";
 import {
   isSideSpecificBreak,
   requiredPageSide,
@@ -128,7 +128,7 @@ describe("forcedBreakValue on tokens", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], { inlineSize: 600, blockSize: 1000 });
+    const resolver = new PageResolver([], { inlineSize: 600, blockSize: 1000 });
     const pages = createFragments(root, resolver);
 
     // Page 0 (right): A. Forced break token should have value "right".
@@ -145,7 +145,7 @@ describe("forcedBreakValue on tokens", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], { inlineSize: 600, blockSize: 1000 });
+    const resolver = new PageResolver([], { inlineSize: 600, blockSize: 1000 });
     const pages = createFragments(root, resolver);
 
     const forcedToken = pages[0].breakToken.childBreakTokens[0];
@@ -170,7 +170,7 @@ describe("Blank page insertion", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], SIZE);
+    const resolver = new PageResolver([], SIZE);
     const pages = createFragments(root, resolver);
 
     // Page 0: A, Page 1: B (left — correct, no blank)
@@ -189,7 +189,7 @@ describe("Blank page insertion", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], SIZE);
+    const resolver = new PageResolver([], SIZE);
     const pages = createFragments(root, resolver);
 
     expect(pages.length).toBe(3);
@@ -206,7 +206,7 @@ describe("Blank page insertion", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], SIZE);
+    const resolver = new PageResolver([], SIZE);
     const pages = createFragments(root, resolver);
 
     expect(pages.length).toBe(3);
@@ -221,7 +221,7 @@ describe("Blank page insertion", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], SIZE);
+    const resolver = new PageResolver([], SIZE);
     const pages = createFragments(root, resolver);
 
     // Page 1 is left (verso) — no blank needed
@@ -241,7 +241,7 @@ describe("Blank page insertion", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], SIZE);
+    const resolver = new PageResolver([], SIZE);
     const pages = createFragments(root, resolver);
 
     // Page 0: A (right), Page 1: B (left), Page 2: C (right)
@@ -260,7 +260,7 @@ describe("Blank page insertion", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], SIZE);
+    const resolver = new PageResolver([], SIZE);
     const pages = createFragments(root, resolver);
 
     expect(pages.length).toBe(3);
@@ -276,7 +276,7 @@ describe("Blank page insertion", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], SIZE);
+    const resolver = new PageResolver([], SIZE);
     const pages = createFragments(root, resolver);
 
     // Page 0: A (right)
@@ -300,7 +300,7 @@ describe("Blank page insertion", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], SIZE);
+    const resolver = new PageResolver([], SIZE);
     const pages = createFragments(root, resolver);
 
     const blankPage = pages[1];
@@ -319,7 +319,7 @@ describe("Blank page insertion", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], SIZE);
+    const resolver = new PageResolver([], SIZE);
     const pages = createFragments(root, resolver);
 
     // break-before: page is not side-specific — just 2 pages, no blanks
@@ -332,7 +332,7 @@ describe("Blank page insertion", () => {
 
 describe(":blank pseudo-class matching", () => {
   it("@page :blank rule matches blank pages", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ pseudoClass: "blank", margin: { top: 100 } }),
     ], { inlineSize: 600, blockSize: 1000 });
 
@@ -347,7 +347,7 @@ describe(":blank pseudo-class matching", () => {
   });
 
   it("@page :blank does not match non-blank pages", () => {
-    const resolver = new PageSizeResolver([
+    const resolver = new PageResolver([
       new PageRule({ pseudoClass: "blank", size: [400, 400] }),
     ], { inlineSize: 600, blockSize: 1000 });
 
@@ -370,7 +370,7 @@ describe("First page blank page edge case", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], SIZE);
+    const resolver = new PageResolver([], SIZE);
     const pages = createFragments(root, resolver);
 
     // Page 0 is right, A needs left → blank page 0, A on page 1 (left)
@@ -387,7 +387,7 @@ describe("First page blank page edge case", () => {
       ],
     });
 
-    const resolver = new PageSizeResolver([], SIZE);
+    const resolver = new PageResolver([], SIZE);
     const pages = createFragments(root, resolver);
 
     // Page 0 is right, A needs right → already correct, no blank

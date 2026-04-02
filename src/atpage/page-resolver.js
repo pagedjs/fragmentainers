@@ -63,6 +63,7 @@ export class PageConstraints {
    * @param {boolean} opts.isFirstPage
    * @param {boolean} opts.isLeftPage
    * @param {boolean} [opts.isBlank]
+   * @param {PageRule[]} [opts.matchedRules] - The @page rules that matched this page
    */
   constructor({
     pageIndex,
@@ -73,6 +74,7 @@ export class PageConstraints {
     isFirstPage,
     isLeftPage,
     isBlank = false,
+    matchedRules = [],
   }) {
     this.pageIndex = pageIndex;
     this.namedPage = namedPage;
@@ -82,6 +84,7 @@ export class PageConstraints {
     this.isFirstPage = isFirstPage;
     this.isLeftPage = isLeftPage;
     this.isBlank = isBlank;
+    this.matchedRules = matchedRules;
   }
 
   /** Build a ConstraintSpace for layout from these page constraints. */
@@ -99,7 +102,7 @@ export class PageConstraints {
 /**
  * Resolves page dimensions per-page by implementing `@page` rule matching and cascade.
  */
-export class PageSizeResolver {
+export class PageResolver {
   /**
    * @param {PageRule[]} pageRules - Parsed @page rules (document order)
    * @param {{ inlineSize: number, blockSize: number }} [size] - Fallback size (default: US Letter)
@@ -113,7 +116,7 @@ export class PageSizeResolver {
    * Create a resolver by collecting @page rules from document.styleSheets.
    *
    * @param {{ inlineSize: number, blockSize: number }} [size] - Fallback size (default: US Letter)
-   * @returns {PageSizeResolver}
+   * @returns {PageResolver}
    */
   static fromDocument(size) {
     const rules = [];
@@ -122,7 +125,7 @@ export class PageSizeResolver {
         try { collectPageRules(sheet.cssRules, rules); } catch { /* cross-origin sheet */ }
       }
     }
-    return new PageSizeResolver(rules, size);
+    return new PageResolver(rules, size);
   }
 
   /**
@@ -130,14 +133,14 @@ export class PageSizeResolver {
    *
    * @param {CSSStyleSheet[]} sheets - Stylesheets to scan for @page rules
    * @param {{ inlineSize: number, blockSize: number }} [size] - Fallback size (default: US Letter)
-   * @returns {PageSizeResolver}
+   * @returns {PageResolver}
    */
   static fromStyleSheets(sheets, size) {
     const rules = [];
     for (const sheet of sheets) {
       try { collectPageRules(sheet.cssRules, rules); } catch { /* cross-origin sheet */ }
     }
-    return new PageSizeResolver(rules, size);
+    return new PageResolver(rules, size);
   }
 
   /**
@@ -174,6 +177,7 @@ export class PageSizeResolver {
       isFirstPage: pageIndex === 0,
       isLeftPage: this.isLeftPage(pageIndex),
       isBlank,
+      matchedRules: matchingRules,
     });
   }
 

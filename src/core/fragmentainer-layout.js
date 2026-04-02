@@ -2,7 +2,7 @@ import { DOMLayoutNode } from "../dom/layout-node.js";
 import { runLayoutGenerator, getLayoutAlgorithm } from "./layout-request.js";
 import { renderFragmentTree } from "../compositor/render-fragments.js";
 import { buildPerFragmentNthSheet } from "../styles/nth-selectors.js";
-import { PageSizeResolver } from "../atpage/page-rules.js";
+import { PageResolver } from "../atpage/page-resolver.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
 import { PhysicalFragment } from "./fragment.js";
@@ -35,7 +35,7 @@ const MAX_ZERO_PROGRESS = 5;
  *
  * Accepts options in priority order:
  * - `constraintSpace` — full control, bypasses @page rules entirely
- * - `resolver` — pre-configured PageSizeResolver or RegionResolver
+ * - `resolver` — pre-configured PageResolver or RegionResolver
  * - `width` / `height` — sugar for column fragmentation at a fixed size
  * - (none) — auto-collects @page rules from document.styleSheets,
  *   defaults to US Letter
@@ -70,7 +70,7 @@ export class FragmentainerLayout {
    * @param {object} [options]
    * @param {CSSStyleSheet[]} [options.styles] - Stylesheets (copies document.styleSheets if omitted)
    * @param {ConstraintSpace} [options.constraintSpace] - Direct constraint space (bypasses @page rules)
-   * @param {PageSizeResolver|RegionResolver} [options.resolver] - Pre-configured resolver
+   * @param {PageResolver|RegionResolver} [options.resolver] - Pre-configured resolver
    * @param {number} [options.width] - Container width in CSS px (column fragmentation)
    * @param {number} [options.height] - Container height in CSS px (column fragmentation)
    * @param {boolean} [options.trackRefs=false] - Enable ref tracking for clone-to-source mapping (needed for MutationSync)
@@ -420,7 +420,7 @@ export class FragmentainerLayout {
       this.#contentStyles = measurer.getContentStyles();
       // Auto-create resolver from @page rules in styles if neither set
       if (!this.#resolver && !this.#constraintSpace) {
-        this.#resolver = PageSizeResolver.fromStyleSheets(styles);
+        this.#resolver = PageResolver.fromStyleSheets(styles);
       }
     } else {
       // Mock node (unit tests)
@@ -490,7 +490,7 @@ export class FragmentainerLayout {
  * The result of running fragmentation — a "fragmented flow" in CSS spec terms.
  *
  * Owns the fragment array and provides rendering methods. Each fragment
- * carries its own `constraints` (from PageSizeResolver via createFragments),
+ * carries its own `constraints` (from PageResolver via createFragments),
  * so no separate sizes array is needed.
  */
 export class FragmentedFlow {
@@ -532,6 +532,7 @@ export class FragmentedFlow {
 
     const el = document.createElement("fragment-container");
     el.fragmentIndex = index;
+    el.pageConstraints = fragment.constraints;
     el.namedPage = fragment.constraints?.namedPage ?? null;
     el.style.width = `${contentArea.inlineSize}px`;
     el.style.height = `${contentArea.blockSize}px`;

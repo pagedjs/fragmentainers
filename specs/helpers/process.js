@@ -9,7 +9,7 @@ import { ConstraintSpace } from "/src/core/constraint-space.js";
 import { buildLayoutTree } from "/src/dom/index.js";
 import { createFragments } from "/src/core/layout-request.js";
 import { renderFragmentTree } from "/src/compositor/render-fragments.js";
-import { PageSizeResolver } from "/src/atpage/page-rules.js";
+import { PageResolver } from "/src/atpage/page-resolver.js";
 import "/src/dom/fragment-container.js";
 
 const SAVE_REF = location.hash === "#ref";
@@ -18,7 +18,7 @@ async function run() {
   try {
     await document.fonts.ready;
 
-    const resolver = PageSizeResolver.fromDocument();
+    const resolver = PageResolver.fromDocument();
     const multicolContainers = findMulticolContainers(document.body);
 
     if (resolver.pageRules.length > 0) {

@@ -100,7 +100,7 @@
     <script type="module">
       import { ContentParser, FragmentainerLayout } from "./viewer.js";
       import "../src/dom/fragment-container.js";
-      import { PageSizeResolver } from "../src/atpage/page-rules.js";
+      import { PageResolver } from "../src/atpage/page-resolver.js";
       import {
         buildPageDump,
         buildDocumentSummary,
@@ -141,7 +141,7 @@
           const parsed = await ContentParser.fromString(content, baseURL);
 
           const size = { inlineSize: pageW, blockSize: pageH };
-          const resolver = PageSizeResolver.fromStyleSheets(
+          const resolver = PageResolver.fromStyleSheets(
             parsed.styles,
             size,
           );

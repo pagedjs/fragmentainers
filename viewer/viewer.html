@@ -232,7 +232,7 @@
         renderPages,
         showDetail,
       } from "./viewer.js";
-      import { PageSizeResolver } from "../src/atpage/page-rules.js";
+      import { PageResolver } from "../src/atpage/page-resolver.js";
       import "../src/dom/fragment-container.js";
 
       const exampleSelect = document.getElementById("example");
@@ -308,7 +308,7 @@
         const url = exampleSelect.value;
         const baseW = parseInt(pageWidthInput.value);
         const baseH = parseInt(pageHeightInput.value);
-        const resolver = new PageSizeResolver([], {
+        const resolver = new PageResolver([], {
           inlineSize: baseW,
           blockSize: baseH,
         });

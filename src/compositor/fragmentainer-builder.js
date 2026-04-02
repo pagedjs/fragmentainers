@@ -4,7 +4,7 @@ import { DEFAULT_OVERFLOW_THRESHOLD } from "../core/constants.js";
 
 /**
  * Get the fragmentainer size for a given index.
- * When constraints are available on the fragment (from PageSizeResolver),
+ * When constraints are available on the fragment (from PageResolver),
  * returns the content area. Otherwise falls back to the fragmentainerSizes array.
  *
  * @param {{ inlineSize: number, blockSize: number }[]} fragmentainerSizes
@@ -35,6 +35,7 @@ export async function buildFragmentainerElement(fragmentainerIndex, fragments, f
 
   const fragEl = document.createElement("fragment-container");
   fragEl.fragmentIndex = fragmentainerIndex;
+  fragEl.pageConstraints = fragment.constraints;
   fragEl.namedPage = fragment.constraints?.namedPage ?? null;
   fragEl.style.width = `${size.inlineSize}px`;
   fragEl.style.height = `${size.blockSize}px`;
