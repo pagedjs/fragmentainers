@@ -8,8 +8,6 @@
   "main": "src/index.js",
   "scripts": {
     "test": "eslint src/ test/ && vitest run",
-    "test:unit": "vitest run --project unit",
-    "test:browser": "vitest run --project browser",
     "test:watch": "vitest",
     "lint": "eslint src/ test/",
     "lint:fix": "eslint --fix src/ test/",
@@ -24,7 +22,6 @@
     "@vitest/browser": "^4.1.2",
     "@vitest/browser-playwright": "^4.1.2",
     "eslint": "^9.39.4",
-    "jsdom": "^27.0.1",
     "pixelmatch": "^7.1.0",
     "playwright": "^1.58.2",
     "pngjs": "^7.0.0",
