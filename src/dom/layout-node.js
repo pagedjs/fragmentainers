@@ -560,6 +560,10 @@ export class AnonymousBlockNode {
     return 0;
   }
 
+  getCustomProperty() {
+    return null;
+  }
+
   // No fragmentation properties
   get page() {
     return null;

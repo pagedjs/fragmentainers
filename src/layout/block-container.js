@@ -21,6 +21,7 @@ import {
   EARLY_BREAK_BEFORE,
   EARLY_BREAK_INSIDE,
 } from "../core/constants.js";
+import { modules } from "../modules/index.js";
 
 // Skip break scoring when cumulative child content fills less than
 // this fraction of the fragmentainer — children this far from the
@@ -159,36 +160,19 @@ export function* layoutBlockContainer(
     earlyBreakForChild = earlyBreakTarget.childEarlyBreak;
   }
 
-  // Repeating table header: when resuming a table in page mode,
-  // re-lay-out the thead at the top of this fragmentainer.
-  let repeatedHeaderFragments = 0;
-  if (
-    breakToken &&
-    node.isTable &&
-    constraintSpace.fragmentationType === FRAGMENTATION_PAGE
-  ) {
-    const thead = children.find((c) => c.isTableHeaderGroup);
-    if (thead && !findChildBreakToken(breakToken, thead)) {
-      // thead completed in a previous fragmentainer — repeat it
-      const headerConstraint = new ConstraintSpace({
-        availableInlineSize: constraintSpace.availableInlineSize,
-        availableBlockSize: constraintSpace.fragmentainerBlockSize,
-        fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
-        blockOffsetInFragmentainer:
-          containerOffsetInFragmentainer + blockOffset,
-        fragmentationType: FRAGMENTATION_NONE,
-      });
-      const headerResult = yield layoutChild(thead, headerConstraint, null);
-      headerResult.fragment.isRepeated = true;
-      // Use DOM-measured height when available — layoutInlineContent may
-      // underestimate cell heights (missing padding/border in IFC path).
-      if (thead.blockSize > headerResult.fragment.blockSize) {
-        headerResult.fragment.blockSize = thead.blockSize;
-      }
-      childFragments.push(headerResult.fragment);
-      repeatedHeaderFragments = 1;
-      blockOffset += headerResult.fragment.blockSize;
+  let prependedFragments = 0;
+  const beforeResult = modules.beforeChildren(node, constraintSpace, breakToken);
+  if (beforeResult) {
+    const result = yield layoutChild(
+      beforeResult.node, beforeResult.constraintSpace, null,
+    );
+    if (beforeResult.isRepeated) result.fragment.isRepeated = true;
+    if (beforeResult.node.blockSize > result.fragment.blockSize) {
+      result.fragment.blockSize = beforeResult.node.blockSize;
     }
+    childFragments.push(result.fragment);
+    prependedFragments = 1;
+    blockOffset += result.fragment.blockSize;
   }
 
   for (let i = startIndex; i < children.length; i++) {
@@ -201,9 +185,7 @@ export function* layoutBlockContainer(
     }
 
     // Skip children claimed by a layout module (e.g. page floats)
-    if (constraintSpace.modules) {
-      if (constraintSpace.modules.some(m => m.matches(child))) continue;
-    }
+    if (modules.matches(child)) continue;
 
     // isBreakBefore means "pushed to this fragmentainer, lay out fresh"
     const effectiveChildBreakToken = childBreakToken?.isBreakBefore
@@ -426,7 +408,7 @@ export function* layoutBlockContainer(
 
   hasSeenAllChildren =
     childBreakTokens.length === 0 ||
-    startIndex + childFragments.length - repeatedHeaderFragments >=
+    startIndex + childFragments.length - prependedFragments >=
       children.length;
 
   // Add the last child's trailing margin (was deferred for collapsing with next sibling).

@@ -1,11 +1,12 @@
+import { Module } from "./module.js";
 import { ConstraintSpace } from "../core/constraint-space.js";
 import { renderFragmentTree } from "../compositor/render-fragments.js";
 import { FRAGMENTATION_NONE } from "../core/constants.js";
 
-export const pageFloatModule = {
+class PageFloatModule extends Module {
   matches(node) {
     return node.getCustomProperty("float-reference") === "page";
-  },
+  }
 
   layout(rootNode, constraintSpace, breakToken, layoutChild) {
     let reservedBlockStart = 0;
@@ -59,5 +60,7 @@ export const pageFloatModule = {
         }
       },
     };
-  },
-};
+  }
+}
+
+export const PageFloat = new PageFloatModule();

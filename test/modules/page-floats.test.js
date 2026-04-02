@@ -3,7 +3,8 @@ import { createFragments } from "../../src/core/layout-request.js";
 import { ConstraintSpace } from "../../src/core/constraint-space.js";
 import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
 import { FRAGMENTATION_PAGE } from "../../src/core/constants.js";
-import { pageFloatModule } from "../../src/modules/page-float.js";
+import { Module } from "../../src/modules/module.js";
+import { PageFloat } from "../../src/modules/page-float.js";
 import { blockNode, floatNode } from "../fixtures/nodes.js";
 
 const PAGE_HEIGHT = 800;
@@ -18,19 +19,19 @@ function pageConstraintSpace() {
   });
 }
 
-describe("pageFloatModule.matches", () => {
+describe("PageFloat.matches", () => {
   it("returns true for a page-float node", () => {
     const node = floatNode({ blockSize: 100 });
-    expect(pageFloatModule.matches(node)).toBe(true);
+    expect(PageFloat.matches(node)).toBe(true);
   });
 
   it("returns false for a regular block node", () => {
     const node = blockNode({ blockSize: 100 });
-    expect(pageFloatModule.matches(node)).toBe(false);
+    expect(PageFloat.matches(node)).toBe(false);
   });
 });
 
-describe("pageFloatModule.layout", () => {
+describe("PageFloat.layout", () => {
   it("reserves block-start space for a top float", () => {
     const root = blockNode({
       children: [
@@ -44,7 +45,7 @@ describe("pageFloatModule.layout", () => {
       return { fragment: { blockSize: child.blockSize, childFragments: [] } };
     };
 
-    const result = pageFloatModule.layout(root, cs, null, layoutChildFn);
+    const result = PageFloat.layout(root, cs, null, layoutChildFn);
     expect(result.reservedBlockStart).toBe(100);
     expect(result.reservedBlockEnd).toBe(0);
     expect(typeof result.afterRender).toBe("function");
@@ -63,7 +64,7 @@ describe("pageFloatModule.layout", () => {
       return { fragment: { blockSize: child.blockSize, childFragments: [] } };
     };
 
-    const result = pageFloatModule.layout(root, cs, null, layoutChildFn);
+    const result = PageFloat.layout(root, cs, null, layoutChildFn);
     expect(result.reservedBlockStart).toBe(0);
     expect(result.reservedBlockEnd).toBe(150);
   });
@@ -82,17 +83,14 @@ describe("pageFloatModule.layout", () => {
       return { fragment: { blockSize: child.blockSize, childFragments: [] } };
     };
 
-    const result = pageFloatModule.layout(root, cs, null, layoutChildFn);
+    const result = PageFloat.layout(root, cs, null, layoutChildFn);
     expect(result.reservedBlockStart).toBe(50);
     expect(result.reservedBlockEnd).toBe(75);
   });
 
   it("returns zero reservations when no floats present", () => {
     const root = blockNode({
-      children: [
-        blockNode({ blockSize: 300 }),
-        blockNode({ blockSize: 200 }),
-      ],
+      children: [blockNode({ blockSize: 300 }), blockNode({ blockSize: 200 })],
     });
 
     const cs = pageConstraintSpace();
@@ -100,7 +98,7 @@ describe("pageFloatModule.layout", () => {
       return { fragment: { blockSize: child.blockSize, childFragments: [] } };
     };
 
-    const result = pageFloatModule.layout(root, cs, null, layoutChildFn);
+    const result = PageFloat.layout(root, cs, null, layoutChildFn);
     expect(result.reservedBlockStart).toBe(0);
     expect(result.reservedBlockEnd).toBe(0);
   });
@@ -129,7 +127,7 @@ describe("page floats integration with createFragments", () => {
       fragmentainerBlockSize: PAGE_HEIGHT - 0, // reservedBlockEnd is 0
       blockOffsetInFragmentainer: 100, // reservedBlockStart
       fragmentationType: FRAGMENTATION_PAGE,
-      modules: [pageFloatModule],
+      modules: [PageFloat],
     });
     const fragments = createFragments(root, csWithModules);
     // The 700px block should fit in the remaining 700px
@@ -152,7 +150,7 @@ describe("page floats integration with createFragments", () => {
       fragmentainerBlockSize: PAGE_HEIGHT,
       blockOffsetInFragmentainer: 200,
       fragmentationType: FRAGMENTATION_PAGE,
-      modules: [pageFloatModule],
+      modules: [PageFloat],
     });
     const fragments = createFragments(root, cs);
     // 700px content doesn't fit in 600px → overflow to page 2
@@ -178,33 +176,26 @@ describe("page floats integration with createFragments", () => {
 
 describe("FragmentainerLayout.register / .remove", () => {
   afterEach(() => {
-    FragmentainerLayout.remove(pageFloatModule);
+    FragmentainerLayout.remove(PageFloat);
   });
 
-  it("use() registers a module globally", () => {
-    FragmentainerLayout.register(pageFloatModule);
+  it("register() registers a module globally", () => {
+    FragmentainerLayout.register(PageFloat);
     // Registering the same module twice should be a no-op
-    FragmentainerLayout.register(pageFloatModule);
+    FragmentainerLayout.register(PageFloat);
     // After removal, it should be gone
-    FragmentainerLayout.remove(pageFloatModule);
+    FragmentainerLayout.remove(PageFloat);
     // Removing again should be safe
-    FragmentainerLayout.remove(pageFloatModule);
+    FragmentainerLayout.remove(PageFloat);
   });
 
-  it("use() does not duplicate a module", () => {
-    const calls = [];
-    const spy = {
-      matches() { return false; },
-      layout(root, cs, bt, lc) {
-        calls.push("layout");
-        return { reservedBlockStart: 0, reservedBlockEnd: 0, afterRender: null };
-      },
-    };
+  it("register() does not duplicate a module", () => {
+    const spy = new Module();
     FragmentainerLayout.register(spy);
     FragmentainerLayout.register(spy);
     FragmentainerLayout.remove(spy);
 
-    // After one use + one use (deduped) + one remove, spy should be fully gone.
+    // After one register + one register (deduped) + one remove, spy should be fully gone.
     // Re-register to verify it was removed
     FragmentainerLayout.register(spy);
     FragmentainerLayout.remove(spy);
