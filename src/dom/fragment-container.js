@@ -33,7 +33,6 @@ export class FragmentContainerElement extends HTMLElement {
   #mutationObserver = null;
   #mutationBuffer = [];
   #notifyPending = false;
-  #nthFormulas = null;
   #expectedBlockSize = null;
   #overflowThreshold = 0;
   #namedPage = null;
@@ -187,14 +186,12 @@ export class FragmentContainerElement extends HTMLElement {
   setupForRendering(contentStyles, counterSnapshot = null) {
     this.#ensureSetup();
     this.#slot.innerHTML = "";
-    this.#nthFormulas = null;
 
     if (contentStyles.sheets.length > 0) {
       this.#shadow.adoptedStyleSheets = [...contentStyles.sheets, OVERRIDES];
     } else {
       this.#shadow.adoptedStyleSheets = [OVERRIDES];
     }
-    this.#nthFormulas = contentStyles.nthFormulas || null;
 
     // Seed counter values from the previous fragmentainer's snapshot.
     // Inserted before OVERRIDES so OVERRIDES has higher cascade priority.
@@ -244,12 +241,20 @@ export class FragmentContainerElement extends HTMLElement {
   }
 
   /**
-   * Nth-selector formula descriptors extracted during stylesheet rewriting.
-   * Pass to renderFragmentTree() so the compositor can stamp matching attributes.
-   * @returns {Map|null}
+   * Adopt a per-fragment nth-selector override stylesheet.
+   * Inserted before OVERRIDES so it wins by source order over the
+   * original nth pseudo-classes but OVERRIDES still has highest priority.
+   *
+   * @param {CSSStyleSheet} nthSheet
    */
-  get nthFormulas() {
-    return this.#nthFormulas;
+  adoptNthSheet(nthSheet) {
+    const sheets = this.#shadow.adoptedStyleSheets;
+    // Insert before OVERRIDES (last sheet)
+    this.#shadow.adoptedStyleSheets = [
+      ...sheets.slice(0, -1),
+      nthSheet,
+      sheets[sheets.length - 1],
+    ];
   }
 }
 

@@ -11,7 +11,7 @@
  * keeping it inside the shadow DOM where only adopted stylesheets apply.
  */
 
-import { buildNthOverrideSheet } from "../styles/nth-selectors.js";
+import { extractNthDescriptors } from "../styles/nth-selectors.js";
 import { buildBodyOverrideSheet } from "../styles/body-selectors.js";
 
 const MEASURE_HOST_STYLES = `
@@ -31,8 +31,7 @@ export class ContentMeasureElement extends HTMLElement {
   #shadow;
   #slot = null;
   #bodyOverrideSheet = null;
-  #nthOverrideSheet = null;
-  #nthFormulas = new Map();
+  #nthDescriptors = [];
   #currentInlineSize = undefined;
   #trackRefs = false;
   #refMap = new Map();
@@ -119,7 +118,7 @@ export class ContentMeasureElement extends HTMLElement {
     this.#ensureSetup();
     this.#slot.innerHTML = "";
 
-    // Build override sheets for body/html selectors and nth pseudo-classes.
+    // Build override sheets for body/html selectors.
     // Original sheets are NOT mutated — overrides are appended after them
     // in adoptedStyleSheets so rewritten rules win by source order.
     const body = buildBodyOverrideSheet(
@@ -132,9 +131,14 @@ export class ContentMeasureElement extends HTMLElement {
       this.#bodyOverrideSheet.cssRules.length > 0
         ? [...styles, this.#bodyOverrideSheet]
         : [...styles];
-    const nth = buildNthOverrideSheet(styles);
-    this.#nthOverrideSheet = nth.sheet;
-    this.#nthFormulas = nth.formulas;
+
+    // Extract nth-selector descriptors (without mutating sheets).
+    // Per-fragment override sheets are built at render time.
+    this.#nthDescriptors = extractNthDescriptors(styles);
+
+    // Auto-enable ref tracking when nth descriptors exist — the
+    // per-fragment stylesheet builder needs data-ref on every element.
+    if (this.#nthDescriptors.length > 0) this.#trackRefs = true;
 
     this.#refMap = new Map();
     this.#sourceRefs = new WeakMap();
@@ -155,17 +159,15 @@ export class ContentMeasureElement extends HTMLElement {
    * Get the content styles and ref maps for reuse in rendering.
    * Call after injectFragment() to capture styles.
    *
-   * @returns {{ sheets: CSSStyleSheet[], nthFormulas: Map, sourceRefs: WeakMap }}
+   * @returns {{ sheets: CSSStyleSheet[], nthDescriptors: NthDescriptor[],
+   *             sourceRefs: WeakMap, refMap: Map }}
    */
   getContentStyles() {
-    const sheets =
-      this.#nthOverrideSheet && this.#nthOverrideSheet.cssRules.length > 0
-        ? [...this.#shadow.adoptedStyleSheets, this.#nthOverrideSheet]
-        : [...this.#shadow.adoptedStyleSheets];
     return {
-      sheets,
-      nthFormulas: this.#nthFormulas,
+      sheets: [...this.#shadow.adoptedStyleSheets],
+      nthDescriptors: this.#nthDescriptors,
       sourceRefs: this.#trackRefs ? this.#sourceRefs : null,
+      refMap: this.#trackRefs ? this.#refMap : null,
     };
   }
 

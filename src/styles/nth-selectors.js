@@ -3,14 +3,16 @@
  *
  * When content is split across fragment containers (shadow DOM), structural
  * pseudo-classes like :nth-child() match the cloned tree instead of the
- * original document order. This module rewrites those selectors to use
- * data attributes stamped on cloned elements during rendering.
+ * original document order. This module extracts nth-selector descriptors
+ * from stylesheets and generates per-fragment override stylesheets that
+ * target elements by their unique data-ref attribute.
  *
- * Two-phase approach (mirrors the counter-state pattern):
- *   1. Rewrite — scan stylesheets, replace nth selectors with attribute
- *      selectors, collect formula descriptors
- *   2. Stamp — during rendering, compute each element's original position
- *      and set matching attributes
+ * Two-phase approach:
+ *   1. Extract — scan stylesheets, collect nth-rule descriptors (base
+ *      selector, nth formula parts, declarations, grouping wrappers)
+ *   2. Build — after rendering each fragment, walk its elements, compute
+ *      original positions, and generate a per-fragment stylesheet with
+ *      :is([data-ref=...]) selectors targeting the correct elements
  */
 
 /**
@@ -59,14 +61,237 @@ export function matchesAnPlusB(index, { a, b }) {
 }
 
 /**
- * Structural pseudo-class patterns to rewrite.
+ * Structural pseudo-class pattern to match.
+ */
+const NTH_PSEUDO_RE = /:(nth-child|nth-of-type|nth-last-child|nth-last-of-type|first-child|last-child|first-of-type|last-of-type|only-child|only-of-type)\b(\([^)]*\))?/g;
+
+/**
+ * Parse an nth pseudo-class match into formula parts.
  *
- * Each entry maps a regex (matching the pseudo-class in a selector string)
- * to a function that returns the replacement attribute selector and an
- * optional formula descriptor for the compositor to stamp.
+ * @param {string} pseudo — e.g. "first-child", "nth-child"
+ * @param {string} [args] — e.g. "(odd)", "(3)" — only for nth-* variants
+ * @returns {{ a: number, b: number, isType: boolean, isLast: boolean }[]}
+ */
+function parseNthParts(pseudo, args) {
+  switch (pseudo) {
+    case "first-child":
+      return [{ a: 0, b: 1, isType: false, isLast: false }];
+    case "last-child":
+      return [{ a: 0, b: 1, isType: false, isLast: true }];
+    case "first-of-type":
+      return [{ a: 0, b: 1, isType: true, isLast: false }];
+    case "last-of-type":
+      return [{ a: 0, b: 1, isType: true, isLast: true }];
+    case "only-child":
+      return [
+        { a: 0, b: 1, isType: false, isLast: false },
+        { a: 0, b: 1, isType: false, isLast: true },
+      ];
+    case "only-of-type":
+      return [
+        { a: 0, b: 1, isType: true, isLast: false },
+        { a: 0, b: 1, isType: true, isLast: true },
+      ];
+    case "nth-child":
+    case "nth-of-type":
+    case "nth-last-child":
+    case "nth-last-of-type": {
+      const expr = args.slice(1, -1).trim();
+      const { a, b } = parseAnPlusB(expr);
+      const isType = pseudo.includes("of-type");
+      const isLast = pseudo.includes("last");
+      return [{ a, b, isType, isLast }];
+    }
+    default:
+      return [];
+  }
+}
+
+/**
+ * Compute the original structural position of an element in the source DOM.
+ *
+ * @param {Element} sourceEl — the source DOM element
+ * @returns {{ childIndex: number, typeIndex: number, childFromEnd: number,
+ *             typeFromEnd: number, totalChildren: number, totalOfType: number }|null}
+ */
+export function computeOriginalPosition(sourceEl) {
+  if (!sourceEl || !sourceEl.parentElement) return null;
+
+  const parent = sourceEl.parentElement;
+  const siblings = parent.children;
+  const tagName = sourceEl.tagName;
+  const totalChildren = siblings.length;
+
+  let totalOfType = 0;
+  for (const sib of siblings) {
+    if (sib.tagName === tagName) totalOfType++;
+  }
+
+  let childIndex = 0;
+  let typeIndex = 0;
+  let childFromEnd = 0;
+  let typeFromEnd = 0;
+  let typeCount = 0;
+  for (let i = 0; i < siblings.length; i++) {
+    if (siblings[i].tagName === tagName) typeCount++;
+    if (siblings[i] === sourceEl) {
+      childIndex = i + 1;
+      typeIndex = typeCount;
+      childFromEnd = totalChildren - i;
+      typeFromEnd = totalOfType - typeCount + 1;
+    }
+  }
+
+  if (childIndex === 0) return null;
+
+  return { childIndex, typeIndex, childFromEnd, typeFromEnd, totalChildren, totalOfType };
+}
+
+/**
+ * Test whether a position matches all nth formula parts.
+ *
+ * @param {{ childIndex: number, typeIndex: number, childFromEnd: number, typeFromEnd: number }} pos
+ * @param {{ a: number, b: number, isType: boolean, isLast: boolean }[]} nthParts
+ * @returns {boolean}
+ */
+function matchesAllParts(pos, nthParts) {
+  for (const part of nthParts) {
+    const idx = part.isLast
+      ? (part.isType ? pos.typeFromEnd : pos.childFromEnd)
+      : (part.isType ? pos.typeIndex : pos.childIndex);
+    if (!matchesAnPlusB(idx, { a: part.a, b: part.b })) return false;
+  }
+  return true;
+}
+
+// ── Descriptor extraction (Phase 1) ────────────────────────────────
+
+/**
+ * @typedef {Object} NthDescriptor
+ * @property {string} baseSelector — selector with nth pseudo-classes removed
+ * @property {{ a: number, b: number, isType: boolean, isLast: boolean }[]} nthParts
+ * @property {string} cssText — the rule's declarations
+ * @property {string[]} wrappers — grouping rule preambles (e.g. "@media (...)")
  */
 
-const NTH_PSEUDO_RE = /:(nth-child|nth-of-type|nth-last-child|nth-last-of-type|first-child|last-child|first-of-type|last-of-type|only-child|only-of-type)\b(\([^)]*\))?/g;
+/**
+ * Extract nth-rule descriptors from a CSSRuleList.
+ *
+ * @param {CSSRuleList} ruleList
+ * @param {NthDescriptor[]} descriptors — accumulator
+ * @param {string[]} wrappers — current grouping rule stack
+ */
+function extractFromRuleList(ruleList, descriptors, wrappers) {
+  for (const rule of ruleList) {
+    if (rule.selectorText !== undefined) {
+      const parts = [];
+      const baseSelector = rule.selectorText.replace(NTH_PSEUDO_RE, (match, pseudo, args) => {
+        parts.push(...parseNthParts(pseudo, args));
+        return "";
+      });
+      if (parts.length > 0) {
+        descriptors.push({
+          baseSelector: baseSelector.trim() || "*",
+          nthParts: parts,
+          cssText: rule.style.cssText,
+          wrappers: [...wrappers],
+        });
+      }
+    } else if (rule.cssRules) {
+      const preamble = rule.cssText.substring(0, rule.cssText.indexOf("{")).trim();
+      extractFromRuleList(rule.cssRules, descriptors, [...wrappers, preamble]);
+    }
+  }
+}
+
+/**
+ * Extract nth-selector descriptors from stylesheets without mutating them.
+ *
+ * @param {CSSStyleSheet[]} sheets
+ * @returns {NthDescriptor[]}
+ */
+export function extractNthDescriptors(sheets) {
+  const descriptors = [];
+  for (const sheet of sheets) {
+    extractFromRuleList(sheet.cssRules, descriptors, []);
+  }
+  return descriptors;
+}
+
+// ── Per-fragment stylesheet builder (Phase 2) ──────────────────────
+
+/**
+ * Build a per-fragment override stylesheet that targets elements by data-ref.
+ *
+ * Walks all elements in the rendered slot, computes their original position
+ * in the source DOM, checks against each nth descriptor, and generates
+ * CSS rules using :is([data-ref=...]) to target matching elements.
+ *
+ * @param {Element} slot — the fragment container's slot element
+ * @param {NthDescriptor[]} descriptors — from extractNthDescriptors
+ * @param {Map<string, Element>} refMap — ref string → source element
+ * @returns {CSSStyleSheet|null} — null if no rules generated
+ */
+export function buildPerFragmentNthSheet(slot, descriptors, refMap) {
+  if (descriptors.length === 0) return null;
+
+  // Collect matching refs per descriptor
+  const refLists = descriptors.map(() => []);
+
+  // Position cache: source element → computed position (avoids recomputing
+  // when the same source element appears in multiple clones)
+  const positionCache = new WeakMap();
+
+  for (const el of slot.querySelectorAll("*")) {
+    const ref = el.getAttribute("data-ref");
+    if (ref === null) continue;
+
+    const sourceEl = refMap.get(ref);
+    if (!sourceEl) continue;
+
+    let pos = positionCache.get(sourceEl);
+    if (!pos) {
+      pos = computeOriginalPosition(sourceEl);
+      if (!pos) continue;
+      positionCache.set(sourceEl, pos);
+    }
+
+    for (let d = 0; d < descriptors.length; d++) {
+      if (matchesAllParts(pos, descriptors[d].nthParts)) {
+        refLists[d].push(ref);
+      }
+    }
+  }
+
+  // Build rules
+  const rules = [];
+  for (let d = 0; d < descriptors.length; d++) {
+    if (refLists[d].length === 0) continue;
+    const { baseSelector, cssText, wrappers } = descriptors[d];
+    const refSelector = refLists[d].map(r => `[data-ref="${r}"]`).join(",");
+    const fullSelector = baseSelector
+      ? `${baseSelector}:is(${refSelector})`
+      : `:is(${refSelector})`;
+    let ruleText = `${fullSelector} { ${cssText} }`;
+
+    // Wrap in grouping rules (innermost first, build outward)
+    for (let w = wrappers.length - 1; w >= 0; w--) {
+      ruleText = `${wrappers[w]} { ${ruleText} }`;
+    }
+
+    rules.push(ruleText);
+  }
+
+  if (rules.length === 0) return null;
+
+  const sheet = new CSSStyleSheet();
+  for (const rule of rules) {
+    sheet.insertRule(rule, sheet.cssRules.length);
+  }
+  return sheet;
+}
+
+// ── Legacy API (kept for rewriteNthSelectorsOnSheet) ───────────────
 
 /**
  * Canonical key for a formula — used to deduplicate identical An+B
@@ -159,126 +384,4 @@ function rewriteRulesInList(ruleList, formulas) {
 export function rewriteNthSelectorsOnSheet(sheet, formulas = new Map()) {
   rewriteRulesInList(sheet.cssRules, formulas);
   return { sheet, formulas };
-}
-
-/**
- * Recursively collect override rules for structural pseudo-classes
- * into a target CSSStyleSheet without mutating the source rules.
- *
- * @param {CSSRuleList} ruleList — source rules to scan
- * @param {CSSStyleSheet|CSSGroupingRule} target — where to insert overrides
- * @param {Map} formulas — accumulator for formula descriptors
- */
-function collectNthOverrides(ruleList, target, formulas) {
-  for (const rule of ruleList) {
-    if (rule.selectorText !== undefined) {
-      const rewritten = rewriteSelectorText(rule.selectorText, formulas);
-      if (rewritten !== rule.selectorText) {
-        target.insertRule(
-          `${rewritten} { ${rule.style.cssText} }`,
-          target.cssRules.length,
-        );
-      }
-    } else if (rule.cssRules) {
-      // Grouping rule — reconstruct wrapper, recurse, keep only if non-empty
-      const wrapper = new CSSStyleSheet();
-      collectNthOverrides(rule.cssRules, wrapper, formulas);
-      if (wrapper.cssRules.length > 0) {
-        // Re-wrap child rules inside the grouping rule's condition
-        let innerCSS = "";
-        for (const r of wrapper.cssRules) {
-          innerCSS += r.cssText + "\n";
-        }
-        target.insertRule(
-          `${rule.cssText.substring(0, rule.cssText.indexOf("{"))}{ ${innerCSS} }`,
-          target.cssRules.length,
-        );
-      }
-    }
-  }
-}
-
-/**
- * Build an override CSSStyleSheet containing attribute-selector equivalents
- * of structural pseudo-classes found in the input sheets. The input sheets
- * are NOT mutated — the override sheet is meant to be appended after them
- * in adoptedStyleSheets so attribute selectors win by source order.
- *
- * @param {CSSStyleSheet[]} sheets — source sheets to scan
- * @param {Map} [formulas] — accumulator for formula descriptors
- * @returns {{ sheet: CSSStyleSheet, formulas: Map }}
- */
-export function buildNthOverrideSheet(sheets, formulas = new Map()) {
-  const overrideSheet = new CSSStyleSheet();
-  for (const sheet of sheets) {
-    collectNthOverrides(sheet.cssRules, overrideSheet, formulas);
-  }
-  return { sheet: overrideSheet, formulas };
-}
-
-/**
- * Compute and stamp structural-position attributes on a cloned element.
- *
- * @param {Element} el — the cloned DOM element
- * @param {import("./dom/layout-node.js").DOMLayoutNode} node — the source layout node
- * @param {Map<string, { pseudo: string, a: number, b: number, attr: string, isType: boolean, isLast: boolean }>} formulas
- *   — formula descriptors from rewriteNthSelectors
- */
-export function stampNthAttributes(el, node, formulas) {
-  const sourceEl = node.element;
-  if (!sourceEl || !sourceEl.parentElement) return;
-
-  const parent = sourceEl.parentElement;
-  const siblings = parent.children;
-  const tagName = sourceEl.tagName;
-
-  // Compute 1-based child index and type index
-  let childIndex = 0;
-  let typeIndex = 0;
-  let totalChildren = siblings.length;
-  let totalOfType = 0;
-
-  // Count total of same type (for last-of-type)
-  for (let i = 0; i < siblings.length; i++) {
-    if (siblings[i].tagName === tagName) totalOfType++;
-  }
-
-  // Find this element's indices
-  let childFromEnd = 0;
-  let typeFromEnd = 0;
-  let typeCount = 0;
-  for (let i = 0; i < siblings.length; i++) {
-    const sameType = siblings[i].tagName === tagName;
-    if (sameType) typeCount++;
-    if (siblings[i] === sourceEl) {
-      childIndex = i + 1;
-      typeIndex = typeCount;
-      childFromEnd = totalChildren - i;
-      typeFromEnd = totalOfType - typeCount + 1;
-    }
-  }
-
-  if (childIndex === 0) return; // element not found in parent
-
-  // Always stamp base indices
-  el.setAttribute("data-child-index", String(childIndex));
-  el.setAttribute("data-type-index", String(typeIndex));
-
-  // Stamp last-child / last-of-type boolean attributes
-  if (childIndex === totalChildren) {
-    el.setAttribute("data-last-child", "");
-  }
-  if (typeIndex === totalOfType) {
-    el.setAttribute("data-last-of-type", "");
-  }
-
-  // Stamp formula-matching boolean attributes
-  for (const { a, b, attr, isType, isLast } of formulas.values()) {
-    const idx = isLast
-      ? (isType ? typeFromEnd : childFromEnd)
-      : (isType ? typeIndex : childIndex);
-    if (matchesAnPlusB(idx, { a, b })) {
-      el.setAttribute(attr, "");
-    }
-  }
 }

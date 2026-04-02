@@ -1,6 +1,7 @@
 import { DOMLayoutNode } from "../dom/layout-node.js";
 import { runLayoutGenerator, getLayoutAlgorithm } from "./layout-request.js";
 import { renderFragmentTree } from "../compositor/render-fragments.js";
+import { buildPerFragmentNthSheet } from "../styles/nth-selectors.js";
 import { PageSizeResolver } from "../atpage/page-rules.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
@@ -499,7 +500,8 @@ export class FragmentedFlow {
 
   /**
    * @param {import('./fragment.js').PhysicalFragment[]} fragments
-   * @param {{ sheets: CSSStyleSheet[], nthFormulas: Map }|null} contentStyles
+   * @param {{ sheets: CSSStyleSheet[], nthDescriptors: NthDescriptor[],
+   *           sourceRefs: WeakMap, refMap: Map }|null} contentStyles
    * @param {FragmentainerLayout|null} layout — back-reference for reflow
    */
   constructor(fragments, contentStyles, layout = null) {
@@ -554,10 +556,18 @@ export class FragmentedFlow {
       renderFragmentTree(
         fragment,
         prevBreakToken,
-        el.nthFormulas,
         this.#contentStyles?.sourceRefs,
       ),
     );
+
+    // Build and adopt a per-fragment nth-selector override stylesheet
+    const nthDescriptors = this.#contentStyles?.nthDescriptors;
+    const refMap = this.#contentStyles?.refMap;
+    if (nthDescriptors?.length > 0 && refMap) {
+      const nthSheet = buildPerFragmentNthSheet(wrapper, nthDescriptors, refMap);
+      if (nthSheet) el.adoptNthSheet(nthSheet);
+    }
+
     el.expectedBlockSize = contentArea.blockSize;
     el.overflowThreshold =
       fragment.node?.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;

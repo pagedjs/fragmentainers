@@ -1,4 +1,5 @@
 import { renderFragmentTree } from "./render-fragments.js";
+import { buildPerFragmentNthSheet } from "../styles/nth-selectors.js";
 import { DEFAULT_OVERFLOW_THRESHOLD } from "../core/constants.js";
 
 /**
@@ -52,7 +53,16 @@ export async function buildFragmentainerElement(fragmentainerIndex, fragments, f
   }
 
   const wrapper = fragEl.setupForRendering(contentStyles, counterSnapshot);
-  wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, fragEl.nthFormulas));
+  wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, contentStyles?.sourceRefs));
+
+  // Build and adopt a per-fragment nth-selector override stylesheet
+  const nthDescriptors = contentStyles?.nthDescriptors;
+  const refMap = contentStyles?.refMap;
+  if (nthDescriptors?.length > 0 && refMap) {
+    const nthSheet = buildPerFragmentNthSheet(wrapper, nthDescriptors, refMap);
+    if (nthSheet) fragEl.adoptNthSheet(nthSheet);
+  }
+
   fragEl.expectedBlockSize = size.blockSize;
   fragEl.overflowThreshold = fragment.node?.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
   return fragEl;

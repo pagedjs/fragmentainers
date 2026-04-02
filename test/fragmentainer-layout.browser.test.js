@@ -96,7 +96,7 @@ describe("namedPage property", () => {
 
   it("sets namedPage property from fragment constraints", async () => {
     const size = { inlineSize: 400, blockSize: 800 };
-    const contentStyles = { sheets: [], nthFormulas: new Map() };
+    const contentStyles = { sheets: [], nthDescriptors: [], sourceRefs: null, refMap: null };
     const fragments = [
       { node: null, blockSize: 0, childFragments: [], breakToken: null, isBlank: false,
         constraints: { contentArea: size, namedPage: "cover" }, counterState: null },
