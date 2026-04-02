@@ -6,7 +6,7 @@ import {
   resolveNextPageBreakBefore,
   requiredPageSide,
   isSideSpecificBreak,
-} from "./helpers.js";
+} from "../atpage/page-resolver.js";
 import { layoutBlockContainer } from "../layout/block-container.js";
 import { layoutFlexContainer } from "../layout/flex-container.js";
 import { layoutGridContainer } from "../layout/grid-container.js";

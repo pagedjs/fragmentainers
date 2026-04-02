@@ -13,6 +13,9 @@ export class ConstraintSpace {
     blockOffsetInFragmentainer = 0,
     fragmentationType = FRAGMENTATION_NONE,
     isNewFormattingContext = false,
+    reservedBlockStart = 0,
+    reservedBlockEnd = 0,
+    modules = null,
   } = {}) {
     this.availableInlineSize = availableInlineSize;
     this.availableBlockSize = availableBlockSize;
@@ -20,5 +23,8 @@ export class ConstraintSpace {
     this.blockOffsetInFragmentainer = blockOffsetInFragmentainer;
     this.fragmentationType = fragmentationType;       // "none" | "page" | "column"
     this.isNewFormattingContext = isNewFormattingContext;
+    this.reservedBlockStart = reservedBlockStart;
+    this.reservedBlockEnd = reservedBlockEnd;
+    this.modules = modules;
   }
 }

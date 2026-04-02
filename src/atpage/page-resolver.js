@@ -1,6 +1,5 @@
 import { ConstraintSpace } from "../core/constraint-space.js";
-import { FRAGMENTATION_PAGE, NAMED_SIZES } from "../core/constants.js";
-import { resolveNamedPageForBreakToken } from "../core/helpers.js";
+import { FRAGMENTATION_PAGE, NAMED_SIZES, BREAK_TOKEN_INLINE } from "../core/constants.js";
 
 /**
  * Parse a CSS length string to CSS pixels (96 DPI).
@@ -411,4 +410,147 @@ function parsePageMargins(style) {
   }
 
   return margin;
+}
+
+/**
+ * Check if a CSS break value requires a specific page side.
+ * Only left/right/recto/verso are side-specific; page/column/always are not.
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function isSideSpecificBreak(value) {
+  return value === "left" || value === "right" ||
+         value === "recto" || value === "verso";
+}
+
+/**
+ * Return the required page side for a side-specific break value.
+ * Normalizes recto → "right" and verso → "left" (LTR page progression).
+ * @param {string} value
+ * @returns {"left"|"right"|null}
+ */
+export function requiredPageSide(value) {
+  if (value === "right" || value === "recto") return "right";
+  if (value === "left" || value === "verso") return "left";
+  return null;
+}
+
+/**
+ * Walk the break token tree to find the forcedBreakValue that triggered the break.
+ * Follows the last child at each level (the active break path).
+ * @param {import("../core/tokens.js").BlockBreakToken|null} breakToken
+ * @returns {string|null}
+ */
+export function resolveForcedBreakValue(breakToken) {
+  if (!breakToken) return null;
+  let current = breakToken;
+  while (current.childBreakTokens && current.childBreakTokens.length > 0) {
+    const lastChild = current.childBreakTokens[current.childBreakTokens.length - 1];
+    if (lastChild.isForcedBreak && lastChild.forcedBreakValue) {
+      return lastChild.forcedBreakValue;
+    }
+    if (lastChild.isBreakBefore) break;
+    current = lastChild;
+  }
+  return current.forcedBreakValue || null;
+}
+
+/**
+ * Resolve the break-before CSS value of the first child that will appear
+ * on the next page. Used to detect side-specific breaks when blockOffset === 0
+ * prevented the forced break from firing in layoutBlockContainer.
+ *
+ * @param {import("../core/helpers.js").LayoutNode} rootNode
+ * @param {import("../core/tokens.js").BlockBreakToken|null} breakToken
+ * @returns {string|null}
+ */
+export function resolveNextPageBreakBefore(rootNode, breakToken) {
+  if (!breakToken) {
+    return rootNode.children[0]?.breakBefore || null;
+  }
+  let current = breakToken;
+  while (current.childBreakTokens && current.childBreakTokens.length > 0) {
+    const lastChild = current.childBreakTokens[current.childBreakTokens.length - 1];
+    if (lastChild.isBreakBefore) {
+      return lastChild.node?.breakBefore || null;
+    }
+    current = lastChild;
+  }
+  if (current.type === BREAK_TOKEN_INLINE) return null;
+
+  const nextChild = findNextUnvisitedChild(rootNode, breakToken);
+  return nextChild?.breakBefore || null;
+}
+
+/**
+ * Read the CSS `page` property from a node.
+ * @param {import("../core/helpers.js").LayoutNode} node
+ * @returns {string|null}
+ */
+export function getNamedPage(node) {
+  if (!node) return null;
+  return node.page || null;
+}
+
+/**
+ * Walk the break token tree to find the named page for the next page.
+ *
+ * Determines which element will be first on the next page and reads its
+ * CSS `page` property to drive @page rule resolution.
+ *
+ * @param {import("../core/helpers.js").LayoutNode} rootNode
+ * @param {import("../core/tokens.js").BlockBreakToken|null} breakToken
+ * @returns {string|null}
+ */
+export function resolveNamedPageForBreakToken(rootNode, breakToken) {
+  if (!breakToken) {
+    const firstChild = rootNode.children[0];
+    return getNamedPage(firstChild);
+  }
+
+  let current = breakToken;
+  while (current.childBreakTokens && current.childBreakTokens.length > 0) {
+    const lastChild = current.childBreakTokens[current.childBreakTokens.length - 1];
+    if (lastChild.isBreakBefore) {
+      return getNamedPage(lastChild.node);
+    }
+    current = lastChild;
+  }
+
+  if (current.type === BREAK_TOKEN_INLINE) {
+    return getNamedPage(current.node);
+  }
+
+  return getNamedPage(findNextUnvisitedChild(rootNode, breakToken));
+}
+
+/**
+ * Find the next child that hasn't been fully laid out, given a break token.
+ * Walks from the deepest break token child up to find a next sibling.
+ *
+ * @param {import("../core/helpers.js").LayoutNode} rootNode
+ * @param {import("../core/tokens.js").BlockBreakToken} breakToken
+ * @returns {import("../core/helpers.js").LayoutNode|null}
+ */
+function findNextUnvisitedChild(rootNode, breakToken) {
+  const path = [];
+  let current = breakToken;
+  let parentNode = rootNode;
+  while (current.childBreakTokens && current.childBreakTokens.length > 0) {
+    const lastChild = current.childBreakTokens[current.childBreakTokens.length - 1];
+    path.push({ parentNode, childToken: lastChild });
+    parentNode = lastChild.node;
+    current = lastChild;
+  }
+
+  for (let i = path.length - 1; i >= 0; i--) {
+    const { parentNode: parent, childToken } = path[i];
+    const children = parent.children;
+    const idx = children.indexOf(childToken.node);
+    if (idx !== -1 && idx + 1 < children.length) {
+      return children[idx + 1];
+    }
+  }
+
+  return null;
 }

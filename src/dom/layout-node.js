@@ -76,6 +76,10 @@ export class DOMLayoutNode {
     return this.#style;
   }
 
+  getCustomProperty(name) {
+    return this.#getStyle().getPropertyValue(`--${name}`).trim() || null;
+  }
+
   #getStyleMap() {
     if (!this.#styleMap) {
       this.#styleMap = computedStyleMap(this.element);

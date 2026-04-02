@@ -74,6 +74,12 @@ export async function buildFragmentainerElement(
     renderFragmentTree(fragment, prevBreakToken, contentStyles?.sourceRefs),
   );
 
+  if (fragment.afterRender) {
+    for (const callback of fragment.afterRender) {
+      callback(wrapper, contentStyles);
+    }
+  }
+
   // Build and adopt a per-fragment nth-selector override stylesheet
   const nthDescriptors = contentStyles?.nthDescriptors;
   const refMap = contentStyles?.refMap;

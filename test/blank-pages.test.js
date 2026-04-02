@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { createFragments } from "../src/core/layout-request.js";
 import { BlockBreakToken } from "../src/core/tokens.js";
-import { PageRule, PageResolver } from "../src/atpage/page-resolver.js";
 import {
+  PageRule, PageResolver,
   isSideSpecificBreak,
   requiredPageSide,
   resolveForcedBreakValue,
   resolveNextPageBreakBefore,
-} from "../src/core/helpers.js";
+} from "../src/atpage/page-resolver.js";
 import { blockNode } from "./fixtures/nodes.js";
 
 // --- Helper function tests ---

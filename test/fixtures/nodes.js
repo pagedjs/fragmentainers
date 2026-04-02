@@ -8,6 +8,8 @@ import { INLINE_TEXT, INLINE_CONTROL } from "../../src/core/constants.js";
 const DEFAULTS = {
   children: [],
   blockSize: 0,
+  element: null,
+  getCustomProperty() { return null; },
   isInlineFormattingContext: false,
   isReplacedElement: false,
   isScrollable: false,
@@ -294,6 +296,28 @@ export function tableRowNode({ debugName, cells = [], ...overrides } = {}) {
     computedBlockSize: () => 0,
     ...overrides,
   };
+}
+
+/**
+ * Create a page-float node with a mock element that returns custom properties.
+ * @param {Object} opts
+ * @param {string} [opts.placement="top"] - "top" or "bottom"
+ * @param {number} [opts.blockSize=0] - Intrinsic block size
+ */
+export function floatNode({ debugName, placement = "top", blockSize = 0, children = [], ...overrides } = {}) {
+  const customProps = {
+    "float-reference": "page",
+    "float": placement,
+  };
+  return blockNode({
+    debugName: debugName || `float-${placement}(${blockSize})`,
+    blockSize,
+    children,
+    getCustomProperty(name) {
+      return customProps[name] || null;
+    },
+    ...overrides,
+  });
 }
 
 /**

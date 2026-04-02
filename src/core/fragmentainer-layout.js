@@ -15,10 +15,11 @@ import {
   resolveNextPageBreakBefore,
   requiredPageSide,
   isSideSpecificBreak,
-} from "./helpers.js";
+} from "../atpage/page-resolver.js";
 import "../dom/content-measure.js";
 import "../dom/fragment-container.js";
 import { ContentParser } from "../dom/content-parser.js";
+import * as defaultModules from "../modules/index.js";
 
 function buildLayoutTree(rootElement) {
   return new DOMLayoutNode(rootElement);
@@ -44,11 +45,35 @@ const MAX_ZERO_PROGRESS = 5;
  * Module Level 3 terminology throughout.
  */
 export class FragmentainerLayout {
+  static #registeredModules = [];
+
+  /**
+   * Register a layout module. All new instances will use it.
+   * @param {Object} module - A layout module with matches() and layout() methods
+   */
+  static register(module) {
+    if (!FragmentainerLayout.#registeredModules.includes(module)) {
+      FragmentainerLayout.#registeredModules.push(module);
+    }
+  }
+
+  /**
+   * Unregister a previously registered layout module.
+   * @param {Object} module
+   */
+  static remove(module) {
+    const idx = FragmentainerLayout.#registeredModules.indexOf(module);
+    if (idx !== -1) {
+      FragmentainerLayout.#registeredModules.splice(idx, 1);
+    }
+  }
+
   #content;
   #styles;
   #resolver;
   #constraintSpace;
   #trackRefs;
+  #modules;
 
   // Stepper state (initialized lazily on first next() call)
   #tree = null;
@@ -74,6 +99,7 @@ export class FragmentainerLayout {
    * @param {number} [options.width] - Container width in CSS px (column fragmentation)
    * @param {number} [options.height] - Container height in CSS px (column fragmentation)
    * @param {boolean} [options.trackRefs=false] - Enable ref tracking for clone-to-source mapping (needed for MutationSync)
+   * @param {Object[]} [options.modules] - Layout modules (e.g. pageFloatModule)
    */
   constructor(content, options = {}) {
     // Normalize Element → DocumentFragment (clone into fragment)
@@ -98,6 +124,11 @@ export class FragmentainerLayout {
       : undefined;
 
     this.#trackRefs = !!options.trackRefs;
+
+    const registered = FragmentainerLayout.#registeredModules;
+    const instance = options.modules || [];
+    const allModules = [...registered, ...instance];
+    this.#modules = allModules.length > 0 ? allModules : null;
 
     if (options.constraintSpace) {
       this.#constraintSpace = options.constraintSpace;
@@ -323,21 +354,62 @@ export class FragmentainerLayout {
    */
   #layoutFragmentainer(rootNode, constraintSpace, breakToken) {
     const rootAlgorithm = getLayoutAlgorithm(rootNode);
+    let reservedBlockStart = 0;
+    let reservedBlockEnd = 0;
+    const afterRenderCallbacks = [];
+
+    if (this.#modules) {
+      const layoutChildFn = (child, cs) => {
+        const algo = getLayoutAlgorithm(child);
+        return runLayoutGenerator(algo, child, cs, null);
+      };
+      for (const mod of this.#modules) {
+        const modResult = mod.layout(
+          rootNode, constraintSpace, breakToken, layoutChildFn,
+        );
+        reservedBlockStart += modResult.reservedBlockStart;
+        reservedBlockEnd += modResult.reservedBlockEnd;
+        if (modResult.afterRender) {
+          afterRenderCallbacks.push(modResult.afterRender);
+        }
+      }
+    }
+
+    let adjustedSpace = constraintSpace;
+    if (reservedBlockStart > 0 || reservedBlockEnd > 0 || this.#modules) {
+      adjustedSpace = new ConstraintSpace({
+        availableInlineSize: constraintSpace.availableInlineSize,
+        availableBlockSize: constraintSpace.availableBlockSize
+          - reservedBlockStart - reservedBlockEnd,
+        fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize
+          - reservedBlockEnd,
+        blockOffsetInFragmentainer: constraintSpace.blockOffsetInFragmentainer
+          + reservedBlockStart,
+        fragmentationType: constraintSpace.fragmentationType,
+        modules: this.#modules,
+      });
+    }
+
     let result = runLayoutGenerator(
       rootAlgorithm,
       rootNode,
-      constraintSpace,
+      adjustedSpace,
       breakToken,
     );
     if (result.earlyBreak) {
       result = runLayoutGenerator(
         rootAlgorithm,
         rootNode,
-        constraintSpace,
+        adjustedSpace,
         breakToken,
         result.earlyBreak,
       );
     }
+
+    if (afterRenderCallbacks.length > 0) {
+      result.fragment.afterRender = afterRenderCallbacks;
+    }
+
     return result;
   }
 
@@ -492,6 +564,10 @@ export class FragmentainerLayout {
   }
 }
 
+for (const mod of Object.values(defaultModules)) {
+  FragmentainerLayout.register(mod);
+}
+
 /**
  * The result of running fragmentation — a "fragmented flow" in CSS spec terms.
  *
@@ -566,6 +642,12 @@ export class FragmentedFlow {
         this.#contentStyles?.sourceRefs,
       ),
     );
+
+    if (fragment.afterRender) {
+      for (const callback of fragment.afterRender) {
+        callback(wrapper, this.#contentStyles);
+      }
+    }
 
     // Build and adopt a per-fragment nth-selector override stylesheet
     const nthDescriptors = this.#contentStyles?.nthDescriptors;

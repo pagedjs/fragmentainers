@@ -16,3 +16,4 @@ export { CounterState, parseCounterDirective, walkFragmentTree } from "./core/co
 export { MutationSync } from "./dom/mutation-sync.js";
 export { ContentParser } from "./dom/content-parser.js";
 export { buildCumulativeHeights } from "./core/speculative-layout.js";
+export { pageFloatModule } from "./modules/page-float.js";

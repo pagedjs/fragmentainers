@@ -1,10 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   PageRule, PageResolver, parseCSSLength,
-} from "../src/atpage/page-resolver.js";
-import {
   getNamedPage, resolveNamedPageForBreakToken,
-} from "../src/core/helpers.js";
+} from "../src/atpage/page-resolver.js";
 import { BlockBreakToken } from "../src/core/tokens.js";
 import { createFragments } from "../src/core/layout-request.js";
 import { ConstraintSpace } from "../src/core/constraint-space.js";

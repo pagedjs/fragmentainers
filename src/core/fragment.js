@@ -15,5 +15,6 @@ export class PhysicalFragment {
     this.isRepeated = false;
     this.isBlank = false;
     this.counterState = null;
+    this.afterRender = null;
   }
 }
