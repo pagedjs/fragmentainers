@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { createFragments } from "../src/core/layout-request.js";
-import { ConstraintSpace } from "../src/core/constraint-space.js";
-import { blockNode, inlineNode, textToInlineItems } from "./fixtures/nodes.js";
+import { createFragments } from "../../src/core/layout-request.js";
+import { ConstraintSpace } from "../../src/core/constraint-space.js";
+import { blockNode, inlineNode, textToInlineItems } from "../fixtures/nodes.js";
 
 describe("Overflow fixes: margin truncation at breaks", () => {
   it("trailing margin is truncated when a child breaks", () => {

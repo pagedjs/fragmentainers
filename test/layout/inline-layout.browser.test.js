@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createFragments } from "../src/core/layout-request.js";
-import { ConstraintSpace } from "../src/core/constraint-space.js";
-import { buildLayoutTree } from "../src/dom/index.js";
-import { BREAK_TOKEN_INLINE } from "../src/core/constants.js";
+import { createFragments } from "../../src/core/layout-request.js";
+import { ConstraintSpace } from "../../src/core/constraint-space.js";
+import { buildLayoutTree } from "../../src/dom/index.js";
+import { BREAK_TOKEN_INLINE } from "../../src/core/constants.js";
 
 describe("Inline content layout (browser)", () => {
   let container;

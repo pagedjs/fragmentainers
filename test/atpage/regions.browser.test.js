@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { FragmentainerLayout } from "../src/core/fragmentainer-layout.js";
-import { RegionResolver } from "../src/regions/region-resolver.js";
-import { renderFragmentTree } from "../src/compositor/render-fragments.js";
+import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
+import { RegionResolver } from "../../src/regions/region-resolver.js";
+import { renderFragmentTree } from "../../src/compositor/render-fragments.js";
 
 describe("RegionResolver", () => {
   let container;

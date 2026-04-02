@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { parseCounterDirective, CounterState, walkFragmentTree } from "../src/core/counter-state.js";
-import { PhysicalFragment } from "../src/core/fragment.js";
-import { BlockBreakToken } from "../src/core/tokens.js";
-import { blockNode } from "./fixtures/nodes.js";
+import { parseCounterDirective, CounterState, walkFragmentTree } from "../../src/core/counter-state.js";
+import { PhysicalFragment } from "../../src/core/fragment.js";
+import { BlockBreakToken } from "../../src/core/tokens.js";
+import { blockNode } from "../fixtures/nodes.js";
 
 describe("parseCounterDirective", () => {
   it("returns [] for null", () => {

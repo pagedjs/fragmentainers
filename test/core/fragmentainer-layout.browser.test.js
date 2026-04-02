@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { FragmentainerLayout, FragmentedFlow } from "../src/core/fragmentainer-layout.js";
-import { buildFragmentainerElement } from "../src/compositor/fragmentainer-builder.js";
-import "../src/dom/fragment-container.js";
+import { FragmentainerLayout, FragmentedFlow } from "../../src/core/fragmentainer-layout.js";
+import { buildFragmentainerElement } from "../../src/compositor/fragmentainer-builder.js";
+import "../../src/dom/fragment-container.js";
 
 describe("FragmentainerLayout.flow() (browser)", () => {
   let layout;

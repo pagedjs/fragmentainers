@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { createFragments } from "../src/core/layout-request.js";
-import { ConstraintSpace } from "../src/core/constraint-space.js";
-import { blockNode, replacedNode, scrollableNode } from "./fixtures/nodes.js";
+import { createFragments } from "../../src/core/layout-request.js";
+import { ConstraintSpace } from "../../src/core/constraint-space.js";
+import { blockNode, replacedNode, scrollableNode } from "../fixtures/nodes.js";
 
 describe("Phase 4: Monolithic content", () => {
   it("pushes a monolithic element to the next page when it does not fit", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAnPlusB, matchesAnPlusB, computeOriginalPosition, extractNthDescriptors } from "../src/styles/nth-selectors.js";
+import { parseAnPlusB, matchesAnPlusB, computeOriginalPosition, extractNthDescriptors } from "../../src/styles/nth-selectors.js";
 
 describe("parseAnPlusB", () => {
   it("parses 'odd'", () => {

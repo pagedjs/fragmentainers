@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { runLayoutGenerator, getLayoutAlgorithm } from "../src/core/layout-request.js";
-import { layoutMulticolContainer } from "../src/layout/multicol-container.js";
-import { ConstraintSpace } from "../src/core/constraint-space.js";
-import { blockNode, multicolNode } from "./fixtures/nodes.js";
+import { runLayoutGenerator, getLayoutAlgorithm } from "../../src/core/layout-request.js";
+import { layoutMulticolContainer } from "../../src/layout/multicol-container.js";
+import { ConstraintSpace } from "../../src/core/constraint-space.js";
+import { blockNode, multicolNode } from "../fixtures/nodes.js";
 
 /**
  * Helper: run the multicol layout algorithm on a node.

@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { createFragments, runLayoutGenerator } from "../src/core/layout-request.js";
-import { layoutTableRow } from "../src/layout/table-row.js";
-import { ConstraintSpace } from "../src/core/constraint-space.js";
-import { blockNode, tableRowNode } from "./fixtures/nodes.js";
+import { createFragments, runLayoutGenerator } from "../../src/core/layout-request.js";
+import { layoutTableRow } from "../../src/layout/table-row.js";
+import { ConstraintSpace } from "../../src/core/constraint-space.js";
+import { blockNode, tableRowNode } from "../fixtures/nodes.js";
 
 describe("Phase 6: Parallel flows (table row)", () => {
   it("lays out a table row where all cells fit", () => {

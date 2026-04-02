@@ -2,11 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   PageRule, PageResolver, parseCSSLength,
   getNamedPage, resolveNamedPageForBreakToken,
-} from "../src/atpage/page-resolver.js";
-import { BlockBreakToken } from "../src/core/tokens.js";
-import { createFragments } from "../src/core/layout-request.js";
-import { ConstraintSpace } from "../src/core/constraint-space.js";
-import { blockNode } from "./fixtures/nodes.js";
+} from "../../src/atpage/page-resolver.js";
+import { BlockBreakToken } from "../../src/core/tokens.js";
+import { createFragments } from "../../src/core/layout-request.js";
+import { ConstraintSpace } from "../../src/core/constraint-space.js";
+import { blockNode } from "../fixtures/nodes.js";
 
 describe("PageResolver", () => {
   const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };

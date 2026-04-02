@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { PhysicalFragment } from "../src/core/fragment.js";
-import { BlockBreakToken } from "../src/core/tokens.js";
-import { blockNode, textToInlineItems } from "./fixtures/nodes.js";
-import { INLINE_TEXT, INLINE_CONTROL } from "../src/core/constants.js";
+import { PhysicalFragment } from "../../src/core/fragment.js";
+import { BlockBreakToken } from "../../src/core/tokens.js";
+import { blockNode, textToInlineItems } from "../fixtures/nodes.js";
+import { INLINE_TEXT, INLINE_CONTROL } from "../../src/core/constants.js";
 
 // Import the compositor functions
 import {
   hasBlockChildFragments,
-} from "../src/compositor/index.js";
+} from "../../src/compositor/index.js";
 
 describe("hasBlockChildFragments", () => {
   it("returns false for empty childFragments", () => {

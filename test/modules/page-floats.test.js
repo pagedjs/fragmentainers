@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createFragments } from "../src/core/layout-request.js";
-import { ConstraintSpace } from "../src/core/constraint-space.js";
-import { FragmentainerLayout } from "../src/core/fragmentainer-layout.js";
-import { FRAGMENTATION_PAGE } from "../src/core/constants.js";
-import { pageFloatModule } from "../src/modules/page-float.js";
-import { blockNode, floatNode } from "./fixtures/nodes.js";
+import { createFragments } from "../../src/core/layout-request.js";
+import { ConstraintSpace } from "../../src/core/constraint-space.js";
+import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
+import { FRAGMENTATION_PAGE } from "../../src/core/constants.js";
+import { pageFloatModule } from "../../src/modules/page-float.js";
+import { blockNode, floatNode } from "../fixtures/nodes.js";
 
 const PAGE_HEIGHT = 800;
 const PAGE_WIDTH = 600;

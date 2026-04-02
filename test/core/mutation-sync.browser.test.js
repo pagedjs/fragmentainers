@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { FragmentainerLayout } from "../src/core/fragmentainer-layout.js";
-import { MutationSync } from "../src/dom/mutation-sync.js";
-import "../src/dom/content-measure.js";
-import "../src/dom/fragment-container.js";
+import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
+import { MutationSync } from "../../src/dom/mutation-sync.js";
+import "../../src/dom/content-measure.js";
+import "../../src/dom/fragment-container.js";
 
 /** Inject an HTML string into a content-measure element. */
 function injectHTML(measurer, html) {

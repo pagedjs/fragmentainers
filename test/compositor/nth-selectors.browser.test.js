@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractNthDescriptors, buildPerFragmentNthSheet } from "../src/styles/nth-selectors.js";
+import { extractNthDescriptors, buildPerFragmentNthSheet } from "../../src/styles/nth-selectors.js";
 
 describe("extractNthDescriptors", () => {
   function createSheet(cssText) {

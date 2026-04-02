@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { createFragments } from "../src/core/layout-request.js";
-import { ConstraintSpace } from "../src/core/constraint-space.js";
-import { blockNode } from "./fixtures/nodes.js";
+import { createFragments } from "../../src/core/layout-request.js";
+import { ConstraintSpace } from "../../src/core/constraint-space.js";
+import { blockNode } from "../fixtures/nodes.js";
 
 describe("Phase 7: Break scoring & two-pass layout", () => {
   it("respects break-after: avoid by choosing an earlier break", () => {

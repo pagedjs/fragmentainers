@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveColumnDimensions } from "../src/layout/multicol-container.js";
+import { resolveColumnDimensions } from "../../src/layout/multicol-container.js";
 
 describe("resolveColumnDimensions", () => {
   it("both auto → single column at full width", () => {

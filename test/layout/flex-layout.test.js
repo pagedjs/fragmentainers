@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { runLayoutGenerator, getLayoutAlgorithm } from "../src/core/layout-request.js";
-import { layoutFlexContainer } from "../src/layout/flex-container.js";
-import { ConstraintSpace } from "../src/core/constraint-space.js";
-import { blockNode, flexNode } from "./fixtures/nodes.js";
+import { runLayoutGenerator, getLayoutAlgorithm } from "../../src/core/layout-request.js";
+import { layoutFlexContainer } from "../../src/layout/flex-container.js";
+import { ConstraintSpace } from "../../src/core/constraint-space.js";
+import { blockNode, flexNode } from "../fixtures/nodes.js";
 
 function layoutFlex(node, { inlineSize = 600, blockSize = 400, fragmentationType = "none" } = {}) {
   const cs = new ConstraintSpace({
