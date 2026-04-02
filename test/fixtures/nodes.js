@@ -9,6 +9,7 @@ const DEFAULTS = {
   children: [],
   blockSize: 0,
   element: null,
+  querySelectorAll() { return []; },
   getCustomProperty() { return null; },
   isInlineFormattingContext: false,
   isReplacedElement: false,
