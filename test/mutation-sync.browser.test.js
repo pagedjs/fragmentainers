@@ -379,9 +379,8 @@ describe("reflow with rebuild", () => {
     const flow = await layout.flow();
     expect(flow.fragmentainerCount).toBe(1);
 
-    // Add a new element to the source DOM (via the internal measurer)
-    const measurer = document.querySelector("content-measure");
-    const wrapper = measurer.contentRoot.firstElementChild;
+    // Add a new element to the source DOM (via detached content root)
+    const wrapper = layout.contentRoot.firstElementChild;
     const newDiv = document.createElement("div");
     newDiv.style.height = "200px";
     newDiv.style.margin = "0";

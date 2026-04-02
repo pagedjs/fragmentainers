@@ -45,6 +45,7 @@ export class DOMLayoutNode {
   #isInlineFormattingContext = null;
   #blockSizeCache = null;
   #cumulativeHeights = null;
+  #display = null;
   #textAlign = null;
   #whiteSpace = null;
   #lineHeightCache = null;
@@ -65,8 +66,10 @@ export class DOMLayoutNode {
   #getStyle() {
     if (!this.#style) {
       this.#style = getComputedStyle(this.element);
-      // Snapshot compositor-accessed values now, while the element is
-      // still attached and getComputedStyle returns valid results.
+      // Snapshot values that survive element detachment. The live
+      // CSSStyleDeclaration goes empty when the element is removed
+      // from the DOM, so these must be captured while attached.
+      this.#display = this.#style.display || "block";
       this.#textAlign = this.#style.textAlign || "start";
       this.#whiteSpace = this.#style.whiteSpace || "normal";
     }
@@ -105,26 +108,31 @@ export class DOMLayoutNode {
     return h !== "auto" && h !== "" && h !== "0px";
   }
 
+  get display() {
+    if (this.#display === null) this.#getStyle();
+    return this.#display;
+  }
+
   get isTable() {
-    const d = this.#getStyle().display;
+    const d = this.display;
     return d === "table" || d === "inline-table";
   }
 
   get isTableRow() {
-    return this.#getStyle().display === "table-row";
+    return this.display === "table-row";
   }
 
   get isTableHeaderGroup() {
-    return this.#getStyle().display === "table-header-group";
+    return this.display === "table-header-group";
   }
 
   get isFlexContainer() {
-    const d = this.#getStyle().display;
+    const d = this.display;
     return d === "flex" || d === "inline-flex";
   }
 
   get isGridContainer() {
-    const d = this.#getStyle().display;
+    const d = this.display;
     return d === "grid" || d === "inline-grid";
   }
 

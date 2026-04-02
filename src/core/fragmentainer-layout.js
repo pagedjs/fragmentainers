@@ -47,6 +47,11 @@ export class FragmentainerLayout {
   #prevFragment = null;
   #fragments = [];
 
+  // Saved ref state — preserved across measurer destroy/recreate cycles
+  #savedRefMap = null;
+  #savedSourceRefs = null;
+  #savedNextRefId = 0;
+
   /**
    * @param {DocumentFragment|Element|object} content - Content to fragment
    * @param {object} [options]
@@ -190,6 +195,10 @@ export class FragmentainerLayout {
       }
     } while (fragment.breakToken !== null);
 
+    // Layout is done — release the measurer. Rendering only needs
+    // cloneNode/getAttribute/tagName, which work on detached elements.
+    this.releaseMeasurer();
+
     return new FragmentedFlow(fragments, this.#contentStyles, this);
   }
 
@@ -278,8 +287,40 @@ export class FragmentainerLayout {
    * @param {boolean} [forceUpdate=false] - Force re-initialization
    */
   async setup(forceUpdate = false) {
-    if (this.#tree && !forceUpdate) return;
+    if (this.#tree && this.#measureElement && !forceUpdate) return;
     const content = this.#content;
+
+    if (this.#tree && !this.#measureElement &&
+      typeof DocumentFragment !== "undefined" &&
+      content instanceof DocumentFragment) {
+      // Measurer was released — recreate it without rebuilding tree.
+      // The tree's DOMLayoutNode wrappers still reference the same
+      // element objects; moving them back into the measurer restores
+      // live measurement capability.
+      const measurer = document.createElement("content-measure");
+      measurer.trackRefs = this.#trackRefs;
+      measurer.injectFragment(content, this.#styles);
+      if (this.#savedRefMap) {
+        measurer.transferRefs(
+          this.#savedRefMap,
+          this.#savedSourceRefs,
+          this.#savedNextRefId,
+        );
+        this.#savedRefMap = null;
+        this.#savedSourceRefs = null;
+      }
+      document.body.appendChild(measurer);
+      void measurer.offsetHeight;
+      if (document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+      this.#measureElement = measurer;
+      this.#contentStyles = measurer.getContentStyles();
+      if (forceUpdate) {
+        this.#tree = buildLayoutTree(measurer.contentRoot);
+      }
+      return;
+    }
 
     if (this.#measureElement) {
       // Rebuild layout tree from existing measurer (content already injected)
@@ -292,6 +333,17 @@ export class FragmentainerLayout {
       const measurer = document.createElement("content-measure");
       measurer.trackRefs = this.#trackRefs;
       const wrapper = measurer.injectFragment(content, this.#styles);
+
+      // Transfer saved refs from a previous measurer cycle
+      if (this.#savedRefMap) {
+        measurer.transferRefs(
+          this.#savedRefMap,
+          this.#savedSourceRefs,
+          this.#savedNextRefId,
+        );
+        this.#savedRefMap = null;
+        this.#savedSourceRefs = null;
+      }
 
       document.body.appendChild(measurer);
 
@@ -321,14 +373,58 @@ export class FragmentainerLayout {
   }
 
   /**
+   * Release the measurement container, moving content back to a
+   * detached DocumentFragment. The measurer is removed from the DOM
+   * but the source elements remain accessible (for MutationSync).
+   *
+   * Call after rendering is complete. If reflow() is called later,
+   * setup() recreates the measurer from the saved fragment.
+   */
+  releaseMeasurer() {
+    if (!this.#measureElement) return;
+
+    // Save ref state before destroying the measurer
+    if (this.#trackRefs) {
+      this.#savedRefMap = this.#measureElement.refMap;
+      this.#savedSourceRefs = this.#measureElement.sourceRefs;
+      this.#savedNextRefId = this.#measureElement.nextRefId;
+    }
+
+    // Move content from slot back to a DocumentFragment.
+    // The tree is preserved — DOMLayoutNode wrappers still reference
+    // the same element objects, and break tokens remain valid.
+    const frag = document.createDocumentFragment();
+    const slot = this.#measureElement.contentRoot;
+    while (slot.firstChild) {
+      frag.appendChild(slot.firstChild);
+    }
+    this.#content = frag;
+
+    this.#measureElement.remove();
+    this.#measureElement = null;
+  }
+
+  /**
+   * The content root for source DOM access.
+   * Returns the measurer's contentRoot if alive, or the detached
+   * DocumentFragment if the measurer has been released.
+   */
+  get contentRoot() {
+    if (this.#measureElement) {
+      return this.#measureElement.contentRoot;
+    }
+    return this.#content;
+  }
+
+  /**
    * Clean up the internal measurement container.
    * Call when the layout is no longer needed.
    */
   destroy() {
-    if (this.#measureElement) {
-      this.#measureElement.remove();
-      this.#measureElement = null;
-    }
+    this.#measureElement?.remove();
+    this.#measureElement = null;
+    this.#savedRefMap = null;
+    this.#savedSourceRefs = null;
   }
 }
 
@@ -439,6 +535,9 @@ export class FragmentedFlow {
         zeroProgressCount = 0;
       }
     } while (fragment.breakToken !== null);
+
+    // Layout is done — release the measurer before rendering.
+    this.#layout.releaseMeasurer();
 
     // Splice new fragments into the array
     const removedCount = this.#fragments.length - fromIndex;

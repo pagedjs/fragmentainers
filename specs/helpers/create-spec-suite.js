@@ -3,6 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 
+const UPDATE_REFS = !!process.env.UPDATE_REFS;
+
 /**
  * Create a visual regression spec suite from a tests.yml file.
  *
@@ -36,7 +38,10 @@ export function createSpecSuite(
           test.skip(true, typeof skip === "string" ? skip : undefined);
         }
 
-        await page.goto(`/specs/${suiteName}/${name}.html`, {
+        const refPath = path.join(suiteDir, `${name}-ref.html`);
+        const refSuffix = UPDATE_REFS ? "#ref" : "";
+
+        await page.goto(`/specs/${suiteName}/${name}.html${refSuffix}`, {
           waitUntil: "load",
         });
         await page.addScriptTag({
@@ -48,6 +53,18 @@ export function createSpecSuite(
         const error = await page.getAttribute("html", "data-spec-error");
         if (error) {
           console.warn(`  Processing error in ${name}: ${error}`);
+        }
+
+        // When updating, save generated ref HTML (never overwrite existing)
+        if (UPDATE_REFS) {
+          const refHtml = await page.getAttribute("html", "data-ref-html");
+          if (refHtml && !fs.existsSync(refPath)) {
+            fs.writeFileSync(refPath, refHtml);
+            console.log(`  Created ref: ${refPath}`);
+          } else if (refHtml && fs.existsSync(refPath)) {
+            console.log(`  Skipped (exists): ${refPath}`);
+          }
+          return;
         }
 
         const testShot = await page.screenshot({ fullPage: true });

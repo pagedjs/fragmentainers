@@ -198,6 +198,25 @@ export class ContentMeasureElement extends HTMLElement {
     this.#refMap.delete(ref);
   }
 
+  /** @returns {number} the next ref ID (for saving/restoring ref state) */
+  get nextRefId() {
+    return this.#nextRefId;
+  }
+
+  /**
+   * Replace ref state with previously saved maps. Used when recreating
+   * a measurer from a DocumentFragment whose elements were already tracked.
+   *
+   * @param {Map<string, Element>} refMap
+   * @param {WeakMap<Element, string>} sourceRefs
+   * @param {number} nextRefId
+   */
+  transferRefs(refMap, sourceRefs, nextRefId) {
+    this.#refMap = refMap;
+    this.#sourceRefs = sourceRefs;
+    this.#nextRefId = nextRefId;
+  }
+
   #trackElement(el) {
     const ref = String(this.#nextRefId++);
     this.#sourceRefs.set(el, ref);

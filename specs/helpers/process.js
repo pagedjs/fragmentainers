@@ -12,6 +12,8 @@ import { renderFragmentTree } from "/src/compositor/render-fragments.js";
 import { PageSizeResolver } from "/src/atpage/page-rules.js";
 import "/src/dom/fragment-container.js";
 
+const SAVE_REF = location.hash === "#ref";
+
 async function run() {
   try {
     await document.fonts.ready;
@@ -49,6 +51,8 @@ async function runPageMode(resolver) {
   const layout = new FragmentainerLayout(frag, { resolver, styles });
   const flow = await layout.flow();
 
+  const pages = [];
+
   // Render each page sized to the full page box, with @page margins
   // as padding (matching the reference HTML pattern).
   for (let i = 0; i < flow.fragmentainerCount; i++) {
@@ -64,9 +68,17 @@ async function runPageMode(resolver) {
     fragEl.style.paddingBottom = `${margins.bottom}px`;
     fragEl.style.paddingLeft = `${margins.left}px`;
     document.body.appendChild(fragEl);
+
+    if (SAVE_REF) {
+      pages.push({ pageBoxSize, margins, html: fragEl.contentRoot.innerHTML });
+    }
   }
 
   document.documentElement.dataset.pageCount = String(flow.fragmentainerCount);
+
+  if (SAVE_REF) {
+    document.documentElement.dataset.refHtml = buildRefHtml(pages);
+  }
 }
 
 // ---- Multicol mode ----
@@ -170,6 +182,124 @@ function collectConstructedSheets() {
     }
   }
   return sheets;
+}
+
+// ---- Ref HTML generation ----
+
+/**
+ * Collect CSS text from all document stylesheets, excluding @page rules.
+ */
+function collectStylesWithoutPageRules() {
+  const lines = [];
+  for (const sheet of document.styleSheets) {
+    try {
+      for (const rule of sheet.cssRules) {
+        if (rule.type === CSSRule.PAGE_RULE) continue;
+        lines.push(rule.cssText);
+      }
+    } catch {
+      // Cross-origin sheets can't be read — skip
+    }
+  }
+  return lines.join("\n  ");
+}
+
+const SPLIT_OVERRIDES = `
+  /* Split element overrides (matches compositor shadow DOM) */
+  [data-split-from] {
+    text-indent: unset !important;
+    margin-block-start: unset !important;
+    padding-block-start: unset !important;
+    initial-letter: unset !important;
+    counter-increment: unset !important;
+    counter-set: unset !important;
+  }
+  [data-split-from]:not(ol) {
+    counter-reset: unset !important;
+  }
+  [data-split-from]::first-letter {
+    color: unset !important;
+    font-size: unset !important;
+    font-weight: unset !important;
+    font-family: unset !important;
+    line-height: unset !important;
+    float: unset !important;
+    padding: unset !important;
+    margin: unset !important;
+  }
+  [data-split-from]::before {
+    content: unset !important;
+  }
+  li[data-split-from]:first-of-type {
+    list-style: none !important;
+  }
+  [data-split-to] {
+    margin-block-end: unset !important;
+    padding-block-end: unset !important;
+  }
+  [data-split-to][data-justify-last] {
+    text-align-last: justify !important;
+  }
+  [data-split-to]::after {
+    content: unset !important;
+  }`;
+
+/**
+ * Build a static reference HTML document from rendered pages.
+ * Uses .page/.body wrapper pattern matching existing ref files.
+ *
+ * @param {{ pageBoxSize: { inlineSize: number, blockSize: number }, margins: object, html: string }[]} pages
+ * @returns {string}
+ */
+function buildRefHtml(pages) {
+  const contentStyles = collectStylesWithoutPageRules();
+
+  // Collect unique page sizes for .page CSS rules
+  const pageSizes = new Map();
+  for (const { pageBoxSize, margins } of pages) {
+    const key = `${pageBoxSize.inlineSize},${pageBoxSize.blockSize},${margins.top},${margins.right},${margins.bottom},${margins.left}`;
+    if (!pageSizes.has(key)) {
+      pageSizes.set(key, { pageBoxSize, margins });
+    }
+  }
+
+  // Build .page rule(s) — use the first (most common) size
+  const { pageBoxSize, margins } = pageSizes.values().next().value;
+  const pageRule = `.page {
+    width: ${pageBoxSize.inlineSize}px;
+    height: ${pageBoxSize.blockSize}px;
+    padding: ${margins.top}px ${margins.right}px ${margins.bottom}px ${margins.left}px;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-shrink: 0;
+  }`;
+
+  const pageHtml = pages
+    .map(({ html }) =>
+      `<section class="page">\n  <section class="body">\n${html}\n  </section>\n</section>`)
+    .join("\n");
+
+  return `<!doctype html>
+<html lang="en">
+<style>
+  body {
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  ${pageRule}
+  .body {
+    flex-grow: 1;
+  }
+
+  /* Test styles */
+  ${contentStyles}
+${SPLIT_OVERRIDES}
+</style>
+${pageHtml}
+`;
 }
 
 // Start processing

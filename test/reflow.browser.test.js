@@ -21,8 +21,7 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
 
     // Shrink the content to fit in one fragmentainer
     // Access the source DOM via the internal measurer's content root
-    const measurer = document.querySelector("content-measure");
-    const target = measurer.contentRoot.querySelector("#target");
+    const target = layout.contentRoot.querySelector("#target");
     target.style.height = "50px";
 
     await layout.reflow(0);
@@ -40,8 +39,7 @@ describe("FragmentainerLayout.reflow() (browser)", () => {
     expect(flow.fragmentainerCount).toBe(1);
 
     // Grow the content
-    const measurer = document.querySelector("content-measure");
-    const target = measurer.contentRoot.querySelector("#target");
+    const target = layout.contentRoot.querySelector("#target");
     target.style.height = "350px";
 
     await layout.reflow(0);
@@ -105,8 +103,7 @@ describe("FragmentedFlow.reflow() (browser)", () => {
     expect(flow.fragmentainerCount).toBeGreaterThanOrEqual(2);
 
     // Shrink content
-    const measurer = document.querySelector("content-measure");
-    const target = measurer.contentRoot.querySelector("#target");
+    const target = layout.contentRoot.querySelector("#target");
     target.style.height = "50px";
 
     const result = await flow.reflow(0);

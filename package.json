@@ -15,6 +15,7 @@
     "lint:fix": "eslint --fix src/ test/",
     "serve": "serve . -l 8080",
     "specs": "playwright test --config specs/playwright.config.js",
+    "specs:update": "UPDATE_REFS=1 playwright test --config specs/playwright.config.js",
     "specs:pagedjs": "playwright test --config specs/playwright.config.js --project pagedjs"
   },
   "devDependencies": {
