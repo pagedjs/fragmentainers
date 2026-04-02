@@ -67,6 +67,74 @@ export function isForcedBreakValue(value) {
 }
 
 /**
+ * Check if a CSS break value requires a specific page side.
+ * Only left/right/recto/verso are side-specific; page/column/always are not.
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function isSideSpecificBreak(value) {
+  return value === "left" || value === "right" ||
+         value === "recto" || value === "verso";
+}
+
+/**
+ * Return the required page side for a side-specific break value.
+ * Normalizes recto → "right" and verso → "left" (LTR page progression).
+ * @param {string} value
+ * @returns {"left"|"right"|null}
+ */
+export function requiredPageSide(value) {
+  if (value === "right" || value === "recto") return "right";
+  if (value === "left" || value === "verso") return "left";
+  return null;
+}
+
+/**
+ * Walk the break token tree to find the forcedBreakValue that triggered the break.
+ * Follows the last child at each level (the active break path).
+ * @param {import("./tokens.js").BlockBreakToken|null} breakToken
+ * @returns {string|null}
+ */
+export function resolveForcedBreakValue(breakToken) {
+  if (!breakToken) return null;
+  let current = breakToken;
+  while (current.childBreakTokens && current.childBreakTokens.length > 0) {
+    const lastChild = current.childBreakTokens[current.childBreakTokens.length - 1];
+    if (lastChild.isForcedBreak && lastChild.forcedBreakValue) {
+      return lastChild.forcedBreakValue;
+    }
+    if (lastChild.isBreakBefore) break;
+    current = lastChild;
+  }
+  return current.forcedBreakValue || null;
+}
+
+/**
+ * Resolve the break-before CSS value of the first child that will appear
+ * on the next page. Used to detect side-specific breaks when blockOffset === 0
+ * prevented the forced break from firing in layoutBlockContainer.
+ *
+ * @param {LayoutNode} rootNode
+ * @param {import("./tokens.js").BlockBreakToken|null} breakToken
+ * @returns {string|null}
+ */
+export function resolveNextPageBreakBefore(rootNode, breakToken) {
+  if (!breakToken) {
+    return rootNode.children[0]?.breakBefore || null;
+  }
+  let current = breakToken;
+  while (current.childBreakTokens && current.childBreakTokens.length > 0) {
+    const lastChild = current.childBreakTokens[current.childBreakTokens.length - 1];
+    if (lastChild.isBreakBefore) {
+      return lastChild.node?.breakBefore || null;
+    }
+    current = lastChild;
+  }
+  const nextChild = findNextUnvisitedChild(rootNode, breakToken);
+  return nextChild?.breakBefore || null;
+}
+
+/**
  * Get the block size of a monolithic element without full layout.
  * @param {LayoutNode} node
  * @param {import("./constraint-space.js").ConstraintSpace} constraintSpace
@@ -162,6 +230,7 @@ export function debugPrintTokenTree(breakToken, indent = 0) {
   const flags = [];
   if (breakToken.isBreakBefore) flags.push("break-before");
   if (breakToken.isForcedBreak) flags.push("forced");
+  if (breakToken.forcedBreakValue) flags.push(`value=${breakToken.forcedBreakValue}`);
   if (breakToken.isRepeated) flags.push("repeated");
   if (breakToken.isAtBlockEnd) flags.push("at-block-end");
   if (breakToken.hasSeenAllChildren) flags.push("seen-all");

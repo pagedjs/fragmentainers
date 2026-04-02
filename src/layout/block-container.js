@@ -2,9 +2,25 @@ import { BlockBreakToken } from "../core/tokens.js";
 import { ConstraintSpace } from "../core/constraint-space.js";
 import { PhysicalFragment } from "../core/fragment.js";
 import { layoutChild } from "../core/layout-request.js";
-import { findChildBreakToken, isMonolithic, getMonolithicBlockSize } from "../core/helpers.js";
-import { EarlyBreak, BreakScore, scoreClassABreak, isBetterBreak, applyBreakInsideAvoid } from "../core/break-scoring.js";
-import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE, BOX_DECORATION_CLONE, EARLY_BREAK_BEFORE, EARLY_BREAK_INSIDE } from "../core/constants.js";
+import {
+  findChildBreakToken,
+  isMonolithic,
+  getMonolithicBlockSize,
+} from "../core/helpers.js";
+import {
+  EarlyBreak,
+  BreakScore,
+  scoreClassABreak,
+  isBetterBreak,
+  applyBreakInsideAvoid,
+} from "../core/break-scoring.js";
+import {
+  FRAGMENTATION_NONE,
+  FRAGMENTATION_PAGE,
+  BOX_DECORATION_CLONE,
+  EARLY_BREAK_BEFORE,
+  EARLY_BREAK_INSIDE,
+} from "../core/constants.js";
 
 // Skip break scoring when cumulative child content fills less than
 // this fraction of the fragmentainer — children this far from the
@@ -27,7 +43,12 @@ const SCORING_SKIP_THRESHOLD = 0.75;
  * - Pass 2: When earlyBreakTarget is provided, break at the designated
  *   node instead of waiting for space exhaustion.
  */
-export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBreakTarget = null) {
+export function* layoutBlockContainer(
+  node,
+  constraintSpace,
+  breakToken,
+  earlyBreakTarget = null,
+) {
   const children = node.children;
 
   // Leaf node — use intrinsic block size, no children to iterate.
@@ -40,12 +61,17 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     // Last resort (CSS Fragmentation §4.4): in page mode, slice at the
     // fragmentainer boundary when the element exceeds the full page.
     if (isMonolithic(node)) {
-      const availableSpace = constraintSpace.availableBlockSize > 0
-        ? constraintSpace.availableBlockSize
-        : constraintSpace.fragmentainerBlockSize - constraintSpace.blockOffsetInFragmentainer;
+      const availableSpace =
+        constraintSpace.availableBlockSize > 0
+          ? constraintSpace.availableBlockSize
+          : constraintSpace.fragmentainerBlockSize -
+            constraintSpace.blockOffsetInFragmentainer;
 
-      if (constraintSpace.fragmentationType === FRAGMENTATION_PAGE &&
-          remaining > availableSpace && availableSpace > 0) {
+      if (
+        constraintSpace.fragmentationType === FRAGMENTATION_PAGE &&
+        remaining > availableSpace &&
+        availableSpace > 0
+      ) {
         const fragment = new PhysicalFragment(node, availableSpace);
         fragment.inlineSize = constraintSpace.availableInlineSize;
         const token = new BlockBreakToken(node);
@@ -63,12 +89,17 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 
     // Non-monolithic leaves can fragment across fragmentainers.
     // Use availableBlockSize (accounts for ancestor padding/border reservations).
-    const availableSpace = constraintSpace.availableBlockSize > 0
-      ? constraintSpace.availableBlockSize
-      : constraintSpace.fragmentainerBlockSize - constraintSpace.blockOffsetInFragmentainer;
+    const availableSpace =
+      constraintSpace.availableBlockSize > 0
+        ? constraintSpace.availableBlockSize
+        : constraintSpace.fragmentainerBlockSize -
+          constraintSpace.blockOffsetInFragmentainer;
 
-    if (constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
-        remaining > availableSpace && availableSpace > 0) {
+    if (
+      constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
+      remaining > availableSpace &&
+      availableSpace > 0
+    ) {
       const fragment = new PhysicalFragment(node, availableSpace);
       fragment.inlineSize = constraintSpace.availableInlineSize;
       const token = new BlockBreakToken(node);
@@ -100,40 +131,51 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
   }
 
   // Container's own box insets (padding + border)
-  const containerBoxStart = (node.paddingBlockStart || 0) + (node.borderBlockStart || 0);
-  const containerBoxEnd = (node.paddingBlockEnd || 0) + (node.borderBlockEnd || 0);
+  const containerBoxStart =
+    (node.paddingBlockStart || 0) + (node.borderBlockStart || 0);
+  const containerBoxEnd =
+    (node.paddingBlockEnd || 0) + (node.borderBlockEnd || 0);
 
   // Start blockOffset at the container's top padding+border.
   // For slice (default): only on first fragment.
   // For clone: on every fragment (repeated decorations).
   const isClone = node.boxDecorationBreak === BOX_DECORATION_CLONE;
-  let blockOffset = (breakToken && !isClone) ? 0 : containerBoxStart;
+  let blockOffset = breakToken && !isClone ? 0 : containerBoxStart;
 
   // Track previous child's margin-end for collapsing with next child's margin-start
   let prevChildMarginEnd = 0;
 
   // Effective start of this container within the fragmentainer
-  const containerOffsetInFragmentainer = constraintSpace.blockOffsetInFragmentainer;
+  const containerOffsetInFragmentainer =
+    constraintSpace.blockOffsetInFragmentainer;
 
   // Check if earlyBreakTarget points into this node
   let earlyBreakForChild = null;
-  if (earlyBreakTarget && earlyBreakTarget.node === node && earlyBreakTarget.type === EARLY_BREAK_INSIDE) {
+  if (
+    earlyBreakTarget &&
+    earlyBreakTarget.node === node &&
+    earlyBreakTarget.type === EARLY_BREAK_INSIDE
+  ) {
     earlyBreakForChild = earlyBreakTarget.childEarlyBreak;
   }
 
   // Repeating table header: when resuming a table in page mode,
   // re-lay-out the thead at the top of this fragmentainer.
   let repeatedHeaderFragments = 0;
-  if (breakToken && node.isTable &&
-      constraintSpace.fragmentationType === FRAGMENTATION_PAGE) {
-    const thead = children.find(c => c.isTableHeaderGroup);
+  if (
+    breakToken &&
+    node.isTable &&
+    constraintSpace.fragmentationType === FRAGMENTATION_PAGE
+  ) {
+    const thead = children.find((c) => c.isTableHeaderGroup);
     if (thead && !findChildBreakToken(breakToken, thead)) {
       // thead completed in a previous fragmentainer — repeat it
       const headerConstraint = new ConstraintSpace({
         availableInlineSize: constraintSpace.availableInlineSize,
         availableBlockSize: constraintSpace.fragmentainerBlockSize,
         fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
-        blockOffsetInFragmentainer: containerOffsetInFragmentainer + blockOffset,
+        blockOffsetInFragmentainer:
+          containerOffsetInFragmentainer + blockOffset,
         fragmentationType: FRAGMENTATION_NONE,
       });
       const headerResult = yield layoutChild(thead, headerConstraint, null);
@@ -159,7 +201,9 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     }
 
     // isBreakBefore means "pushed to this fragmentainer, lay out fresh"
-    const effectiveChildBreakToken = childBreakToken?.isBreakBefore ? null : childBreakToken;
+    const effectiveChildBreakToken = childBreakToken?.isBreakBefore
+      ? null
+      : childBreakToken;
 
     // Add child's margin-before (collapsed with previous child's margin-end)
     const childMarginBefore = child.marginBlockStart || 0;
@@ -175,21 +219,31 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 
     // If the margin pushed us past the fragmentainer boundary, undo it and push
     // this child to the next fragmentainer. Margins adjoining a break are truncated.
-    if (constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
-        containerOffsetInFragmentainer + blockOffset >= constraintSpace.fragmentainerBlockSize &&
-        childFragments.length > 0) {
+    if (
+      constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
+      containerOffsetInFragmentainer + blockOffset >=
+        constraintSpace.fragmentainerBlockSize &&
+      childFragments.length > 0
+    ) {
       blockOffset = blockOffsetBeforeMargin;
       childBreakTokens.push(BlockBreakToken.createBreakBefore(child, false));
       break;
     }
 
     // Reserve space for container's bottom box inset when computing remaining space
-    const remainingSpace = constraintSpace.fragmentainerBlockSize
-      - containerOffsetInFragmentainer - blockOffset - containerBoxEnd;
+    const remainingSpace =
+      constraintSpace.fragmentainerBlockSize -
+      containerOffsetInFragmentainer -
+      blockOffset -
+      containerBoxEnd;
 
     // Pass 2: if earlyBreakTarget says "break before this child", do it now
-    if (earlyBreakForChild && earlyBreakForChild.node === child &&
-        earlyBreakForChild.type === EARLY_BREAK_BEFORE && blockOffset > 0) {
+    if (
+      earlyBreakForChild &&
+      earlyBreakForChild.node === child &&
+      earlyBreakForChild.type === EARLY_BREAK_BEFORE &&
+      blockOffset > 0
+    ) {
       childBreakTokens.push(BlockBreakToken.createBreakBefore(child, false));
       break;
     }
@@ -198,13 +252,19 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     // Fast-path: when cumulative heights show this child is well within
     // the fragmentainer (< 75% full), skip break scoring — no chance of
     // this being the best break point.
-    if (constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
-        i > startIndex && blockOffset > 0) {
+    if (
+      constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
+      i > startIndex &&
+      blockOffset > 0
+    ) {
       const cum = node.cumulativeHeights;
-      const skipScoring = cum &&
+      const skipScoring =
+        cum &&
         !earlyBreakTarget &&
-        (cum[i + 1] - cum[startIndex] + containerBoxStart) <
-        (constraintSpace.fragmentainerBlockSize - containerOffsetInFragmentainer) * SCORING_SKIP_THRESHOLD;
+        cum[i + 1] - cum[startIndex] + containerBoxStart <
+          (constraintSpace.fragmentainerBlockSize -
+            containerOffsetInFragmentainer) *
+            SCORING_SKIP_THRESHOLD;
 
       if (!skipScoring) {
         const prevChild = children[i - 1];
@@ -220,16 +280,29 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 
     // Forced break-before: break-before: page|column|always
     const breakBefore = child.breakBefore;
-    if (breakBefore && breakBefore !== "auto" && breakBefore !== "avoid" &&
-        !effectiveChildBreakToken && blockOffset > 0) {
-      const forcedToken = BlockBreakToken.createBreakBefore(child, true);
+    if (
+      breakBefore &&
+      breakBefore !== "auto" &&
+      breakBefore !== "avoid" &&
+      !effectiveChildBreakToken &&
+      blockOffset > 0
+    ) {
+      const forcedToken = BlockBreakToken.createBreakBefore(
+        child,
+        true,
+        breakBefore,
+      );
       childBreakTokens.push(forcedToken);
       break;
     }
 
     // Named page change forces a page break (CSS Paged Media §3)
-    if (constraintSpace.fragmentationType === FRAGMENTATION_PAGE &&
-        i > startIndex && !effectiveChildBreakToken && blockOffset > 0) {
+    if (
+      constraintSpace.fragmentationType === FRAGMENTATION_PAGE &&
+      i > startIndex &&
+      !effectiveChildBreakToken &&
+      blockOffset > 0
+    ) {
       const prevPage = children[i - 1].page || null;
       const thisPage = child.page || null;
       if (prevPage !== thisPage && (thisPage !== null || prevPage !== null)) {
@@ -251,8 +324,12 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     // break-inside: avoid elements (e.g. tables): push to next
     // fragmentainer when they don't fit, rather than stranding a
     // header row alone at the bottom of the page.
-    if (!isMonolithic(child) && child.breakInside === "avoid" &&
-        !effectiveChildBreakToken && blockOffset > 0) {
+    if (
+      !isMonolithic(child) &&
+      child.breakInside === "avoid" &&
+      !effectiveChildBreakToken &&
+      blockOffset > 0
+    ) {
       const childSize = child.blockSize || 0;
       if (childSize > remainingSpace) {
         childBreakTokens.push(BlockBreakToken.createBreakBefore(child, false));
@@ -270,7 +347,11 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     });
 
     // Yield layout request — driver runs child generator and returns result
-    const result = yield layoutChild(child, childConstraint, effectiveChildBreakToken);
+    const result = yield layoutChild(
+      child,
+      childConstraint,
+      effectiveChildBreakToken,
+    );
 
     childFragments.push(result.fragment);
     blockOffset += result.fragment.blockSize;
@@ -296,15 +377,24 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 
     // Forced break-after: break-after: page|column|always
     const breakAfter = child.breakAfter;
-    if (breakAfter && breakAfter !== "auto" && breakAfter !== "avoid" &&
-        i < children.length - 1) {
-      childBreakTokens.push(BlockBreakToken.createBreakBefore(children[i + 1], true));
+    if (
+      breakAfter &&
+      breakAfter !== "auto" &&
+      breakAfter !== "avoid" &&
+      i < children.length - 1
+    ) {
+      childBreakTokens.push(
+        BlockBreakToken.createBreakBefore(children[i + 1], true, breakAfter),
+      );
       break;
     }
 
     // Check if we've exceeded fragmentainer space
-    if (constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
-        containerOffsetInFragmentainer + blockOffset >= constraintSpace.fragmentainerBlockSize) {
+    if (
+      constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
+      containerOffsetInFragmentainer + blockOffset >=
+        constraintSpace.fragmentainerBlockSize
+    ) {
       if (i < children.length - 1) {
         // Space exhausted — check if we should use a better earlier break
         const exhaustionScore = scoreClassABreak(child, children[i + 1]);
@@ -312,31 +402,45 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 
         if (bestEarlyBreak && bestEarlyBreak.score < adjustedScore) {
           // A better break exists earlier — signal re-layout
-          const earlyBreak = new EarlyBreak(node, bestEarlyBreak.score, EARLY_BREAK_INSIDE);
+          const earlyBreak = new EarlyBreak(
+            node,
+            bestEarlyBreak.score,
+            EARLY_BREAK_INSIDE,
+          );
           earlyBreak.childEarlyBreak = bestEarlyBreak;
           return { fragment: null, breakToken: null, earlyBreak };
         }
 
-        childBreakTokens.push(BlockBreakToken.createBreakBefore(children[i + 1], false));
+        childBreakTokens.push(
+          BlockBreakToken.createBreakBefore(children[i + 1], false),
+        );
         break;
       }
     }
   }
 
-  hasSeenAllChildren = (childBreakTokens.length === 0) ||
-    (startIndex + childFragments.length - repeatedHeaderFragments >= children.length);
+  hasSeenAllChildren =
+    childBreakTokens.length === 0 ||
+    startIndex + childFragments.length - repeatedHeaderFragments >=
+      children.length;
 
   // Add the last child's trailing margin (was deferred for collapsing with next sibling).
   // Per CSS Fragmentation: margins adjoining a break are truncated to zero.
-  if (prevChildMarginEnd > 0 && childFragments.length > 0 && childBreakTokens.length === 0) {
+  if (
+    prevChildMarginEnd > 0 &&
+    childFragments.length > 0 &&
+    childBreakTokens.length === 0
+  ) {
     blockOffset += prevChildMarginEnd;
   }
 
   // Add container's bottom padding+border.
   // For slice: only on final fragment (all children placed, no break).
   // For clone: on every fragment (repeated decorations).
-  if ((hasSeenAllChildren && childBreakTokens.length === 0) ||
-      (isClone && childBreakTokens.length > 0)) {
+  if (
+    (hasSeenAllChildren && childBreakTokens.length === 0) ||
+    (isClone && childBreakTokens.length > 0)
+  ) {
     blockOffset += containerBoxEnd;
   }
 
@@ -344,9 +448,12 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
   // height (e.g. from CSS pseudo-elements, list markers, min-height), use
   // the measured height as a floor. Only applies when children were laid out
   // but all produced zero blockSize.
-  const boxStartIncluded = (!breakToken || isClone) ? containerBoxStart : 0;
-  const boxEndIncluded = ((hasSeenAllChildren && childBreakTokens.length === 0) ||
-    (isClone && childBreakTokens.length > 0)) ? containerBoxEnd : 0;
+  const boxStartIncluded = !breakToken || isClone ? containerBoxStart : 0;
+  const boxEndIncluded =
+    (hasSeenAllChildren && childBreakTokens.length === 0) ||
+    (isClone && childBreakTokens.length > 0)
+      ? containerBoxEnd
+      : 0;
   const contentHeight = blockOffset - boxStartIncluded - boxEndIncluded;
   if (contentHeight === 0 && childFragments.length > 0 && node.element) {
     const measuredHeight = node.blockSize;
@@ -361,8 +468,10 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
   // Covers both the case where no children were placed at all and the
   // case where children were placed but all have zero blockSize (e.g.
   // an <li> inline FC that had no room for even one line of text).
-  if (childBreakTokens.length > 0 &&
-      !childFragments.some(f => f.blockSize > 0)) {
+  if (
+    childBreakTokens.length > 0 &&
+    !childFragments.some((f) => f.blockSize > 0)
+  ) {
     blockOffset = 0;
   }
 
@@ -376,8 +485,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
     const containerToken = new BlockBreakToken(node);
     containerToken.consumedBlockSize =
       (breakToken?.consumedBlockSize || 0) + blockOffset;
-    containerToken.sequenceNumber =
-      (breakToken?.sequenceNumber ?? -1) + 1;
+    containerToken.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
     containerToken.childBreakTokens = childBreakTokens;
     containerToken.hasSeenAllChildren = hasSeenAllChildren;
     fragment.breakToken = containerToken;

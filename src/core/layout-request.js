@@ -1,5 +1,12 @@
 import { ConstraintSpace } from "./constraint-space.js";
+import { PhysicalFragment } from "./fragment.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
+import {
+  resolveForcedBreakValue,
+  resolveNextPageBreakBefore,
+  requiredPageSide,
+  isSideSpecificBreak,
+} from "./helpers.js";
 import { layoutBlockContainer } from "../layout/block-container.js";
 import { layoutFlexContainer } from "../layout/flex-container.js";
 import { layoutGridContainer } from "../layout/grid-container.js";
@@ -36,7 +43,13 @@ export function layoutChild(node, constraintSpace, breakToken = null) {
  * @param {Object|null} breakToken
  * @param {Object|null} [earlyBreakTarget] - For Pass 2: break at this target
  */
-export function runLayoutGenerator(generatorFn, node, constraintSpace, breakToken, earlyBreakTarget = null) {
+export function runLayoutGenerator(
+  generatorFn,
+  node,
+  constraintSpace,
+  breakToken,
+  earlyBreakTarget = null,
+) {
   const gen = generatorFn(node, constraintSpace, breakToken, earlyBreakTarget);
   let genResult = gen.next();
 
@@ -51,7 +64,7 @@ export function runLayoutGenerator(generatorFn, node, constraintSpace, breakToke
       childGenFn,
       request.node,
       request.constraintSpace,
-      request.breakToken
+      request.breakToken,
     );
 
     // If child returned an earlyBreak, propagate it up
@@ -99,7 +112,11 @@ export function getLayoutAlgorithm(node) {
  *   When continuation is null: returns a flat array (backwards compatible).
  *   When continuation is provided: returns { fragments, continuation } with final state.
  */
-export function createFragments(rootNode, constraintSpaceOrResolver, continuation = null) {
+export function createFragments(
+  rootNode,
+  constraintSpaceOrResolver,
+  continuation = null,
+) {
   const useResolver = typeof constraintSpaceOrResolver?.resolve === "function";
   const fragments = [];
   let breakToken = null;
@@ -109,13 +126,62 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
 
   const startIndex = continuation?.fragmentainerIndex ?? 0;
   const startOffset = continuation?.blockOffset ?? 0;
+  let continueAfterBlank = false;
 
-  for (let fragmentainerIndex = startIndex; breakToken !== null || fragmentainerIndex === startIndex; fragmentainerIndex++) {
+  for (
+    let fragmentainerIndex = startIndex;
+    breakToken !== null ||
+    fragmentainerIndex === startIndex ||
+    continueAfterBlank;
+    fragmentainerIndex++
+  ) {
+    continueAfterBlank = false;
+
+    // Check if a side-specific break requires a blank page
+    if (useResolver && constraintSpaceOrResolver.isLeftPage) {
+      let sideValue = resolveForcedBreakValue(breakToken);
+      if (!isSideSpecificBreak(sideValue)) {
+        const nextBreakBefore = resolveNextPageBreakBefore(
+          rootNode,
+          breakToken,
+        );
+        if (isSideSpecificBreak(nextBreakBefore)) {
+          sideValue = nextBreakBefore;
+        } else {
+          sideValue = null;
+        }
+      }
+      const side = requiredPageSide(sideValue);
+      if (side !== null) {
+        const isLeft = constraintSpaceOrResolver.isLeftPage(fragmentainerIndex);
+        const currentSide = isLeft ? "left" : "right";
+        if (currentSide !== side) {
+          const blankConstraints = constraintSpaceOrResolver.resolve(
+            fragmentainerIndex,
+            rootNode,
+            breakToken,
+            true,
+          );
+          const blankFragment = new PhysicalFragment(rootNode, 0);
+          blankFragment.isBlank = true;
+          blankFragment.constraints = blankConstraints;
+          blankFragment.breakToken = breakToken;
+          fragments.push(blankFragment);
+          continueAfterBlank = true;
+          continue;
+        }
+      }
+    }
+
     let constraintSpace;
     let constraints = null;
 
     if (useResolver) {
-      constraints = constraintSpaceOrResolver.resolve(fragmentainerIndex, rootNode, breakToken);
+      constraints = constraintSpaceOrResolver.resolve(
+        fragmentainerIndex,
+        rootNode,
+        breakToken,
+      );
       constraintSpace = constraints.toConstraintSpace();
     } else {
       constraintSpace = constraintSpaceOrResolver;
@@ -125,7 +191,8 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
     if (fragmentainerIndex === startIndex && startOffset > 0) {
       constraintSpace = new ConstraintSpace({
         availableInlineSize: constraintSpace.availableInlineSize,
-        availableBlockSize: constraintSpace.fragmentainerBlockSize - startOffset,
+        availableBlockSize:
+          constraintSpace.fragmentainerBlockSize - startOffset,
         fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
         blockOffsetInFragmentainer: startOffset,
         fragmentationType: constraintSpace.fragmentationType,
@@ -136,14 +203,20 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
     const rootAlgorithm = getLayoutAlgorithm(rootNode);
 
     let result = runLayoutGenerator(
-      rootAlgorithm, rootNode, constraintSpace, breakToken
+      rootAlgorithm,
+      rootNode,
+      constraintSpace,
+      breakToken,
     );
 
     // Two-pass: if layout returned an earlyBreak, re-run with it as target
     if (result.earlyBreak) {
       result = runLayoutGenerator(
-        rootAlgorithm, rootNode, constraintSpace, breakToken,
-        result.earlyBreak
+        rootAlgorithm,
+        rootNode,
+        constraintSpace,
+        breakToken,
+        result.earlyBreak,
       );
     }
 
@@ -155,9 +228,10 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
     breakToken = result.breakToken;
 
     // Accumulate counter state by walking this fragmentainer's fragment tree
-    const prevBT = fragmentainerIndex > startIndex
-      ? fragments[fragments.length - 2]?.breakToken ?? null
-      : null;
+    const prevBT =
+      fragmentainerIndex > startIndex
+        ? (fragments[fragments.length - 2]?.breakToken ?? null)
+        : null;
     walkFragmentTree(result.fragment, prevBT, counterState);
     if (!counterState.isEmpty()) {
       result.fragment.counterState = counterState.snapshot();
@@ -169,7 +243,9 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
     if (breakToken && result.fragment.blockSize === 0) {
       zeroProgressCount++;
       if (zeroProgressCount >= MAX_ZERO_PROGRESS) {
-        console.warn(`Fragmentainer: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers at index ${fragmentainerIndex + 1}`);
+        console.warn(
+          `Fragmentainer: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers at index ${fragmentainerIndex + 1}`,
+        );
         break;
       }
     } else {
@@ -181,14 +257,19 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
   if (continuation !== null) {
     const lastFragment = fragments[fragments.length - 1];
     const lastIndex = startIndex + fragments.length - 1;
-    const lastOffset = lastFragment ? lastFragment.blockSize + (fragments.length === 1 ? startOffset : 0) : 0;
-    const pageBlockSize = lastFragment?.constraints?.contentArea?.blockSize
-      ?? constraintSpaceOrResolver?.fragmentainerBlockSize ?? 0;
+    const lastOffset = lastFragment
+      ? lastFragment.blockSize + (fragments.length === 1 ? startOffset : 0)
+      : 0;
+    const pageBlockSize =
+      lastFragment?.constraints?.contentArea?.blockSize ??
+      constraintSpaceOrResolver?.fragmentainerBlockSize ??
+      0;
 
     return {
       fragments,
       continuation: {
-        fragmentainerIndex: lastOffset >= pageBlockSize ? lastIndex + 1 : lastIndex,
+        fragmentainerIndex:
+          lastOffset >= pageBlockSize ? lastIndex + 1 : lastIndex,
         blockOffset: lastOffset >= pageBlockSize ? 0 : lastOffset,
       },
     };

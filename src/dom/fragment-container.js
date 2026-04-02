@@ -36,6 +36,7 @@ export class FragmentContainerElement extends HTMLElement {
   #nthFormulas = null;
   #expectedBlockSize = null;
   #overflowThreshold = 0;
+  #namedPage = null;
 
   constructor() {
     super();
@@ -64,6 +65,13 @@ export class FragmentContainerElement extends HTMLElement {
   }
   set fragmentIndex(idx) {
     this.#fragmentIndex = idx;
+  }
+
+  get namedPage() {
+    return this.#namedPage;
+  }
+  set namedPage(value) {
+    this.#namedPage = value || null;
   }
 
   /**

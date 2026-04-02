@@ -62,6 +62,7 @@ export class PageConstraints {
    * @param {{ inlineSize: number, blockSize: number }} opts.contentArea - The fragmentainer
    * @param {boolean} opts.isFirstPage
    * @param {boolean} opts.isLeftPage
+   * @param {boolean} [opts.isBlank]
    */
   constructor({
     pageIndex,
@@ -71,6 +72,7 @@ export class PageConstraints {
     contentArea,
     isFirstPage,
     isLeftPage,
+    isBlank = false,
   }) {
     this.pageIndex = pageIndex;
     this.namedPage = namedPage;
@@ -79,6 +81,7 @@ export class PageConstraints {
     this.contentArea = contentArea;
     this.isFirstPage = isFirstPage;
     this.isLeftPage = isLeftPage;
+    this.isBlank = isBlank;
   }
 
   /** Build a ConstraintSpace for layout from these page constraints. */
@@ -145,11 +148,11 @@ export class PageSizeResolver {
    * @param {import('./tokens.js').BreakToken|null} breakToken - Current break token
    * @returns {PageConstraints}
    */
-  resolve(pageIndex, rootNode, breakToken) {
+  resolve(pageIndex, rootNode, breakToken, isBlank = false) {
     const namedPage = rootNode
       ? resolveNamedPageForBreakToken(rootNode, breakToken)
       : null;
-    const matchingRules = this.matchRules(pageIndex, namedPage);
+    const matchingRules = this.matchRules(pageIndex, namedPage, isBlank);
     const resolved = this.cascadeRules(matchingRules);
     const pageSize = this.resolveSize(resolved.size);
     const orientedSize = this.applyOrientation(
@@ -170,6 +173,7 @@ export class PageSizeResolver {
       contentArea,
       isFirstPage: pageIndex === 0,
       isLeftPage: this.isLeftPage(pageIndex),
+      isBlank,
     });
   }
 
@@ -178,7 +182,7 @@ export class PageSizeResolver {
    * A rule matches if its name matches (or is universal) AND its pseudo-class
    * matches (or has none).
    */
-  matchRules(pageIndex, namedPage) {
+  matchRules(pageIndex, namedPage, isBlank = false) {
     return this.pageRules.filter((rule) => {
       // Named rule must match the page's named page
       if (rule.name && rule.name !== namedPage) return false;
@@ -189,7 +193,7 @@ export class PageSizeResolver {
         return false;
       if (rule.pseudoClass === "right" && this.isLeftPage(pageIndex))
         return false;
-      if (rule.pseudoClass === "blank") return false; // not yet supported
+      if (rule.pseudoClass === "blank" && !isBlank) return false;
 
       return true;
     });

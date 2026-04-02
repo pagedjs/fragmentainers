@@ -37,6 +37,10 @@ export const ALGORITHM_GRID = "GridData";
 export const ALGORITHM_TABLE_ROW = "TableRowData";
 export const ALGORITHM_MULTICOL = "MulticolData";
 
+// Default overflow threshold: browser default line height (16px * 1.2).
+// Used when the fragment's root node has no computed lineHeight.
+export const DEFAULT_OVERFLOW_THRESHOLD = 16 * 1.2;
+
 // Named page sizes (CSS pixels at 96 DPI)
 export const NAMED_SIZES = {
   A6:     { inlineSize: 397,  blockSize: 559  },

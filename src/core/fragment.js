@@ -13,6 +13,7 @@ export class PhysicalFragment {
     this.multicolData = null;
     this.lineCount = 0;
     this.isRepeated = false;
+    this.isBlank = false;
     this.counterState = null;
   }
 }

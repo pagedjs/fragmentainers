@@ -1,7 +1,7 @@
 import { InlineBreakToken } from "../core/tokens.js";
 import { PhysicalFragment } from "../core/fragment.js";
 import { BreakScore } from "../core/break-scoring.js";
-import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../core/constants.js";
+import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC, DEFAULT_OVERFLOW_THRESHOLD } from "../core/constants.js";
 
 /**
  * Break a single line from inline items starting at the given position.
@@ -240,7 +240,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 
   const inlineItems = node.inlineItemsData;
   const measurer = node.measurer;
-  const lineHeight = node.lineHeight || 20;
+  const lineHeight = node.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
 
   // Guard: if no inline items data, return empty fragment
   if (!inlineItems || !inlineItems.items || inlineItems.items.length === 0) {

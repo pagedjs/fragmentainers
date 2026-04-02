@@ -12,6 +12,7 @@ export class BreakToken {
     this.node = node;           // reference to the layout node
     this.isBreakBefore = false;
     this.isForcedBreak = false;
+    this.forcedBreakValue = null;
     this.isRepeated = false;
     this.isAtBlockEnd = false;
     this.hasSeenAllChildren = false;
@@ -42,10 +43,11 @@ export class BlockBreakToken extends BreakToken {
    * Used when a node doesn't fit and is pushed to the next fragmentainer,
    * or when a forced break (break-before: page) is requested.
    */
-  static createBreakBefore(node, isForcedBreak = false) {
+  static createBreakBefore(node, isForcedBreak = false, forcedBreakValue = null) {
     const token = new BlockBreakToken(node);
     token.isBreakBefore = true;
     token.isForcedBreak = isForcedBreak;
+    if (forcedBreakValue) token.forcedBreakValue = forcedBreakValue;
     return token;
   }
 

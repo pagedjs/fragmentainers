@@ -4,7 +4,9 @@ import { renderFragmentTree } from "../compositor/render-fragments.js";
 import { PageSizeResolver } from "../atpage/page-rules.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
-import { FRAGMENTATION_COLUMN } from "./constants.js";
+import { PhysicalFragment } from "./fragment.js";
+import { FRAGMENTATION_COLUMN, DEFAULT_OVERFLOW_THRESHOLD } from "./constants.js";
+import { resolveForcedBreakValue, resolveNextPageBreakBefore, requiredPageSide, isSideSpecificBreak } from "./helpers.js";
 import "../dom/content-measure.js";
 
 function buildLayoutTree(rootElement) {
@@ -110,6 +112,43 @@ export class FragmentainerLayout {
    */
   next() {
 
+    // Check if a side-specific break requires a blank page before layout.
+    // Two sources: (a) forcedBreakValue on the break token, (b) breakBefore
+    // CSS on the first child when blockOffset === 0 suppressed the forced break.
+    if (this.#resolver) {
+      let sideValue = resolveForcedBreakValue(this.#breakToken);
+      if (!isSideSpecificBreak(sideValue)) {
+        const nextBreakBefore = resolveNextPageBreakBefore(this.#tree, this.#breakToken);
+        if (isSideSpecificBreak(nextBreakBefore)) {
+          sideValue = nextBreakBefore;
+        } else {
+          sideValue = null;
+        }
+      }
+      const side = requiredPageSide(sideValue);
+      if (side !== null) {
+        const isLeft = this.#resolver.isLeftPage(this.#fragmentainerIndex);
+        const currentSide = isLeft ? "left" : "right";
+        if (currentSide !== side) {
+          // Wrong side — emit a blank page without running layout
+          const blankConstraints = this.#resolver.resolve(
+            this.#fragmentainerIndex,
+            this.#tree,
+            this.#breakToken,
+            true,
+          );
+          const blankFragment = new PhysicalFragment(this.#tree, 0);
+          blankFragment.isBlank = true;
+          blankFragment.constraints = blankConstraints;
+          blankFragment.breakToken = this.#breakToken;
+          this.#prevFragment = blankFragment;
+          this.#fragmentainerIndex++;
+          this.#fragments.push(blankFragment);
+          return blankFragment;
+        }
+      }
+    }
+
     // Resolve constraint space for this fragmentainer
     let constraintSpace;
     let constraints = null;
@@ -182,7 +221,7 @@ export class FragmentainerLayout {
       fragment = this.next();
       fragments.push(fragment);
 
-      if (fragment.breakToken && fragment.blockSize === 0) {
+      if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
         zeroProgressCount++;
         if (zeroProgressCount >= MAX_ZERO_PROGRESS) {
           console.warn(
@@ -193,7 +232,7 @@ export class FragmentainerLayout {
       } else {
         zeroProgressCount = 0;
       }
-    } while (fragment.breakToken !== null);
+    } while (fragment.breakToken !== null || fragment.isBlank);
 
     // Layout is done — release the measurer. Rendering only needs
     // cloneNode/getAttribute/tagName, which work on detached elements.
@@ -470,14 +509,26 @@ export class FragmentedFlow {
   renderFragmentainer(index) {
     const fragment = this.#fragments[index];
     const { contentArea } = fragment.constraints;
-    const prevBreakToken =
-      index > 0 ? this.#fragments[index - 1].breakToken : null;
 
     const el = document.createElement("fragment-container");
     el.fragmentIndex = index;
+    el.namedPage = fragment.constraints?.namedPage ?? null;
     el.style.width = `${contentArea.inlineSize}px`;
     el.style.height = `${contentArea.blockSize}px`;
     el.style.overflow = "hidden";
+
+    if (fragment.isBlank) {
+      const counterSnapshot =
+        index > 0 ? this.#fragments[index - 1].counterState : null;
+      el.setupForRendering(this.#contentStyles, counterSnapshot);
+      el.setAttribute("data-blank-page", "");
+      el.expectedBlockSize = contentArea.blockSize;
+      el.overflowThreshold = 0;
+      return el;
+    }
+
+    const prevBreakToken =
+      index > 0 ? this.#fragments[index - 1].breakToken : null;
     const counterSnapshot =
       index > 0 ? this.#fragments[index - 1].counterState : null;
     const wrapper = el.setupForRendering(this.#contentStyles, counterSnapshot);
@@ -490,7 +541,7 @@ export class FragmentedFlow {
       ),
     );
     el.expectedBlockSize = contentArea.blockSize;
-    el.overflowThreshold = fragment.node?.lineHeight || 20;
+    el.overflowThreshold = fragment.node?.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
     return el;
   }
 
@@ -529,12 +580,12 @@ export class FragmentedFlow {
     do {
       fragment = this.#layout.next();
       newFragments.push(fragment);
-      if (fragment.breakToken && fragment.blockSize === 0) {
+      if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
         if (++zeroProgressCount >= MAX_ZERO_PROGRESS) break;
       } else {
         zeroProgressCount = 0;
       }
-    } while (fragment.breakToken !== null);
+    } while (fragment.breakToken !== null || fragment.isBlank);
 
     // Layout is done — release the measurer before rendering.
     this.#layout.releaseMeasurer();

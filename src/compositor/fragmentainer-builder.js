@@ -1,4 +1,5 @@
 import { renderFragmentTree } from "./render-fragments.js";
+import { DEFAULT_OVERFLOW_THRESHOLD } from "../core/constants.js";
 
 /**
  * Get the fragmentainer size for a given index.
@@ -32,6 +33,8 @@ export async function buildFragmentainerElement(fragmentainerIndex, fragments, f
   const prevBreakToken = fragmentainerIndex > 0 ? fragments[fragmentainerIndex - 1].breakToken : null;
 
   const fragEl = document.createElement("fragment-container");
+  fragEl.fragmentIndex = fragmentainerIndex;
+  fragEl.namedPage = fragment.constraints?.namedPage ?? null;
   fragEl.style.width = `${size.inlineSize}px`;
   fragEl.style.height = `${size.blockSize}px`;
   fragEl.style.overflow = "hidden";
@@ -39,9 +42,18 @@ export async function buildFragmentainerElement(fragmentainerIndex, fragments, f
   const counterSnapshot = fragmentainerIndex > 0
     ? fragments[fragmentainerIndex - 1].counterState
     : null;
+
+  if (fragment.isBlank) {
+    fragEl.setupForRendering(contentStyles, counterSnapshot);
+    fragEl.setAttribute("data-blank-page", "");
+    fragEl.expectedBlockSize = size.blockSize;
+    fragEl.overflowThreshold = 0;
+    return fragEl;
+  }
+
   const wrapper = fragEl.setupForRendering(contentStyles, counterSnapshot);
   wrapper.appendChild(renderFragmentTree(fragment, prevBreakToken, fragEl.nthFormulas));
   fragEl.expectedBlockSize = size.blockSize;
-  fragEl.overflowThreshold = fragment.node?.lineHeight || 20;
+  fragEl.overflowThreshold = fragment.node?.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
   return fragEl;
 }

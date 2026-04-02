@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { FragmentainerLayout, FragmentedFlow } from "../src/core/fragmentainer-layout.js";
+import { buildFragmentainerElement } from "../src/compositor/fragmentainer-builder.js";
+import "../src/dom/fragment-container.js";
 
 describe("FragmentainerLayout.flow() (browser)", () => {
   let layout;
@@ -78,5 +80,39 @@ describe("FragmentainerLayout.flow() (browser)", () => {
     // Original element should still be in the DOM (was cloned, not moved)
     expect(container.firstElementChild).toBe(el);
     container.remove();
+  });
+
+});
+
+describe("namedPage property", () => {
+  it("fragment-container has a namedPage property", () => {
+    const el = document.createElement("fragment-container");
+    expect(el.namedPage).toBeNull();
+    el.namedPage = "chapter";
+    expect(el.namedPage).toBe("chapter");
+    el.namedPage = null;
+    expect(el.namedPage).toBeNull();
+  });
+
+  it("sets namedPage property from fragment constraints", async () => {
+    const size = { inlineSize: 400, blockSize: 800 };
+    const contentStyles = { sheets: [], nthFormulas: new Map() };
+    const fragments = [
+      { node: null, blockSize: 0, childFragments: [], breakToken: null, isBlank: false,
+        constraints: { contentArea: size, namedPage: "cover" }, counterState: null },
+      { node: null, blockSize: 0, childFragments: [], breakToken: null, isBlank: false,
+        constraints: { contentArea: size, namedPage: "chapter" }, counterState: null },
+      { node: null, blockSize: 0, childFragments: [], breakToken: null, isBlank: false,
+        constraints: { contentArea: size, namedPage: null }, counterState: null },
+    ];
+
+    const elements = [];
+    for (let i = 0; i < fragments.length; i++) {
+      elements.push(await buildFragmentainerElement(i, fragments, [size], contentStyles));
+    }
+
+    expect(elements[0].namedPage).toBe("cover");
+    expect(elements[1].namedPage).toBe("chapter");
+    expect(elements[2].namedPage).toBeNull();
   });
 });
