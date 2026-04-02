@@ -9,7 +9,7 @@ export { layoutBlockContainer } from "./layout/block-container.js";
 export { layoutInlineContent } from "./layout/inline-content.js";
 export { layoutTableRow } from "./layout/table-row.js";
 export { buildLayoutTree, DOMLayoutNode } from "./dom/index.js";
-export { renderFragmentTree, renderFragment, hasBlockChildFragments, buildInlineContent, getFragmentainerSize, buildFragmentainerElement } from "./compositor/index.js";
+export { renderFragmentTree, renderFragment, hasBlockChildFragments, buildInlineContent, getFragmentainerSize } from "./compositor/index.js";
 export { FragmentainerLayout, FragmentedFlow } from "./core/fragmentainer-layout.js";
 export { RegionResolver, RegionConstraints } from "./regions/region-resolver.js";
 export { CounterState, parseCounterDirective, walkFragmentTree } from "./core/counter-state.js";

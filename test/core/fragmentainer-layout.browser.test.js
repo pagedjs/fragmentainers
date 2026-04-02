@@ -1,6 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { FragmentainerLayout, FragmentedFlow } from "../../src/core/fragmentainer-layout.js";
-import { buildFragmentainerElement } from "../../src/compositor/fragmentainer-builder.js";
 import "../../src/dom/fragment-container.js";
 
 describe("FragmentainerLayout.flow() (browser)", () => {
@@ -154,9 +153,10 @@ describe("namedPage property", () => {
         constraints: { contentArea: size, namedPage: null }, counterState: null },
     ];
 
+    const flow = new FragmentedFlow(fragments, contentStyles);
     const elements = [];
     for (let i = 0; i < fragments.length; i++) {
-      elements.push(await buildFragmentainerElement(i, fragments, [size], contentStyles));
+      elements.push(flow.renderFragmentainer(i));
     }
 
     expect(elements[0].namedPage).toBe("cover");

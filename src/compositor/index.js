@@ -7,5 +7,4 @@ export {
 
 export {
   getFragmentainerSize,
-  buildFragmentainerElement,
 } from "./fragmentainer-builder.js";
