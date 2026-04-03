@@ -6,7 +6,7 @@
     display: flex;
     flex-direction: row;
   }
-  .page {
+  fake-page {
     width: 816px;
     height: 1056px;
     box-sizing: border-box;
@@ -17,7 +17,7 @@
   .mate-pro {
     page: matePro;
   }
-  .page.matePro {
+  fake-page.matePro {
     width: 816px;
     height: 1056px;
   }
@@ -35,14 +35,10 @@
   tr,
   td {
     break-inside: avoid;
-  }
-  .body {
-    flex-grow: 1;
-  }
-</style>
-<section class="page">
-  <section class="body">
-    <section class="mate-pro">
+  }</style>
+<script type="module" src="/debug/fake-page.js"></script>
+<fake-page>
+      <section class="mate-pro">
       <div class="mate-header">header</div>
       <div class="mate-footer">footer</div>
       <table>
@@ -166,11 +162,10 @@
         </tbody>
       </table>
     </section>
-  </section>
-  </section>
-  <section class="page">
-  <section class="body">
-    <section class="mate-pro">
+  
+  </fake-page>
+  <fake-page>
+      <section class="mate-pro">
       <tbody>
           <tr>
             <td>2</td>
@@ -224,5 +219,5 @@
         </tbody>
       </table>
     </section>
-  </section>
-</section>
+  
+</fake-page>

@@ -7,7 +7,7 @@
     display: flex;
     flex-direction: column;
   }
-  .page {
+  fake-page {
     width: 140mm;
     height: 205mm;
     padding: 12mm 12mm;
@@ -25,20 +25,16 @@
   }
   strong {
     color: blue;
-  }
-  .body {
-    flex-grow: 1;
-  }
-  .continuation,
+  }  .continuation,
   .continuation > * {
     margin-block-start: 0;
     padding-block-start: 0;
     border-block-start: none;
   }
 </style>
-<section class="page">
-  <section class="body">
-    <section>
+<script type="module" src="/debug/fake-page.js"></script>
+<fake-page>
+      <section>
       <h3>This is a new section</h3>
       <p>
         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam malesuada
@@ -77,11 +73,10 @@
         </ol>
       </div>
     </section>
-  </section>
-</section>
-<section class="page">
-  <section class="body">
-    <section class="continuation">
+  
+</fake-page>
+<fake-page>
+      <section class="continuation">
       <div class="continuation">
         <ol start="6" class="continuation">
           <li>Item 6</li>
@@ -133,11 +128,10 @@
         </ul>
       </div>
     </section>
-  </section>
-</section>
-<section class="page">
-  <section class="body">
-    <section class="continuation">
+  
+</fake-page>
+<fake-page>
+      <section class="continuation">
       <div class="continuation">
         <ul class="continuation">
           <li>Suspendisse commodo ullamcorper magna.</li>
@@ -162,5 +156,5 @@
         </ul>
       </div>
     </section>
-  </section>
-</section>
+  
+</fake-page>

@@ -7,7 +7,7 @@
     display: flex;
     flex-direction: column;
   }
-  .page {
+  fake-page {
     width: 377.953px;
     height: 377.953px;
     padding: 0px 11.3386px;
@@ -16,37 +16,7 @@
     display: flex;
     flex-shrink: 0;
   }
-  .body {
-    flex-grow: 1;
-  }
-
-  /* Split element overrides (matches compositor shadow DOM) */
-  [data-split-from] {
-    text-indent: unset !important;
-    margin-block-start: unset !important;
-    padding-block-start: unset !important;
-    initial-letter: unset !important;
-    counter-increment: unset !important;
-    counter-set: unset !important;
-  }
-  [data-split-from]:not(ol) {
-    counter-reset: unset !important;
-  }
-  [data-split-from]::before {
-    content: unset !important;
-  }
-  li[data-split-from]:first-of-type {
-    list-style: none !important;
-  }
-  [data-split-to] {
-    margin-block-end: unset !important;
-    padding-block-end: unset !important;
-  }
-  [data-split-to]::after {
-    content: unset !important;
-  }
-
-  /* Test styles */
+/* Test styles */
   p {
       font-size: 80pt;
       margin: 0;
@@ -56,23 +26,20 @@
       hyphens: auto;
     }
 </style>
-<section class="page">
-  <section class="body">
-<p>CSS IS AWE­SOME!</p><p data-split-to=""></p>
-  </section>
-</section>
-<section class="page">
-  <section class="body">
-<p data-split-from="" data-split-to="">The quick brown</p>
-  </section>
-</section>
-<section class="page">
-  <section class="body">
-<p data-split-from="" data-split-to="">fox jumps overrrr</p>
-  </section>
-</section>
-<section class="page">
-  <section class="body">
-<p data-split-from="">—the lazy dog.</p>
-  </section>
-</section>
+<script type="module" src="/debug/fake-page.js"></script>
+<fake-page>
+  <p>CSS IS AWE­SOME!</p><p data-split-to=""></p>
+  
+</fake-page>
+<fake-page>
+  <p data-split-from="" data-split-to="">The quick brown</p>
+  
+</fake-page>
+<fake-page>
+  <p data-split-from="" data-split-to="">fox jumps overrrr</p>
+  
+</fake-page>
+<fake-page>
+  <p data-split-from="">—the lazy dog.</p>
+  
+</fake-page>

@@ -7,7 +7,7 @@
       display: flex;
       flex-direction: column;
     }
-    .page {
+    fake-page {
       all: initial;
       display: flex;
       contain: strict;
@@ -18,37 +18,7 @@
       overflow: hidden;
       flex-shrink: 0;
     }
-    .body {
-      flex-grow: 1;
-    }
-
-    /* Split element overrides (matches compositor shadow DOM) */
-    [data-split-from] {
-      text-indent: unset !important;
-      margin-block-start: unset !important;
-      padding-block-start: unset !important;
-      initial-letter: unset !important;
-      counter-increment: unset !important;
-      counter-set: unset !important;
-    }
-    [data-split-from]:not(ol) {
-      counter-reset: unset !important;
-    }
-    [data-split-from]::before {
-      content: unset !important;
-    }
-    li[data-split-from]:first-of-type {
-      list-style: none !important;
-    }
-    [data-split-to] {
-      margin-block-end: unset !important;
-      padding-block-end: unset !important;
-    }
-    [data-split-to]::after {
-      content: unset !important;
-    }
-
-    p {
+p {
       widows: 3;
       orphans: 3;
     }
@@ -57,9 +27,9 @@
       color: purple;
     }
   </style>
-  <section class="page">
-    <section class="body">
-      <section
+<script type="module" src="/debug/fake-page.js"></script>
+  <fake-page>
+          <section
         data-split-to=""
         style="border-block-end: none; padding-block-end: 0px"
       >
@@ -74,11 +44,10 @@
           libero sapiente, ratione necessitatibus sint voluptate nulla sequi
         </p>
       </section>
-    </section>
-  </section>
-  <section class="page">
-    <section class="body">
-      <section
+    
+  </fake-page>
+  <fake-page>
+          <section
         data-split-from=""
         data-split-to=""
         style="border-block: none; padding-block: 0px"
@@ -102,11 +71,10 @@
           ex laudantium iure id amet quam non, sit vero
         </p>
       </section>
-    </section>
-  </section>
-  <section class="page">
-    <section class="body">
-      <section
+    
+  </fake-page>
+  <fake-page>
+          <section
         data-split-from=""
         data-split-to=""
         style="border-block: none; padding-block: 0px"
@@ -126,11 +94,10 @@
           possimus commodi. Ipsam placeat voluptas explicabo omnis
         </p>
       </section>
-    </section>
-  </section>
-  <section class="page">
-    <section class="body">
-      <section
+    
+  </fake-page>
+  <fake-page>
+          <section
         data-split-from=""
         data-split-to=""
         style="border-block: none; padding-block: 0px"
@@ -149,11 +116,10 @@
           suscipit debitis
         </p>
       </section>
-    </section>
-  </section>
-  <section class="page">
-    <section class="body">
-      <section
+    
+  </fake-page>
+  <fake-page>
+          <section
         data-split-from=""
         data-split-to=""
         style="border-block: none; padding-block: 0px"
@@ -172,11 +138,10 @@
           maiores
         </p>
       </section>
-    </section>
-  </section>
-  <section class="page">
-    <section class="body">
-      <section
+    
+  </fake-page>
+  <fake-page>
+          <section
         data-split-from=""
         data-split-to=""
         style="border-block: none; padding-block: 0px"
@@ -195,11 +160,10 @@
           libero sapiente, ratione necessitatibus sint voluptate nulla sequi
         </p>
       </section>
-    </section>
-  </section>
-  <section class="page">
-    <section class="body">
-      <section
+    
+  </fake-page>
+  <fake-page>
+          <section
         data-split-from=""
         data-split-to=""
         style="border-block: none; padding-block: 0px"
@@ -217,11 +181,10 @@
           quidem provident impedit veritatis repellendus et. Illum quae
         </p>
       </section>
-    </section>
-  </section>
-  <section class="page">
-    <section class="body">
-      <section
+    
+  </fake-page>
+  <fake-page>
+          <section
         data-split-from=""
         data-split-to=""
         style="border-block: none; padding-block: 0px"
@@ -241,11 +204,10 @@
           repudiandae dolorum suscipit soluta accusamus voluptate
         </p>
       </section>
-    </section>
-  </section>
-  <section class="page">
-    <section class="body">
-      <section
+    
+  </fake-page>
+  <fake-page>
+          <section
         data-split-from=""
         data-split-to=""
         style="border-block: none; padding-block: 0px"
@@ -264,11 +226,10 @@
           dolorem delectus id! Autem
         </p>
       </section>
-    </section>
-  </section>
-  <section class="page">
-    <section class="body">
-      <section
+    
+  </fake-page>
+  <fake-page>
+          <section
         data-split-from=""
         style="border-block-start: none; padding-block-start: 0px"
       >
@@ -284,6 +245,6 @@
           maiores tenetur veniam. Quibusdam, nam porro. Illo, doloremque ex.
         </p>
       </section>
-    </section>
-  </section>
+    
+  </fake-page>
 </html>

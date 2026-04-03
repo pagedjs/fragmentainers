@@ -1,14 +1,46 @@
-import {
-  findChildBreakToken,
-  isMonolithic,
-  debugPrintTokenTree,
-} from "../src/core/helpers.js";
+import { findChildBreakToken, isMonolithic } from "../src/core/helpers.js";
+import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "../src/constants.js";
+
+/**
+ * Debug utility — pretty-print a break token tree.
+ */
+export function debugPrintTokenTree(breakToken, indent = 0) {
+  if (!breakToken) return "(null)";
+
+  const pad = "  ".repeat(indent) + "- ";
+  const flags = [];
+  if (breakToken.isBreakBefore) flags.push("break-before");
+  if (breakToken.isForcedBreak) flags.push("forced");
+  if (breakToken.forcedBreakValue)
+    flags.push(`value=${breakToken.forcedBreakValue}`);
+  if (breakToken.isRepeated) flags.push("repeated");
+  if (breakToken.isAtBlockEnd) flags.push("at-block-end");
+  if (breakToken.hasSeenAllChildren) flags.push("seen-all");
+
+  let line = `${pad}${breakToken.type}`;
+  if (breakToken.node?.debugName) line += ` [${breakToken.node.debugName}]`;
+  if (breakToken.type === BREAK_TOKEN_BLOCK) {
+    line += ` consumed=${breakToken.consumedBlockSize} seq=${breakToken.sequenceNumber}`;
+  }
+  if (breakToken.type === BREAK_TOKEN_INLINE) {
+    line += ` item=${breakToken.itemIndex} offset=${breakToken.textOffset}`;
+  }
+  if (flags.length) line += ` (${flags.join(", ")})`;
+
+  const lines = [line];
+  if (breakToken.childBreakTokens) {
+    for (const child of breakToken.childBreakTokens) {
+      lines.push(debugPrintTokenTree(child, indent + 1));
+    }
+  }
+  return lines.join("\n");
+}
 
 /**
  * Build a text dump for a single page fragment.
  * Returns { text: string, hasIssues: boolean }.
  */
-export function buildPageDump(fragments, i, pageH) {
+export function buildPageDump(fragments, i, pageH, elementSpans, fragW, fragH) {
   const lines = [];
   const log = (...args) => lines.push(args.join(" "));
 
@@ -45,42 +77,63 @@ export function buildPageDump(fragments, i, pageH) {
     ? `breakToken(consumed=${page.breakToken.consumedBlockSize.toFixed(1)} children=${page.breakToken.childBreakTokens.length})`
     : "breakToken=null";
   const csInfo = page.constraints
-    ? ` constraints={content: ${page.constraints.contentArea.inlineSize}x${page.constraints.contentArea.blockSize}}`
+    ? `constraints={content: ${page.constraints.contentArea.inlineSize}x${page.constraints.contentArea.blockSize}}`
     : "";
-  const issueTag = hasIssues ? ` *** ${issues.length} ISSUE(S)` : "";
+  const issueTag = hasIssues ? `Issues: ${issues.length}` : "";
 
-  log(
-    `## Page ${i + 1}/${fragments.length}  blockSize=${page.blockSize.toFixed(2)}  remaining=${remaining.toFixed(2)}  ${btInfo}${csInfo}${issueTag}`,
-  );
+  log(`### Page ${i + 1}`);
+  log(`pageSize: ${fragW}x${fragH}`);
+  log(`blockSize: ${page.blockSize.toFixed(2)}`);
+  log(`remaining: ${remaining.toFixed(2)}`);
+  log(`${issueTag}`);
+
+  log("#### Layout:");
+  log(`- ${btInfo}`);
+  log(`- ${csInfo}`);
 
   const textSegments = collectPageTextSegments(page, prevBT);
   if (textSegments.length > 0) {
-    log(`  first text: "${truncate(textSegments[0], 80)}"`);
+    log(`- first text: "${truncate(textSegments[0], 80)}"`);
     if (textSegments.length > 1) {
       log(
-        `  last text:  "${truncateStart(textSegments[textSegments.length - 1], 80)}"`,
+        `- last text: "${truncateStart(textSegments[textSegments.length - 1], 80)}"`,
       );
     }
   }
 
   log(
-    `  childFragments: ${page.childFragments.filter((f) => f.node).length}  childSum=${childSum.toFixed(2)}  gap=${gap.toFixed(2)}  remaining=${remaining.toFixed(2)}`,
+    `- childFragments: ${page.childFragments.filter((f) => f.node).length}  childSum=${childSum.toFixed(2)}  gap=${gap.toFixed(2)}  remaining=${remaining.toFixed(2)}`,
   );
 
   for (const info of childData) {
-    printFragmentInfo(info, log, "  ");
+    printFragmentInfo(info, log, 0);
+  }
+
+  if (elementSpans) {
+    const pageSpanning = [];
+    for (const [name, [first, last]] of elementSpans) {
+      if (last > first && first <= i && last >= i) {
+        pageSpanning.push(`${name} (pages ${first + 1}-${last + 1})`);
+      }
+    }
+    if (pageSpanning.length > 0) {
+      log(`\n#### Spanning elements (${pageSpanning.length}):`);
+      for (const s of pageSpanning) {
+        log(`- ${s}`);
+      }
+    }
   }
 
   if (hasIssues) {
-    log("  ISSUES:");
+    log("\n#### Issues:");
     for (const issue of issues) {
-      log(`    - ${issue}`);
+      log(`- ${issue}`);
     }
   }
 
   if (page.breakToken) {
-    log("  breakTokenTree:");
-    log(debugPrintTokenTree(page.breakToken, 2));
+    log("\n#### BreakTokens:");
+    log(debugPrintTokenTree(page.breakToken, 0));
   }
   log("");
 
@@ -90,49 +143,36 @@ export function buildPageDump(fragments, i, pageH) {
 /**
  * Build a document-level summary across all fragments.
  */
-export function buildDocumentSummary(fragments, pageH) {
+export function buildDocumentSummary(fragments) {
   const lines = [];
   let totalContentHeight = 0;
   let overflowPages = 0;
   let forcedBreaks = 0;
-  const elementSpans = new Map();
 
-  for (let i = 0; i < fragments.length; i++) {
-    const page = fragments[i];
-    const effH = fragmentainerHeight(page, pageH);
+  for (const page of fragments) {
+    const effH = fragmentainerHeight(page);
     totalContentHeight += page.blockSize;
     if (page.blockSize > effH + 0.01) overflowPages++;
     if (page.breakToken) {
       if (page.breakToken.isForcedBreak) forcedBreaks++;
       forcedBreaks += countForcedBreaks(page.breakToken);
     }
-    trackElementSpans(page, i, elementSpans);
-  }
-
-  const spanning = [];
-  for (const [name, [first, last]] of elementSpans) {
-    if (last > first) {
-      spanning.push(`${name} (pages ${first + 1}-${last + 1})`);
-    }
   }
 
   lines.push("## Document Summary");
-  lines.push(
-    `  totalContentHeight: ${totalContentHeight.toFixed(1)}px across ${fragments.length} pages`,
-  );
-  lines.push(
-    `  overflowPages: ${overflowPages}  forcedBreaks: ${forcedBreaks}`,
-  );
-  if (spanning.length > 0) {
-    lines.push(`  spanning elements (${spanning.length}):`);
-    for (const s of spanning.slice(0, 20)) {
-      lines.push(`    - ${s}`);
-    }
-    if (spanning.length > 20) {
-      lines.push(`    ... and ${spanning.length - 20} more`);
-    }
-  }
+  lines.push(`- totalPages: ${fragments.length}`);
+  lines.push(`- totalContentHeight: ${totalContentHeight.toFixed(1)}px`);
+  lines.push(`- overflowPages: ${overflowPages}`);
+  lines.push(`- forcedBreaks: ${forcedBreaks}`);
   return lines.join("\n");
+}
+
+export function buildElementSpans(fragments) {
+  const map = new Map();
+  for (let i = 0; i < fragments.length; i++) {
+    trackElementSpans(fragments[i], i, map);
+  }
+  return map;
 }
 
 /**
@@ -228,19 +268,18 @@ function dumpFragment(frag, parentBT, depth) {
   return info;
 }
 
-function printFragmentInfo(info, log, prefix) {
-  const indent = prefix + "  ".repeat(info.depth);
+function printFragmentInfo(info, log, depth) {
+  const indent = "  ".repeat(depth) + "- ";
 
   const parts = [
     `${indent}${info.name}  blockSize=${info.blockSize.toFixed(2)}`,
   ];
-  if (info.measured !== null) parts.push(`measured=${info.measured.toFixed(2)}`);
+  if (info.measured !== null)
+    parts.push(`measured=${info.measured.toFixed(2)}`);
   parts.push(
     `margin=${info.margin[0].toFixed(1)}/${info.margin[1].toFixed(1)}`,
   );
-  parts.push(
-    `pad=${info.padding[0].toFixed(1)}/${info.padding[1].toFixed(1)}`,
-  );
+  parts.push(`pad=${info.padding[0].toFixed(1)}/${info.padding[1].toFixed(1)}`);
   if (info.border[0] || info.border[1]) {
     parts.push(
       `border=${info.border[0].toFixed(1)}/${info.border[1].toFixed(1)}`,
@@ -268,13 +307,14 @@ function printFragmentInfo(info, log, prefix) {
 
   if (info.isIFC && info.ifc) {
     const ifc = info.ifc;
-    line += `\n${indent}  IFC: lineHeight=${ifc.lineHeight.toFixed(2)} lines=${ifc.lineCount} computed=${ifc.computedHeight.toFixed(2)} text=[${ifc.startOffset}..${ifc.endOffset}]/${ifc.textLength}`;
+    const subIndent = "  ".repeat(depth + 1) + "- ";
+    line += `\n${subIndent}IFC: lineHeight=${ifc.lineHeight.toFixed(2)} lines=${ifc.lineCount} computed=${ifc.computedHeight.toFixed(2)} text=[${ifc.startOffset}..${ifc.endOffset}]/${ifc.textLength}`;
   }
 
   log(line);
 
   for (const child of info.children) {
-    printFragmentInfo(child, log, prefix);
+    printFragmentInfo(child, log, depth + 1);
   }
 }
 
@@ -341,9 +381,7 @@ function trackElementSpans(pageFragment, pageIndex, map) {
   for (const child of pageFragment.childFragments) {
     if (!child.node) continue;
     const name =
-      child.node.debugName ||
-      child.node.element?.tagName?.toLowerCase() ||
-      "?";
+      child.node.debugName || child.node.element?.tagName?.toLowerCase() || "?";
     if (map.has(name)) {
       map.get(name)[1] = pageIndex;
     } else {
@@ -354,9 +392,9 @@ function trackElementSpans(pageFragment, pageIndex, map) {
 }
 
 function truncate(str, maxLen) {
-  return str.length <= maxLen ? str : str.slice(0, maxLen - 3) + "...";
+  return str.length <= maxLen ? str : str.slice(0, maxLen - 3) + "…";
 }
 
 function truncateStart(str, maxLen) {
-  return str.length <= maxLen ? str : "..." + str.slice(str.length - maxLen + 3);
+  return str.length <= maxLen ? str : "…" + str.slice(str.length - maxLen + 3);
 }
