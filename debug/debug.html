@@ -91,10 +91,13 @@
     <div id="summary"></div>
     <div id="output"></div>
     <script type="module">
-      import { ContentParser, FragmentainerLayout } from "../viewer/viewer.js";
+      import {
+        FragmentainerLayout,
+        ContentParser,
+        PageResolver,
+      } from "../src/index.js";
       import "../src/dom/fragment-container.js";
-      import "./fake-page.js";
-      import { PageResolver } from "../src/atpage/page-resolver.js";
+      import "./page-container.js";
       import {
         buildPageDump,
         buildDocumentSummary,
@@ -247,7 +250,7 @@
             const contentEl = document.createElement("div");
             contentEl.className = "page-row-content";
 
-            const renderBox = document.createElement("fake-page");
+            const renderBox = document.createElement("page-container");
             renderBox.className = "page-row-render";
 
             const fragEl = flow.renderFragmentainer(i);

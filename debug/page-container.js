@@ -1,5 +1,5 @@
 /**
- * <fake-page> — lightweight page-box wrapper with Shadow DOM.
+ * <page-container> — lightweight page-box wrapper with Shadow DOM.
  *
  * Provides the structural CSS shared by all page representations
  * (debug viewer, spec tests, reference files). Content is projected
@@ -32,7 +32,7 @@ const STYLES = `
   }
 `;
 
-export class FakePageElement extends HTMLElement {
+export class PageContainer extends HTMLElement {
   #slot = null;
 
   constructor() {
@@ -97,4 +97,4 @@ export class FakePageElement extends HTMLElement {
   }
 }
 
-customElements.define("fake-page", FakePageElement);
+customElements.define("page-container", PageContainer);

@@ -5,8 +5,20 @@
  * used for visual regression snapshots.
  *
  * Split-element overrides (data-split-from / data-split-to) are
- * applied automatically by <fake-page> via adoptedStyleSheets.
+ * applied automatically by <page-container> via adoptedStyleSheets.
  */
+
+export function saveRef(flow) {
+  const pages = [];
+  for (let i = 0; i < flow.fragmentainerCount; i++) {
+    const { pageBoxSize, margins } = flow.fragments[i].constraints;
+    const fragEl = document.querySelector(
+      `[data-page-index="${i}"] fragment-container`,
+    );
+    pages.push({ pageBoxSize, margins, html: fragEl.contentRoot.innerHTML });
+  }
+  document.documentElement.dataset.refHtml = buildRefHtml(pages);
+}
 
 /**
  * Collect CSS text from all document stylesheets, excluding @page rules.
@@ -36,19 +48,19 @@ export function buildRefHtml(pages) {
   const contentStyles = collectStylesWithoutPageRules();
 
   const { pageBoxSize, margins } = pages[0];
-  const pageRule = `fake-page {
+  const pageRule = `page-container {
     width: ${pageBoxSize.inlineSize}px;
     height: ${pageBoxSize.blockSize}px;
     padding: ${margins.top}px ${margins.right}px ${margins.bottom}px ${margins.left}px;
   }`;
 
   const pageHtml = pages
-    .map(({ html }) => `<fake-page>\n${html}\n</fake-page>`)
+    .map(({ html }) => `<page-container>\n${html}\n</page-container>`)
     .join("\n");
 
   return `<!doctype html>
 <html lang="en">
-<script type="module" src="/debug/fake-page.js"></script>
+<script type="module" src="/debug/page-container.js"></script>
 <style>
   body {
     padding: 0;

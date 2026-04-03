@@ -1,5 +1,10 @@
-import { findChildBreakToken, isMonolithic } from "../src/core/helpers.js";
-import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "../src/core/constants.js";
+import {
+  findChildBreakToken,
+  isMonolithic,
+  constants,
+} from "../src/index.js";
+
+const { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } = constants;
 
 /**
  * Debug utility — pretty-print a break token tree.

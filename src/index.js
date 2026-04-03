@@ -47,3 +47,5 @@ export { buildCumulativeHeights } from "./core/speculative-layout.js";
 export { Module, modules, PageFloat } from "./modules/index.js";
 export { PageFit } from "./modules/page-fit.js";
 export { RepeatedTableHeader } from "./modules/repeated-header.js";
+export * as constants from "./core/constants.js";
+export { PageResolver } from "./atpage/page-resolver.js";

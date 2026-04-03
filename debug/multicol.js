@@ -1,11 +1,17 @@
 /**
- * Multicol spec processor — replaces CSS column layout with
+ * Multicol processor — replaces CSS column layout with
  * the library's fragmentation engine output.
  */
-import { ConstraintSpace } from "/src/core/constraint-space.js";
-import { buildLayoutTree } from "/src/dom/index.js";
-import { createFragments } from "/src/core/layout-request.js";
-import { renderFragmentTree } from "/src/compositor/render-fragments.js";
+import {
+  ConstraintSpace,
+  buildLayoutTree,
+  createFragments,
+  renderFragmentTree,
+  constants,
+} from "../src/index.js";
+import "./multicol-container.js";
+
+const { FRAGMENTATION_COLUMN } = constants;
 
 /**
  * Find all elements in the subtree that use CSS columns.
@@ -27,7 +33,7 @@ export function findMulticolContainers(root) {
 /**
  * Replace a single multicol container's content with fragmented columns.
  */
-export async function processMulticol(container) {
+export async function multicol(container) {
   const style = getComputedStyle(container);
 
   const totalWidth = container.clientWidth;
@@ -63,25 +69,21 @@ export async function processMulticol(container) {
       availableInlineSize: columnWidth,
       availableBlockSize: totalHeight,
       fragmentainerBlockSize: totalHeight,
-      fragmentationType: "column",
+      fragmentationType: FRAGMENTATION_COLUMN,
     }),
   );
 
   container.innerHTML = "";
-  container.style.display = "flex";
-  container.style.flexWrap = "nowrap";
-  container.style.alignItems = "flex-start";
-  container.style.gap = `${columnGap}px`;
+
+  const mc = document.createElement("multicol-container");
+  mc.setColumns(columnWidth, totalHeight, columnGap);
 
   for (let i = 0; i < fragments.length; i++) {
     const colEl = document.createElement("div");
-    colEl.style.width = `${columnWidth}px`;
-    colEl.style.height = `${totalHeight}px`;
-    colEl.style.overflow = "hidden";
-    colEl.style.flexShrink = "0";
-
     const prevBT = i > 0 ? fragments[i - 1].breakToken : null;
     colEl.appendChild(renderFragmentTree(fragments[i], prevBT));
-    container.appendChild(colEl);
+    mc.appendChild(colEl);
   }
+
+  container.appendChild(mc);
 }

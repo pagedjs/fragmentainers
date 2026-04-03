@@ -11,7 +11,7 @@
     display: flex;
     flex-direction: column;
   }
-  fake-page {
+  page-container {
     width: 293px;
     height: 293px;
     padding: 0;
@@ -23,7 +23,7 @@
   :root {
     print-color-adjust: exact;
   }
-  fake-page::part(body) {
+  page-container::part(body) {
     margin: 0;
     flex-grow: 1;
   }
@@ -33,12 +33,12 @@
     background: yellow;
   }
 </style>
-<script type="module" src="/debug/fake-page.js"></script>
-<fake-page>
+<script type="module" src="/debug/page-container.js"></script>
+<page-container>
       <div>Page one</div>
   
-</fake-page>
-<fake-page>
+</page-container>
+<page-container>
       <div>Page two</div>
   
-</fake-page>
+</page-container>
