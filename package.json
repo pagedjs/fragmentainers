@@ -1,5 +1,5 @@
 {
-  "name": "@pagedjs/fragmentainer",
+  "name": "@pagedjs/fragmentainers",
   "version": "0.0.1",
   "description": "Javascript fragmentainer layout",
   "license": "MIT",
@@ -11,7 +11,7 @@
     "test:watch": "vitest",
     "lint": "eslint src/ test/",
     "lint:fix": "eslint --fix src/ test/",
-    "serve": "serve . -l 8080",
+    "serve": "serve .",
     "specs": "playwright test --config specs/playwright.config.js",
     "specs:update": "UPDATE_REFS=1 playwright test --config specs/playwright.config.js",
     "specs:pagedjs": "playwright test --config specs/playwright.config.js --project pagedjs"
@@ -28,5 +28,8 @@
     "serve": "^14.2.6",
     "vitest": "^4.1.2",
     "yaml": "^2.8.3"
-  }
+  },
+  "files": [
+    "src"
+  ]
 }

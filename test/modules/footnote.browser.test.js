@@ -44,7 +44,7 @@ describe("Footnotes in paged media (browser)", () => {
           <span class="fn">Footnote body text</span>
         </p>
       </div>`,
-      `.fn { --float: footnote; }`,
+      ".fn { --float: footnote; }",
     );
 
     layout = new FragmentainerLayout(content, {
@@ -73,7 +73,7 @@ describe("Footnotes in paged media (browser)", () => {
           Before<span class="fn">Body</span>After
         </p>
       </div>`,
-      `.fn { --float: footnote; }`,
+      ".fn { --float: footnote; }",
     );
 
     layout = new FragmentainerLayout(content, {
@@ -101,7 +101,7 @@ describe("Footnotes in paged media (browser)", () => {
           Second<span class="fn">Second footnote</span>
         </p>
       </div>`,
-      `.fn { --float: footnote; }`,
+      ".fn { --float: footnote; }",
     );
 
     layout = new FragmentainerLayout(content, {
@@ -138,7 +138,7 @@ describe("Footnotes in paged media (browser)", () => {
         <div style="height: 100px; margin: 0; padding: 0;"></div>
         <div style="height: 100px; margin: 0; padding: 0;"></div>
       </div>`,
-      `.fn { --float: footnote; }`,
+      ".fn { --float: footnote; }",
     );
 
     layout = new FragmentainerLayout(content, {
@@ -155,7 +155,7 @@ describe("Footnotes in paged media (browser)", () => {
       `<div style="margin: 0; padding: 0;">
         <div style="height: 100px; margin: 0; padding: 0;">No footnotes here</div>
       </div>`,
-      `.fn { --float: footnote; }`,
+      ".fn { --float: footnote; }",
     );
 
     layout = new FragmentainerLayout(content, {
@@ -180,7 +180,7 @@ describe("Footnotes in paged media (browser)", () => {
           Page 2 text<span class="fn">Page 2 footnote</span>
         </div>
       </div>`,
-      `.fn { --float: footnote; }`,
+      ".fn { --float: footnote; }",
     );
 
     layout = new FragmentainerLayout(content, {

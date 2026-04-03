@@ -677,8 +677,4 @@ export class AnonymousBlockNode {
   get counterIncrement() {
     return "none";
   }
-
-  getCustomProperty() {
-    return null;
-  }
 }

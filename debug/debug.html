@@ -104,8 +104,8 @@
 
       const params = new URLSearchParams(location.search);
       const url = params.get("url");
-      const pageW = parseInt(params.get("w") || "");
-      const pageH = parseInt(params.get("h") || "");
+      const pageW = parseInt(params.get("w")) || 0;
+      const pageH = parseInt(params.get("h")) || 0;
       const range = params.get("range") || "";
 
       // Persist canonical params in the URL

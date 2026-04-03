@@ -1,5 +1,3 @@
-import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "./constants.js";
-
 /**
  * @typedef {Object} LayoutNode
  * @property {LayoutNode[]} children
@@ -40,7 +38,9 @@ import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "./constants.js";
  */
 export function findChildBreakToken(parentBreakToken, childNode) {
   if (!parentBreakToken) return null;
-  return parentBreakToken.childBreakTokens.find(t => t.node === childNode) || null;
+  return (
+    parentBreakToken.childBreakTokens.find((t) => t.node === childNode) || null
+  );
 }
 
 /**
@@ -50,9 +50,11 @@ export function findChildBreakToken(parentBreakToken, childNode) {
  * @returns {boolean}
  */
 export function isMonolithic(node) {
-  return node.isReplacedElement ||
-         node.isScrollable ||
-         (node.hasOverflowHidden && node.hasExplicitBlockSize);
+  return (
+    node.isReplacedElement ||
+    node.isScrollable ||
+    (node.hasOverflowHidden && node.hasExplicitBlockSize)
+  );
 }
 
 /**
@@ -74,38 +76,4 @@ export function isForcedBreakValue(value) {
  */
 export function getMonolithicBlockSize(node, constraintSpace) {
   return node.computedBlockSize(constraintSpace.availableInlineSize);
-}
-
-/**
- * Debug utility — pretty-print a break token tree.
- */
-export function debugPrintTokenTree(breakToken, indent = 0) {
-  if (!breakToken) return "(null)";
-
-  const pad = "  ".repeat(indent);
-  const flags = [];
-  if (breakToken.isBreakBefore) flags.push("break-before");
-  if (breakToken.isForcedBreak) flags.push("forced");
-  if (breakToken.forcedBreakValue) flags.push(`value=${breakToken.forcedBreakValue}`);
-  if (breakToken.isRepeated) flags.push("repeated");
-  if (breakToken.isAtBlockEnd) flags.push("at-block-end");
-  if (breakToken.hasSeenAllChildren) flags.push("seen-all");
-
-  let line = `${pad}${breakToken.type}`;
-  if (breakToken.node?.debugName) line += ` [${breakToken.node.debugName}]`;
-  if (breakToken.type === BREAK_TOKEN_BLOCK) {
-    line += ` consumed=${breakToken.consumedBlockSize} seq=${breakToken.sequenceNumber}`;
-  }
-  if (breakToken.type === BREAK_TOKEN_INLINE) {
-    line += ` item=${breakToken.itemIndex} offset=${breakToken.textOffset}`;
-  }
-  if (flags.length) line += ` (${flags.join(", ")})`;
-
-  const lines = [line];
-  if (breakToken.childBreakTokens) {
-    for (const child of breakToken.childBreakTokens) {
-      lines.push(debugPrintTokenTree(child, indent + 1));
-    }
-  }
-  return lines.join("\n");
 }

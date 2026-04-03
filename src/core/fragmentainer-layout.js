@@ -292,26 +292,6 @@ export class FragmentainerLayout {
   }
 
   /**
-   * Wait for all <img> elements under `root` to finish loading.
-   * Resolves immediately when there are no pending images.
-   */
-  #waitForImages(root) {
-    if (!root) return Promise.resolve();
-    const pending = [];
-    for (const img of root.querySelectorAll("img:not([loading=lazy])")) {
-      if (!img.complete) {
-        pending.push(
-          new Promise((r) => {
-            img.addEventListener("load", r, { once: true });
-            img.addEventListener("error", r, { once: true });
-          }),
-        );
-      }
-    }
-    return pending.length > 0 ? Promise.all(pending) : Promise.resolve();
-  }
-
-  /**
    * Reset the stepper to re-layout from a specific fragmentainer.
    *
    * Used for reflow: when source content changes, reset to the

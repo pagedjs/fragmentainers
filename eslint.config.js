@@ -26,8 +26,10 @@ export default [
         MutationObserver: "readonly",
         queueMicrotask: "readonly",
         setTimeout: "readonly",
+        CSSRule: "readonly",
         // Node.js test globals
         console: "readonly",
+        process: "readonly",
       },
     },
     rules: {
@@ -54,6 +56,6 @@ export default [
     },
   },
   {
-    ignores: ["node_modules/", "specs/", "viewer/"],
+    ignores: ["**", "!src/**", "!test/**", "!specs/**", "!debug/**"],
   },
 ];
