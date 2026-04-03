@@ -17,6 +17,21 @@ const ABSOLUTE_URL_RE =
 /** Rename `position: running(...)` to `--page-position: running(...)` custom property. */
 const RUNNING_POSITION_RE = /position\s*:\s*(running\([^)]*\))/gi;
 
+/** Rewrite `float: footnote` to a custom property + display: none. */
+const FLOAT_FOOTNOTE_RE = /float\s*:\s*footnote/gi;
+
+/** Rewrite `footnote-display` to a custom property. */
+const FOOTNOTE_DISPLAY_RE = /footnote-display\s*:/gi;
+
+/** Rewrite `footnote-policy` to a custom property. */
+const FOOTNOTE_POLICY_RE = /footnote-policy\s*:/gi;
+
+/** Rewrite `::footnote-call` pseudo-element to attribute selector. */
+const FOOTNOTE_CALL_RE = /::footnote-call/g;
+
+/** Rewrite `::footnote-marker` pseudo-element to attribute selector. */
+const FOOTNOTE_MARKER_RE = /::footnote-marker/g;
+
 export class ContentParser {
   #fragment;
   #styles;
@@ -168,6 +183,11 @@ export class ContentParser {
         RUNNING_POSITION_RE,
         "--page-position: $1; display: none",
       );
+      css = css.replace(FLOAT_FOOTNOTE_RE, "--float: footnote; display: none");
+      css = css.replace(FOOTNOTE_DISPLAY_RE, "--footnote-display:");
+      css = css.replace(FOOTNOTE_POLICY_RE, "--footnote-policy:");
+      css = css.replace(FOOTNOTE_CALL_RE, "[data-footnote-call]::after");
+      css = css.replace(FOOTNOTE_MARKER_RE, "[data-footnote-marker]::marker");
       const sheet = new CSSStyleSheet({ baseURL: cssBaseURL });
       sheet.replaceSync(css);
       sheets.push(sheet);

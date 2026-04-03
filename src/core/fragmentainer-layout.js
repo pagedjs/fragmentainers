@@ -346,7 +346,14 @@ export class FragmentainerLayout {
   }
 
   /**
-   * Lay out one fragmentainer with two-pass earlyBreak support.
+   * Lay out one fragmentainer with two-pass earlyBreak support
+   * and iterative post-layout adjustment.
+   *
+   * After content layout, modules.afterContentLayout() is called.
+   * If any module requests a different block-end reservation than
+   * what was used, layout is re-run with the updated constraint
+   * space. This repeats until the reservation stabilises or the
+   * iteration limit is reached.
    */
   #layoutFragmentainer(rootNode, constraintSpace, breakToken) {
     const rootAlgorithm = getLayoutAlgorithm(rootNode);
@@ -358,38 +365,59 @@ export class FragmentainerLayout {
     const { reservedBlockStart, reservedBlockEnd, afterRenderCallbacks } =
       modules.layout(rootNode, constraintSpace, breakToken, layoutChildFn);
 
-    let adjustedSpace = constraintSpace;
-    if (reservedBlockStart > 0 || reservedBlockEnd > 0) {
-      adjustedSpace = new ConstraintSpace({
-        availableInlineSize: constraintSpace.availableInlineSize,
-        availableBlockSize: constraintSpace.availableBlockSize
-          - reservedBlockStart - reservedBlockEnd,
-        fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize
-          - reservedBlockEnd,
-        blockOffsetInFragmentainer: constraintSpace.blockOffsetInFragmentainer
-          + reservedBlockStart,
-        fragmentationType: constraintSpace.fragmentationType,
-      });
-    }
+    const MAX_POST_LAYOUT_ITERATIONS = 3;
+    let postLayoutReserved = 0;
+    let postLayoutCallbacks = [];
+    let result;
 
-    let result = runLayoutGenerator(
-      rootAlgorithm,
-      rootNode,
-      adjustedSpace,
-      breakToken,
-    );
-    if (result.earlyBreak) {
+    for (let iter = 0; iter <= MAX_POST_LAYOUT_ITERATIONS; iter++) {
+      const totalReservedEnd = reservedBlockEnd + postLayoutReserved;
+      let adjustedSpace = constraintSpace;
+      if (reservedBlockStart > 0 || totalReservedEnd > 0) {
+        adjustedSpace = new ConstraintSpace({
+          availableInlineSize: constraintSpace.availableInlineSize,
+          availableBlockSize: constraintSpace.availableBlockSize
+            - reservedBlockStart - totalReservedEnd,
+          fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize
+            - totalReservedEnd,
+          blockOffsetInFragmentainer: constraintSpace.blockOffsetInFragmentainer
+            + reservedBlockStart,
+          fragmentationType: constraintSpace.fragmentationType,
+        });
+      }
+
       result = runLayoutGenerator(
         rootAlgorithm,
         rootNode,
         adjustedSpace,
         breakToken,
-        result.earlyBreak,
       );
+      if (result.earlyBreak) {
+        result = runLayoutGenerator(
+          rootAlgorithm,
+          rootNode,
+          adjustedSpace,
+          breakToken,
+          result.earlyBreak,
+        );
+      }
+
+      const adjustment = modules.afterContentLayout(
+        result.fragment, constraintSpace, breakToken,
+      );
+      if (!adjustment || adjustment.reservedBlockEnd === postLayoutReserved) {
+        if (adjustment?.afterRenderCallbacks.length > 0) {
+          postLayoutCallbacks = adjustment.afterRenderCallbacks;
+        }
+        break;
+      }
+      postLayoutReserved = adjustment.reservedBlockEnd;
+      postLayoutCallbacks = adjustment.afterRenderCallbacks;
     }
 
-    if (afterRenderCallbacks.length > 0) {
-      result.fragment.afterRender = afterRenderCallbacks;
+    const allCallbacks = [...afterRenderCallbacks, ...postLayoutCallbacks];
+    if (allCallbacks.length > 0) {
+      result.fragment.afterRender = allCallbacks;
     }
 
     return result;

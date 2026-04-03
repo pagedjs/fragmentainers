@@ -62,6 +62,32 @@ class ModuleRegistry {
     }
     return elements;
   }
+
+  /**
+   * Called after content layout for a fragmentainer. Aggregates
+   * reservedBlockEnd and afterRender callbacks across all modules.
+   *
+   * @param {import('../core/fragment.js').PhysicalFragment} fragment
+   * @param {import('../core/constraint-space.js').ConstraintSpace} constraintSpace
+   * @param {import('../core/tokens.js').BreakToken|null} inputBreakToken
+   * @returns {{ reservedBlockEnd: number, afterRenderCallbacks: Function[] }|null}
+   */
+  afterContentLayout(fragment, constraintSpace, inputBreakToken) {
+    let reservedBlockEnd = 0;
+    const afterRenderCallbacks = [];
+    let hasResult = false;
+    for (const mod of this.#modules) {
+      const result = mod.afterContentLayout(fragment, constraintSpace, inputBreakToken);
+      if (result) {
+        hasResult = true;
+        reservedBlockEnd += result.reservedBlockEnd;
+        if (result.afterRender) {
+          afterRenderCallbacks.push(result.afterRender);
+        }
+      }
+    }
+    return hasResult ? { reservedBlockEnd, afterRenderCallbacks } : null;
+  }
 }
 
 export const modules = new ModuleRegistry();
