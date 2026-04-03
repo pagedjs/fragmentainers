@@ -68,14 +68,14 @@ describe("ContentMeasureElement ref assignment", () => {
   });
 });
 
-describe("Refs in rendered fragments", () => {
+describe("Refs in composed fragments", () => {
   let layout;
 
   afterEach(() => {
     layout?.destroy();
   });
 
-  it("rendered clones carry the same data-ref as source", async () => {
+  it("composed clones carry the same data-ref as source", async () => {
     const template = document.createElement("template");
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div id="a" style="height: 100px; margin: 0;"></div>
@@ -84,10 +84,9 @@ describe("Refs in rendered fragments", () => {
 
     layout = new FragmentainerLayout(template.content, { width: 400, height: 150, trackRefs: true });
     const flow = await layout.flow();
-    const result = await flow.reflow(0);
 
-    // Check that clones in rendered containers have data-ref
-    for (const fragEl of result.elements) {
+    // Check that clones in composed containers have data-ref
+    for (const fragEl of flow) {
       document.body.appendChild(fragEl);
       const refsInClone = fragEl.contentRoot.querySelectorAll("[data-ref]");
       expect(refsInClone.length).toBeGreaterThan(0);
@@ -333,8 +332,7 @@ describe("FragmentContainerElement.takeMutationRecords()", () => {
     </div>`;
     layout = new FragmentainerLayout(template.content, { width: 400, height: 100, trackRefs: true });
     const flow = await layout.flow();
-    const result = await flow.reflow(0);
-    const fragEl = result.elements[0];
+    const fragEl = flow[0];
     document.body.appendChild(fragEl);
 
     fragEl.startObserving();
@@ -387,7 +385,7 @@ describe("reflow with rebuild", () => {
     wrapper.appendChild(newDiv);
 
     // Reflow with rebuild to pick up the structural change
-    await flow.reflow(0, { rebuild: true });
-    expect(flow.fragmentainerCount).toBeGreaterThan(1);
+    const newFlow = await layout.reflow(0, { rebuild: true });
+    expect(newFlow.fragmentainerCount).toBeGreaterThan(1);
   });
 });

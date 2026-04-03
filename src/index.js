@@ -22,16 +22,12 @@ export { layoutInlineContent } from "./layout/inline-content.js";
 export { layoutTableRow } from "./layout/table-row.js";
 export { buildLayoutTree, DOMLayoutNode } from "./dom/index.js";
 export {
-  renderFragmentTree,
-  renderFragment,
+  composeFragment,
   hasBlockChildFragments,
   buildInlineContent,
-  getFragmentainerSize,
-} from "./compositor/index.js";
-export {
-  FragmentainerLayout,
-  FragmentedFlow,
-} from "./core/fragmentainer-layout.js";
+} from "./compositor/compositor.js";
+export { FragmentainerLayout } from "./core/fragmentainer-layout.js";
+export { FragmentedFlow } from "./core/fragmented-flow.js";
 export {
   RegionResolver,
   RegionConstraints,

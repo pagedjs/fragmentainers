@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
 import { RegionResolver } from "../../src/regions/region-resolver.js";
-import { renderFragmentTree } from "../../src/compositor/render-fragments.js";
+import { composeFragment } from "../../src/compositor/compositor.js";
 
 describe("RegionResolver", () => {
   let container;
@@ -76,7 +76,7 @@ describe("FragmentainerLayout with regions", () => {
 
     for (const region of regions) {
       const fragment = layout.next();
-      region.appendChild(renderFragmentTree(fragment, null));
+      region.appendChild(composeFragment(fragment, null));
     }
 
     // 300px of content across 3 regions of 100px each = all consumed

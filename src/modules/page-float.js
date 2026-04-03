@@ -1,6 +1,6 @@
 import { Module } from "./module.js";
 import { ConstraintSpace } from "../core/constraint-space.js";
-import { renderFragmentTree } from "../compositor/render-fragments.js";
+import { composeFragment } from "../compositor/compositor.js";
 import { FRAGMENTATION_NONE } from "../core/constants.js";
 
 class PageFloatModule extends Module {
@@ -43,8 +43,8 @@ class PageFloatModule extends Module {
         if (placed.length === 0) return;
         fragment.style.setProperty("position", "relative");
         for (const pf of placed) {
-          const floatContent = renderFragmentTree(
-            pf.fragment, null, contentStyles?.sourceRefs,
+          const floatContent = composeFragment(
+            pf.fragment, null, null, contentStyles?.sourceRefs,
           );
           const floatWrapper = document.createElement("div");
           floatWrapper.style.setProperty("position", "absolute");

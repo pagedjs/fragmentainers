@@ -11,36 +11,34 @@ export function hasBlockChildFragments(fragment) {
 }
 
 /**
- * Walk a fragment's children and render each into a DocumentFragment.
+ * Compose a fragment's cloned DOM into a parent element, or — when called
+ * without a parentEl — compose all child fragments into a new DocumentFragment.
  *
- * @param {import("../fragment.js").PhysicalFragment} fragment
- * @param {import("../tokens.js").BreakToken|null} inputBreakToken - break token from the previous fragmentainer
+ * @param {import("../core/fragment.js").PhysicalFragment} fragment
+ * @param {import("../core/tokens.js").BreakToken|null} inputBreakToken - break token from the previous fragmentainer
+ * @param {Element|null} [parentEl] - target to append into; omit for top-level call
  * @param {WeakMap} [sourceRefs] - source element → ref string (stamps data-ref on clones)
- * @returns {DocumentFragment}
+ * @returns {DocumentFragment|undefined} A DocumentFragment when parentEl is omitted
  */
-export function renderFragmentTree(fragment, inputBreakToken, sourceRefs) {
-  const docFragment = document.createDocumentFragment();
-  for (const child of fragment.childFragments) {
-    if (!child.node) continue;
-    const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-    renderFragment(child, childInputBT, docFragment, sourceRefs);
+export function composeFragment(fragment, inputBreakToken, parentEl, sourceRefs) {
+  if (!parentEl) {
+    const docFragment = document.createDocumentFragment();
+    for (const child of fragment.childFragments) {
+      if (!child.node) continue;
+      const childInputBT = findChildBreakToken(inputBreakToken, child.node);
+      composeFragment(child, childInputBT, docFragment, sourceRefs);
+    }
+    return docFragment;
   }
-  return docFragment;
-}
 
-/**
- * Render a single fragment into the parent element.
- * Routes to the appropriate renderer based on node type.
- */
-export function renderFragment(fragment, inputBreakToken, parentEl, sourceRefs) {
   if (!fragment.node) return;
 
   const node = fragment.node;
 
   if (fragment.multicolData) {
-    renderMulticolFragment(fragment, inputBreakToken, parentEl, sourceRefs);
+    composeMulticolFragment(fragment, inputBreakToken, parentEl, sourceRefs);
   } else if (node.isInlineFormattingContext) {
-    renderInlineFragment(fragment, inputBreakToken, parentEl, sourceRefs);
+    composeInlineFragment(fragment, inputBreakToken, parentEl, sourceRefs);
   } else if (hasBlockChildFragments(fragment)) {
     const el = node.element.cloneNode(false);
     stampRef(el, node.element, sourceRefs);
@@ -55,9 +53,9 @@ export function renderFragment(fragment, inputBreakToken, parentEl, sourceRefs) 
     for (const child of fragment.childFragments) {
       if (!child.node) continue;
       const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-      renderFragment(child, childInputBT, el, sourceRefs);
+      composeFragment(child, childInputBT, el, sourceRefs);
     }
-    // Skip empty container shells — all rendered children were themselves
+    // Skip empty container shells — all composed children were themselves
     // empty and skipped (e.g. an <ol> whose only <li> had no visible text).
     if (el.childNodes.length === 0 && fragment.breakToken) {
       return;
@@ -66,7 +64,7 @@ export function renderFragment(fragment, inputBreakToken, parentEl, sourceRefs) 
   } else if (fragment.childFragments.length === 0 && fragment.breakToken &&
              node.children?.length > 0) {
     // Empty container shell — all children pushed to next fragmentainer.
-    // Don't render; content will appear on the next page/column.
+    // Don't compose; content will appear on the next page/column.
     return;
   } else {
     const el = node.element.cloneNode(true);
@@ -96,11 +94,11 @@ export function renderFragment(fragment, inputBreakToken, parentEl, sourceRefs) 
 }
 
 /**
- * Render an inline formatting context fragment.
+ * Compose an inline formatting context fragment.
  * Uses inlineItemsData + break token offsets to reconstruct
  * only the visible portion of the content.
  */
-function renderInlineFragment(fragment, inputBreakToken, parentEl, sourceRefs) {
+function composeInlineFragment(fragment, inputBreakToken, parentEl, sourceRefs) {
   const node = fragment.node;
   const data = node.inlineItemsData;
   const isAnonymous = !node.element;
@@ -122,8 +120,8 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl, sourceRefs) {
     : data.textContent.length;
 
   // No visible text in this fragment and content continues on the next
-  // fragmentainer — skip rendering to avoid empty element shells (e.g. an
-  // <li> that shows only its ::marker with no text).
+  // fragmentainer — skip to avoid empty element shells (e.g. an <li>
+  // that shows only its ::marker with no text).
   if (startOffset >= endOffset && fragment.breakToken) {
     return;
   }
@@ -146,11 +144,11 @@ function renderInlineFragment(fragment, inputBreakToken, parentEl, sourceRefs) {
 }
 
 /**
- * Render a multicol container fragment.
- * Clones the element, disables native columns, renders each column
+ * Compose a multicol container fragment.
+ * Clones the element, disables native columns, composes each column
  * child as a flex item with correct width and gap.
  */
-function renderMulticolFragment(fragment, inputBreakToken, parentEl, sourceRefs) {
+function composeMulticolFragment(fragment, inputBreakToken, parentEl, sourceRefs) {
   const node = fragment.node;
   const { columnWidth, columnGap } = fragment.multicolData;
 
@@ -187,7 +185,7 @@ function renderMulticolFragment(fragment, inputBreakToken, parentEl, sourceRefs)
     for (const child of colFragment.childFragments) {
       if (!child.node) continue;
       const childInputBT = findChildBreakToken(colInputBT, child.node);
-      renderFragment(child, childInputBT, colEl, sourceRefs);
+      composeFragment(child, childInputBT, colEl, sourceRefs);
     }
 
     el.appendChild(colEl);
@@ -197,23 +195,12 @@ function renderMulticolFragment(fragment, inputBreakToken, parentEl, sourceRefs)
 }
 
 /**
- * For box-decoration-break: slice (the CSS default), suppress block-start
- * and/or block-end decorations at fragmentainer break edges.
- *
- * The cloned element carries all original CSS styles. This function zeroes
- * out the border/padding that should not appear at break boundaries.
- *
- * @param {{ style: CSSStyleDeclaration }} el - The cloned element
- * @param {import("../tokens.js").BreakToken|null} inputBreakToken - non-null if continuation
- * @param {import("../fragment.js").PhysicalFragment} fragment - the fragment being rendered
- */
-/**
  * Mark cloned elements with data-split-from / data-split-to attributes
  * so the override stylesheet can suppress first/last-fragment-only CSS.
  *
  * @param {Element} el - The cloned element
- * @param {import("../tokens.js").BreakToken|null} inputBreakToken - non-null if continuation
- * @param {import("../fragment.js").PhysicalFragment} fragment - the fragment being rendered
+ * @param {import("../core/tokens.js").BreakToken|null} inputBreakToken - non-null if continuation
+ * @param {import("../core/fragment.js").PhysicalFragment} fragment
  */
 function applySplitAttributes(el, inputBreakToken, fragment) {
   if (inputBreakToken) el.setAttribute("data-split-from", "");
@@ -230,7 +217,7 @@ function applySplitAttributes(el, inputBreakToken, fragment) {
  * continues from the previous fragment rather than restarting at 1.
  *
  * Uses the break token's child structure to count how many list items
- * were rendered in previous fragments.
+ * were composed in previous fragments.
  */
 function applyListContinuation(el, node, inputBreakToken) {
   const originalStart = parseInt(node.element.getAttribute("start"), 10) || 1;
@@ -247,11 +234,11 @@ function applyListContinuation(el, node, inputBreakToken) {
     if (node.children[i].element?.tagName === "LI") itemCount++;
   }
 
-  // A split continuation (not pushed) was partially rendered in the
+  // A split continuation (not pushed) was partially composed in the
   // previous fragment — its marker was already shown, so count it.
   // But skip counting if the item produced no visible content (e.g.
   // a zero-height inline fragment where no text fit — the compositor
-  // suppresses its rendering, so its marker was never shown).
+  // suppresses its output, so its marker was never shown).
   if (!firstChildToken.isBreakBefore &&
       node.children[childIndex]?.element?.tagName === "LI") {
     const hadVisibleContent = firstChildToken.type === BREAK_TOKEN_INLINE
@@ -316,7 +303,7 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
     } else if (item.type === INLINE_OPEN_TAG) {
       // Skip elements whose content is entirely outside the visible range.
       // Only skip non-empty elements (startOffset < endOffset); truly empty
-      // source elements are always rendered to preserve ::before/::after styling.
+      // source elements are always composed to preserve ::before/::after styling.
       if (item.startOffset < item.endOffset &&
           (item.endOffset <= startOffset || item.startOffset >= endOffset)) {
         // Advance past the matching CLOSE_TAG
@@ -352,7 +339,7 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
   }
 
   // Trim trailing whitespace at break boundaries — the space before
-  // the break is not rendered (it belongs to the inter-word gap).
+  // the break is not composed (it belongs to the inter-word gap).
   if (lastTextNode && endOffset < textContent.length) {
     lastTextNode.textContent = lastTextNode.textContent.replace(/\s+$/, "");
   }

@@ -90,7 +90,7 @@ describe("Footnotes in paged media (browser)", () => {
     const flow = await layout.flow();
     expect(flow.fragmentainerCount).toBe(1);
 
-    const elements = flow.render();
+    const elements = [...flow];
     const el = elements[0];
     document.body.appendChild(el);
 
@@ -117,7 +117,7 @@ describe("Footnotes in paged media (browser)", () => {
       styles,
     });
     const flow = await layout.flow();
-    const elements = flow.render();
+    const elements = [...flow];
     const el = elements[0];
     document.body.appendChild(el);
 
@@ -145,7 +145,7 @@ describe("Footnotes in paged media (browser)", () => {
       styles,
     });
     const flow = await layout.flow();
-    const elements = flow.render();
+    const elements = [...flow];
     const el = elements[0];
     document.body.appendChild(el);
 
@@ -199,7 +199,7 @@ describe("Footnotes in paged media (browser)", () => {
       styles,
     });
     const flow = await layout.flow();
-    const elements = flow.render();
+    const elements = [...flow];
     const el = elements[0];
     document.body.appendChild(el);
 
@@ -224,7 +224,7 @@ describe("Footnotes in paged media (browser)", () => {
       styles,
     });
     const flow = await layout.flow();
-    const elements = flow.render();
+    const elements = [...flow];
 
     // Find the page with the footnote call
     let pageWithCall = -1;

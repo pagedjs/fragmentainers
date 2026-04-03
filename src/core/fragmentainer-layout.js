@@ -1,14 +1,12 @@
 import { DOMLayoutNode } from "../dom/layout-node.js";
 import { runLayoutGenerator, getLayoutAlgorithm } from "./layout-request.js";
-import { renderFragmentTree } from "../compositor/render-fragments.js";
-import { buildPerFragmentNthSheet } from "../styles/nth-selectors.js";
+import { FragmentedFlow } from "./fragmented-flow.js";
 import { PageResolver } from "../atpage/page-resolver.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
 import { PhysicalFragment } from "./fragment.js";
 import {
   FRAGMENTATION_COLUMN,
-  DEFAULT_OVERFLOW_THRESHOLD,
 } from "./constants.js";
 import {
   resolveForcedBreakValue,
@@ -34,7 +32,7 @@ const MAX_ZERO_PROGRESS = 5;
  *
  * Encapsulates the full lifecycle: build layout tree, paginate via
  * the fragmentainer loop, and return a FragmentedFlow that owns the
- * fragment results and provides rendering methods.
+ * fragment results and provides the composed <fragment-container> elements.
  *
  * Accepts options in priority order:
  * - `constraintSpace` — full control, bypasses @page rules entirely
@@ -249,9 +247,12 @@ export class FragmentainerLayout {
    * Waits for fonts and images to load, then runs the stepper loop
    * (next() calls) until all content is placed.
    *
+   * @param {{ start?: number, stop?: number }} [range] - Controls which
+   *   <fragment-container> elements are created. Layout always runs to
+   *   completion; start/stop only limits element creation.
    * @returns {Promise<FragmentedFlow>}
    */
-  async flow() {
+  async flow({ start, stop } = {}) {
     await this.setup();
 
     const fragments = [];
@@ -284,28 +285,24 @@ export class FragmentainerLayout {
       }
     } while (fragment.breakToken !== null || fragment.isBlank);
 
-    // Layout is done — release the measurer. Rendering only needs
+    // Layout is done — release the measurer. Composition only needs
     // cloneNode/getAttribute/tagName, which work on detached elements.
     this.releaseMeasurer();
 
-    return new FragmentedFlow(fragments, this.#contentStyles, this);
+    return new FragmentedFlow(fragments, this.#contentStyles, { start, stop });
   }
 
   /**
-   * Reset the stepper to re-layout from a specific fragmentainer.
+   * Re-layout from a specific fragmentainer and return a new FragmentedFlow.
    *
-   * Used for reflow: when source content changes, reset to the
-   * break token before the affected fragmentainer and re-run next()
-   * forward. Measurements are already live — no cache invalidation
-   * needed for size-only changes.
-   *
-   * Pass `{ rebuild: true }` after structural DOM changes (add/remove
-   * elements) to force a layout tree reconstruction. This is needed
-   * because DOMLayoutNode caches are stale after structural mutations.
+   * Resets the layout stepper to the break token before `fromIndex`,
+   * re-runs layout to completion with live measurements, and returns
+   * a new FragmentedFlow containing the new fragments and elements.
    *
    * @param {number} [fromIndex=0] - Fragmentainer index to restart from
    * @param {Object} [options]
    * @param {boolean} [options.rebuild=false] - Rebuild the layout tree from source DOM
+   * @returns {Promise<FragmentedFlow>}
    */
   async reflow(fromIndex = 0, { rebuild = false } = {}) {
     if (rebuild) {
@@ -323,6 +320,29 @@ export class FragmentainerLayout {
       this.#counterState.restore(prev.counterState);
     }
     this.#fragments.length = fromIndex;
+
+    // Re-run layout to completion
+    const newFragments = [];
+    let zeroProgressCount = 0;
+    let fragment;
+    do {
+      fragment = this.next();
+      newFragments.push(fragment);
+      if (
+        fragment.breakToken &&
+        fragment.blockSize === 0 &&
+        !fragment.isBlank
+      ) {
+        if (++zeroProgressCount >= MAX_ZERO_PROGRESS) break;
+      } else {
+        zeroProgressCount = 0;
+      }
+    } while (fragment.breakToken !== null || fragment.isBlank);
+
+    // Layout is done — release the measurer before composition.
+    this.releaseMeasurer();
+
+    return new FragmentedFlow(newFragments, this.#contentStyles);
   }
 
   /**
@@ -488,7 +508,7 @@ export class FragmentainerLayout {
    * detached DocumentFragment. The measurer is removed from the DOM
    * but the source elements remain accessible (for MutationSync).
    *
-   * Call after rendering is complete. If reflow() is called later,
+   * Call after composition is complete. If reflow() is called later,
    * setup() recreates the measurer from the saved fragment.
    */
   releaseMeasurer() {
@@ -555,162 +575,5 @@ export class FragmentainerLayout {
     this.#measureElement = null;
     this.#savedRefMap = null;
     this.#savedSourceRefs = null;
-  }
-}
-
-/**
- * The result of running fragmentation — a "fragmented flow" in CSS spec terms.
- *
- * Owns the fragment array and provides rendering methods. Each fragment
- * carries its own `constraints` (from PageResolver via createFragments),
- * so no separate sizes array is needed.
- */
-export class FragmentedFlow {
-  #fragments;
-  #contentStyles;
-  #layout;
-
-  /**
-   * @param {import('./fragment.js').PhysicalFragment[]} fragments
-   * @param {{ sheets: CSSStyleSheet[], nthDescriptors: NthDescriptor[],
-   *           sourceRefs: WeakMap, refMap: Map }|null} contentStyles
-   * @param {FragmentainerLayout|null} layout — back-reference for reflow
-   */
-  constructor(fragments, contentStyles, layout = null) {
-    this.#fragments = fragments;
-    this.#contentStyles = contentStyles;
-    this.#layout = layout;
-  }
-
-  /** @returns {import('./fragment.js').PhysicalFragment[]} */
-  get fragments() {
-    return this.#fragments;
-  }
-
-  /** @returns {number} */
-  get fragmentainerCount() {
-    return this.#fragments.length;
-  }
-
-  /**
-   * Render a single fragmentainer as a <fragment-container> element.
-   *
-   * @param {number} index - Zero-based fragmentainer index
-   * @returns {Element} A <fragment-container> element
-   */
-  renderFragmentainer(index) {
-    const fragment = this.#fragments[index];
-    const { contentArea } = fragment.constraints;
-
-    const el = document.createElement("fragment-container");
-    el.fragmentIndex = index;
-    el.pageConstraints = fragment.constraints;
-    el.namedPage = fragment.constraints?.namedPage ?? null;
-    el.style.width = `${contentArea.inlineSize}px`;
-    el.style.height = `${contentArea.blockSize}px`;
-    el.style.overflow = "hidden";
-
-    if (fragment.isBlank) {
-      const counterSnapshot =
-        index > 0 ? this.#fragments[index - 1].counterState : null;
-      el.setupForRendering(this.#contentStyles, counterSnapshot);
-      el.setAttribute("data-blank-page", "");
-      el.expectedBlockSize = contentArea.blockSize;
-      el.overflowThreshold = 0;
-      return el;
-    }
-
-    const prevBreakToken =
-      index > 0 ? this.#fragments[index - 1].breakToken : null;
-    const counterSnapshot =
-      index > 0 ? this.#fragments[index - 1].counterState : null;
-    const wrapper = el.setupForRendering(this.#contentStyles, counterSnapshot);
-    wrapper.appendChild(
-      renderFragmentTree(
-        fragment,
-        prevBreakToken,
-        this.#contentStyles?.sourceRefs,
-      ),
-    );
-
-    if (fragment.afterRender) {
-      for (const callback of fragment.afterRender) {
-        callback(wrapper, this.#contentStyles);
-      }
-    }
-
-    // Build and adopt a per-fragment nth-selector override stylesheet
-    const nthDescriptors = this.#contentStyles?.nthDescriptors;
-    const refMap = this.#contentStyles?.refMap;
-    if (nthDescriptors?.length > 0 && refMap) {
-      const nthSheet = buildPerFragmentNthSheet(wrapper, nthDescriptors, refMap);
-      if (nthSheet) el.adoptNthSheet(nthSheet);
-    }
-
-    el.expectedBlockSize = contentArea.blockSize;
-    el.overflowThreshold =
-      fragment.node?.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
-    return el;
-  }
-
-  /**
-   * Render all fragmentainers.
-   *
-   * @returns {Element[]} Array of <fragment-container> elements
-   */
-  render() {
-    const elements = [];
-    for (let i = 0; i < this.#fragments.length; i++) {
-      elements.push(this.renderFragmentainer(i));
-    }
-    return elements;
-  }
-
-  /**
-   * Re-layout from a specific fragmentainer and return new rendered elements.
-   *
-   * Resets the layout stepper to the break token before `fromIndex`,
-   * re-runs layout to completion with live measurements, splices the
-   * new fragments into this flow, and renders them.
-   *
-   * @param {number} [fromIndex=0] - Fragmentainer index to re-layout from
-   * @param {Object} [options]
-   * @param {boolean} [options.rebuild=false] - Rebuild layout tree (for structural DOM changes)
-   * @returns {{ from: number, removedCount: number, elements: Element[] }}
-   */
-  async reflow(fromIndex = 0, options = {}) {
-    await this.#layout.reflow(fromIndex, options);
-
-    // Re-run layout to completion
-    const newFragments = [];
-    let zeroProgressCount = 0;
-    let fragment;
-    do {
-      fragment = this.#layout.next();
-      newFragments.push(fragment);
-      if (
-        fragment.breakToken &&
-        fragment.blockSize === 0 &&
-        !fragment.isBlank
-      ) {
-        if (++zeroProgressCount >= MAX_ZERO_PROGRESS) break;
-      } else {
-        zeroProgressCount = 0;
-      }
-    } while (fragment.breakToken !== null || fragment.isBlank);
-
-    // Layout is done — release the measurer before rendering.
-    this.#layout.releaseMeasurer();
-
-    // Splice new fragments into the array
-    const removedCount = this.#fragments.length - fromIndex;
-    this.#fragments.splice(fromIndex, Infinity, ...newFragments);
-
-    // Render the new fragments
-    const elements = [];
-    for (let i = fromIndex; i < this.#fragments.length; i++) {
-      elements.push(this.renderFragmentainer(i));
-    }
-    return { from: fromIndex, removedCount, elements };
   }
 }

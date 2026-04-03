@@ -26,7 +26,7 @@ export async function paginate() {
   const flow = await layout.flow();
 
   let pageNumber = 0;
-  for (const frag of flow.render()) {
+  for (const frag of flow) {
     const page = document.createElement("page-container");
     page.className = "spec-page";
     page.dataset.pageIndex = pageNumber++;

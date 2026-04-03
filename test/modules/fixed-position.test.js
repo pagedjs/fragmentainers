@@ -270,7 +270,7 @@ describe("position: fixed in paged media (browser)", () => {
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
 
     // Each rendered page should contain a clone of the fixed header
-    const elements = flow.render();
+    const elements = [...flow];
     for (const el of elements) {
       document.body.appendChild(el);
       const headerClone = el.shadowRoot.querySelector(".fixed-header");
@@ -295,7 +295,7 @@ describe("position: fixed in paged media (browser)", () => {
 
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
 
-    const elements = flow.render();
+    const elements = [...flow];
     for (const el of elements) {
       document.body.appendChild(el);
       const footerClone = el.shadowRoot.querySelector(".fixed-footer");
@@ -323,7 +323,7 @@ describe("position: fixed in paged media (browser)", () => {
     // 400 - 40 - 40 = 320 available, 400 total → 2 pages
     expect(flow.fragmentainerCount).toBe(2);
 
-    const elements = flow.render();
+    const elements = [...flow];
     for (const el of elements) {
       document.body.appendChild(el);
       expect(el.shadowRoot.querySelector(".header")).not.toBeNull();

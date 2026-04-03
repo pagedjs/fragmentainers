@@ -3,13 +3,13 @@ import { PhysicalFragment } from "../../src/core/fragment.js";
 import { BlockBreakToken } from "../../src/core/tokens.js";
 import { blockNode, textToInlineItems } from "../fixtures/nodes.js";
 import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } from "../../src/core/constants.js";
-import { renderFragmentTree, applySliceDecorations, buildInlineContent } from "../../src/compositor/render-fragments.js";
+import { composeFragment, applySliceDecorations, buildInlineContent } from "../../src/compositor/compositor.js";
 import { DOMLayoutNode } from "../../src/dom/layout-node.js";
 
 // Import the compositor functions
 import {
   hasBlockChildFragments,
-} from "../../src/compositor/index.js";
+} from "../../src/compositor/compositor.js";
 
 describe("hasBlockChildFragments", () => {
   it("returns false for empty childFragments", () => {
@@ -40,7 +40,7 @@ describe("hasBlockChildFragments", () => {
 
 describe("empty container shell detection", () => {
   /**
-   * Mirrors the condition in renderFragment that skips empty container shells:
+   * Mirrors the condition in composeFragment that skips empty container shells:
    *   fragment.childFragments.length === 0 && fragment.breakToken && node.children?.length > 0
    */
   function isEmptyContainerShell(fragment) {
@@ -184,7 +184,7 @@ describe("applySliceDecorations with real elements", () => {
 });
 
 describe("buildInlineContent", () => {
-  it("renders simple text into a container", () => {
+  it("composes simple text into a container", () => {
     const items = [
       { type: INLINE_TEXT, startOffset: 0, endOffset: 11 },
     ];
@@ -194,7 +194,7 @@ describe("buildInlineContent", () => {
     expect(target.textContent).toBe("Hello world");
   });
 
-  it("renders a sliced range from the middle of text", () => {
+  it("composes a sliced range from the middle of text", () => {
     const textContent = "Hello world test content";
     const items = [
       { type: INLINE_TEXT, startOffset: 0, endOffset: textContent.length },
@@ -204,7 +204,7 @@ describe("buildInlineContent", () => {
     expect(target.textContent).toBe("world test");
   });
 
-  it("renders inline elements using open/close tag items", () => {
+  it("composes inline elements using open/close tag items", () => {
     const span = document.createElement("span");
     span.className = "highlight";
     container.appendChild(span);
@@ -269,7 +269,7 @@ describe("buildInlineContent", () => {
     expect(target.querySelector("b")).toBeNull();
   });
 
-  it("renders a break element for INLINE_CONTROL items", () => {
+  it("composes a break element for INLINE_CONTROL items", () => {
     const textContent = "line one\nline two";
     const items = [
       { type: INLINE_TEXT, startOffset: 0, endOffset: 8 },
@@ -283,8 +283,8 @@ describe("buildInlineContent", () => {
   });
 });
 
-describe("renderFragmentTree", () => {
-  it("renders child fragments as cloned elements", () => {
+describe("composeFragment", () => {
+  it("composes child fragments as cloned elements", () => {
     // Build real DOM
     const outer = document.createElement("div");
     const child1 = document.createElement("div");
@@ -305,8 +305,8 @@ describe("renderFragmentTree", () => {
     const childFrag2 = new PhysicalFragment(childNodes[1], 20);
     const rootFragment = new PhysicalFragment(outerNode, 40, [childFrag1, childFrag2]);
 
-    // Render
-    const docFrag = renderFragmentTree(rootFragment, null);
+    // Compose
+    const docFrag = composeFragment(rootFragment, null);
 
     // The DocumentFragment should contain two cloned divs
     expect(docFrag.childNodes.length).toBe(2);
@@ -331,9 +331,9 @@ describe("renderFragmentTree", () => {
     const childFrag = new PhysicalFragment(childNodes[0], 30);
     const rootFragment = new PhysicalFragment(outerNode, 50, [lineFrag, childFrag]);
 
-    const docFrag = renderFragmentTree(rootFragment, null);
+    const docFrag = composeFragment(rootFragment, null);
 
-    // Only the real child should be rendered
+    // Only the real child should be composed
     expect(docFrag.childNodes.length).toBe(1);
     expect(docFrag.childNodes[0].tagName).toBe("P");
     expect(docFrag.childNodes[0].textContent).toBe("Content");
@@ -353,7 +353,7 @@ describe("renderFragmentTree", () => {
     childFrag.breakToken = new BlockBreakToken(childNodes[0]);
     const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
 
-    const docFrag = renderFragmentTree(rootFragment, null);
+    const docFrag = composeFragment(rootFragment, null);
 
     expect(docFrag.childNodes.length).toBe(1);
     expect(docFrag.childNodes[0].hasAttribute("data-split-to")).toBe(true);
@@ -374,11 +374,11 @@ describe("renderFragmentTree", () => {
     childFrag.breakToken = new BlockBreakToken(childNodes[0]);
     const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
 
-    const docFrag = renderFragmentTree(rootFragment, null);
+    const docFrag = composeFragment(rootFragment, null);
 
-    const rendered = docFrag.childNodes[0];
-    expect(rendered.hasAttribute("data-split-to")).toBe(true);
-    expect(rendered.hasAttribute("data-justify-last")).toBe(true);
+    const composed = docFrag.childNodes[0];
+    expect(composed.hasAttribute("data-split-to")).toBe(true);
+    expect(composed.hasAttribute("data-justify-last")).toBe(true);
   });
 
   it("does not set data-justify-last when text-align is not justify", () => {
@@ -396,11 +396,11 @@ describe("renderFragmentTree", () => {
     childFrag.breakToken = new BlockBreakToken(childNodes[0]);
     const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
 
-    const docFrag = renderFragmentTree(rootFragment, null);
+    const docFrag = composeFragment(rootFragment, null);
 
-    const rendered = docFrag.childNodes[0];
-    expect(rendered.hasAttribute("data-split-to")).toBe(true);
-    expect(rendered.hasAttribute("data-justify-last")).toBe(false);
+    const composed = docFrag.childNodes[0];
+    expect(composed.hasAttribute("data-split-to")).toBe(true);
+    expect(composed.hasAttribute("data-justify-last")).toBe(false);
   });
 
   it("sets data-justify-last after element is detached from DOM", () => {
@@ -424,10 +424,10 @@ describe("renderFragmentTree", () => {
     childFrag.breakToken = new BlockBreakToken(childNodes[0]);
     const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
 
-    const docFrag = renderFragmentTree(rootFragment, null);
+    const docFrag = composeFragment(rootFragment, null);
 
-    const rendered = docFrag.childNodes[0];
-    expect(rendered.hasAttribute("data-split-to")).toBe(true);
-    expect(rendered.hasAttribute("data-justify-last")).toBe(true);
+    const composed = docFrag.childNodes[0];
+    expect(composed.hasAttribute("data-split-to")).toBe(true);
+    expect(composed.hasAttribute("data-justify-last")).toBe(true);
   });
 });

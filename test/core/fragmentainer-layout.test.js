@@ -3,44 +3,9 @@ import { PhysicalFragment } from "../../src/core/fragment.js";
 import { BlockBreakToken } from "../../src/core/tokens.js";
 import { ConstraintSpace } from "../../src/core/constraint-space.js";
 import { blockNode } from "../fixtures/nodes.js";
-import { getFragmentainerSize } from "../../src/compositor/fragmentainer-builder.js";
-import { FragmentainerLayout, FragmentedFlow } from "../../src/core/fragmentainer-layout.js";
+import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
+import { FragmentedFlow } from "../../src/core/fragmented-flow.js";
 import "../../src/dom/fragment-container.js";
-
-describe("getFragmentainerSize", () => {
-  const sizes = [
-    { inlineSize: 600, blockSize: 800 },
-    { inlineSize: 800, blockSize: 600 },
-  ];
-
-  it("returns the size at the given index", () => {
-    expect(getFragmentainerSize(sizes, 0)).toEqual({ inlineSize: 600, blockSize: 800 });
-    expect(getFragmentainerSize(sizes, 1)).toEqual({ inlineSize: 800, blockSize: 600 });
-  });
-
-  it("returns the last size for indices beyond the array", () => {
-    expect(getFragmentainerSize(sizes, 2)).toEqual({ inlineSize: 800, blockSize: 600 });
-    expect(getFragmentainerSize(sizes, 99)).toEqual({ inlineSize: 800, blockSize: 600 });
-  });
-
-  it("works with a single-element array", () => {
-    const single = [{ inlineSize: 500, blockSize: 700 }];
-    expect(getFragmentainerSize(single, 0)).toEqual({ inlineSize: 500, blockSize: 700 });
-    expect(getFragmentainerSize(single, 5)).toEqual({ inlineSize: 500, blockSize: 700 });
-  });
-
-  it("prefers fragment constraints over sizes array", () => {
-    const fragments = [
-      Object.assign(new PhysicalFragment(blockNode(), 100), {
-        constraints: {
-          contentArea: { inlineSize: 700, blockSize: 900 },
-        },
-      }),
-    ];
-    const fallback = [{ inlineSize: 600, blockSize: 800 }];
-    expect(getFragmentainerSize(fallback, 0, fragments)).toEqual({ inlineSize: 700, blockSize: 900 });
-  });
-});
 
 describe("FragmentedFlow", () => {
   function makeFragments(count) {
@@ -77,6 +42,19 @@ describe("FragmentedFlow", () => {
     expect(flow.fragmentainerCount).toBe(0);
   });
 
+  it("skips element creation when contentStyles is null", () => {
+    const flow = new FragmentedFlow(makeFragments(3), null);
+    expect(flow.length).toBe(0);
+    expect(flow.fragmentainerCount).toBe(3);
+    expect(flow.fragments.length).toBe(3);
+  });
+
+  it("Symbol.species returns Array", () => {
+    const flow = new FragmentedFlow(makeFragments(2), null);
+    const mapped = flow.map(el => el.tagName);
+    expect(mapped).toBeInstanceOf(Array);
+    expect(mapped).not.toBeInstanceOf(FragmentedFlow);
+  });
 });
 
 describe("FragmentainerLayout.next()", () => {
@@ -202,6 +180,44 @@ describe("FragmentainerLayout.flow() (browser)", () => {
     const flow = await layout.flow();
     expect(flow).toBeInstanceOf(FragmentedFlow);
     expect(flow.fragmentainerCount).toBeGreaterThanOrEqual(2);
+    expect(flow.length).toBe(flow.fragmentainerCount);
+  });
+
+  it("flow() with start/stop creates a subset of elements", async () => {
+    const template = document.createElement("template");
+    template.innerHTML = "<div style=\"margin:0; padding:0;\"><div style=\"height: 400px; margin: 0;\"></div></div>";
+    layout = new FragmentainerLayout(template.content, {
+      width: 400, height: 100,
+    });
+    const flow = await layout.flow({ start: 1, stop: 3 });
+    expect(flow.fragmentainerCount).toBeGreaterThanOrEqual(4);
+    expect(flow.length).toBe(2);
+    expect(flow[0].fragmentIndex).toBe(1);
+    expect(flow[1].fragmentIndex).toBe(2);
+  });
+
+  it("is directly iterable as an array of elements", async () => {
+    const template = document.createElement("template");
+    template.innerHTML = "<div style=\"margin:0; padding:0;\"><div style=\"height: 200px; margin: 0;\"></div></div>";
+    layout = new FragmentainerLayout(template.content, {
+      width: 400, height: 100,
+    });
+    const flow = await layout.flow();
+    expect(flow.length).toBeGreaterThanOrEqual(2);
+    for (const el of flow) {
+      expect(el.tagName.toLowerCase()).toBe("fragment-container");
+    }
+  });
+
+  it("supports index access", async () => {
+    const template = document.createElement("template");
+    template.innerHTML = "<div style=\"margin:0; padding:0;\"><div style=\"height: 200px; margin: 0;\"></div></div>";
+    layout = new FragmentainerLayout(template.content, {
+      width: 400, height: 100,
+    });
+    const flow = await layout.flow();
+    expect(flow[0].tagName.toLowerCase()).toBe("fragment-container");
+    expect(flow[0].fragmentIndex).toBe(0);
   });
 
   it("produces a single fragmentainer when content fits", async () => {
@@ -340,7 +356,7 @@ describe("namedPage property", () => {
     const flow = new FragmentedFlow(fragments, contentStyles);
     const elements = [];
     for (let i = 0; i < fragments.length; i++) {
-      elements.push(flow.renderFragmentainer(i));
+      elements.push(flow.createFragmentainer(i));
     }
 
     expect(elements[0].namedPage).toBe("cover");
