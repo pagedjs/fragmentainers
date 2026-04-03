@@ -45,6 +45,23 @@ class ModuleRegistry {
     }
     return null;
   }
+
+  /**
+   * Collect elements that modules want persisted across all measurement
+   * segments. Called once before segmentation with the full content.
+   *
+   * @param {DocumentFragment|Element} content — the full content root
+   * @param {CSSStyleSheet[]} styles — adopted stylesheets
+   * @returns {Element[]} elements to include in every segment's measurer
+   */
+  claimPersistent(content, styles) {
+    const elements = [];
+    for (const mod of this.#modules) {
+      const claimed = mod.claimPersistent(content, styles);
+      if (claimed.length > 0) elements.push(...claimed);
+    }
+    return elements;
+  }
 }
 
 export const modules = new ModuleRegistry();

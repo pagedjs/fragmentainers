@@ -19,6 +19,7 @@ import {
 import "../dom/content-measure.js";
 import "../dom/fragment-container.js";
 import { ContentParser } from "../dom/content-parser.js";
+import { Measurer } from "../dom/measure.js";
 import { modules } from "../modules/registry.js";
 import "../modules/index.js";
 
@@ -70,6 +71,7 @@ export class FragmentainerLayout {
 
   // Stepper state (initialized lazily on first next() call)
   #tree = null;
+  #measurer = null;
   #measureElement = null;
   #breakToken = null;
   #fragmentainerIndex = 0;
@@ -202,7 +204,9 @@ export class FragmentainerLayout {
     }
 
     // Sync DOM measurement container
-    if (this.#measureElement) {
+    if (this.#measurer) {
+      this.#measurer.applyConstraintSpace(constraintSpace);
+    } else if (this.#measureElement) {
       this.#measureElement.applyConstraintSpace(constraintSpace);
     }
 
@@ -272,6 +276,11 @@ export class FragmentainerLayout {
         }
       } else {
         zeroProgressCount = 0;
+      }
+
+      // Let the measurer swap to the next segment if at a boundary
+      if (this.#measurer) {
+        await this.#measurer.advance(fragment.breakToken, this.#tree);
       }
     } while (fragment.breakToken !== null || fragment.isBlank);
 
@@ -439,36 +448,21 @@ export class FragmentainerLayout {
       typeof DocumentFragment !== "undefined" &&
       content instanceof DocumentFragment
     ) {
-      // Create internal <content-measure> and inject the fragment.
-      const measurer = document.createElement("content-measure");
-      measurer.trackRefs = this.#trackRefs;
-      const wrapper = measurer.injectFragment(content, styles);
+      // Delegate to the Measurer class, which handles segmented
+      // measurement when top-level children have forced breaks.
+      this.#measurer = new Measurer(content, styles, this.#trackRefs);
+      const contentRoot = await this.#measurer.setup();
 
-      // Transfer saved refs from a previous measurer cycle
-      if (this.#savedRefMap) {
-        measurer.transferRefs(
-          this.#savedRefMap,
-          this.#savedSourceRefs,
-          this.#savedNextRefId,
-        );
-        this.#savedRefMap = null;
-        this.#savedSourceRefs = null;
+      this.#tree = buildLayoutTree(contentRoot);
+      this.#measureElement = { applyConstraintSpace: () => {} };
+      this.#contentStyles = this.#measurer.getContentStyles();
+
+      // If segmented, override root's children with the first segment
+      const initialChildren = this.#measurer.initialChildren;
+      if (initialChildren) {
+        this.#tree.setChildren(initialChildren);
       }
 
-      document.body.appendChild(measurer);
-
-      // Force a style/layout pass so the browser discovers @font-face
-      // references in the newly injected content, then wait for fonts
-      // and images to finish loading before measuring.
-      void measurer.offsetHeight;
-      if (document.fonts?.ready) {
-        await document.fonts.ready;
-      }
-      await this.#waitForImages(measurer.contentRoot);
-
-      this.#tree = buildLayoutTree(wrapper);
-      this.#measureElement = measurer;
-      this.#contentStyles = measurer.getContentStyles();
       // Auto-create resolver from @page rules in styles if neither set
       if (!this.#resolver && !this.#constraintSpace) {
         this.#resolver = PageResolver.fromStyleSheets(styles);
@@ -490,6 +484,18 @@ export class FragmentainerLayout {
    * setup() recreates the measurer from the saved fragment.
    */
   releaseMeasurer() {
+    if (this.#measurer) {
+      const result = this.#measurer.release();
+      this.#content = result.content;
+      if (this.#trackRefs && result.refMap) {
+        this.#savedRefMap = result.refMap;
+        this.#savedSourceRefs = result.sourceRefs;
+        this.#savedNextRefId = result.nextRefId;
+      }
+      this.#measureElement = null;
+      return;
+    }
+
     if (!this.#measureElement) return;
 
     // Save ref state before destroying the measurer
@@ -519,6 +525,9 @@ export class FragmentainerLayout {
    * DocumentFragment if the measurer has been released.
    */
   get contentRoot() {
+    if (this.#measurer?.contentRoot) {
+      return this.#measurer.contentRoot;
+    }
     if (this.#measureElement) {
       return this.#measureElement.contentRoot;
     }
@@ -530,6 +539,10 @@ export class FragmentainerLayout {
    * Call when the layout is no longer needed.
    */
   destroy() {
+    if (this.#measurer?.isActive) {
+      this.#measurer.release();
+      this.#measurer = null;
+    }
     this.#measureElement?.remove();
     this.#measureElement = null;
     this.#savedRefMap = null;

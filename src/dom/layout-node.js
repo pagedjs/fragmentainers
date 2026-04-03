@@ -49,6 +49,8 @@ export class DOMLayoutNode {
   #textAlign = null;
   #whiteSpace = null;
   #lineHeightCache = null;
+  #breakBeforeOverride = null;
+  #pageOverride = undefined;
 
   constructor(element) {
     this.element = element;
@@ -227,12 +229,22 @@ export class DOMLayoutNode {
   //Fragmentation CSS
 
   get page() {
+    if (this.#pageOverride !== undefined) return this.#pageOverride;
     const val = this.#getStyle().page;
     return val && val !== "auto" ? val : null;
   }
 
+  set page(value) {
+    this.#pageOverride = value;
+  }
+
   get breakBefore() {
+    if (this.#breakBeforeOverride !== null) return this.#breakBeforeOverride;
     return this.#getStyle().breakBefore || "auto";
+  }
+
+  set breakBefore(value) {
+    this.#breakBeforeOverride = value;
   }
 
   get breakAfter() {
@@ -336,6 +348,11 @@ export class DOMLayoutNode {
     }
 
     return this.#children;
+  }
+
+  setChildren(children) {
+    this.#children = children;
+    this.#cumulativeHeights = null;
   }
 
   //Block size

@@ -41,6 +41,48 @@ class FixedPositionModule extends Module {
     return node.position === "fixed";
   }
 
+  /**
+   * Claim position: fixed elements so they persist across all
+   * measurement segments. Walks stylesheet rules and inline styles
+   * to find fixed-position elements without needing live DOM.
+   */
+  claimPersistent(content, styles) {
+    const fixedSelectors = [];
+    for (const sheet of styles) {
+      let rules;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const rule of rules) {
+        if (!rule.style) continue;
+        if (rule.style.getPropertyValue("position").trim() === "fixed") {
+          fixedSelectors.push(rule.selectorText);
+        }
+      }
+    }
+
+    const claimed = [];
+    for (const el of content.children) {
+      if (el.style.position === "fixed") {
+        claimed.push(el);
+        continue;
+      }
+      for (const selector of fixedSelectors) {
+        try {
+          if (el.matches(selector)) {
+            claimed.push(el);
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+    return claimed;
+  }
+
   layout(rootNode, constraintSpace, breakToken, layoutChild) {
     if (constraintSpace.fragmentationType !== FRAGMENTATION_PAGE) {
       return { reservedBlockStart: 0, reservedBlockEnd: 0, afterRender: null };
