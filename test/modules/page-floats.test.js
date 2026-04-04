@@ -3,7 +3,7 @@ import { createFragments } from "../../src/core/layout-request.js";
 import { ConstraintSpace } from "../../src/core/constraint-space.js";
 import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
 import { FRAGMENTATION_PAGE } from "../../src/core/constants.js";
-import { Module } from "../../src/modules/module.js";
+import { LayoutModule } from "../../src/modules/module.js";
 import { PageFloat } from "../../src/modules/page-float.js";
 import { blockNode, floatNode } from "../fixtures/nodes.js";
 
@@ -121,7 +121,7 @@ describe("page floats integration with createFragments", () => {
     // With modules: float takes 100, content takes 700, total exceeds adjusted 700
     // The float is skipped by layoutBlockContainer, but the constraint space
     // has only 700px available. The 700px block should still fit exactly.
-    const csWithModules = new ConstraintSpace({
+    const csWithLayoutModules = new ConstraintSpace({
       availableInlineSize: PAGE_WIDTH,
       availableBlockSize: PAGE_HEIGHT - 100,
       fragmentainerBlockSize: PAGE_HEIGHT - 0, // reservedBlockEnd is 0
@@ -129,7 +129,7 @@ describe("page floats integration with createFragments", () => {
       fragmentationType: FRAGMENTATION_PAGE,
       modules: [PageFloat],
     });
-    const fragments = createFragments(root, csWithModules);
+    const fragments = createFragments(root, csWithLayoutModules);
     // The 700px block should fit in the remaining 700px
     expect(fragments.length).toBe(1);
     expect(fragments[0].blockSize).toBe(700);
@@ -190,7 +190,7 @@ describe("FragmentainerLayout.register / .remove", () => {
   });
 
   it("register() does not duplicate a module", () => {
-    const spy = new Module();
+    const spy = new LayoutModule();
     FragmentainerLayout.register(spy);
     FragmentainerLayout.register(spy);
     FragmentainerLayout.remove(spy);

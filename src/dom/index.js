@@ -6,7 +6,7 @@ export { computedStyleMap } from "./computed-style-map.js";
 export { createRangeMeasurer, measureElementBlockSize, getLineHeight, parseLength, countLines } from "./measure.js";
 export { ContentMeasureElement } from "./content-measure.js";
 export { FragmentContainerElement } from "./fragment-container.js";
-export { MutationSync } from "./mutation-sync.js";
+
 
 /**
  * Build a layout tree from a DOM element.

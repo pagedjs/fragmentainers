@@ -1,10 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { runLayoutGenerator, getLayoutAlgorithm } from "../../src/core/layout-request.js";
+import {
+  runLayoutGenerator,
+  getLayoutAlgorithm,
+} from "../../src/core/layout-request.js";
 import { layoutGridContainer } from "../../src/layout/grid-container.js";
 import { ConstraintSpace } from "../../src/core/constraint-space.js";
 import { blockNode, gridNode, gridItemNode } from "../fixtures/nodes.js";
 
-function layoutGrid(node, { inlineSize = 600, blockSize = 400, fragmentationType = "none" } = {}) {
+function layoutGrid(
+  node,
+  { inlineSize = 600, blockSize = 400, fragmentationType = "none" } = {},
+) {
   const cs = new ConstraintSpace({
     availableInlineSize: inlineSize,
     availableBlockSize: blockSize,
@@ -60,7 +66,10 @@ describe("layoutGridContainer", () => {
     });
 
     // Fragmentainer height 100: A breaks, B completes
-    const result = layoutGrid(root, { blockSize: 100, fragmentationType: "page" });
+    const result = layoutGrid(root, {
+      blockSize: 100,
+      fragmentationType: "page",
+    });
     expect(result.breakToken).toBeTruthy();
   });
 
@@ -72,19 +81,25 @@ describe("layoutGridContainer", () => {
       ],
     });
 
-    const result = layoutGrid(root, { blockSize: 100, fragmentationType: "page" });
+    const result = layoutGrid(root, {
+      blockSize: 100,
+      fragmentationType: "page",
+    });
     // Row break token should exist
     expect(result.breakToken).toBeTruthy();
   });
 
-  it("break token has kGridData with rowIndex", () => {
+  it("break token has GridData with rowIndex", () => {
     const root = gridNode({
       children: [
         gridItemNode({ debugName: "A", blockSize: 200, gridRowStart: 1 }),
       ],
     });
 
-    const result = layoutGrid(root, { blockSize: 100, fragmentationType: "page" });
+    const result = layoutGrid(root, {
+      blockSize: 100,
+      fragmentationType: "page",
+    });
     expect(result.breakToken).toBeTruthy();
     expect(result.breakToken.algorithmData.type).toBe("GridData");
     expect(typeof result.breakToken.algorithmData.rowIndex).toBe("number");

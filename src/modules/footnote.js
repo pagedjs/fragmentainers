@@ -1,4 +1,4 @@
-import { Module } from "./module.js";
+import { LayoutModule } from "./module.js";
 
 const FOOTNOTE_STYLES = `
 [data-footnote-call] {
@@ -47,7 +47,7 @@ function getBreakBoundaryElement(breakToken) {
  * space for their bodies. The fragmentainer driver re-runs layout with
  * the updated reservation until it stabilises.
  */
-class FootnoteModule extends Module {
+class FootnoteLayoutModule extends LayoutModule {
   /** @type {Map<string, { callElement: Element, bodyElement: Element, blockSize: number }>} */
   #footnoteMap = new Map();
 
@@ -278,4 +278,4 @@ class FootnoteModule extends Module {
   }
 }
 
-export const Footnote = new FootnoteModule();
+export const Footnote = new FootnoteLayoutModule();

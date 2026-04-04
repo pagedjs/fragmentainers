@@ -65,7 +65,6 @@ export class FragmentainerLayout {
   #styles;
   #resolver;
   #constraintSpace;
-  #trackRefs;
 
   // Stepper state (initialized lazily on first next() call)
   #tree = null;
@@ -78,11 +77,6 @@ export class FragmentainerLayout {
   #prevFragment = null;
   #fragments = [];
 
-  // Saved ref state — preserved across measurer destroy/recreate cycles
-  #savedRefMap = null;
-  #savedSourceRefs = null;
-  #savedNextRefId = 0;
-
   /**
    * @param {DocumentFragment|Element|object} content - Content to fragment
    * @param {object} [options]
@@ -91,7 +85,6 @@ export class FragmentainerLayout {
    * @param {PageResolver|RegionResolver} [options.resolver] - Pre-configured resolver
    * @param {number} [options.width] - Container width in CSS px (column fragmentation)
    * @param {number} [options.height] - Container height in CSS px (column fragmentation)
-   * @param {boolean} [options.trackRefs=false] - Enable ref tracking for clone-to-source mapping (needed for MutationSync)
    */
   constructor(content, options = {}) {
     // Normalize Element → DocumentFragment (clone into fragment)
@@ -114,8 +107,6 @@ export class FragmentainerLayout {
         ? options.styles
         : [options.styles]
       : undefined;
-
-    this.#trackRefs = !!options.trackRefs;
 
     if (options.constraintSpace) {
       this.#constraintSpace = options.constraintSpace;
@@ -445,17 +436,7 @@ export class FragmentainerLayout {
       // element objects; moving them back into the measurer restores
       // live measurement capability.
       const measurer = document.createElement("content-measure");
-      measurer.trackRefs = this.#trackRefs;
       measurer.injectFragment(content, styles);
-      if (this.#savedRefMap) {
-        measurer.transferRefs(
-          this.#savedRefMap,
-          this.#savedSourceRefs,
-          this.#savedNextRefId,
-        );
-        this.#savedRefMap = null;
-        this.#savedSourceRefs = null;
-      }
       document.body.appendChild(measurer);
       void measurer.offsetHeight;
       if (document.fonts?.ready) {
@@ -478,7 +459,7 @@ export class FragmentainerLayout {
     ) {
       // Delegate to the Measurer class, which handles segmented
       // measurement when top-level children have forced breaks.
-      this.#measurer = new Measurer(content, styles, this.#trackRefs);
+      this.#measurer = new Measurer(content, styles);
       const contentRoot = await this.#measurer.setup();
 
       this.#tree = buildLayoutTree(contentRoot);
@@ -515,23 +496,11 @@ export class FragmentainerLayout {
     if (this.#measurer) {
       const result = this.#measurer.release();
       this.#content = result.content;
-      if (this.#trackRefs && result.refMap) {
-        this.#savedRefMap = result.refMap;
-        this.#savedSourceRefs = result.sourceRefs;
-        this.#savedNextRefId = result.nextRefId;
-      }
       this.#measureElement = null;
       return;
     }
 
     if (!this.#measureElement) return;
-
-    // Save ref state before destroying the measurer
-    if (this.#trackRefs) {
-      this.#savedRefMap = this.#measureElement.refMap;
-      this.#savedSourceRefs = this.#measureElement.sourceRefs;
-      this.#savedNextRefId = this.#measureElement.nextRefId;
-    }
 
     // Move content from slot back to a DocumentFragment.
     // The tree is preserved — DOMLayoutNode wrappers still reference
@@ -573,7 +542,5 @@ export class FragmentainerLayout {
     }
     this.#measureElement?.remove();
     this.#measureElement = null;
-    this.#savedRefMap = null;
-    this.#savedSourceRefs = null;
   }
 }

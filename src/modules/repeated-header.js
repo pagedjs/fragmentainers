@@ -1,9 +1,9 @@
-import { Module } from "./module.js";
+import { LayoutModule } from "./module.js";
 import { ConstraintSpace } from "../core/constraint-space.js";
 import { findChildBreakToken } from "../core/helpers.js";
 import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE } from "../core/constants.js";
 
-class RepeatedTableHeaderModule extends Module {
+class RepeatedTableHeaderLayoutModule extends LayoutModule {
   beforeChildren(node, constraintSpace, breakToken) {
     if (!breakToken || !node.isTable) return null;
     if (constraintSpace.fragmentationType !== FRAGMENTATION_PAGE) return null;
@@ -24,4 +24,4 @@ class RepeatedTableHeaderModule extends Module {
   }
 }
 
-export const RepeatedTableHeader = new RepeatedTableHeaderModule();
+export const RepeatedTableHeader = new RepeatedTableHeaderLayoutModule();

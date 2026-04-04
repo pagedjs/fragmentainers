@@ -37,10 +37,10 @@ export {
   parseCounterDirective,
   walkFragmentTree,
 } from "./core/counter-state.js";
-export { MutationSync } from "./dom/mutation-sync.js";
+export { MutationSync } from "./modules/mutation-sync.js";
 export { ContentParser } from "./dom/content-parser.js";
 export { buildCumulativeHeights } from "./core/speculative-layout.js";
-export { Module, modules, PageFloat } from "./modules/index.js";
+export { LayoutModule, modules, PageFloat } from "./modules/index.js";
 export { PageFit } from "./modules/page-fit.js";
 export { RepeatedTableHeader } from "./modules/repeated-header.js";
 export * as constants from "./core/constants.js";

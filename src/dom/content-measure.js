@@ -11,7 +11,6 @@
  * keeping it inside the shadow DOM where only adopted stylesheets apply.
  */
 
-import { extractNthDescriptors } from "../styles/nth-selectors.js";
 import { buildBodyOverrideSheet } from "../styles/body-selectors.js";
 
 const MEASURE_HOST_STYLES = `
@@ -31,12 +30,7 @@ export class ContentMeasureElement extends HTMLElement {
   #shadow;
   #slot = null;
   #bodyOverrideSheet = null;
-  #nthDescriptors = [];
   #currentInlineSize = undefined;
-  #trackRefs = false;
-  #refMap = new Map();
-  #sourceRefs = new WeakMap();
-  #nextRefId = 0;
 
   constructor() {
     super();
@@ -79,15 +73,6 @@ export class ContentMeasureElement extends HTMLElement {
     void this.offsetHeight; // Force synchronous reflow
   }
 
-  /** Enable ref tracking for clone-to-source mapping (needed for MutationSync). */
-  set trackRefs(value) {
-    this.#trackRefs = !!value;
-  }
-
-  get trackRefs() {
-    return this.#trackRefs;
-  }
-
   /**
    * Inject a DocumentFragment and adopt CSSStyleSheets for measurement.
    *
@@ -98,13 +83,6 @@ export class ContentMeasureElement extends HTMLElement {
   injectFragment(fragment, styles = []) {
     this.setupEmpty(styles);
     this.#slot.appendChild(fragment);
-
-    if (this.#trackRefs) {
-      for (const el of this.#slot.querySelectorAll("*")) {
-        this.#trackElement(el);
-      }
-    }
-
     return this.#slot;
   }
 
@@ -118,9 +96,6 @@ export class ContentMeasureElement extends HTMLElement {
     this.#ensureSetup();
     this.#slot.innerHTML = "";
 
-    // Build override sheets for body/html selectors.
-    // Original sheets are NOT mutated — overrides are appended after them
-    // in adoptedStyleSheets so rewritten rules win by source order.
     const body = buildBodyOverrideSheet(
       styles,
       document.body,
@@ -131,18 +106,6 @@ export class ContentMeasureElement extends HTMLElement {
       this.#bodyOverrideSheet.cssRules.length > 0
         ? [...styles, this.#bodyOverrideSheet]
         : [...styles];
-
-    // Extract nth-selector descriptors (without mutating sheets).
-    // Per-fragment override sheets are built at render time.
-    this.#nthDescriptors = extractNthDescriptors(styles);
-
-    // Auto-enable ref tracking when nth descriptors exist — the
-    // per-fragment stylesheet builder needs data-ref on every element.
-    if (this.#nthDescriptors.length > 0) this.#trackRefs = true;
-
-    this.#refMap = new Map();
-    this.#sourceRefs = new WeakMap();
-    this.#nextRefId = 0;
 
     return this.#slot;
   }
@@ -156,74 +119,15 @@ export class ContentMeasureElement extends HTMLElement {
   }
 
   /**
-   * Get the content styles and ref maps for reuse in rendering.
+   * Get the content styles for composition.
    * Call after injectFragment() to capture styles.
    *
-   * @returns {{ sheets: CSSStyleSheet[], nthDescriptors: NthDescriptor[],
-   *             sourceRefs: WeakMap, refMap: Map }}
+   * @returns {{ sheets: CSSStyleSheet[] }}
    */
   getContentStyles() {
     return {
       sheets: [...this.#shadow.adoptedStyleSheets],
-      nthDescriptors: this.#nthDescriptors,
-      sourceRefs: this.#trackRefs ? this.#sourceRefs : null,
-      refMap: this.#trackRefs ? this.#refMap : null,
     };
-  }
-
-  /** @returns {Map<string, Element>} ref string → source element */
-  get refMap() {
-    return this.#refMap;
-  }
-
-  /** @returns {WeakMap<Element, string>} source element → ref string */
-  get sourceRefs() {
-    return this.#sourceRefs;
-  }
-
-  /**
-   * Track a new element in the ref maps (no DOM mutation).
-   * @param {Element} el
-   * @returns {string} the assigned ref
-   */
-  assignRef(el) {
-    return this.#trackElement(el);
-  }
-
-  /**
-   * Remove a ref from the maps (e.g., when an element is deleted).
-   * @param {string} ref
-   */
-  removeRef(ref) {
-    const el = this.#refMap.get(ref);
-    if (el) this.#sourceRefs.delete(el);
-    this.#refMap.delete(ref);
-  }
-
-  /** @returns {number} the next ref ID (for saving/restoring ref state) */
-  get nextRefId() {
-    return this.#nextRefId;
-  }
-
-  /**
-   * Replace ref state with previously saved maps. Used when recreating
-   * a measurer from a DocumentFragment whose elements were already tracked.
-   *
-   * @param {Map<string, Element>} refMap
-   * @param {WeakMap<Element, string>} sourceRefs
-   * @param {number} nextRefId
-   */
-  transferRefs(refMap, sourceRefs, nextRefId) {
-    this.#refMap = refMap;
-    this.#sourceRefs = sourceRefs;
-    this.#nextRefId = nextRefId;
-  }
-
-  #trackElement(el) {
-    const ref = String(this.#nextRefId++);
-    this.#sourceRefs.set(el, ref);
-    this.#refMap.set(ref, el);
-    return ref;
   }
 }
 

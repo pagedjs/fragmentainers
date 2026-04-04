@@ -1,11 +1,12 @@
-import { Module } from "./module.js";
+import { LayoutModule } from "./module.js";
 
 class ModuleRegistry {
   #modules = [];
+  #cloneMap = new WeakMap();
 
   register(module) {
-    if (!(module instanceof Module)) {
-      throw new TypeError("Module must extend the Module base class");
+    if (!(module instanceof LayoutModule)) {
+      throw new TypeError("Module must extend the LayoutModule base class");
     }
     if (!this.#modules.includes(module)) {
       this.#modules.push(module);
@@ -72,6 +73,14 @@ class ModuleRegistry {
    * @param {import('../core/tokens.js').BreakToken|null} inputBreakToken
    * @returns {{ reservedBlockEnd: number, afterRenderCallbacks: Function[] }|null}
    */
+  trackClone(clone, source) {
+    this.#cloneMap.set(clone, source);
+  }
+
+  getSource(clone) {
+    return this.#cloneMap.get(clone);
+  }
+
   afterContentLayout(fragment, constraintSpace, inputBreakToken) {
     let reservedBlockEnd = 0;
     const afterRenderCallbacks = [];

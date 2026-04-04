@@ -187,7 +187,6 @@ const SKIP_DISPLAYS = new Set(["table-column", "table-column-group", "none"]);
 export class Measurer {
   #content;
   #styles;
-  #trackRefs;
 
   #measureElement = null;
   #contentStyles = null;
@@ -202,19 +201,13 @@ export class Measurer {
   #finished = null;
   #pending = null;
 
-  #savedRefMap = null;
-  #savedSourceRefs = null;
-  #savedNextRefId = 0;
-
   /**
    * @param {DocumentFragment} content
    * @param {CSSStyleSheet[]} styles
-   * @param {boolean} trackRefs
    */
-  constructor(content, styles, trackRefs = false) {
+  constructor(content, styles) {
     this.#content = content;
     this.#styles = styles;
-    this.#trackRefs = trackRefs;
   }
 
   /**
@@ -245,11 +238,6 @@ export class Measurer {
   async #setupSingle() {
     const measurer = this.#createMeasurer();
     measurer.injectFragment(this.#content, this.#styles);
-    if (this.#savedRefMap) {
-      measurer.transferRefs(this.#savedRefMap, this.#savedSourceRefs, this.#savedNextRefId);
-      this.#savedRefMap = null;
-      this.#savedSourceRefs = null;
-    }
     document.body.appendChild(measurer);
     void measurer.offsetHeight;
     if (document.fonts?.ready) await document.fonts.ready;
@@ -302,13 +290,6 @@ export class Measurer {
     // elements + persistent elements stay in #content)
     const measurer = this.#createMeasurer();
     measurer.injectFragment(this.#content, this.#styles);
-
-    // Save ref state from the full injection if tracking
-    if (this.#trackRefs) {
-      this.#savedRefMap = new Map(measurer.refMap);
-      this.#savedSourceRefs = measurer.sourceRefs;
-      this.#savedNextRefId = measurer.nextRefId;
-    }
 
     document.body.appendChild(measurer);
     void measurer.offsetHeight;
@@ -447,31 +428,14 @@ export class Measurer {
    * Release measurement, returning all content as a DocumentFragment.
    * Removes the measurer from the DOM.
    *
-   * @returns {{ content: DocumentFragment, refMap: Map|null, sourceRefs: WeakMap|null, nextRefId: number }}
+   * @returns {{ content: DocumentFragment }}
    */
   release() {
-    if (!this.#measureElement) return { content: this.#content, refMap: null, sourceRefs: null, nextRefId: 0 };
-
-    let refMap = null;
-    let sourceRefs = null;
-    let nextRefId = 0;
-
-    if (this.#trackRefs) {
-      if (this.#savedRefMap) {
-        refMap = this.#savedRefMap;
-        sourceRefs = this.#savedSourceRefs;
-        nextRefId = this.#savedNextRefId;
-      } else {
-        refMap = this.#measureElement.refMap;
-        sourceRefs = this.#measureElement.sourceRefs;
-        nextRefId = this.#measureElement.nextRefId;
-      }
-    }
+    if (!this.#measureElement) return { content: this.#content };
 
     const frag = document.createDocumentFragment();
 
     if (this.#segments) {
-      // Reconstruct in original order: finished + current slot + pending
       if (this.#finished.childNodes.length > 0) {
         frag.appendChild(this.#finished);
       }
@@ -492,7 +456,7 @@ export class Measurer {
     this.#measureElement.remove();
     this.#measureElement = null;
 
-    return { content: frag, refMap, sourceRefs, nextRefId };
+    return { content: frag };
   }
 
   /** Sync the measurement container's inline size with the constraint space. */
@@ -521,9 +485,7 @@ export class Measurer {
   }
 
   #createMeasurer() {
-    const measurer = document.createElement("content-measure");
-    measurer.trackRefs = this.#trackRefs;
-    return measurer;
+    return document.createElement("content-measure");
   }
 
   #waitForImages(root) {

@@ -1,4 +1,4 @@
-export class Module {
+export class LayoutModule {
   matches() {
     return false;
   }

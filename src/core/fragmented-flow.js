@@ -1,5 +1,4 @@
-import { composeFragment } from "../compositor/compositor.js";
-import { buildPerFragmentNthSheet } from "../styles/nth-selectors.js";
+import { composeFragment, mapFragment } from "../compositor/compositor.js";
 import { DEFAULT_OVERFLOW_THRESHOLD } from "./constants.js";
 
 /**
@@ -17,8 +16,7 @@ export class FragmentedFlow extends Array {
 
   /**
    * @param {import("./fragment.js").PhysicalFragment[]} fragments
-   * @param {{ sheets: CSSStyleSheet[], nthDescriptors: NthDescriptor[],
-   *           sourceRefs: WeakMap, refMap: Map }|null} contentStyles
+   * @param {{ sheets: CSSStyleSheet[] }|null} contentStyles
    * @param {{ start?: number, stop?: number }} [range]
    */
   constructor(fragments, contentStyles, { start = 0, stop } = {}) {
@@ -76,27 +74,13 @@ export class FragmentedFlow extends Array {
     const counterSnapshot =
       index > 0 ? this.#fragments[index - 1].counterState : null;
     const wrapper = el.setupForRendering(this.#contentStyles, counterSnapshot);
-    wrapper.appendChild(
-      composeFragment(
-        fragment,
-        prevBreakToken,
-        null,
-        this.#contentStyles?.sourceRefs,
-      ),
-    );
+    wrapper.appendChild(composeFragment(fragment, prevBreakToken));
+    mapFragment(fragment, prevBreakToken, wrapper);
 
     if (fragment.afterRender) {
       for (const callback of fragment.afterRender) {
         callback(wrapper, this.#contentStyles);
       }
-    }
-
-    // Build and adopt a per-fragment nth-selector override stylesheet
-    const nthDescriptors = this.#contentStyles?.nthDescriptors;
-    const refMap = this.#contentStyles?.refMap;
-    if (nthDescriptors?.length > 0 && refMap) {
-      const nthSheet = buildPerFragmentNthSheet(wrapper, nthDescriptors, refMap);
-      if (nthSheet) el.adoptNthSheet(nthSheet);
     }
 
     el.expectedBlockSize = contentArea.blockSize;

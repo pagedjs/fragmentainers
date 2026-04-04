@@ -1,9 +1,9 @@
-import { Module } from "./module.js";
+import { LayoutModule } from "./module.js";
 import { ConstraintSpace } from "../core/constraint-space.js";
 import { composeFragment } from "../compositor/compositor.js";
 import { FRAGMENTATION_NONE } from "../core/constants.js";
 
-class PageFloatModule extends Module {
+class PageFloatLayoutModule extends LayoutModule {
   matches(node) {
     return node.getCustomProperty("float-reference") === "page";
   }
@@ -63,4 +63,4 @@ class PageFloatModule extends Module {
   }
 }
 
-export const PageFloat = new PageFloatModule();
+export const PageFloat = new PageFloatLayoutModule();

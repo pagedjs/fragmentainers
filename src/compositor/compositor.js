@@ -1,5 +1,6 @@
 import { findChildBreakToken } from "../core/helpers.js";
 import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC, BREAK_TOKEN_INLINE, BOX_DECORATION_CLONE } from "../core/constants.js";
+import { modules } from "../modules/registry.js";
 
 /**
  * Check if a fragment has block-level child fragments (not line fragments).
@@ -17,16 +18,15 @@ export function hasBlockChildFragments(fragment) {
  * @param {import("../core/fragment.js").PhysicalFragment} fragment
  * @param {import("../core/tokens.js").BreakToken|null} inputBreakToken - break token from the previous fragmentainer
  * @param {Element|null} [parentEl] - target to append into; omit for top-level call
- * @param {WeakMap} [sourceRefs] - source element → ref string (stamps data-ref on clones)
  * @returns {DocumentFragment|undefined} A DocumentFragment when parentEl is omitted
  */
-export function composeFragment(fragment, inputBreakToken, parentEl, sourceRefs) {
+export function composeFragment(fragment, inputBreakToken, parentEl) {
   if (!parentEl) {
     const docFragment = document.createDocumentFragment();
     for (const child of fragment.childFragments) {
       if (!child.node) continue;
       const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-      composeFragment(child, childInputBT, docFragment, sourceRefs);
+      composeFragment(child, childInputBT, docFragment);
     }
     return docFragment;
   }
@@ -36,12 +36,11 @@ export function composeFragment(fragment, inputBreakToken, parentEl, sourceRefs)
   const node = fragment.node;
 
   if (fragment.multicolData) {
-    composeMulticolFragment(fragment, inputBreakToken, parentEl, sourceRefs);
+    composeMulticolFragment(fragment, inputBreakToken, parentEl);
   } else if (node.isInlineFormattingContext) {
-    composeInlineFragment(fragment, inputBreakToken, parentEl, sourceRefs);
+    composeInlineFragment(fragment, inputBreakToken, parentEl);
   } else if (hasBlockChildFragments(fragment)) {
     const el = node.element.cloneNode(false);
-    stampRef(el, node.element, sourceRefs);
     if (fragment.isRepeated) el.setAttribute("data-repeated", "");
     applySplitAttributes(el, inputBreakToken, fragment);
     if (inputBreakToken && el.tagName === "OL") {
@@ -53,7 +52,7 @@ export function composeFragment(fragment, inputBreakToken, parentEl, sourceRefs)
     for (const child of fragment.childFragments) {
       if (!child.node) continue;
       const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-      composeFragment(child, childInputBT, el, sourceRefs);
+      composeFragment(child, childInputBT, el);
     }
     // Skip empty container shells — all composed children were themselves
     // empty and skipped (e.g. an <ol> whose only <li> had no visible text).
@@ -68,7 +67,6 @@ export function composeFragment(fragment, inputBreakToken, parentEl, sourceRefs)
     return;
   } else {
     const el = node.element.cloneNode(true);
-    stampRefDeep(el, node.element, sourceRefs);
     if (fragment.isRepeated) el.setAttribute("data-repeated", "");
     applySplitAttributes(el, inputBreakToken, fragment);
     if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
@@ -94,11 +92,99 @@ export function composeFragment(fragment, inputBreakToken, parentEl, sourceRefs)
 }
 
 /**
+ * Walk the fragment tree and composed DOM in parallel, registering
+ * each clone→source pair in the module registry's shared map.
+ *
+ * Called once after composeFragment to build the mapping that modules
+ * (NthSelectors, MutationSync) use to resolve clone elements back to
+ * their source elements.
+ *
+ * @param {import("../core/fragment.js").PhysicalFragment} fragment
+ * @param {import("../core/tokens.js").BreakToken|null} inputBreakToken
+ * @param {Element} composedParent
+ */
+export function mapFragment(fragment, inputBreakToken, composedParent) {
+  let childIdx = 0;
+  for (const childFrag of fragment.childFragments) {
+    if (!childFrag.node) continue;
+    const childBT = findChildBreakToken(inputBreakToken, childFrag.node);
+
+    // Skip empty container shells (same logic as composeFragment)
+    if (childFrag.childFragments.length === 0 && childFrag.breakToken &&
+        childFrag.node.children?.length > 0) continue;
+
+    // Skip empty inline fragments that were suppressed
+    if (childFrag.node.isInlineFormattingContext) {
+      const data = childFrag.node.inlineItemsData;
+      if (data?.items?.length > 0) {
+        const startOffset = (childBT && childBT.type === BREAK_TOKEN_INLINE)
+          ? childBT.textOffset : 0;
+        const endOffset = (childFrag.breakToken && childFrag.breakToken.type === BREAK_TOKEN_INLINE)
+          ? childFrag.breakToken.textOffset : data.textContent.length;
+        if (startOffset >= endOffset && childFrag.breakToken) continue;
+      }
+    }
+
+    // Skip blocks whose composed children were all empty (compositor skips these)
+    if (hasBlockChildFragments(childFrag)) {
+      // Check if this would produce an empty shell after composition
+      // We can't know for sure without checking the composed DOM,
+      // so just try to match and handle mismatches gracefully
+    }
+
+    const clone = composedParent.children[childIdx];
+    if (!clone) break;
+
+    if (childFrag.node.element) {
+      // For sliced monolithic content, the compositor wraps in a clip div.
+      // The actual clone is inside the wrapper.
+      const consumed = childBT?.consumedBlockSize || 0;
+      if (!hasBlockChildFragments(childFrag) && !childFrag.node.isInlineFormattingContext &&
+          !childFrag.multicolData && (consumed > 0 || childFrag.breakToken) &&
+          childFrag.childFragments.length === 0) {
+        // Monolithic with clip wrapper — the clone is inside
+        const inner = clone.firstElementChild;
+        if (inner) {
+          mapDeep(inner, childFrag.node.element);
+        }
+      } else if (childFrag.multicolData) {
+        modules.trackClone(clone, childFrag.node.element);
+        // Multicol children are synthetic — don't recurse into columns
+      } else {
+        modules.trackClone(clone, childFrag.node.element);
+        if (hasBlockChildFragments(childFrag)) {
+          mapFragment(childFrag, childBT, clone);
+        } else if (childFrag.node.isInlineFormattingContext) {
+          // Inline fragments rebuild content from items — map the container only
+        } else {
+          // Leaf deep clone
+          mapDeep(clone, childFrag.node.element);
+        }
+      }
+    }
+
+    childIdx++;
+  }
+}
+
+/**
+ * Recursively map a deep clone's children to their source counterparts.
+ */
+function mapDeep(clone, source) {
+  modules.trackClone(clone, source);
+  const sourceChildren = source.children;
+  const cloneChildren = clone.children;
+  for (let i = 0; i < sourceChildren.length && i < cloneChildren.length; i++) {
+    mapDeep(cloneChildren[i], sourceChildren[i]);
+  }
+}
+
+/**
  * Compose an inline formatting context fragment.
  * Uses inlineItemsData + break token offsets to reconstruct
  * only the visible portion of the content.
  */
-function composeInlineFragment(fragment, inputBreakToken, parentEl, sourceRefs) {
+function composeInlineFragment(fragment, inputBreakToken, parentEl) {
   const node = fragment.node;
   const data = node.inlineItemsData;
   const isAnonymous = !node.element;
@@ -106,7 +192,6 @@ function composeInlineFragment(fragment, inputBreakToken, parentEl, sourceRefs) 
   if (!data || !data.items || data.items.length === 0) {
     if (!isAnonymous) {
       const el = node.element.cloneNode(false);
-      stampRef(el, node.element, sourceRefs);
       parentEl.appendChild(el);
     }
     return;
@@ -136,9 +221,8 @@ function composeInlineFragment(fragment, inputBreakToken, parentEl, sourceRefs) 
     parentEl.appendChild(docFragment);
   } else {
     const el = node.element.cloneNode(false);
-    stampRef(el, node.element, sourceRefs);
     applySplitAttributes(el, inputBreakToken, fragment);
-    buildInlineContent(data.items, data.textContent, startOffset, endOffset, el, collapseWS, isHyphenated, sourceRefs);
+    buildInlineContent(data.items, data.textContent, startOffset, endOffset, el, collapseWS, isHyphenated);
     parentEl.appendChild(el);
   }
 }
@@ -148,12 +232,11 @@ function composeInlineFragment(fragment, inputBreakToken, parentEl, sourceRefs) 
  * Clones the element, disables native columns, composes each column
  * child as a flex item with correct width and gap.
  */
-function composeMulticolFragment(fragment, inputBreakToken, parentEl, sourceRefs) {
+function composeMulticolFragment(fragment, inputBreakToken, parentEl) {
   const node = fragment.node;
   const { columnWidth, columnGap } = fragment.multicolData;
 
   const el = node.element.cloneNode(false);
-  stampRef(el, node.element, sourceRefs);
   el.style.columns = "auto";
   el.style.columnCount = "auto";
   el.style.columnWidth = "auto";
@@ -185,7 +268,7 @@ function composeMulticolFragment(fragment, inputBreakToken, parentEl, sourceRefs
     for (const child of colFragment.childFragments) {
       if (!child.node) continue;
       const childInputBT = findChildBreakToken(colInputBT, child.node);
-      composeFragment(child, childInputBT, colEl, sourceRefs);
+      composeFragment(child, childInputBT, colEl);
     }
 
     el.appendChild(colEl);
@@ -227,18 +310,11 @@ function applyListContinuation(el, node, inputBreakToken) {
   const childIndex = node.children.indexOf(firstChildToken.node);
   if (childIndex < 0) return;
 
-  // Count <li> items before the resumption point. Non-li children
-  // (e.g. <div>, <template>) don't increment the list-item counter.
   let itemCount = 0;
   for (let i = 0; i < childIndex; i++) {
     if (node.children[i].element?.tagName === "LI") itemCount++;
   }
 
-  // A split continuation (not pushed) was partially composed in the
-  // previous fragment — its marker was already shown, so count it.
-  // But skip counting if the item produced no visible content (e.g.
-  // a zero-height inline fragment where no text fit — the compositor
-  // suppresses its output, so its marker was never shown).
   if (!firstChildToken.isBreakBefore &&
       node.children[childIndex]?.element?.tagName === "LI") {
     const hadVisibleContent = firstChildToken.type === BREAK_TOKEN_INLINE
@@ -275,7 +351,7 @@ export function applySliceDecorations(el, inputBreakToken, fragment) {
  * @param {Element} container - DOM element to append content into
  * @param {boolean} [collapseWS=false] - collapse whitespace runs
  */
-export function buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS = false, _isHyphenated = false, sourceRefs) {
+export function buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS = false, _isHyphenated = false) {
   let current = container;
   const stack = [];
   let lastTextNode = null;
@@ -301,12 +377,8 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
         current.appendChild(lastTextNode);
       }
     } else if (item.type === INLINE_OPEN_TAG) {
-      // Skip elements whose content is entirely outside the visible range.
-      // Only skip non-empty elements (startOffset < endOffset); truly empty
-      // source elements are always composed to preserve ::before/::after styling.
       if (item.startOffset < item.endOffset &&
           (item.endOffset <= startOffset || item.startOffset >= endOffset)) {
-        // Advance past the matching CLOSE_TAG
         let depth = 1;
         i++;
         while (i < items.length && depth > 0) {
@@ -317,7 +389,6 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
         continue;
       }
       const el = item.element.cloneNode(false);
-      stampRef(el, item.element, sourceRefs);
       current.appendChild(el);
       stack.push(current);
       current = el;
@@ -330,7 +401,6 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
     } else if (item.type === INLINE_ATOMIC) {
       if (item.startOffset >= startOffset && item.startOffset < endOffset) {
         const el = item.element.cloneNode(true);
-        stampRefDeep(el, item.element, sourceRefs);
         current.appendChild(el);
       }
     }
@@ -342,33 +412,5 @@ export function buildInlineContent(items, textContent, startOffset, endOffset, c
   // the break is not composed (it belongs to the inter-word gap).
   if (lastTextNode && endOffset < textContent.length) {
     lastTextNode.textContent = lastTextNode.textContent.replace(/\s+$/, "");
-  }
-
-  // Soft hyphens (U+00AD) are preserved in the text — the browser renders
-  // them as visible hyphens at line break positions and invisible otherwise.
-  // No manual hyphen injection needed.
-}
-
-/**
- * Stamp data-ref on a shallow clone from its source element's ref.
- * No-op when sourceRefs is not provided.
- */
-function stampRef(clone, source, sourceRefs) {
-  if (!sourceRefs) return;
-  const ref = sourceRefs.get(source);
-  if (ref !== undefined) clone.setAttribute("data-ref", ref);
-}
-
-/**
- * Stamp data-ref on a deep clone and all its descendants.
- * Walks both trees in parallel to match clone children to source children.
- */
-function stampRefDeep(clone, source, sourceRefs) {
-  if (!sourceRefs) return;
-  stampRef(clone, source, sourceRefs);
-  const sourceChildren = source.children;
-  const cloneChildren = clone.children;
-  for (let i = 0; i < sourceChildren.length && i < cloneChildren.length; i++) {
-    stampRefDeep(cloneChildren[i], sourceChildren[i], sourceRefs);
   }
 }
