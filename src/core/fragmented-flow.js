@@ -560,8 +560,9 @@ export class FragmentedFlow extends Iterator {
 						const face = new FontFace(family, src, {
 							style: rule.style.getPropertyValue("font-style") || undefined,
 							weight: rule.style.getPropertyValue("font-weight") || undefined,
-							display: rule.style.getPropertyValue("font-display") || undefined,
+							display: "block",
 						});
+						rule.style.setProperty("font-display", "block");
 						document.fonts.add(face);
 					} catch {
 						// Invalid src or already registered
