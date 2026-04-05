@@ -574,46 +574,79 @@ export class FragmentedFlow extends Iterator {
   }
 
   /**
-   * Preload all document fonts.
+   * Preload fonts declared in the content stylesheets.
+   * Registers @font-face rules from this.#styles into document.fonts
+   * so they load without needing the measurer in the DOM.
    * @returns {Promise<string[]>}
    */
   preloadFonts() {
+    const styles = this.#styles || ContentParser.collectDocumentStyles();
+    for (const sheet of styles) {
+      let rules;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const rule of rules) {
+        if (rule instanceof CSSFontFaceRule) {
+          const family = rule.style.getPropertyValue("font-family");
+          const src = rule.style.getPropertyValue("src");
+          if (!family || !src) continue;
+          try {
+            const face = new FontFace(family, src, {
+              style: rule.style.getPropertyValue("font-style") || undefined,
+              weight: rule.style.getPropertyValue("font-weight") || undefined,
+              display: rule.style.getPropertyValue("font-display") || undefined,
+            });
+            document.fonts.add(face);
+          } catch {
+            // Invalid src or already registered
+          }
+        }
+      }
+    }
+
     const promises = [];
-    (document.fonts || []).forEach((fontFace) => {
+    document.fonts.forEach((fontFace) => {
       if (fontFace.status !== "loaded") {
         promises.push(
           fontFace.load().then(
             () => fontFace.family,
-            () => {
-              console.warn(
-                "Failed to preload font-family:",
-                fontFace.family,
-              );
-              return fontFace.family;
-            },
+            () => fontFace.family,
           ),
         );
       }
     });
-    return Promise.all(promises).catch((err) => console.warn(err));
+    return Promise.all(promises);
   }
 
   /**
    * Preload images in the content that don't have explicit dimensions.
+   * Works on a detached DocumentFragment — uses Image() objects to
+   * trigger loading. Removes images that fail to load.
    * @returns {Promise<void[]>}
    */
   preloadImages() {
     const images = this.#content.querySelectorAll("img:not([width][height])");
     const promises = [];
     for (const img of images) {
-      if (!img.complete) {
-        promises.push(
-          new Promise((resolve) => {
-            img.addEventListener("load", resolve, { once: true });
-            img.addEventListener("error", resolve, { once: true });
-          }),
-        );
-      }
+      if (img.complete && img.naturalWidth > 0) continue;
+      promises.push(
+        new Promise((resolve) => {
+          const probe = new Image();
+          probe.onload = () => {
+            img.width = probe.naturalWidth;
+            img.height = probe.naturalHeight;
+            resolve();
+          };
+          probe.onerror = () => {
+            img.remove();
+            resolve();
+          };
+          probe.src = img.src;
+        }),
+      );
     }
     return Promise.all(promises);
   }

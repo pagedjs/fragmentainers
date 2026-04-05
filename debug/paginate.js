@@ -23,6 +23,7 @@ export async function paginate() {
 
   const styles = ContentParser.collectDocumentStyles();
   const layout = new FragmentedFlow(frag, { resolver, styles });
+  await layout.preload();
   const flow = layout.flow();
 
   let pageNumber = 0;

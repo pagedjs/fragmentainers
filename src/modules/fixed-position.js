@@ -94,8 +94,11 @@ class FixedPositionLayoutModule extends LayoutModule {
 
     // Walk the full subtree — fixed elements can be at any depth.
     // Don't recurse into fixed elements themselves (they're monolithic).
+    // Skip disconnected nodes (e.g. lookahead boundary nodes from the
+    // segmented measurer) — their children haven't been styled yet.
     const collect = (node) => {
       for (const child of node.children) {
+        if (child.element && !child.element.isConnected) continue;
         if (this.matches(child)) {
           const fixedSpace = new ConstraintSpace({
             availableInlineSize: constraintSpace.availableInlineSize,

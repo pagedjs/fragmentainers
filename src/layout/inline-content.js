@@ -146,9 +146,13 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
   let remainingLines = 0;
 
   {
-    // Get the element's rendered height from the browser
+    // Get the element's rendered height from the browser.
+    // Anonymous blocks (from mixed-content wrapping) have no element;
+    // fall back to a Range-based contentRect.
     const element = node.element;
-    const elementRect = element.getBoundingClientRect();
+    const elementRect = element
+      ? element.getBoundingClientRect()
+      : node.contentRect;
     const totalHeight = elementRect.height;
 
     // Compute total lines from the element's actual rendered height.

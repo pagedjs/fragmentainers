@@ -211,6 +211,8 @@
             height: resolver.pageRules.length === 0 ? pageH : undefined,
           });
 
+          await layout.preload();
+
           const tLayout = performance.now();
           const flow = layout.flow();
           const layoutTime = performance.now() - tLayout;

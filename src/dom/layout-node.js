@@ -566,6 +566,19 @@ export class AnonymousBlockNode {
     return sharedRangeMeasurer;
   }
 
+  /**
+   * Bounding rect of the anonymous block's inline content,
+   * measured via a Range across the child nodes.
+   */
+  get contentRect() {
+    const nodes = this.#childNodes;
+    if (nodes.length === 0) return { top: 0, height: 0 };
+    const range = document.createRange();
+    range.setStartBefore(nodes[0]);
+    range.setEndAfter(nodes[nodes.length - 1]);
+    return range.getBoundingClientRect();
+  }
+
   get blockSize() {
     return 0;
   }
