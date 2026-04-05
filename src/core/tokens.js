@@ -7,18 +7,18 @@ import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "./constants.js";
  * to resume layout in the next fragmentainer.
  */
 export class BreakToken {
-  constructor(type, node) {
-    this.type = type;           // "block" | "inline"
-    this.node = node;           // reference to the layout node
-    this.isBreakBefore = false;
-    this.isForcedBreak = false;
-    this.forcedBreakValue = null;
-    this.isRepeated = false;
-    this.isAtBlockEnd = false;
-    this.hasSeenAllChildren = false;
-    this.isCausedByColumnSpanner = false;
-    this.hasUnpositionedListMarker = false;
-  }
+	constructor(type, node) {
+		this.type = type; // "block" | "inline"
+		this.node = node; // reference to the layout node
+		this.isBreakBefore = false;
+		this.isForcedBreak = false;
+		this.forcedBreakValue = null;
+		this.isRepeated = false;
+		this.isAtBlockEnd = false;
+		this.hasSeenAllChildren = false;
+		this.isCausedByColumnSpanner = false;
+		this.hasUnpositionedListMarker = false;
+	}
 }
 
 /**
@@ -30,48 +30,48 @@ export class BreakToken {
  * - sequenceNumber increments per fragment (0, 1, 2, ...)
  */
 export class BlockBreakToken extends BreakToken {
-  constructor(node) {
-    super(BREAK_TOKEN_BLOCK, node);
-    this.consumedBlockSize = 0;
-    this.sequenceNumber = 0;
-    this.childBreakTokens = [];
-    this.algorithmData = null;
-  }
+	constructor(node) {
+		super(BREAK_TOKEN_BLOCK, node);
+		this.consumedBlockSize = 0;
+		this.sequenceNumber = 0;
+		this.childBreakTokens = [];
+		this.algorithmData = null;
+	}
 
-  /**
-   * Break before a node — no fragment produced for this node.
-   * Used when a node doesn't fit and is pushed to the next fragmentainer,
-   * or when a forced break (break-before: page) is requested.
-   */
-  static createBreakBefore(node, isForcedBreak = false, forcedBreakValue = null) {
-    const token = new BlockBreakToken(node);
-    token.isBreakBefore = true;
-    token.isForcedBreak = isForcedBreak;
-    if (forcedBreakValue) token.forcedBreakValue = forcedBreakValue;
-    return token;
-  }
+	/**
+	 * Break before a node — no fragment produced for this node.
+	 * Used when a node doesn't fit and is pushed to the next fragmentainer,
+	 * or when a forced break (break-before: page) is requested.
+	 */
+	static createBreakBefore(node, isForcedBreak = false, forcedBreakValue = null) {
+		const token = new BlockBreakToken(node);
+		token.isBreakBefore = true;
+		token.isForcedBreak = isForcedBreak;
+		if (forcedBreakValue) token.forcedBreakValue = forcedBreakValue;
+		return token;
+	}
 
-  /**
-   * For repeated content (table thead/tfoot in each fragmentainer).
-   * Paint-only — carries sequence number but no child tokens.
-   */
-  static createRepeated(node, sequenceNumber) {
-    const token = new BlockBreakToken(node);
-    token.isRepeated = true;
-    token.sequenceNumber = sequenceNumber;
-    return token;
-  }
+	/**
+	 * For repeated content (table thead/tfoot in each fragmentainer).
+	 * Paint-only — carries sequence number but no child tokens.
+	 */
+	static createRepeated(node, sequenceNumber) {
+		const token = new BlockBreakToken(node);
+		token.isRepeated = true;
+		token.sequenceNumber = sequenceNumber;
+		return token;
+	}
 
-  /**
-   * Break inside repeated content.
-   */
-  static createForBreakInRepeatedFragment(node, sequenceNumber, consumedBlockSize) {
-    const token = new BlockBreakToken(node);
-    token.isRepeated = true;
-    token.sequenceNumber = sequenceNumber;
-    token.consumedBlockSize = consumedBlockSize;
-    return token;
-  }
+	/**
+	 * Break inside repeated content.
+	 */
+	static createForBreakInRepeatedFragment(node, sequenceNumber, consumedBlockSize) {
+		const token = new BlockBreakToken(node);
+		token.isRepeated = true;
+		token.sequenceNumber = sequenceNumber;
+		token.consumedBlockSize = consumedBlockSize;
+		return token;
+	}
 }
 
 /**
@@ -82,11 +82,11 @@ export class BlockBreakToken extends BreakToken {
  * This makes it survive inline-size changes between fragmentainers.
  */
 export class InlineBreakToken extends BreakToken {
-  constructor(node) {
-    super(BREAK_TOKEN_INLINE, node);
-    this.itemIndex = 0;     // index into InlineItemsData.items
-    this.textOffset = 0;    // offset into InlineItemsData.textContent
-    this.flags = 0;         // inline-specific state bits
-    this.isHyphenated = false; // true when break follows a soft hyphen (U+00AD)
-  }
+	constructor(node) {
+		super(BREAK_TOKEN_INLINE, node);
+		this.itemIndex = 0; // index into InlineItemsData.items
+		this.textOffset = 0; // offset into InlineItemsData.textContent
+		this.flags = 0; // inline-specific state bits
+		this.isHyphenated = false; // true when break follows a soft hyphen (U+00AD)
+	}
 }

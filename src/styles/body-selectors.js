@@ -28,38 +28,32 @@
  * @param {Element} htmlEl — the document html element to test against
  */
 function collectBodyOverrides(ruleList, target, bodyEl, htmlEl) {
-  for (const rule of ruleList) {
-    if (rule.selectorText !== undefined) {
-      const matchesBody = safeMatches(bodyEl, rule.selectorText);
-      const matchesHtml = safeMatches(htmlEl, rule.selectorText);
-      if (matchesBody) {
-        target.insertRule(
-          `slot { ${rule.style.cssText} }`,
-          target.cssRules.length,
-        );
-      }
-      if (matchesHtml && !matchesBody) {
-        target.insertRule(
-          `:host { ${rule.style.cssText} }`,
-          target.cssRules.length,
-        );
-      }
-    } else if (rule.cssRules) {
-      // Grouping rule — reconstruct wrapper, recurse, keep only if non-empty
-      const wrapper = new CSSStyleSheet();
-      collectBodyOverrides(rule.cssRules, wrapper, bodyEl, htmlEl);
-      if (wrapper.cssRules.length > 0) {
-        let innerCSS = "";
-        for (const r of wrapper.cssRules) {
-          innerCSS += r.cssText + "\n";
-        }
-        target.insertRule(
-          `${rule.cssText.substring(0, rule.cssText.indexOf("{"))}{ ${innerCSS} }`,
-          target.cssRules.length,
-        );
-      }
-    }
-  }
+	for (const rule of ruleList) {
+		if (rule.selectorText !== undefined) {
+			const matchesBody = safeMatches(bodyEl, rule.selectorText);
+			const matchesHtml = safeMatches(htmlEl, rule.selectorText);
+			if (matchesBody) {
+				target.insertRule(`slot { ${rule.style.cssText} }`, target.cssRules.length);
+			}
+			if (matchesHtml && !matchesBody) {
+				target.insertRule(`:host { ${rule.style.cssText} }`, target.cssRules.length);
+			}
+		} else if (rule.cssRules) {
+			// Grouping rule — reconstruct wrapper, recurse, keep only if non-empty
+			const wrapper = new CSSStyleSheet();
+			collectBodyOverrides(rule.cssRules, wrapper, bodyEl, htmlEl);
+			if (wrapper.cssRules.length > 0) {
+				let innerCSS = "";
+				for (const r of wrapper.cssRules) {
+					innerCSS += r.cssText + "\n";
+				}
+				target.insertRule(
+					`${rule.cssText.substring(0, rule.cssText.indexOf("{"))}{ ${innerCSS} }`,
+					target.cssRules.length,
+				);
+			}
+		}
+	}
 }
 
 /**
@@ -71,11 +65,11 @@ function collectBodyOverrides(ruleList, target, bodyEl, htmlEl) {
  * @returns {boolean}
  */
 function safeMatches(el, selector) {
-  try {
-    return el.matches(selector);
-  } catch {
-    return false;
-  }
+	try {
+		return el.matches(selector);
+	} catch {
+		return false;
+	}
 }
 
 /**
@@ -89,9 +83,9 @@ function safeMatches(el, selector) {
  * @returns {{ sheet: CSSStyleSheet }}
  */
 export function buildBodyOverrideSheet(sheets, bodyEl, htmlEl) {
-  const overrideSheet = new CSSStyleSheet();
-  for (const sheet of sheets) {
-    collectBodyOverrides(sheet.cssRules, overrideSheet, bodyEl, htmlEl);
-  }
-  return { sheet: overrideSheet };
+	const overrideSheet = new CSSStyleSheet();
+	for (const sheet of sheets) {
+		collectBodyOverrides(sheet.cssRules, overrideSheet, bodyEl, htmlEl);
+	}
+	return { sheet: overrideSheet };
 }

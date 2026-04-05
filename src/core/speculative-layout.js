@@ -26,19 +26,20 @@
  * @returns {Float64Array} Length = children.length + 1
  */
 export function buildCumulativeHeights(node) {
-  const children = node.children;
-  const n = children.length;
-  const cumulative = new Float64Array(n + 1);
+	const children = node.children;
+	const n = children.length;
+	const cumulative = new Float64Array(n + 1);
 
-  for (let i = 0; i < n; i++) {
-    const child = children[i];
-    const margin = i > 0
-      ? Math.max(child.marginBlockStart || 0, children[i - 1].marginBlockEnd || 0)
-      : (child.marginBlockStart || 0);
-    cumulative[i + 1] = cumulative[i] + margin + (child.blockSize || 0);
-  }
+	for (let i = 0; i < n; i++) {
+		const child = children[i];
+		const margin =
+			i > 0
+				? Math.max(child.marginBlockStart || 0, children[i - 1].marginBlockEnd || 0)
+				: child.marginBlockStart || 0;
+		cumulative[i + 1] = cumulative[i] + margin + (child.blockSize || 0);
+	}
 
-  return cumulative;
+	return cumulative;
 }
 
 /**
@@ -53,40 +54,45 @@ export function buildCumulativeHeights(node) {
  * @param {number} [containerBoxEnd=0] — padding-bottom + border-bottom
  * @returns {number[]} Child indices where each fragmentainer starts
  */
-export function estimateBreakPoints(cumulative, fragmentainerBlockSize, containerBoxStart = 0, containerBoxEnd = 0) {
-  const effectiveHeight = fragmentainerBlockSize - containerBoxStart - containerBoxEnd;
-  if (effectiveHeight <= 0) return [0];
+export function estimateBreakPoints(
+	cumulative,
+	fragmentainerBlockSize,
+	containerBoxStart = 0,
+	containerBoxEnd = 0,
+) {
+	const effectiveHeight = fragmentainerBlockSize - containerBoxStart - containerBoxEnd;
+	if (effectiveHeight <= 0) return [0];
 
-  const n = cumulative.length - 1; // number of children
-  const breaks = [0];
-  let pageStart = 0;
-  let startOffset = 0;
+	const n = cumulative.length - 1; // number of children
+	const breaks = [0];
+	let pageStart = 0;
+	let startOffset = 0;
 
-  while (pageStart < n) {
-    const targetHeight = startOffset + effectiveHeight;
+	while (pageStart < n) {
+		const targetHeight = startOffset + effectiveHeight;
 
-    // Binary search: last child index whose cumulative end <= targetHeight
-    let lo = pageStart;
-    let hi = n;
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >>> 1;
-      if (cumulative[mid] <= targetHeight) {
-        lo = mid;
-      } else {
-        hi = mid - 1;
-      }
-    }
+		// Binary search: last child index whose cumulative end <= targetHeight
+		let lo = pageStart;
+		let hi = n;
+		while (lo < hi) {
+			const mid = (lo + hi + 1) >>> 1;
+			if (cumulative[mid] <= targetHeight) {
+				lo = mid;
+			} else {
+				hi = mid - 1;
+			}
+		}
 
-    if (lo <= pageStart) {
-      // Single child exceeds page — advance past it
-      lo = pageStart + 1;
-    }
+		if (lo <= pageStart) {
+			// Single child exceeds page — advance past it
+			lo = pageStart + 1;
+		}
 
-    if (lo >= n) break; // all children assigned
-    breaks.push(lo);
-    startOffset = cumulative[lo];
-    pageStart = lo;
-  }
+		if (lo >= n) break; // all children assigned
+		breaks.push(lo);
+		startOffset = cumulative[lo];
+		pageStart = lo;
+	}
 
-  return breaks;
+	return breaks;
 }

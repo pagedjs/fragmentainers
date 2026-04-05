@@ -1,31 +1,27 @@
 <!doctype html>
-<link
-  rel="author"
-  title="Morten Stenshorne"
-  href="mailto:mstensho@chromium.org"
-/>
+<link rel="author" title="Morten Stenshorne" href="mailto:mstensho@chromium.org" />
 <link rel="help" href="https://drafts.csswg.org/css-page-3/" />
 <meta
-  name="assert"
-  content="Test that multiple pages are supported, and that the implementation doesn't just output the first page."
+	name="assert"
+	content="Test that multiple pages are supported, and that the implementation doesn't just output the first page."
 />
 <link rel="match" href="basic-pagination-004-print-ref-print.html" />
 <style>
-  @page {
-    size: 293px;
-    margin: 5px;
-  }
-  :root {
-    print-color-adjust: exact;
-  }
-  body {
-    margin: 0;
-    background: yellow;
-  }
-  div {
-    min-height: 10px;
-    break-after: page;
-  }
+	@page {
+		size: 293px;
+		margin: 5px;
+	}
+	:root {
+		print-color-adjust: exact;
+	}
+	body {
+		margin: 0;
+		background: yellow;
+	}
+	div {
+		min-height: 10px;
+		break-after: page;
+	}
 </style>
 <div>Page</div>
 <div></div>

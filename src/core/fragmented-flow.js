@@ -7,10 +7,10 @@ import { ConstraintSpace } from "./constraint-space.js";
 import { PhysicalFragment } from "./fragment.js";
 import { FRAGMENTATION_COLUMN } from "./constants.js";
 import {
-  resolveForcedBreakValue,
-  resolveNextPageBreakBefore,
-  requiredPageSide,
-  isSideSpecificBreak,
+	resolveForcedBreakValue,
+	resolveNextPageBreakBefore,
+	requiredPageSide,
+	isSideSpecificBreak,
 } from "../atpage/page-resolver.js";
 import "../dom/content-measure.js";
 import "../dom/fragment-container.js";
@@ -20,7 +20,7 @@ import { modules } from "../modules/registry.js";
 import "../modules/index.js";
 
 function buildLayoutTree(rootElement) {
-  return new DOMLayoutNode(rootElement);
+	return new DOMLayoutNode(rootElement);
 }
 
 const MAX_ZERO_PROGRESS = 5;
@@ -44,670 +44,633 @@ const MAX_ZERO_PROGRESS = 5;
  *   defaults to US Letter
  */
 export class FragmentedFlow extends Iterator {
-  /**
-   * Register a layout module globally.
-   * @param {Object} module
-   */
-  static register(module) {
-    modules.register(module);
-  }
+	/**
+	 * Register a layout module globally.
+	 * @param {Object} module
+	 */
+	static register(module) {
+		modules.register(module);
+	}
 
-  /**
-   * Unregister a layout module.
-   * @param {Object} module
-   */
-  static remove(module) {
-    modules.remove(module);
-  }
+	/**
+	 * Unregister a layout module.
+	 * @param {Object} module
+	 */
+	static remove(module) {
+		modules.remove(module);
+	}
 
-  #content;
-  #styles;
-  #resolver;
-  #constraintSpace;
+	#content;
+	#styles;
+	#resolver;
+	#constraintSpace;
 
-  // Stepper state (initialized lazily on first next() call)
-  #tree = null;
-  #measurer = null;
-  #measureElement = null;
-  #breakToken = null;
-  #fragmentainerIndex = 0;
-  #counterState = null;
-  #contentStyles = null;
-  #prevFragment = null;
-  #fragments = [];
+	// Stepper state (initialized lazily on first next() call)
+	#tree = null;
+	#measurer = null;
+	#measureElement = null;
+	#breakToken = null;
+	#fragmentainerIndex = 0;
+	#counterState = null;
+	#contentStyles = null;
+	#prevFragment = null;
+	#fragments = [];
 
-  // Iterator state
-  #context = null;
-  #done = false;
-  #zeroProgressCount = 0;
+	// Iterator state
+	#context = null;
+	#done = false;
+	#zeroProgressCount = 0;
 
-  /**
-   * @param {DocumentFragment|Element|object} content - Content to fragment
-   * @param {object} [options]
-   * @param {CSSStyleSheet[]} [options.styles] - Stylesheets (copies document.styleSheets if omitted)
-   * @param {ConstraintSpace} [options.constraintSpace] - Direct constraint space (bypasses @page rules)
-   * @param {PageResolver|RegionResolver} [options.resolver] - Pre-configured resolver
-   * @param {number} [options.width] - Container width in CSS px (column fragmentation)
-   * @param {number} [options.height] - Container height in CSS px (column fragmentation)
-   */
-  constructor(content, options = {}) {
-    super();
+	/**
+	 * @param {DocumentFragment|Element|object} content - Content to fragment
+	 * @param {object} [options]
+	 * @param {CSSStyleSheet[]} [options.styles] - Stylesheets (copies document.styleSheets if omitted)
+	 * @param {ConstraintSpace} [options.constraintSpace] - Direct constraint space (bypasses @page rules)
+	 * @param {PageResolver|RegionResolver} [options.resolver] - Pre-configured resolver
+	 * @param {number} [options.width] - Container width in CSS px (column fragmentation)
+	 * @param {number} [options.height] - Container height in CSS px (column fragmentation)
+	 */
+	constructor(content, options = {}) {
+		super();
 
-    // Normalize Element → DocumentFragment (clone into fragment)
-    if (content.nodeType === 1 /* ELEMENT_NODE */) {
-      const frag = document.createDocumentFragment();
-      frag.appendChild(content.cloneNode(true));
-      this.#content = frag;
-    } else {
-      this.#content = content;
-    }
+		// Normalize Element → DocumentFragment (clone into fragment)
+		if (content.nodeType === 1 /* ELEMENT_NODE */) {
+			const frag = document.createDocumentFragment();
+			frag.appendChild(content.cloneNode(true));
+			this.#content = frag;
+		} else {
+			this.#content = content;
+		}
 
-    // Add lazy loading to images with explicit dimensions so the browser
-    // doesn't fetch them eagerly before they're needed for layout.
-    for (const img of this.#content.querySelectorAll("img[width][height]")) {
-      img.setAttribute("loading", "lazy");
-    }
+		// Add lazy loading to images with explicit dimensions so the browser
+		// doesn't fetch them eagerly before they're needed for layout.
+		for (const img of this.#content.querySelectorAll("img[width][height]")) {
+			img.setAttribute("loading", "lazy");
+		}
 
-    this.#styles = options.styles
-      ? Array.isArray(options.styles)
-        ? options.styles
-        : [options.styles]
-      : undefined;
+		this.#styles = options.styles
+			? Array.isArray(options.styles)
+				? options.styles
+				: [options.styles]
+			: undefined;
 
-    if (options.constraintSpace) {
-      this.#constraintSpace = options.constraintSpace;
-      this.#resolver = null;
-    } else if (options.resolver) {
-      this.#resolver = options.resolver;
-    } else if (options.width || options.height) {
-      const w = options.width || options.height;
-      const h = options.height || options.width;
-      this.#constraintSpace = new ConstraintSpace({
-        availableInlineSize: w,
-        availableBlockSize: h,
-        fragmentainerBlockSize: h,
-        fragmentationType: options.type || FRAGMENTATION_COLUMN,
-      });
-      this.#resolver = null;
-    }
-    // Page resolver auto-created in layout() from styles if neither set
-  }
+		if (options.constraintSpace) {
+			this.#constraintSpace = options.constraintSpace;
+			this.#resolver = null;
+		} else if (options.resolver) {
+			this.#resolver = options.resolver;
+		} else if (options.width || options.height) {
+			const w = options.width || options.height;
+			const h = options.height || options.width;
+			this.#constraintSpace = new ConstraintSpace({
+				availableInlineSize: w,
+				availableBlockSize: h,
+				fragmentainerBlockSize: h,
+				fragmentationType: options.type || FRAGMENTATION_COLUMN,
+			});
+			this.#resolver = null;
+		}
+		// Page resolver auto-created in layout() from styles if neither set
+	}
 
-  /**
-   * Lay out the next fragmentainer and return an iterator result.
-   *
-   * Returns `{ value: <fragment-container>, done: false }` for each
-   * fragmentainer, and `{ value: undefined, done: true }` when all
-   * content has been placed.
-   *
-   * @returns {{ value: Element|undefined, done: boolean }}
-   */
-  next() {
-    // Lazy initialization
-    if (!this.#tree) this.#layout();
+	/**
+	 * Lay out the next fragmentainer and return an iterator result.
+	 *
+	 * Returns `{ value: <fragment-container>, done: false }` for each
+	 * fragmentainer, and `{ value: undefined, done: true }` when all
+	 * content has been placed.
+	 *
+	 * @returns {{ value: Element|undefined, done: boolean }}
+	 */
+	next() {
+		// Lazy initialization
+		if (!this.#tree) this.#layout();
 
-    // Already exhausted
-    if (this.#done) return { value: undefined, done: true };
+		// Already exhausted
+		if (this.#done) return { value: undefined, done: true };
 
-    // Initialize context on first call
-    if (!this.#context) {
-      this.#context = new FragmentationContext(
-        this.#fragments,
-        this.#contentStyles,
-      );
-    }
+		// Initialize context on first call
+		if (!this.#context) {
+			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles);
+		}
 
-    const fragment = this.#nextFragment();
+		const fragment = this.#nextFragment();
 
-    // Segment advancement (sync)
-    if (this.#measurer) {
-      this.#measurer.advance(fragment.breakToken, this.#tree);
-    }
+		// Segment advancement (sync)
+		if (this.#measurer) {
+			this.#measurer.advance(fragment.breakToken, this.#tree);
+		}
 
-    // Zero-progress guard
-    if (
-      fragment.breakToken &&
-      fragment.blockSize === 0 &&
-      !fragment.isBlank
-    ) {
-      this.#zeroProgressCount++;
-      if (this.#zeroProgressCount >= MAX_ZERO_PROGRESS) {
-        console.warn(
-          `FragmentedFlow: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers`,
-        );
-        this.#done = true;
-      }
-    } else {
-      this.#zeroProgressCount = 0;
-    }
+		// Zero-progress guard
+		if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
+			this.#zeroProgressCount++;
+			if (this.#zeroProgressCount >= MAX_ZERO_PROGRESS) {
+				console.warn(
+					`FragmentedFlow: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers`,
+				);
+				this.#done = true;
+			}
+		} else {
+			this.#zeroProgressCount = 0;
+		}
 
-    // Check if this is the last fragment
-    if (fragment.breakToken === null && !fragment.isBlank) {
-      this.#done = true;
-    }
+		// Check if this is the last fragment
+		if (fragment.breakToken === null && !fragment.isBlank) {
+			this.#done = true;
+		}
 
-    // Create element and push to internal context (if contentStyles available)
-    let el;
-    if (this.#contentStyles) {
-      el = this.#context.createFragmentainer(this.#fragments.length - 1);
-      this.#context.push(el);
-    }
+		// Create element and push to internal context (if contentStyles available)
+		let el;
+		if (this.#contentStyles) {
+			el = this.#context.createFragmentainer(this.#fragments.length - 1);
+			this.#context.push(el);
+		}
 
-    if (this.#done) this.releaseMeasurer();
+		if (this.#done) this.releaseMeasurer();
 
-    return { value: el ?? fragment, done: false };
-  }
+		return { value: el ?? fragment, done: false };
+	}
 
-  /**
-   * Run fragmentation to completion and return a FragmentationContext.
-   *
-   * Use flow() when you need a specific range of elements, or when
-   * you want the full FragmentationContext result. For simple iteration,
-   * use `for (const el of flow)` instead.
-   *
-   * @param {{ start?: number, stop?: number }} [range] - Controls which
-   *   <fragment-container> elements are created. Layout always runs to
-   *   completion; start/stop only limits element creation.
-   * @returns {FragmentationContext}
-   */
-  flow({ start, stop } = {}) {
-    this.#layout();
+	/**
+	 * Run fragmentation to completion and return a FragmentationContext.
+	 *
+	 * Use flow() when you need a specific range of elements, or when
+	 * you want the full FragmentationContext result. For simple iteration,
+	 * use `for (const el of flow)` instead.
+	 *
+	 * @param {{ start?: number, stop?: number }} [range] - Controls which
+	 *   <fragment-container> elements are created. Layout always runs to
+	 *   completion; start/stop only limits element creation.
+	 * @returns {FragmentationContext}
+	 */
+	flow({ start, stop } = {}) {
+		this.#layout();
 
-    const fragments = [];
-    let zeroProgressCount = 0;
-    let fragment;
+		const fragments = [];
+		let zeroProgressCount = 0;
+		let fragment;
 
-    do {
-      fragment = this.#nextFragment();
+		do {
+			fragment = this.#nextFragment();
 
-      if (
-        fragment.breakToken &&
-        fragment.blockSize === 0 &&
-        !fragment.isBlank
-      ) {
-        zeroProgressCount++;
-        if (zeroProgressCount >= MAX_ZERO_PROGRESS) {
-          console.warn(
-            `FragmentedFlow: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers`,
-          );
-          break;
-        }
-      } else {
-        zeroProgressCount = 0;
-      }
+			if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
+				zeroProgressCount++;
+				if (zeroProgressCount >= MAX_ZERO_PROGRESS) {
+					console.warn(
+						`FragmentedFlow: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers`,
+					);
+					break;
+				}
+			} else {
+				zeroProgressCount = 0;
+			}
 
-      // Let the measurer swap to the next segment if at a boundary
-      if (this.#measurer) {
-        this.#measurer.advance(fragment.breakToken, this.#tree);
-      }
-    } while (fragment.breakToken !== null || fragment.isBlank);
+			// Let the measurer swap to the next segment if at a boundary
+			if (this.#measurer) {
+				this.#measurer.advance(fragment.breakToken, this.#tree);
+			}
+		} while (fragment.breakToken !== null || fragment.isBlank);
 
-    // Layout is done — release the measurer. Composition only needs
-    // cloneNode/getAttribute/tagName, which work on detached elements.
-    this.releaseMeasurer();
+		// Layout is done — release the measurer. Composition only needs
+		// cloneNode/getAttribute/tagName, which work on detached elements.
+		this.releaseMeasurer();
 
-    return new FragmentationContext([...this.#fragments], this.#contentStyles, {
-      start,
-      stop,
-    });
-  }
+		return new FragmentationContext([...this.#fragments], this.#contentStyles, {
+			start,
+			stop,
+		});
+	}
 
-  /**
-   * Re-layout from a specific fragmentainer and return a new FragmentationContext.
-   *
-   * Resets the layout stepper to the break token before `fromIndex`,
-   * re-runs layout to completion with live measurements, and returns
-   * a new FragmentationContext containing the new fragments and elements.
-   *
-   * @param {number} [fromIndex=0] - Fragmentainer index to restart from
-   * @param {Object} [options]
-   * @param {boolean} [options.rebuild=false] - Rebuild the layout tree from source DOM
-   * @returns {FragmentationContext}
-   */
-  reflow(fromIndex = 0, { rebuild = false } = {}) {
-    if (rebuild) {
-      this.#tree = null;
-      this.#layout(true);
-    } else {
-      this.#layout();
-    }
-    const prev = fromIndex > 0 ? this.#fragments[fromIndex - 1] : null;
-    this.#breakToken = prev?.breakToken ?? null;
-    this.#fragmentainerIndex = fromIndex;
-    this.#prevFragment = null;
-    this.#counterState = new CounterState();
-    if (prev?.counterState) {
-      this.#counterState.restore(prev.counterState);
-    }
-    this.#fragments.length = fromIndex;
+	/**
+	 * Re-layout from a specific fragmentainer and return a new FragmentationContext.
+	 *
+	 * Resets the layout stepper to the break token before `fromIndex`,
+	 * re-runs layout to completion with live measurements, and returns
+	 * a new FragmentationContext containing the new fragments and elements.
+	 *
+	 * @param {number} [fromIndex=0] - Fragmentainer index to restart from
+	 * @param {Object} [options]
+	 * @param {boolean} [options.rebuild=false] - Rebuild the layout tree from source DOM
+	 * @returns {FragmentationContext}
+	 */
+	reflow(fromIndex = 0, { rebuild = false } = {}) {
+		if (rebuild) {
+			this.#tree = null;
+			this.#layout(true);
+		} else {
+			this.#layout();
+		}
+		const prev = fromIndex > 0 ? this.#fragments[fromIndex - 1] : null;
+		this.#breakToken = prev?.breakToken ?? null;
+		this.#fragmentainerIndex = fromIndex;
+		this.#prevFragment = null;
+		this.#counterState = new CounterState();
+		if (prev?.counterState) {
+			this.#counterState.restore(prev.counterState);
+		}
+		this.#fragments.length = fromIndex;
 
-    // Re-run layout to completion
-    const newFragments = [];
-    let zeroProgressCount = 0;
-    let fragment;
-    do {
-      fragment = this.#nextFragment();
-      newFragments.push(fragment);
-      if (
-        fragment.breakToken &&
-        fragment.blockSize === 0 &&
-        !fragment.isBlank
-      ) {
-        if (++zeroProgressCount >= MAX_ZERO_PROGRESS) break;
-      } else {
-        zeroProgressCount = 0;
-      }
-    } while (fragment.breakToken !== null || fragment.isBlank);
+		// Re-run layout to completion
+		const newFragments = [];
+		let zeroProgressCount = 0;
+		let fragment;
+		do {
+			fragment = this.#nextFragment();
+			newFragments.push(fragment);
+			if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
+				if (++zeroProgressCount >= MAX_ZERO_PROGRESS) break;
+			} else {
+				zeroProgressCount = 0;
+			}
+		} while (fragment.breakToken !== null || fragment.isBlank);
 
-    // Layout is done — release the measurer before composition.
-    this.releaseMeasurer();
+		// Layout is done — release the measurer before composition.
+		this.releaseMeasurer();
 
-    return new FragmentationContext(newFragments, this.#contentStyles);
-  }
+		return new FragmentationContext(newFragments, this.#contentStyles);
+	}
 
-  /**
-   * Lay out one fragmentainer with two-pass earlyBreak support
-   * and iterative post-layout adjustment.
-   *
-   * After content layout, modules.afterContentLayout() is called.
-   * If any module requests a different block-end reservation than
-   * what was used, layout is re-run with the updated constraint
-   * space. This repeats until the reservation stabilises or the
-   * iteration limit is reached.
-   */
-  #layoutFragmentainer(rootNode, constraintSpace, breakToken) {
-    const rootAlgorithm = getLayoutAlgorithm(rootNode);
+	/**
+	 * Lay out one fragmentainer with two-pass earlyBreak support
+	 * and iterative post-layout adjustment.
+	 *
+	 * After content layout, modules.afterContentLayout() is called.
+	 * If any module requests a different block-end reservation than
+	 * what was used, layout is re-run with the updated constraint
+	 * space. This repeats until the reservation stabilises or the
+	 * iteration limit is reached.
+	 */
+	#layoutFragmentainer(rootNode, constraintSpace, breakToken) {
+		const rootAlgorithm = getLayoutAlgorithm(rootNode);
 
-    const layoutChildFn = (child, cs) => {
-      const algo = getLayoutAlgorithm(child);
-      return runLayoutGenerator(algo, child, cs, null);
-    };
-    const { reservedBlockStart, reservedBlockEnd, afterRenderCallbacks } =
-      modules.layout(rootNode, constraintSpace, breakToken, layoutChildFn);
+		const layoutChildFn = (child, cs) => {
+			const algo = getLayoutAlgorithm(child);
+			return runLayoutGenerator(algo, child, cs, null);
+		};
+		const { reservedBlockStart, reservedBlockEnd, afterRenderCallbacks } = modules.layout(
+			rootNode,
+			constraintSpace,
+			breakToken,
+			layoutChildFn,
+		);
 
-    const MAX_POST_LAYOUT_ITERATIONS = 3;
-    let postLayoutReserved = 0;
-    let postLayoutCallbacks = [];
-    let result;
+		const MAX_POST_LAYOUT_ITERATIONS = 3;
+		let postLayoutReserved = 0;
+		let postLayoutCallbacks = [];
+		let result;
 
-    for (let iter = 0; iter <= MAX_POST_LAYOUT_ITERATIONS; iter++) {
-      const totalReservedEnd = reservedBlockEnd + postLayoutReserved;
-      let adjustedSpace = constraintSpace;
-      if (reservedBlockStart > 0 || totalReservedEnd > 0) {
-        adjustedSpace = new ConstraintSpace({
-          availableInlineSize: constraintSpace.availableInlineSize,
-          availableBlockSize:
-            constraintSpace.availableBlockSize -
-            reservedBlockStart -
-            totalReservedEnd,
-          fragmentainerBlockSize:
-            constraintSpace.fragmentainerBlockSize - totalReservedEnd,
-          blockOffsetInFragmentainer:
-            constraintSpace.blockOffsetInFragmentainer + reservedBlockStart,
-          fragmentationType: constraintSpace.fragmentationType,
-        });
-      }
+		for (let iter = 0; iter <= MAX_POST_LAYOUT_ITERATIONS; iter++) {
+			const totalReservedEnd = reservedBlockEnd + postLayoutReserved;
+			let adjustedSpace = constraintSpace;
+			if (reservedBlockStart > 0 || totalReservedEnd > 0) {
+				adjustedSpace = new ConstraintSpace({
+					availableInlineSize: constraintSpace.availableInlineSize,
+					availableBlockSize:
+						constraintSpace.availableBlockSize - reservedBlockStart - totalReservedEnd,
+					fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize - totalReservedEnd,
+					blockOffsetInFragmentainer:
+						constraintSpace.blockOffsetInFragmentainer + reservedBlockStart,
+					fragmentationType: constraintSpace.fragmentationType,
+				});
+			}
 
-      result = runLayoutGenerator(
-        rootAlgorithm,
-        rootNode,
-        adjustedSpace,
-        breakToken,
-      );
-      if (result.earlyBreak) {
-        result = runLayoutGenerator(
-          rootAlgorithm,
-          rootNode,
-          adjustedSpace,
-          breakToken,
-          result.earlyBreak,
-        );
-      }
+			result = runLayoutGenerator(rootAlgorithm, rootNode, adjustedSpace, breakToken);
+			if (result.earlyBreak) {
+				result = runLayoutGenerator(
+					rootAlgorithm,
+					rootNode,
+					adjustedSpace,
+					breakToken,
+					result.earlyBreak,
+				);
+			}
 
-      const adjustment = modules.afterContentLayout(
-        result.fragment,
-        constraintSpace,
-        breakToken,
-      );
-      if (!adjustment || adjustment.reservedBlockEnd === postLayoutReserved) {
-        if (adjustment?.afterRenderCallbacks.length > 0) {
-          postLayoutCallbacks = adjustment.afterRenderCallbacks;
-        }
-        break;
-      }
-      postLayoutReserved = adjustment.reservedBlockEnd;
-      postLayoutCallbacks = adjustment.afterRenderCallbacks;
-    }
+			const adjustment = modules.afterContentLayout(result.fragment, constraintSpace, breakToken);
+			if (!adjustment || adjustment.reservedBlockEnd === postLayoutReserved) {
+				if (adjustment?.afterRenderCallbacks.length > 0) {
+					postLayoutCallbacks = adjustment.afterRenderCallbacks;
+				}
+				break;
+			}
+			postLayoutReserved = adjustment.reservedBlockEnd;
+			postLayoutCallbacks = adjustment.afterRenderCallbacks;
+		}
 
-    const allCallbacks = [...afterRenderCallbacks, ...postLayoutCallbacks];
-    if (allCallbacks.length > 0) {
-      result.fragment.afterRender = allCallbacks;
-    }
+		const allCallbacks = [...afterRenderCallbacks, ...postLayoutCallbacks];
+		if (allCallbacks.length > 0) {
+			result.fragment.afterRender = allCallbacks;
+		}
 
-    return result;
-  }
+		return result;
+	}
 
-  /**
-   * Lay out the next fragmentainer and return its PhysicalFragment.
-   * Handles blank page insertion, constraint resolution, and counter state.
-   *
-   * @returns {import('./fragment.js').PhysicalFragment}
-   */
-  #nextFragment() {
-    // Check if a side-specific break requires a blank page before layout.
-    if (this.#resolver) {
-      let sideValue = resolveForcedBreakValue(this.#breakToken);
-      if (!isSideSpecificBreak(sideValue)) {
-        const nextBreakBefore = resolveNextPageBreakBefore(
-          this.#tree,
-          this.#breakToken,
-        );
-        if (isSideSpecificBreak(nextBreakBefore)) {
-          sideValue = nextBreakBefore;
-        } else {
-          sideValue = null;
-        }
-      }
-      const side = requiredPageSide(sideValue);
-      if (side !== null) {
-        const isLeft = this.#resolver.isLeftPage(this.#fragmentainerIndex);
-        const currentSide = isLeft ? "left" : "right";
-        if (currentSide !== side) {
-          // Wrong side — emit a blank page without running layout
-          const blankConstraints = this.#resolver.resolve(
-            this.#fragmentainerIndex,
-            this.#tree,
-            this.#breakToken,
-            true,
-          );
-          const blankFragment = new PhysicalFragment(this.#tree, 0);
-          blankFragment.isBlank = true;
-          blankFragment.constraints = blankConstraints;
-          blankFragment.breakToken = this.#breakToken;
-          this.#prevFragment = blankFragment;
-          this.#fragmentainerIndex++;
-          this.#fragments.push(blankFragment);
-          return blankFragment;
-        }
-      }
-    }
+	/**
+	 * Lay out the next fragmentainer and return its PhysicalFragment.
+	 * Handles blank page insertion, constraint resolution, and counter state.
+	 *
+	 * @returns {import('./fragment.js').PhysicalFragment}
+	 */
+	#nextFragment() {
+		// Check if a side-specific break requires a blank page before layout.
+		if (this.#resolver) {
+			let sideValue = resolveForcedBreakValue(this.#breakToken);
+			if (!isSideSpecificBreak(sideValue)) {
+				const nextBreakBefore = resolveNextPageBreakBefore(this.#tree, this.#breakToken);
+				if (isSideSpecificBreak(nextBreakBefore)) {
+					sideValue = nextBreakBefore;
+				} else {
+					sideValue = null;
+				}
+			}
+			const side = requiredPageSide(sideValue);
+			if (side !== null) {
+				const isLeft = this.#resolver.isLeftPage(this.#fragmentainerIndex);
+				const currentSide = isLeft ? "left" : "right";
+				if (currentSide !== side) {
+					// Wrong side — emit a blank page without running layout
+					const blankConstraints = this.#resolver.resolve(
+						this.#fragmentainerIndex,
+						this.#tree,
+						this.#breakToken,
+						true,
+					);
+					const blankFragment = new PhysicalFragment(this.#tree, 0);
+					blankFragment.isBlank = true;
+					blankFragment.constraints = blankConstraints;
+					blankFragment.breakToken = this.#breakToken;
+					this.#prevFragment = blankFragment;
+					this.#fragmentainerIndex++;
+					this.#fragments.push(blankFragment);
+					return blankFragment;
+				}
+			}
+		}
 
-    // Resolve constraint space for this fragmentainer
-    let constraintSpace;
-    let constraints = null;
+		// Resolve constraint space for this fragmentainer
+		let constraintSpace;
+		let constraints = null;
 
-    if (this.#resolver) {
-      constraints = this.#resolver.resolve(
-        this.#fragmentainerIndex,
-        this.#tree,
-        this.#breakToken,
-      );
-      constraintSpace = constraints.toConstraintSpace();
-    } else {
-      constraintSpace = this.#constraintSpace;
-    }
+		if (this.#resolver) {
+			constraints = this.#resolver.resolve(this.#fragmentainerIndex, this.#tree, this.#breakToken);
+			constraintSpace = constraints.toConstraintSpace();
+		} else {
+			constraintSpace = this.#constraintSpace;
+		}
 
-    // Sync DOM measurement container
-    if (this.#measurer) {
-      this.#measurer.applyConstraintSpace(constraintSpace);
-    } else if (this.#measureElement) {
-      this.#measureElement.applyConstraintSpace(constraintSpace);
-    }
+		// Sync DOM measurement container
+		if (this.#measurer) {
+			this.#measurer.applyConstraintSpace(constraintSpace);
+		} else if (this.#measureElement) {
+			this.#measureElement.applyConstraintSpace(constraintSpace);
+		}
 
-    // Layout this fragmentainer (with two-pass earlyBreak support)
-    const result = this.#layoutFragmentainer(
-      this.#tree,
-      constraintSpace,
-      this.#breakToken,
-    );
-    if (constraints) {
-      result.fragment.constraints = constraints;
-    } else {
-      result.fragment.constraints = {
-        contentArea: {
-          inlineSize: constraintSpace.availableInlineSize,
-          blockSize: constraintSpace.availableBlockSize,
-        },
-      };
-    }
+		// Layout this fragmentainer (with two-pass earlyBreak support)
+		const result = this.#layoutFragmentainer(this.#tree, constraintSpace, this.#breakToken);
+		if (constraints) {
+			result.fragment.constraints = constraints;
+		} else {
+			result.fragment.constraints = {
+				contentArea: {
+					inlineSize: constraintSpace.availableInlineSize,
+					blockSize: constraintSpace.availableBlockSize,
+				},
+			};
+		}
 
-    // Counter state accumulation
-    const prevBT = this.#prevFragment?.breakToken ?? null;
-    walkFragmentTree(result.fragment, prevBT, this.#counterState);
-    if (!this.#counterState.isEmpty()) {
-      result.fragment.counterState = this.#counterState.snapshot();
-    }
+		// Counter state accumulation
+		const prevBT = this.#prevFragment?.breakToken ?? null;
+		walkFragmentTree(result.fragment, prevBT, this.#counterState);
+		if (!this.#counterState.isEmpty()) {
+			result.fragment.counterState = this.#counterState.snapshot();
+		}
 
-    // Advance state
-    this.#breakToken = result.breakToken;
-    this.#prevFragment = result.fragment;
-    this.#fragmentainerIndex++;
-    this.#fragments.push(result.fragment);
+		// Advance state
+		this.#breakToken = result.breakToken;
+		this.#prevFragment = result.fragment;
+		this.#fragmentainerIndex++;
+		this.#fragments.push(result.fragment);
 
-    return result.fragment;
-  }
+		return result.fragment;
+	}
 
-  /**
-   * Initialize layout tree and measurement state.
-   * Called lazily on first next() call. Can also be called explicitly
-   * to force re-initialization (e.g. after structural DOM changes).
-   *
-   * @param {boolean} [forceUpdate=false] - Force re-initialization
-   */
-  layout(forceUpdate = false) {
-    this.#layout(forceUpdate);
-  }
+	/**
+	 * Initialize layout tree and measurement state.
+	 * Called lazily on first next() call. Can also be called explicitly
+	 * to force re-initialization (e.g. after structural DOM changes).
+	 *
+	 * @param {boolean} [forceUpdate=false] - Force re-initialization
+	 */
+	layout(forceUpdate = false) {
+		this.#layout(forceUpdate);
+	}
 
-  /**
-   * Internal sync initialization.
-   */
-  #layout(forceUpdate = false) {
-    if (this.#tree && this.#measureElement && !forceUpdate) return;
-    const content = this.#content;
-    const styles = this.#styles || ContentParser.collectDocumentStyles();
-    if (
-      this.#tree &&
-      !this.#measureElement &&
-      typeof DocumentFragment !== "undefined" &&
-      content instanceof DocumentFragment
-    ) {
-      // Measurer was released — recreate it without rebuilding tree.
-      // The tree's DOMLayoutNode wrappers still reference the same
-      // element objects; moving them back into the measurer restores
-      // live measurement capability.
-      const measurer = document.createElement("content-measure");
-      measurer.injectFragment(content, styles);
-      document.body.appendChild(measurer);
-      void measurer.offsetHeight;
-      this.#measureElement = measurer;
-      this.#contentStyles = measurer.getContentStyles();
-      if (forceUpdate) {
-        this.#tree = buildLayoutTree(measurer.contentRoot);
-      }
-      return;
-    }
+	/**
+	 * Internal sync initialization.
+	 */
+	#layout(forceUpdate = false) {
+		if (this.#tree && this.#measureElement && !forceUpdate) return;
+		const content = this.#content;
+		const styles = this.#styles || ContentParser.collectDocumentStyles();
+		if (
+			this.#tree &&
+			!this.#measureElement &&
+			typeof DocumentFragment !== "undefined" &&
+			content instanceof DocumentFragment
+		) {
+			// Measurer was released — recreate it without rebuilding tree.
+			// The tree's DOMLayoutNode wrappers still reference the same
+			// element objects; moving them back into the measurer restores
+			// live measurement capability.
+			const measurer = document.createElement("content-measure");
+			measurer.injectFragment(content, styles);
+			document.body.appendChild(measurer);
+			void measurer.offsetHeight;
+			this.#measureElement = measurer;
+			this.#contentStyles = measurer.getContentStyles();
+			if (forceUpdate) {
+				this.#tree = buildLayoutTree(measurer.contentRoot);
+			}
+			return;
+		}
 
-    if (this.#measureElement) {
-      // Rebuild layout tree from existing measurer (content already injected)
-      this.#tree = buildLayoutTree(this.#measureElement.contentRoot);
-    } else if (
-      typeof DocumentFragment !== "undefined" &&
-      content instanceof DocumentFragment
-    ) {
-      // Delegate to the Measurer class, which handles segmented
-      // measurement when top-level children have forced breaks.
-      this.#measurer = new Measurer(content, styles);
-      const contentRoot = this.#measurer.setup();
+		if (this.#measureElement) {
+			// Rebuild layout tree from existing measurer (content already injected)
+			this.#tree = buildLayoutTree(this.#measureElement.contentRoot);
+		} else if (typeof DocumentFragment !== "undefined" && content instanceof DocumentFragment) {
+			// Delegate to the Measurer class, which handles segmented
+			// measurement when top-level children have forced breaks.
+			this.#measurer = new Measurer(content, styles);
+			const contentRoot = this.#measurer.setup();
 
-      this.#tree = buildLayoutTree(contentRoot);
-      this.#measureElement = { applyConstraintSpace: () => {} };
-      this.#contentStyles = this.#measurer.getContentStyles();
+			this.#tree = buildLayoutTree(contentRoot);
+			this.#measureElement = { applyConstraintSpace: () => {} };
+			this.#contentStyles = this.#measurer.getContentStyles();
 
-      // If segmented, override root's children with the first segment
-      const initialChildren = this.#measurer.initialChildren;
-      if (initialChildren) {
-        this.#tree.setChildren(initialChildren);
-      }
+			// If segmented, override root's children with the first segment
+			const initialChildren = this.#measurer.initialChildren;
+			if (initialChildren) {
+				this.#tree.setChildren(initialChildren);
+			}
 
-      // Auto-create resolver from @page rules in styles if neither set
-      if (!this.#resolver && !this.#constraintSpace) {
-        this.#resolver = PageResolver.fromStyleSheets(styles);
-      }
-    } else {
-      // Mock node (unit tests)
-      this.#tree = content;
-    }
+			// Auto-create resolver from @page rules in styles if neither set
+			if (!this.#resolver && !this.#constraintSpace) {
+				this.#resolver = PageResolver.fromStyleSheets(styles);
+			}
+		} else {
+			// Mock node (unit tests)
+			this.#tree = content;
+		}
 
-    this.#counterState = new CounterState();
-  }
+		this.#counterState = new CounterState();
+	}
 
-  /**
-   * Preload fonts and images before layout.
-   *
-   * Optional — call before iterating if you need fonts and images
-   * to be fully loaded for accurate measurement.
-   *
-   * @returns {Promise<void>}
-   */
-  async preload() {
-    await Promise.all([this.preloadFonts(), this.preloadImages()]);
-  }
+	/**
+	 * Preload fonts and images before layout.
+	 *
+	 * Optional — call before iterating if you need fonts and images
+	 * to be fully loaded for accurate measurement.
+	 *
+	 * @returns {Promise<void>}
+	 */
+	async preload() {
+		await Promise.all([this.preloadFonts(), this.preloadImages()]);
+	}
 
-  /**
-   * Preload fonts declared in the content stylesheets.
-   * Registers @font-face rules from this.#styles into document.fonts
-   * so they load without needing the measurer in the DOM.
-   * @returns {Promise<string[]>}
-   */
-  preloadFonts() {
-    const styles = this.#styles || ContentParser.collectDocumentStyles();
-    for (const sheet of styles) {
-      let rules;
-      try {
-        rules = sheet.cssRules;
-      } catch {
-        continue;
-      }
-      for (const rule of rules) {
-        if (rule instanceof CSSFontFaceRule) {
-          const family = rule.style.getPropertyValue("font-family");
-          const src = rule.style.getPropertyValue("src");
-          if (!family || !src) continue;
-          try {
-            const face = new FontFace(family, src, {
-              style: rule.style.getPropertyValue("font-style") || undefined,
-              weight: rule.style.getPropertyValue("font-weight") || undefined,
-              display: rule.style.getPropertyValue("font-display") || undefined,
-            });
-            document.fonts.add(face);
-          } catch {
-            // Invalid src or already registered
-          }
-        }
-      }
-    }
+	/**
+	 * Preload fonts declared in the content stylesheets.
+	 * Registers @font-face rules from this.#styles into document.fonts
+	 * so they load without needing the measurer in the DOM.
+	 * @returns {Promise<string[]>}
+	 */
+	preloadFonts() {
+		const styles = this.#styles || ContentParser.collectDocumentStyles();
+		for (const sheet of styles) {
+			let rules;
+			try {
+				rules = sheet.cssRules;
+			} catch {
+				continue;
+			}
+			for (const rule of rules) {
+				if (rule instanceof CSSFontFaceRule) {
+					const family = rule.style.getPropertyValue("font-family");
+					const src = rule.style.getPropertyValue("src");
+					if (!family || !src) continue;
+					try {
+						const face = new FontFace(family, src, {
+							style: rule.style.getPropertyValue("font-style") || undefined,
+							weight: rule.style.getPropertyValue("font-weight") || undefined,
+							display: rule.style.getPropertyValue("font-display") || undefined,
+						});
+						document.fonts.add(face);
+					} catch {
+						// Invalid src or already registered
+					}
+				}
+			}
+		}
 
-    const promises = [];
-    document.fonts.forEach((fontFace) => {
-      if (fontFace.status !== "loaded") {
-        promises.push(
-          fontFace.load().then(
-            () => fontFace.family,
-            () => fontFace.family,
-          ),
-        );
-      }
-    });
-    return Promise.all(promises);
-  }
+		const promises = [];
+		document.fonts.forEach((fontFace) => {
+			if (fontFace.status !== "loaded") {
+				promises.push(
+					fontFace.load().then(
+						() => fontFace.family,
+						() => fontFace.family,
+					),
+				);
+			}
+		});
+		return Promise.all(promises);
+	}
 
-  /**
-   * Preload images in the content that don't have explicit dimensions.
-   * Works on a detached DocumentFragment — uses Image() objects to
-   * trigger loading. Removes images that fail to load.
-   * @returns {Promise<void[]>}
-   */
-  preloadImages() {
-    const images = this.#content.querySelectorAll("img:not([width][height])");
-    const promises = [];
-    for (const img of images) {
-      if (img.complete && img.naturalWidth > 0) continue;
-      promises.push(
-        new Promise((resolve) => {
-          const probe = new Image();
-          probe.onload = () => {
-            img.width = probe.naturalWidth;
-            img.height = probe.naturalHeight;
-            resolve();
-          };
-          probe.onerror = () => {
-            img.remove();
-            resolve();
-          };
-          probe.src = img.src;
-        }),
-      );
-    }
-    return Promise.all(promises);
-  }
+	/**
+	 * Preload images in the content that don't have explicit dimensions.
+	 * Works on a detached DocumentFragment — uses Image() objects to
+	 * trigger loading. Removes images that fail to load.
+	 * @returns {Promise<void[]>}
+	 */
+	preloadImages() {
+		const images = this.#content.querySelectorAll("img:not([width][height])");
+		const promises = [];
+		for (const img of images) {
+			if (img.complete && img.naturalWidth > 0) continue;
+			promises.push(
+				new Promise((resolve) => {
+					const probe = new Image();
+					probe.onload = () => {
+						img.width = probe.naturalWidth;
+						img.height = probe.naturalHeight;
+						resolve();
+					};
+					probe.onerror = () => {
+						img.remove();
+						resolve();
+					};
+					probe.src = img.src;
+				}),
+			);
+		}
+		return Promise.all(promises);
+	}
 
-  /**
-   * Release the measurement container, moving content back to a
-   * detached DocumentFragment. The measurer is removed from the DOM
-   * but the source elements remain accessible (for MutationSync).
-   *
-   * Call after composition is complete. If reflow() is called later,
-   * layout() recreates the measurer from the saved fragment.
-   */
-  releaseMeasurer() {
-    if (this.#measurer) {
-      const result = this.#measurer.release();
-      this.#content = result.content;
-      this.#measureElement = null;
-      return;
-    }
+	/**
+	 * Release the measurement container, moving content back to a
+	 * detached DocumentFragment. The measurer is removed from the DOM
+	 * but the source elements remain accessible (for MutationSync).
+	 *
+	 * Call after composition is complete. If reflow() is called later,
+	 * layout() recreates the measurer from the saved fragment.
+	 */
+	releaseMeasurer() {
+		if (this.#measurer) {
+			const result = this.#measurer.release();
+			this.#content = result.content;
+			this.#measureElement = null;
+			return;
+		}
 
-    if (!this.#measureElement) return;
+		if (!this.#measureElement) return;
 
-    // Move content from slot back to a DocumentFragment.
-    // The tree is preserved — DOMLayoutNode wrappers still reference
-    // the same element objects, and break tokens remain valid.
-    const frag = document.createDocumentFragment();
-    const slot = this.#measureElement.contentRoot;
-    while (slot.firstChild) {
-      frag.appendChild(slot.firstChild);
-    }
-    this.#content = frag;
+		// Move content from slot back to a DocumentFragment.
+		// The tree is preserved — DOMLayoutNode wrappers still reference
+		// the same element objects, and break tokens remain valid.
+		const frag = document.createDocumentFragment();
+		const slot = this.#measureElement.contentRoot;
+		while (slot.firstChild) {
+			frag.appendChild(slot.firstChild);
+		}
+		this.#content = frag;
 
-    this.#measureElement.remove();
-    this.#measureElement = null;
-  }
+		this.#measureElement.remove();
+		this.#measureElement = null;
+	}
 
-  /**
-   * The content root for source DOM access.
-   * Returns the measurer's contentRoot if alive, or the detached
-   * DocumentFragment if the measurer has been released.
-   */
-  get contentRoot() {
-    if (this.#measurer?.contentRoot) {
-      return this.#measurer.contentRoot;
-    }
-    if (this.#measureElement) {
-      return this.#measureElement.contentRoot;
-    }
-    return this.#content;
-  }
+	/**
+	 * The content root for source DOM access.
+	 * Returns the measurer's contentRoot if alive, or the detached
+	 * DocumentFragment if the measurer has been released.
+	 */
+	get contentRoot() {
+		if (this.#measurer?.contentRoot) {
+			return this.#measurer.contentRoot;
+		}
+		if (this.#measureElement) {
+			return this.#measureElement.contentRoot;
+		}
+		return this.#content;
+	}
 
-  /**
-   * Clean up the internal measurement container.
-   * Call when the layout is no longer needed.
-   */
-  destroy() {
-    if (this.#measurer?.isActive) {
-      this.#measurer.release();
-      this.#measurer = null;
-    }
-    this.#measureElement?.remove();
-    this.#measureElement = null;
-  }
+	/**
+	 * Clean up the internal measurement container.
+	 * Call when the layout is no longer needed.
+	 */
+	destroy() {
+		if (this.#measurer?.isActive) {
+			this.#measurer.release();
+			this.#measurer = null;
+		}
+		this.#measureElement?.remove();
+		this.#measureElement = null;
+	}
 }

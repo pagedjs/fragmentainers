@@ -10,19 +10,19 @@ import { saveRef } from "./build-ref.js";
 const SAVE_REF = location.hash === "#ref";
 
 async function process() {
-  try {
-    const flow = await paginate();
+	try {
+		const flow = await paginate();
 
-    if (SAVE_REF) {
-      saveRef(flow);
-    }
+		if (SAVE_REF) {
+			saveRef(flow);
+		}
 
-    document.documentElement.dataset.specReady = "true";
-  } catch (err) {
-    console.error("Spec process error:", err);
-    document.documentElement.dataset.specError = err.message + "\n" + err.stack;
-    document.documentElement.dataset.specReady = "true";
-  }
+		document.documentElement.dataset.specReady = "true";
+	} catch (err) {
+		console.error("Spec process error:", err);
+		document.documentElement.dataset.specError = err.message + "\n" + err.stack;
+		document.documentElement.dataset.specReady = "true";
+	}
 }
 
 process();

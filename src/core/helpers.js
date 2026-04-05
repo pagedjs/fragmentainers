@@ -37,10 +37,8 @@
  * @returns {import("./tokens.js").BreakToken|null}
  */
 export function findChildBreakToken(parentBreakToken, childNode) {
-  if (!parentBreakToken) return null;
-  return (
-    parentBreakToken.childBreakTokens.find((t) => t.node === childNode) || null
-  );
+	if (!parentBreakToken) return null;
+	return parentBreakToken.childBreakTokens.find((t) => t.node === childNode) || null;
 }
 
 /**
@@ -50,11 +48,11 @@ export function findChildBreakToken(parentBreakToken, childNode) {
  * @returns {boolean}
  */
 export function isMonolithic(node) {
-  return (
-    node.isReplacedElement ||
-    node.isScrollable ||
-    (node.hasOverflowHidden && node.hasExplicitBlockSize)
-  );
+	return (
+		node.isReplacedElement ||
+		node.isScrollable ||
+		(node.hasOverflowHidden && node.hasExplicitBlockSize)
+	);
 }
 
 /**
@@ -65,7 +63,7 @@ export function isMonolithic(node) {
  * @returns {boolean}
  */
 export function isForcedBreakValue(value) {
-  return value && value !== "auto" && value !== "avoid";
+	return value && value !== "auto" && value !== "avoid";
 }
 
 /**
@@ -75,5 +73,5 @@ export function isForcedBreakValue(value) {
  * @returns {number}
  */
 export function getMonolithicBlockSize(node, constraintSpace) {
-  return node.computedBlockSize(constraintSpace.availableInlineSize);
+	return node.computedBlockSize(constraintSpace.availableInlineSize);
 }

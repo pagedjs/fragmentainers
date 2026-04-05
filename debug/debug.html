@@ -1,336 +1,317 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Fragmentainer Debug</title>
-    <style>
-      body {
-        font-family: monospace;
-        font-size: 12px;
-        margin: 1rem;
-        background: #fff;
-        color: #000;
-      }
-      #controls {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-      #controls input,
-      #controls button {
-        font-family: monospace;
-        font-size: 12px;
-        padding: 2px 4px;
-      }
-      #header,
-      #summary {
-        white-space: pre-wrap;
-        background: #f8f8f8;
-        border: 1px solid #ccc;
-        padding: 8px;
-        margin-bottom: 8px;
-        display: none;
-        width: calc(100vw - 60px);
-      }
-      #output {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        margin-top: 8px;
-      }
+	<head>
+		<meta charset="UTF-8" />
+		<title>Fragmentainer Debug</title>
+		<style>
+			body {
+				font-family: monospace;
+				font-size: 12px;
+				margin: 1rem;
+				background: #fff;
+				color: #000;
+			}
+			#controls {
+				display: flex;
+				gap: 8px;
+				align-items: center;
+				margin-bottom: 8px;
+			}
+			#controls input,
+			#controls button {
+				font-family: monospace;
+				font-size: 12px;
+				padding: 2px 4px;
+			}
+			#header,
+			#summary {
+				white-space: pre-wrap;
+				background: #f8f8f8;
+				border: 1px solid #ccc;
+				padding: 8px;
+				margin-bottom: 8px;
+				display: none;
+				width: calc(100vw - 60px);
+			}
+			#output {
+				display: flex;
+				flex-direction: column;
+				gap: 16px;
+				margin-top: 8px;
+			}
 
-      /* Rendered page rows */
-      .page-row {
-        --page-scale: min(1, tan(atan2(100vw, var(--page-inline-size) * 1px)));
-        border-bottom: 1px solid #ccc;
-        padding-bottom: 8px;
-      }
-      .page-row-title {
-        font-weight: bold;
-        margin-bottom: 4px;
-        padding: 4px 0;
-      }
-      .page-row-content {
-        display: flex;
-        gap: 16px;
-        align-items: flex-start;
-      }
-      .page-row-render {
-        transform: scale(var(--page-scale));
-        transform-origin: top left;
-        margin-right: calc(
-          var(--page-inline-size) * (var(--page-scale) - 1) * 1px
-        );
-        margin-bottom: calc(
-          var(--page-block-size) * (var(--page-scale) - 1) * 1px
-        );
-        outline: 1px solid #999;
-        background: #fff;
-      }
-      .page-row-data {
-        white-space: pre-wrap;
-        flex: 1;
-        min-width: 0;
-        overflow: auto;
-      }
-      .page-row.has-issues .page-row-render {
-        outline: 2px solid red;
-      }
+			/* Rendered page rows */
+			.page-row {
+				--page-scale: min(1, tan(atan2(100vw, var(--page-inline-size) * 1px)));
+				border-bottom: 1px solid #ccc;
+				padding-bottom: 8px;
+			}
+			.page-row-title {
+				font-weight: bold;
+				margin-bottom: 4px;
+				padding: 4px 0;
+			}
+			.page-row-content {
+				display: flex;
+				gap: 16px;
+				align-items: flex-start;
+			}
+			.page-row-render {
+				transform: scale(var(--page-scale));
+				transform-origin: top left;
+				margin-right: calc(var(--page-inline-size) * (var(--page-scale) - 1) * 1px);
+				margin-bottom: calc(var(--page-block-size) * (var(--page-scale) - 1) * 1px);
+				outline: 1px solid #999;
+				background: #fff;
+			}
+			.page-row-data {
+				white-space: pre-wrap;
+				flex: 1;
+				min-width: 0;
+				overflow: auto;
+			}
+			.page-row.has-issues .page-row-render {
+				outline: 2px solid red;
+			}
 
-      @media (max-width: 900px) {
-        .page-row-content {
-          flex-direction: column;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div id="controls"></div>
-    <div id="header"></div>
-    <div id="summary"></div>
-    <div id="output"></div>
-    <script type="module">
-      import {
-        FragmentedFlow,
-        ContentParser,
-        PageResolver,
-      } from "../src/index.js";
-      import "../src/dom/fragment-container.js";
-      import "./page-container.js";
-      import {
-        buildPageDump,
-        buildDocumentSummary,
-        buildElementSpans,
-        fragmentainerHeight,
-      } from "./debug.js";
+			@media (max-width: 900px) {
+				.page-row-content {
+					flex-direction: column;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div id="controls"></div>
+		<div id="header"></div>
+		<div id="summary"></div>
+		<div id="output"></div>
+		<script type="module">
+			import { FragmentedFlow, ContentParser, PageResolver } from "../src/index.js";
+			import "../src/dom/fragment-container.js";
+			import "./page-container.js";
+			import {
+				buildPageDump,
+				buildDocumentSummary,
+				buildElementSpans,
+				fragmentainerHeight,
+			} from "./debug.js";
 
-      const params = new URLSearchParams(location.search);
-      const url = params.get("url");
-      const pageW = parseInt(params.get("w")) || 0;
-      const pageH = parseInt(params.get("h")) || 0;
-      const range = params.get("range") || "";
+			const params = new URLSearchParams(location.search);
+			const url = params.get("url");
+			const pageW = parseInt(params.get("w")) || 0;
+			const pageH = parseInt(params.get("h")) || 0;
+			const range = params.get("range") || "";
 
-      // Persist canonical params in the URL
-      const canonical = new URLSearchParams();
-      if (url) canonical.set("url", url);
-      if (pageW) canonical.set("w", String(pageW));
-      if (pageH) canonical.set("h", String(pageH));
-      if (range) canonical.set("range", range);
-      history.replaceState(null, "", `?${canonical}`);
+			// Persist canonical params in the URL
+			const canonical = new URLSearchParams();
+			if (url) canonical.set("url", url);
+			if (pageW) canonical.set("w", String(pageW));
+			if (pageH) canonical.set("h", String(pageH));
+			if (range) canonical.set("range", range);
+			history.replaceState(null, "", `?${canonical}`);
 
-      const controlsEl = document.getElementById("controls");
-      const headerEl = document.getElementById("header");
-      const summaryEl = document.getElementById("summary");
-      const outputEl = document.getElementById("output");
+			const controlsEl = document.getElementById("controls");
+			const headerEl = document.getElementById("header");
+			const summaryEl = document.getElementById("summary");
+			const outputEl = document.getElementById("output");
 
-      let fullDebugText = "";
+			let fullDebugText = "";
 
-      // Build controls immediately at the top
-      const urlInput = document.createElement("input");
-      urlInput.type = "text";
-      urlInput.value = url;
-      urlInput.style.cssText = "flex:1;min-width:200px;";
-      urlInput.placeholder = "URL to debug";
+			// Build controls immediately at the top
+			const urlInput = document.createElement("input");
+			urlInput.type = "text";
+			urlInput.value = url;
+			urlInput.style.cssText = "flex:1;min-width:200px;";
+			urlInput.placeholder = "URL to debug";
 
-      const rangeInput = document.createElement("input");
-      rangeInput.type = "text";
-      rangeInput.value = range;
-      rangeInput.style.cssText = "width:60px;";
-      rangeInput.placeholder = "Pages";
-      rangeInput.title = "Page range (e.g. 3, 1-5, or empty for all)";
+			const rangeInput = document.createElement("input");
+			rangeInput.type = "text";
+			rangeInput.value = range;
+			rangeInput.style.cssText = "width:60px;";
+			rangeInput.placeholder = "Pages";
+			rangeInput.title = "Page range (e.g. 3, 1-5, or empty for all)";
 
-      const renderBtn = document.createElement("button");
-      renderBtn.textContent = "Render";
-      renderBtn.addEventListener("click", () => {
-        const p = new URLSearchParams(location.search);
-        p.set("url", urlInput.value);
-        if (rangeInput.value) {
-          p.set("range", rangeInput.value);
-        } else {
-          p.delete("range");
-        }
-        location.search = p.toString();
-      });
-      urlInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") renderBtn.click();
-      });
+			const renderBtn = document.createElement("button");
+			renderBtn.textContent = "Render";
+			renderBtn.addEventListener("click", () => {
+				const p = new URLSearchParams(location.search);
+				p.set("url", urlInput.value);
+				if (rangeInput.value) {
+					p.set("range", rangeInput.value);
+				} else {
+					p.delete("range");
+				}
+				location.search = p.toString();
+			});
+			urlInput.addEventListener("keydown", (e) => {
+				if (e.key === "Enter") renderBtn.click();
+			});
 
-      const downloadBtn = document.createElement("button");
-      downloadBtn.textContent = "Download";
-      downloadBtn.addEventListener("click", () => {
-        const blob = new Blob([fullDebugText], { type: "text/plain" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "debug-report.txt";
-        a.click();
-        URL.revokeObjectURL(a.href);
-      });
+			const downloadBtn = document.createElement("button");
+			downloadBtn.textContent = "Download";
+			downloadBtn.addEventListener("click", () => {
+				const blob = new Blob([fullDebugText], { type: "text/plain" });
+				const a = document.createElement("a");
+				a.href = URL.createObjectURL(blob);
+				a.download = "debug-report.txt";
+				a.click();
+				URL.revokeObjectURL(a.href);
+			});
 
-      controlsEl.appendChild(urlInput);
-      controlsEl.appendChild(rangeInput);
-      controlsEl.appendChild(renderBtn);
-      controlsEl.appendChild(downloadBtn);
+			controlsEl.appendChild(urlInput);
+			controlsEl.appendChild(rangeInput);
+			controlsEl.appendChild(renderBtn);
+			controlsEl.appendChild(downloadBtn);
 
-      if (url) {
-        run();
-      }
+			if (url) {
+				run();
+			}
 
-      /**
-       * Parse a range string into [startIdx, endIdx].
-       * Accepts "3" (single page), "3-7" (inclusive range), or "" (all).
-       * Page numbers are 1-based; returned indices are 0-based.
-       */
-      function parseRange(str, total) {
-        if (!str) return [0, total];
-        const match = str.match(/^(\d+)(?:-(\d+))?$/);
-        if (!match) return [0, total];
-        const a = Math.max(1, Math.min(parseInt(match[1]), total));
-        const b = match[2]
-          ? Math.max(a, Math.min(parseInt(match[2]), total))
-          : a;
-        return [a - 1, b];
-      }
+			/**
+			 * Parse a range string into [startIdx, endIdx].
+			 * Accepts "3" (single page), "3-7" (inclusive range), or "" (all).
+			 * Page numbers are 1-based; returned indices are 0-based.
+			 */
+			function parseRange(str, total) {
+				if (!str) return [0, total];
+				const match = str.match(/^(\d+)(?:-(\d+))?$/);
+				if (!match) return [0, total];
+				const a = Math.max(1, Math.min(parseInt(match[1]), total));
+				const b = match[2] ? Math.max(a, Math.min(parseInt(match[2]), total)) : a;
+				return [a - 1, b];
+			}
 
-      async function run() {
-        try {
-          const t0 = performance.now();
+			async function run() {
+				try {
+					const t0 = performance.now();
 
-          const response = await fetch(url);
-          const content = await response.text();
-          const baseURL = url.substring(0, url.lastIndexOf("/") + 1);
-          const parsed = await ContentParser.fromString(content, baseURL);
+					const response = await fetch(url);
+					const content = await response.text();
+					const baseURL = url.substring(0, url.lastIndexOf("/") + 1);
+					const parsed = await ContentParser.fromString(content, baseURL);
 
-          const size = { inlineSize: pageW, blockSize: pageH };
-          const resolver = PageResolver.fromStyleSheets(parsed.styles, size);
+					const size = { inlineSize: pageW, blockSize: pageH };
+					const resolver = PageResolver.fromStyleSheets(parsed.styles, size);
 
-          const layout = new FragmentedFlow(parsed.fragment, {
-            styles: parsed.styles,
-            resolver: resolver.pageRules.length > 0 ? resolver : undefined,
-            width: resolver.pageRules.length === 0 ? pageW : undefined,
-            height: resolver.pageRules.length === 0 ? pageH : undefined,
-          });
+					const layout = new FragmentedFlow(parsed.fragment, {
+						styles: parsed.styles,
+						resolver: resolver.pageRules.length > 0 ? resolver : undefined,
+						width: resolver.pageRules.length === 0 ? pageW : undefined,
+						height: resolver.pageRules.length === 0 ? pageH : undefined,
+					});
 
-          await layout.preload();
+					await layout.preload();
 
-          const tLayout = performance.now();
-          const flow = layout.flow();
-          const layoutTime = performance.now() - tLayout;
-          const fragments = flow.fragments;
+					const tLayout = performance.now();
+					const flow = layout.flow();
+					const layoutTime = performance.now() - tLayout;
+					const fragments = flow.fragments;
 
-          const [startIdx, endIdx] = parseRange(range, fragments.length);
+					const [startIdx, endIdx] = parseRange(range, fragments.length);
 
-          const summaryText = buildDocumentSummary(fragments, pageH);
-          summaryEl.innerHTML = summaryText;
-          summaryEl.style.display = "block";
+					const summaryText = buildDocumentSummary(fragments, pageH);
+					summaryEl.innerHTML = summaryText;
+					summaryEl.style.display = "block";
 
-          const elementSpans = buildElementSpans(fragments);
-          const tRender = performance.now();
-          let issueCount = 0;
-          const debugLines = [];
+					const elementSpans = buildElementSpans(fragments);
+					const tRender = performance.now();
+					let issueCount = 0;
+					const debugLines = [];
 
-          for (let i = startIdx; i < endIdx; i++) {
-            const c = fragments[i].constraints;
-            const fragW = c?.pageBoxSize ? c.pageBoxSize.inlineSize : pageW;
-            const fragH = c?.pageBoxSize ? c.pageBoxSize.blockSize : pageH;
-            const effH = fragmentainerHeight(fragments[i], pageH);
-            const dump = buildPageDump(
-              fragments,
-              i,
-              effH,
-              elementSpans,
-              fragW,
-              fragH,
-            );
-            debugLines.push(dump.text);
+					for (let i = startIdx; i < endIdx; i++) {
+						const c = fragments[i].constraints;
+						const fragW = c?.pageBoxSize ? c.pageBoxSize.inlineSize : pageW;
+						const fragH = c?.pageBoxSize ? c.pageBoxSize.blockSize : pageH;
+						const effH = fragmentainerHeight(fragments[i], pageH);
+						const dump = buildPageDump(fragments, i, effH, elementSpans, fragW, fragH);
+						debugLines.push(dump.text);
 
-            const row = document.createElement("div");
-            row.className = "page-row";
-            row.style.setProperty("--page-inline-size", fragW);
-            row.style.setProperty("--page-block-size", fragH);
+						const row = document.createElement("div");
+						row.className = "page-row";
+						row.style.setProperty("--page-inline-size", fragW);
+						row.style.setProperty("--page-block-size", fragH);
 
-            const contentEl = document.createElement("div");
-            contentEl.className = "page-row-content";
+						const contentEl = document.createElement("div");
+						contentEl.className = "page-row-content";
 
-            const renderBox = document.createElement("page-container");
-            renderBox.className = "page-row-render";
+						const renderBox = document.createElement("page-container");
+						renderBox.className = "page-row-render";
 
-            const fragEl = flow.createFragmentainer(i);
-            renderBox.appendChild(fragEl);
-            contentEl.appendChild(renderBox);
+						const fragEl = flow.createFragmentainer(i);
+						renderBox.appendChild(fragEl);
+						contentEl.appendChild(renderBox);
 
-            const dataBox = document.createElement("div");
-            dataBox.className = "page-row-data";
-            dataBox.innerHTML = dump.text;
-            contentEl.appendChild(dataBox);
+						const dataBox = document.createElement("div");
+						dataBox.className = "page-row-data";
+						dataBox.innerHTML = dump.text;
+						contentEl.appendChild(dataBox);
 
-            row.appendChild(contentEl);
-            outputEl.appendChild(row);
+						row.appendChild(contentEl);
+						outputEl.appendChild(row);
 
-            if (dump.hasIssues) {
-              issueCount++;
-              row.classList.add("has-issues");
-            }
+						if (dump.hasIssues) {
+							issueCount++;
+							row.classList.add("has-issues");
+						}
 
-            fragEl.addEventListener("overflow", (e) => {
-              const d = e.detail;
-              dataBox.textContent += `\n  ISSUES:\n    - RENDER OVERFLOW: rendered ${d.renderedBlockSize.toFixed(1)}px vs expected ${d.expectedBlockSize.toFixed(1)}px (delta ${d.overflow.toFixed(1)}px)`;
-              row.classList.add("has-issues");
-            });
-            fragEl.startObserving();
-          }
+						fragEl.addEventListener("overflow", (e) => {
+							const d = e.detail;
+							dataBox.textContent += `\n  ISSUES:\n    - RENDER OVERFLOW: rendered ${d.renderedBlockSize.toFixed(1)}px vs expected ${d.expectedBlockSize.toFixed(1)}px (delta ${d.overflow.toFixed(1)}px)`;
+							row.classList.add("has-issues");
+						});
+						fragEl.startObserving();
+					}
 
-          const renderTime = performance.now() - tRender;
-          const totalTime = performance.now() - t0;
-          const shown = endIdx - startIdx;
+					const renderTime = performance.now() - tRender;
+					const totalTime = performance.now() - t0;
+					const shown = endIdx - startIdx;
 
-          const headerLines = buildHeaderLines(
-            fragments,
-            resolver,
-            layoutTime,
-            renderTime,
-            totalTime,
-            issueCount,
-            shown,
-          );
-          headerEl.innerHTML = headerLines.join("\n");
-          headerEl.style.display = "block";
+					const headerLines = buildHeaderLines(
+						fragments,
+						resolver,
+						layoutTime,
+						renderTime,
+						totalTime,
+						issueCount,
+						shown,
+					);
+					headerEl.innerHTML = headerLines.join("\n");
+					headerEl.style.display = "block";
 
-          fullDebugText = [...headerLines, summaryText, ...debugLines].join(
-            "\n",
-          );
-        } catch (err) {
-          outputEl.textContent = `ERROR: ${err.message}\n${err.stack}`;
-        }
-      }
+					fullDebugText = [...headerLines, summaryText, ...debugLines].join("\n");
+				} catch (err) {
+					outputEl.textContent = `ERROR: ${err.message}\n${err.stack}`;
+				}
+			}
 
-      function buildHeaderLines(
-        fragments,
-        resolver,
-        layoutTime,
-        renderTime,
-        totalTime,
-        issueCount,
-        shown,
-      ) {
-        const lines = [];
-        lines.push("# Fragmentainer Debug Report");
-        lines.push(`url: ${url}`);
-        if (resolver) {
-          const first = resolver.resolve(0, null, null);
-          lines.push(
-            `pageSize: ${first.pageBoxSize.inlineSize}x${first.pageBoxSize.blockSize} (from @page rules)`,
-          );
-        } else {
-          lines.push(`pageSize: ${pageW}x${pageH}`);
-        }
-        lines.push(`totalPages: ${fragments.length}`);
-        lines.push(`layoutTime: ${layoutTime.toFixed(1)}ms`);
-        lines.push(`renderTime: ${renderTime.toFixed(1)}ms`);
-        lines.push(`totalTime: ${totalTime.toFixed(1)}ms`);
-        lines.push(`pageIssues: ${issueCount}/${shown}`);
-        return lines;
-      }
-    </script>
-  </body>
+			function buildHeaderLines(
+				fragments,
+				resolver,
+				layoutTime,
+				renderTime,
+				totalTime,
+				issueCount,
+				shown,
+			) {
+				const lines = [];
+				lines.push("# Fragmentainer Debug Report");
+				lines.push(`url: ${url}`);
+				if (resolver) {
+					const first = resolver.resolve(0, null, null);
+					lines.push(
+						`pageSize: ${first.pageBoxSize.inlineSize}x${first.pageBoxSize.blockSize} (from @page rules)`,
+					);
+				} else {
+					lines.push(`pageSize: ${pageW}x${pageH}`);
+				}
+				lines.push(`totalPages: ${fragments.length}`);
+				lines.push(`layoutTime: ${layoutTime.toFixed(1)}ms`);
+				lines.push(`renderTime: ${renderTime.toFixed(1)}ms`);
+				lines.push(`totalTime: ${totalTime.toFixed(1)}ms`);
+				lines.push(`pageIssues: ${issueCount}/${shown}`);
+				return lines;
+			}
+		</script>
+	</body>
 </html>

@@ -43,13 +43,13 @@ export const DEFAULT_OVERFLOW_THRESHOLD = 16 * 1.2;
 
 // Named page sizes (CSS pixels at 96 DPI)
 export const NAMED_SIZES = {
-  A6:     { inlineSize: 397,  blockSize: 559  },
-  A5:     { inlineSize: 559,  blockSize: 794  },
-  A4:     { inlineSize: 794,  blockSize: 1123 },
-  A3:     { inlineSize: 1123, blockSize: 1587 },
-  B5:     { inlineSize: 499,  blockSize: 709  },
-  B4:     { inlineSize: 709,  blockSize: 1001 },
-  LETTER: { inlineSize: 816,  blockSize: 1056 },
-  LEGAL:  { inlineSize: 816,  blockSize: 1344 },
-  LEDGER: { inlineSize: 1056, blockSize: 1632 },
+	A6: { inlineSize: 397, blockSize: 559 },
+	A5: { inlineSize: 559, blockSize: 794 },
+	A4: { inlineSize: 794, blockSize: 1123 },
+	A3: { inlineSize: 1123, blockSize: 1587 },
+	B5: { inlineSize: 499, blockSize: 709 },
+	B4: { inlineSize: 709, blockSize: 1001 },
+	LETTER: { inlineSize: 816, blockSize: 1056 },
+	LEGAL: { inlineSize: 816, blockSize: 1344 },
+	LEDGER: { inlineSize: 1056, blockSize: 1632 },
 };

@@ -1,350 +1,350 @@
 import { test, expect } from "../browser-fixture.js";
 
 test.describe("PageFloat.matches", () => {
-  test("returns true for a page-float node", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { buildLayoutTree } = await import("/src/dom/index.js");
-      const { PageFloat } = await import("/src/modules/page-float.js");
+	test("returns true for a page-float node", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { PageFloat } = await import("/src/modules/page-float.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="margin:0;padding:0">
         <div style="height:100px;--float:top;--float-reference:page;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
-      const root = buildLayoutTree(container.firstElementChild);
-      const match = PageFloat.matches(root.children[0]);
-      container.remove();
-      return match;
-    });
-    expect(result).toBe(true);
-  });
+			document.body.appendChild(container);
+			const root = buildLayoutTree(container.firstElementChild);
+			const match = PageFloat.matches(root.children[0]);
+			container.remove();
+			return match;
+		});
+		expect(result).toBe(true);
+	});
 
-  test("returns false for a regular block node", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { buildLayoutTree } = await import("/src/dom/index.js");
-      const { PageFloat } = await import("/src/modules/page-float.js");
+	test("returns false for a regular block node", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { PageFloat } = await import("/src/modules/page-float.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="margin:0;padding:0">
         <div style="height:100px;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
-      const root = buildLayoutTree(container.firstElementChild);
-      const match = PageFloat.matches(root.children[0]);
-      container.remove();
-      return match;
-    });
-    expect(result).toBe(false);
-  });
+			document.body.appendChild(container);
+			const root = buildLayoutTree(container.firstElementChild);
+			const match = PageFloat.matches(root.children[0]);
+			container.remove();
+			return match;
+		});
+		expect(result).toBe(false);
+	});
 });
 
 test.describe("PageFloat.layout", () => {
-  test("reserves block-start space for a top float", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { buildLayoutTree } = await import("/src/dom/index.js");
-      const { createFragments } = await import("/src/core/layout-request.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
-      const { PageFloat } = await import("/src/modules/page-float.js");
+	test("reserves block-start space for a top float", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/core/layout-request.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { PageFloat } = await import("/src/modules/page-float.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="margin:0;padding:0">
         <div style="height:100px;--float:top;--float-reference:page;margin:0;padding:0"></div>
         <div style="height:300px;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
-      const root = buildLayoutTree(container.firstElementChild);
+			document.body.appendChild(container);
+			const root = buildLayoutTree(container.firstElementChild);
 
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 800,
-        fragmentainerBlockSize: 800,
-        fragmentationType: FRAGMENTATION_PAGE,
-      });
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 800,
+				fragmentainerBlockSize: 800,
+				fragmentationType: FRAGMENTATION_PAGE,
+			});
 
-      const layoutChildFn = (child, childCs) => {
-        return { fragment: { blockSize: child.blockSize, childFragments: [] } };
-      };
+			const layoutChildFn = (child, childCs) => {
+				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
+			};
 
-      const res = PageFloat.layout(root, cs, null, layoutChildFn);
-      container.remove();
-      return {
-        reservedBlockStart: res.reservedBlockStart,
-        reservedBlockEnd: res.reservedBlockEnd,
-        hasAfterRender: typeof res.afterRender === "function",
-      };
-    });
-    expect(result.reservedBlockStart).toBe(100);
-    expect(result.reservedBlockEnd).toBe(0);
-    expect(result.hasAfterRender).toBe(true);
-  });
+			const res = PageFloat.layout(root, cs, null, layoutChildFn);
+			container.remove();
+			return {
+				reservedBlockStart: res.reservedBlockStart,
+				reservedBlockEnd: res.reservedBlockEnd,
+				hasAfterRender: typeof res.afterRender === "function",
+			};
+		});
+		expect(result.reservedBlockStart).toBe(100);
+		expect(result.reservedBlockEnd).toBe(0);
+		expect(result.hasAfterRender).toBe(true);
+	});
 
-  test("reserves block-end space for a bottom float", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { buildLayoutTree } = await import("/src/dom/index.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
-      const { PageFloat } = await import("/src/modules/page-float.js");
+	test("reserves block-end space for a bottom float", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { PageFloat } = await import("/src/modules/page-float.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="margin:0;padding:0">
         <div style="height:150px;--float:bottom;--float-reference:page;margin:0;padding:0"></div>
         <div style="height:300px;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
-      const root = buildLayoutTree(container.firstElementChild);
+			document.body.appendChild(container);
+			const root = buildLayoutTree(container.firstElementChild);
 
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 800,
-        fragmentainerBlockSize: 800,
-        fragmentationType: FRAGMENTATION_PAGE,
-      });
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 800,
+				fragmentainerBlockSize: 800,
+				fragmentationType: FRAGMENTATION_PAGE,
+			});
 
-      const layoutChildFn = (child) => {
-        return { fragment: { blockSize: child.blockSize, childFragments: [] } };
-      };
+			const layoutChildFn = (child) => {
+				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
+			};
 
-      const res = PageFloat.layout(root, cs, null, layoutChildFn);
-      container.remove();
-      return {
-        reservedBlockStart: res.reservedBlockStart,
-        reservedBlockEnd: res.reservedBlockEnd,
-      };
-    });
-    expect(result.reservedBlockStart).toBe(0);
-    expect(result.reservedBlockEnd).toBe(150);
-  });
+			const res = PageFloat.layout(root, cs, null, layoutChildFn);
+			container.remove();
+			return {
+				reservedBlockStart: res.reservedBlockStart,
+				reservedBlockEnd: res.reservedBlockEnd,
+			};
+		});
+		expect(result.reservedBlockStart).toBe(0);
+		expect(result.reservedBlockEnd).toBe(150);
+	});
 
-  test("reserves space for both top and bottom floats", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { buildLayoutTree } = await import("/src/dom/index.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
-      const { PageFloat } = await import("/src/modules/page-float.js");
+	test("reserves space for both top and bottom floats", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { PageFloat } = await import("/src/modules/page-float.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="margin:0;padding:0">
         <div style="height:50px;--float:top;--float-reference:page;margin:0;padding:0"></div>
         <div style="height:75px;--float:bottom;--float-reference:page;margin:0;padding:0"></div>
         <div style="height:300px;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
-      const root = buildLayoutTree(container.firstElementChild);
+			document.body.appendChild(container);
+			const root = buildLayoutTree(container.firstElementChild);
 
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 800,
-        fragmentainerBlockSize: 800,
-        fragmentationType: FRAGMENTATION_PAGE,
-      });
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 800,
+				fragmentainerBlockSize: 800,
+				fragmentationType: FRAGMENTATION_PAGE,
+			});
 
-      const layoutChildFn = (child) => {
-        return { fragment: { blockSize: child.blockSize, childFragments: [] } };
-      };
+			const layoutChildFn = (child) => {
+				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
+			};
 
-      const res = PageFloat.layout(root, cs, null, layoutChildFn);
-      container.remove();
-      return {
-        reservedBlockStart: res.reservedBlockStart,
-        reservedBlockEnd: res.reservedBlockEnd,
-      };
-    });
-    expect(result.reservedBlockStart).toBe(50);
-    expect(result.reservedBlockEnd).toBe(75);
-  });
+			const res = PageFloat.layout(root, cs, null, layoutChildFn);
+			container.remove();
+			return {
+				reservedBlockStart: res.reservedBlockStart,
+				reservedBlockEnd: res.reservedBlockEnd,
+			};
+		});
+		expect(result.reservedBlockStart).toBe(50);
+		expect(result.reservedBlockEnd).toBe(75);
+	});
 
-  test("returns zero reservations when no floats present", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { buildLayoutTree } = await import("/src/dom/index.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
-      const { PageFloat } = await import("/src/modules/page-float.js");
+	test("returns zero reservations when no floats present", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { PageFloat } = await import("/src/modules/page-float.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="margin:0;padding:0">
         <div style="height:300px;margin:0;padding:0"></div>
         <div style="height:200px;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
-      const root = buildLayoutTree(container.firstElementChild);
+			document.body.appendChild(container);
+			const root = buildLayoutTree(container.firstElementChild);
 
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 800,
-        fragmentainerBlockSize: 800,
-        fragmentationType: FRAGMENTATION_PAGE,
-      });
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 800,
+				fragmentainerBlockSize: 800,
+				fragmentationType: FRAGMENTATION_PAGE,
+			});
 
-      const layoutChildFn = (child) => {
-        return { fragment: { blockSize: child.blockSize, childFragments: [] } };
-      };
+			const layoutChildFn = (child) => {
+				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
+			};
 
-      const res = PageFloat.layout(root, cs, null, layoutChildFn);
-      container.remove();
-      return {
-        reservedBlockStart: res.reservedBlockStart,
-        reservedBlockEnd: res.reservedBlockEnd,
-      };
-    });
-    expect(result.reservedBlockStart).toBe(0);
-    expect(result.reservedBlockEnd).toBe(0);
-  });
+			const res = PageFloat.layout(root, cs, null, layoutChildFn);
+			container.remove();
+			return {
+				reservedBlockStart: res.reservedBlockStart,
+				reservedBlockEnd: res.reservedBlockEnd,
+			};
+		});
+		expect(result.reservedBlockStart).toBe(0);
+		expect(result.reservedBlockEnd).toBe(0);
+	});
 });
 
 test.describe("page floats integration with createFragments", () => {
-  test("top float reduces available space for content", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { buildLayoutTree } = await import("/src/dom/index.js");
-      const { createFragments } = await import("/src/core/layout-request.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
-      const { PageFloat } = await import("/src/modules/page-float.js");
+	test("top float reduces available space for content", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/core/layout-request.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { PageFloat } = await import("/src/modules/page-float.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="margin:0;padding:0">
         <div style="height:100px;--float:top;--float-reference:page;margin:0;padding:0"></div>
         <div style="height:700px;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
-      const root = buildLayoutTree(container.firstElementChild);
+			document.body.appendChild(container);
+			const root = buildLayoutTree(container.firstElementChild);
 
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 800,
-        fragmentainerBlockSize: 800,
-        fragmentationType: FRAGMENTATION_PAGE,
-      });
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 800,
+				fragmentainerBlockSize: 800,
+				fragmentationType: FRAGMENTATION_PAGE,
+			});
 
-      // Without modules: content fits in one page (100 + 700 = 800)
-      const noModFragments = createFragments(root, cs);
+			// Without modules: content fits in one page (100 + 700 = 800)
+			const noModFragments = createFragments(root, cs);
 
-      // With modules: float takes 100, content takes 700
-      const csWithModules = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 800 - 100,
-        fragmentainerBlockSize: 800,
-        blockOffsetInFragmentainer: 100,
-        fragmentationType: FRAGMENTATION_PAGE,
-        modules: [PageFloat],
-      });
-      const fragments = createFragments(root, csWithModules);
+			// With modules: float takes 100, content takes 700
+			const csWithModules = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 800 - 100,
+				fragmentainerBlockSize: 800,
+				blockOffsetInFragmentainer: 100,
+				fragmentationType: FRAGMENTATION_PAGE,
+				modules: [PageFloat],
+			});
+			const fragments = createFragments(root, csWithModules);
 
-      container.remove();
-      return {
-        noModLen: noModFragments.length,
-        len: fragments.length,
-        blockSize: fragments[0].blockSize,
-      };
-    });
-    expect(result.noModLen).toBe(1);
-    expect(result.len).toBe(1);
-    expect(result.blockSize).toBe(700);
-  });
+			container.remove();
+			return {
+				noModLen: noModFragments.length,
+				len: fragments.length,
+				blockSize: fragments[0].blockSize,
+			};
+		});
+		expect(result.noModLen).toBe(1);
+		expect(result.len).toBe(1);
+		expect(result.blockSize).toBe(700);
+	});
 
-  test("float causes content to overflow into second page", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { buildLayoutTree } = await import("/src/dom/index.js");
-      const { createFragments } = await import("/src/core/layout-request.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
-      const { PageFloat } = await import("/src/modules/page-float.js");
+	test("float causes content to overflow into second page", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/core/layout-request.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { PageFloat } = await import("/src/modules/page-float.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="margin:0;padding:0">
         <div style="height:200px;--float:top;--float-reference:page;margin:0;padding:0"></div>
         <div style="height:700px;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
-      const root = buildLayoutTree(container.firstElementChild);
+			document.body.appendChild(container);
+			const root = buildLayoutTree(container.firstElementChild);
 
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 800 - 200,
-        fragmentainerBlockSize: 800,
-        blockOffsetInFragmentainer: 200,
-        fragmentationType: FRAGMENTATION_PAGE,
-        modules: [PageFloat],
-      });
-      const fragments = createFragments(root, cs);
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 800 - 200,
+				fragmentainerBlockSize: 800,
+				blockOffsetInFragmentainer: 200,
+				fragmentationType: FRAGMENTATION_PAGE,
+				modules: [PageFloat],
+			});
+			const fragments = createFragments(root, cs);
 
-      container.remove();
-      return { len: fragments.length };
-    });
-    expect(result.len).toBe(2);
-  });
+			container.remove();
+			return { len: fragments.length };
+		});
+		expect(result.len).toBe(2);
+	});
 
-  test("no modules produces same results as before", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { buildLayoutTree } = await import("/src/dom/index.js");
-      const { createFragments } = await import("/src/core/layout-request.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+	test("no modules produces same results as before", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/core/layout-request.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="margin:0;padding:0">
         <div style="height:300px;margin:0;padding:0"></div>
         <div style="height:300px;margin:0;padding:0"></div>
         <div style="height:300px;margin:0;padding:0"></div>
         <div style="height:300px;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
-      const root = buildLayoutTree(container.firstElementChild);
+			document.body.appendChild(container);
+			const root = buildLayoutTree(container.firstElementChild);
 
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 800,
-        fragmentainerBlockSize: 800,
-        fragmentationType: FRAGMENTATION_PAGE,
-      });
-      const fragments = createFragments(root, cs);
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 800,
+				fragmentainerBlockSize: 800,
+				fragmentationType: FRAGMENTATION_PAGE,
+			});
+			const fragments = createFragments(root, cs);
 
-      container.remove();
-      return { len: fragments.length };
-    });
-    expect(result.len).toBe(2);
-  });
+			container.remove();
+			return { len: fragments.length };
+		});
+		expect(result.len).toBe(2);
+	});
 });
 
 test.describe("FragmentedFlow.register / .remove", () => {
-  test("register() registers a module globally", async ({ page }) => {
-    await page.evaluate(async () => {
-      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-      const { PageFloat } = await import("/src/modules/page-float.js");
+	test("register() registers a module globally", async ({ page }) => {
+		await page.evaluate(async () => {
+			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+			const { PageFloat } = await import("/src/modules/page-float.js");
 
-      FragmentedFlow.register(PageFloat);
-      // Registering the same module twice should be a no-op
-      FragmentedFlow.register(PageFloat);
-      // After removal, it should be gone
-      FragmentedFlow.remove(PageFloat);
-      // Removing again should be safe
-      FragmentedFlow.remove(PageFloat);
-    });
-  });
+			FragmentedFlow.register(PageFloat);
+			// Registering the same module twice should be a no-op
+			FragmentedFlow.register(PageFloat);
+			// After removal, it should be gone
+			FragmentedFlow.remove(PageFloat);
+			// Removing again should be safe
+			FragmentedFlow.remove(PageFloat);
+		});
+	});
 
-  test("register() does not duplicate a module", async ({ page }) => {
-    await page.evaluate(async () => {
-      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-      const { LayoutModule } = await import("/src/modules/module.js");
+	test("register() does not duplicate a module", async ({ page }) => {
+		await page.evaluate(async () => {
+			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+			const { LayoutModule } = await import("/src/modules/module.js");
 
-      const spy = new LayoutModule();
-      FragmentedFlow.register(spy);
-      FragmentedFlow.register(spy);
-      FragmentedFlow.remove(spy);
+			const spy = new LayoutModule();
+			FragmentedFlow.register(spy);
+			FragmentedFlow.register(spy);
+			FragmentedFlow.remove(spy);
 
-      // After one register + one register (deduped) + one remove, spy should be fully gone.
-      // Re-register to verify it was removed
-      FragmentedFlow.register(spy);
-      FragmentedFlow.remove(spy);
-    });
-  });
+			// After one register + one register (deduped) + one remove, spy should be fully gone.
+			// Re-register to verify it was removed
+			FragmentedFlow.register(spy);
+			FragmentedFlow.remove(spy);
+		});
+	});
 });

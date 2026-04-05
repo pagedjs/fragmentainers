@@ -1,44 +1,38 @@
 <!doctype html>
-<link
-  rel="author"
-  title="Morten Stenshorne"
-  href="mailto:mstensho@chromium.org"
-/>
+<link rel="author" title="Morten Stenshorne" href="mailto:mstensho@chromium.org" />
 <style>
-  body {
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  page-container {
-    width: 293px;
-    height: 293px;
-    padding: 0;
-    box-sizing: border-box;
-    overflow: hidden;
-    display: flex;
-    flex-shrink: 0;
-  }
-  :root {
-    print-color-adjust: exact;
-  }
-  page-container::part(body) {
-    margin: 0;
-    flex-grow: 1;
-  }
-  div {
-    height: 283px;
-    border: 5px solid white;
-    background: yellow;
-  }
+	body {
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	page-container {
+		width: 293px;
+		height: 293px;
+		padding: 0;
+		box-sizing: border-box;
+		overflow: hidden;
+		display: flex;
+		flex-shrink: 0;
+	}
+	:root {
+		print-color-adjust: exact;
+	}
+	page-container::part(body) {
+		margin: 0;
+		flex-grow: 1;
+	}
+	div {
+		height: 283px;
+		border: 5px solid white;
+		background: yellow;
+	}
 </style>
 <script type="module" src="/debug/page-container.js"></script>
 <page-container>
-      <div>Page one</div>
-  
+	<div>Page one</div>
 </page-container>
 <page-container>
-      <div>Page two</div>
-  
+	<div>Page two</div>
 </page-container>

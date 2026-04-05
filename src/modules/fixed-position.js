@@ -16,13 +16,13 @@ const ANCHOR_OVERLAY = "overlay";
  * @returns {string} ANCHOR_BLOCK_START | ANCHOR_BLOCK_END | ANCHOR_OVERLAY
  */
 function classifyAnchorEdge(element) {
-  const specified = element.style;
-  const hasTop = specified.top !== "" && specified.top !== "auto";
-  const hasBottom = specified.bottom !== "" && specified.bottom !== "auto";
+	const specified = element.style;
+	const hasTop = specified.top !== "" && specified.top !== "auto";
+	const hasBottom = specified.bottom !== "" && specified.bottom !== "auto";
 
-  if (hasBottom && !hasTop) return ANCHOR_BLOCK_END;
-  if (hasTop) return ANCHOR_BLOCK_START;
-  return ANCHOR_OVERLAY;
+	if (hasBottom && !hasTop) return ANCHOR_BLOCK_END;
+	if (hasTop) return ANCHOR_BLOCK_START;
+	return ANCHOR_OVERLAY;
 }
 
 /**
@@ -37,129 +37,130 @@ function classifyAnchorEdge(element) {
  * in column/region contexts and don't participate in those flows.
  */
 class FixedPositionLayoutModule extends LayoutModule {
-  matches(node) {
-    return node.position === "fixed";
-  }
+	matches(node) {
+		return node.position === "fixed";
+	}
 
-  /**
-   * Claim position: fixed elements so they persist across all
-   * measurement segments. Walks stylesheet rules and inline styles
-   * to find fixed-position elements without needing live DOM.
-   */
-  claimPersistent(content, styles) {
-    const fixedSelectors = [];
-    for (const sheet of styles) {
-      let rules;
-      try {
-        rules = sheet.cssRules;
-      } catch {
-        continue;
-      }
-      for (const rule of rules) {
-        if (!rule.style) continue;
-        if (rule.style.getPropertyValue("position").trim() === "fixed") {
-          fixedSelectors.push(rule.selectorText);
-        }
-      }
-    }
+	/**
+	 * Claim position: fixed elements so they persist across all
+	 * measurement segments. Walks stylesheet rules and inline styles
+	 * to find fixed-position elements without needing live DOM.
+	 */
+	claimPersistent(content, styles) {
+		const fixedSelectors = [];
+		for (const sheet of styles) {
+			let rules;
+			try {
+				rules = sheet.cssRules;
+			} catch {
+				continue;
+			}
+			for (const rule of rules) {
+				if (!rule.style) continue;
+				if (rule.style.getPropertyValue("position").trim() === "fixed") {
+					fixedSelectors.push(rule.selectorText);
+				}
+			}
+		}
 
-    const claimed = [];
-    for (const el of content.children) {
-      if (el.style.position === "fixed") {
-        claimed.push(el);
-        continue;
-      }
-      for (const selector of fixedSelectors) {
-        try {
-          if (el.matches(selector)) {
-            claimed.push(el);
-            break;
-          }
-        } catch {
-          continue;
-        }
-      }
-    }
-    return claimed;
-  }
+		const claimed = [];
+		for (const el of content.children) {
+			if (el.style.position === "fixed") {
+				claimed.push(el);
+				continue;
+			}
+			for (const selector of fixedSelectors) {
+				try {
+					if (el.matches(selector)) {
+						claimed.push(el);
+						break;
+					}
+				} catch {
+					continue;
+				}
+			}
+		}
+		return claimed;
+	}
 
-  layout(rootNode, constraintSpace, breakToken, layoutChild) {
-    if (constraintSpace.fragmentationType !== FRAGMENTATION_PAGE) {
-      return { reservedBlockStart: 0, reservedBlockEnd: 0, afterRender: null };
-    }
+	layout(rootNode, constraintSpace, breakToken, layoutChild) {
+		if (constraintSpace.fragmentationType !== FRAGMENTATION_PAGE) {
+			return { reservedBlockStart: 0, reservedBlockEnd: 0, afterRender: null };
+		}
 
-    let reservedBlockStart = 0;
-    let reservedBlockEnd = 0;
-    const placed = [];
+		let reservedBlockStart = 0;
+		let reservedBlockEnd = 0;
+		const placed = [];
 
-    // Walk the full subtree — fixed elements can be at any depth.
-    // Don't recurse into fixed elements themselves (they're monolithic).
-    // Skip disconnected nodes (e.g. lookahead boundary nodes from the
-    // segmented measurer) — their children haven't been styled yet.
-    const collect = (node) => {
-      for (const child of node.children) {
-        if (child.element && !child.element.isConnected) continue;
-        if (this.matches(child)) {
-          const fixedSpace = new ConstraintSpace({
-            availableInlineSize: constraintSpace.availableInlineSize,
-            availableBlockSize: constraintSpace.fragmentainerBlockSize,
-            fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
-            fragmentationType: FRAGMENTATION_NONE,
-          });
+		// Walk the full subtree — fixed elements can be at any depth.
+		// Don't recurse into fixed elements themselves (they're monolithic).
+		// Skip disconnected nodes (e.g. lookahead boundary nodes from the
+		// segmented measurer) — their children haven't been styled yet.
+		const collect = (node) => {
+			for (const child of node.children) {
+				if (child.element && !child.element.isConnected) continue;
+				if (this.matches(child)) {
+					const fixedSpace = new ConstraintSpace({
+						availableInlineSize: constraintSpace.availableInlineSize,
+						availableBlockSize: constraintSpace.fragmentainerBlockSize,
+						fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
+						fragmentationType: FRAGMENTATION_NONE,
+					});
 
-          const result = layoutChild(child, fixedSpace);
+					const result = layoutChild(child, fixedSpace);
 
-          let anchorEdge = ANCHOR_OVERLAY;
-          if (child.element) {
-            anchorEdge = classifyAnchorEdge(child.element);
-          }
+					let anchorEdge = ANCHOR_OVERLAY;
+					if (child.element) {
+						anchorEdge = classifyAnchorEdge(child.element);
+					}
 
-          placed.push({
-            node: child,
-            fragment: result.fragment,
-            anchorEdge,
-          });
+					placed.push({
+						node: child,
+						fragment: result.fragment,
+						anchorEdge,
+					});
 
-          if (anchorEdge === ANCHOR_BLOCK_START) {
-            reservedBlockStart += result.fragment.blockSize;
-          } else if (anchorEdge === ANCHOR_BLOCK_END) {
-            reservedBlockEnd += result.fragment.blockSize;
-          }
-        } else {
-          collect(child);
-        }
-      }
-    };
+					if (anchorEdge === ANCHOR_BLOCK_START) {
+						reservedBlockStart += result.fragment.blockSize;
+					} else if (anchorEdge === ANCHOR_BLOCK_END) {
+						reservedBlockEnd += result.fragment.blockSize;
+					}
+				} else {
+					collect(child);
+				}
+			}
+		};
 
-    collect(rootNode);
+		collect(rootNode);
 
-    return {
-      reservedBlockStart,
-      reservedBlockEnd,
-      afterRender: placed.length > 0
-        ? (wrapper) => {
-            wrapper.style.setProperty("position", "relative");
-            for (const pf of placed) {
-              // Fixed elements are monolithic — clone the source element
-              // directly rather than walking the fragment tree (which only
-              // renders children, not the node itself).
-              const clone = pf.node.element.cloneNode(true);
-              clone.style.setProperty("position", "absolute");
-              clone.style.setProperty("left", "0");
-              clone.style.setProperty("right", "0");
-              if (pf.anchorEdge === ANCHOR_BLOCK_END) {
-                clone.style.setProperty("top", "auto");
-                clone.style.setProperty("bottom", "0");
-              } else {
-                clone.style.setProperty("top", "0");
-                clone.style.setProperty("bottom", "auto");
-              }
-              wrapper.appendChild(clone);
-            }
-          }
-        : null,
-    };
-  }
+		return {
+			reservedBlockStart,
+			reservedBlockEnd,
+			afterRender:
+				placed.length > 0
+					? (wrapper) => {
+							wrapper.style.setProperty("position", "relative");
+							for (const pf of placed) {
+								// Fixed elements are monolithic — clone the source element
+								// directly rather than walking the fragment tree (which only
+								// renders children, not the node itself).
+								const clone = pf.node.element.cloneNode(true);
+								clone.style.setProperty("position", "absolute");
+								clone.style.setProperty("left", "0");
+								clone.style.setProperty("right", "0");
+								if (pf.anchorEdge === ANCHOR_BLOCK_END) {
+									clone.style.setProperty("top", "auto");
+									clone.style.setProperty("bottom", "0");
+								} else {
+									clone.style.setProperty("top", "0");
+									clone.style.setProperty("bottom", "auto");
+								}
+								wrapper.appendChild(clone);
+							}
+						}
+					: null,
+		};
+	}
 }
 
 export const FixedPosition = new FixedPositionLayoutModule();

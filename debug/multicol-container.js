@@ -23,28 +23,28 @@ const STYLES = `
 `;
 
 export class MulticolContainer extends HTMLElement {
-  constructor() {
-    super();
-    const shadow = this.attachShadow({ mode: "open" });
-    const style = document.createElement("style");
-    style.textContent = STYLES;
-    shadow.appendChild(style);
-    const slot = document.createElement("slot");
-    shadow.appendChild(slot);
-  }
+	constructor() {
+		super();
+		const shadow = this.attachShadow({ mode: "open" });
+		const style = document.createElement("style");
+		style.textContent = STYLES;
+		shadow.appendChild(style);
+		const slot = document.createElement("slot");
+		shadow.appendChild(slot);
+	}
 
-  /**
-   * Set column dimensions and gap from numeric values.
-   *
-   * @param {number} width  — column inline size in px
-   * @param {number} height — column block size in px
-   * @param {number} [gap=0] — gap between columns in px
-   */
-  setColumns(width, height, gap = 0) {
-    this.style.setProperty("--column-width", `${width}px`);
-    this.style.setProperty("--column-height", `${height}px`);
-    this.style.setProperty("--column-gap", `${gap}px`);
-  }
+	/**
+	 * Set column dimensions and gap from numeric values.
+	 *
+	 * @param {number} width  — column inline size in px
+	 * @param {number} height — column block size in px
+	 * @param {number} [gap=0] — gap between columns in px
+	 */
+	setColumns(width, height, gap = 0) {
+		this.style.setProperty("--column-width", `${width}px`);
+		this.style.setProperty("--column-height", `${height}px`);
+		this.style.setProperty("--column-gap", `${gap}px`);
+	}
 }
 
 customElements.define("multicol-container", MulticolContainer);

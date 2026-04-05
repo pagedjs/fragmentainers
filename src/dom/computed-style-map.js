@@ -16,8 +16,8 @@
  * element.computedStyleMap() (Chromium 66+, partial Firefox/Safari).
  */
 const HAS_TYPED_OM =
-  typeof HTMLElement !== "undefined" &&
-  typeof HTMLElement.prototype.computedStyleMap === "function";
+	typeof HTMLElement !== "undefined" &&
+	typeof HTMLElement.prototype.computedStyleMap === "function";
 
 /**
  * Get a typed computed style map for an element.
@@ -26,10 +26,10 @@ const HAS_TYPED_OM =
  * @returns {StylePropertyMapReadOnly} Native map or polyfill with same shape
  */
 export function computedStyleMap(element) {
-  if (HAS_TYPED_OM) {
-    return element.computedStyleMap();
-  }
-  return createFallbackStyleMap(element);
+	if (HAS_TYPED_OM) {
+		return element.computedStyleMap();
+	}
+	return createFallbackStyleMap(element);
 }
 
 /**
@@ -42,14 +42,14 @@ export function computedStyleMap(element) {
  * @returns {{ get(property: string): { value: number|string, unit?: string } | null }}
  */
 export function createFallbackStyleMap(element) {
-  const style = getComputedStyle(element);
-  return {
-    get(property) {
-      const raw = style.getPropertyValue(property).trim();
-      if (!raw) return null;
-      return parseCSSValue(raw);
-    },
-  };
+	const style = getComputedStyle(element);
+	return {
+		get(property) {
+			const raw = style.getPropertyValue(property).trim();
+			if (!raw) return null;
+			return parseCSSValue(raw);
+		},
+	};
 }
 
 /**
@@ -60,27 +60,27 @@ export function createFallbackStyleMap(element) {
  * @returns {{ value: number, unit: string } | { value: string }}
  */
 function parseCSSValue(raw) {
-  // Unitless integer (column-count, orphans, widows, z-index)
-  if (/^\d+$/.test(raw)) {
-    return { value: parseInt(raw, 10), unit: "number" };
-  }
+	// Unitless integer (column-count, orphans, widows, z-index)
+	if (/^\d+$/.test(raw)) {
+		return { value: parseInt(raw, 10), unit: "number" };
+	}
 
-  // Pixel value — the most common case for resolved computed styles
-  if (raw.endsWith("px")) {
-    return { value: parseFloat(raw), unit: "px" };
-  }
+	// Pixel value — the most common case for resolved computed styles
+	if (raw.endsWith("px")) {
+		return { value: parseFloat(raw), unit: "px" };
+	}
 
-  // Percentage
-  if (raw.endsWith("%")) {
-    return { value: parseFloat(raw), unit: "percent" };
-  }
+	// Percentage
+	if (raw.endsWith("%")) {
+		return { value: parseFloat(raw), unit: "percent" };
+	}
 
-  // Other numeric+unit (em, rem, s, ms, deg, etc.)
-  const match = raw.match(/^([\d.]+)(\w+)$/);
-  if (match) {
-    return { value: parseFloat(match[1]), unit: match[2] };
-  }
+	// Other numeric+unit (em, rem, s, ms, deg, etc.)
+	const match = raw.match(/^([\d.]+)(\w+)$/);
+	if (match) {
+		return { value: parseFloat(match[1]), unit: match[2] };
+	}
 
-  // Keyword (auto, normal, none, block, flex, etc.)
-  return { value: raw };
+	// Keyword (auto, normal, none, block, flex, etc.)
+	return { value: raw };
 }

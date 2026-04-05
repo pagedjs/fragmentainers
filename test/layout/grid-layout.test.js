@@ -1,271 +1,278 @@
 import { test, expect } from "../browser-fixture.js";
 
 test.describe("layoutGridContainer", () => {
-  test("dispatches grid nodes to the grid algorithm", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { getLayoutAlgorithm } = await import("/src/core/layout-request.js");
-      const { layoutGridContainer } = await import("/src/layout/grid-container.js");
-      const { buildLayoutTree } = await import("/src/dom/index.js");
+	test("dispatches grid nodes to the grid algorithm", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+			const { layoutGridContainer } = await import("/src/layout/grid-container.js");
+			const { buildLayoutTree } = await import("/src/dom/index.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = "<div style=\"display:grid;margin:0;padding:0\"></div>";
-      document.body.appendChild(container);
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = '<div style="display:grid;margin:0;padding:0"></div>';
+			document.body.appendChild(container);
 
-      const node = buildLayoutTree(container.firstElementChild);
-      const algoName = getLayoutAlgorithm(node).name;
+			const node = buildLayoutTree(container.firstElementChild);
+			const algoName = getLayoutAlgorithm(node).name;
 
-      container.remove();
-      return { algoName, expectedName: layoutGridContainer.name };
-    });
+			container.remove();
+			return { algoName, expectedName: layoutGridContainer.name };
+		});
 
-    expect(result.algoName).toBe(result.expectedName);
-  });
+		expect(result.algoName).toBe(result.expectedName);
+	});
 
-  test("lays out single-row grid items as parallel flows", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { buildLayoutTree } = await import("/src/dom/index.js");
+	test("lays out single-row grid items as parallel flows", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator, getLayoutAlgorithm } =
+				await import("/src/core/layout-request.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { buildLayoutTree } = await import("/src/dom/index.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;margin:0;padding:0">
         <div style="height:100px;grid-row-start:1;grid-row-end:2;margin:0;padding:0"></div>
         <div style="height:80px;grid-row-start:1;grid-row-end:2;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
+			document.body.appendChild(container);
 
-      const root = buildLayoutTree(container.firstElementChild);
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 400,
-        fragmentainerBlockSize: 400,
-        blockOffsetInFragmentainer: 0,
-        fragmentationType: "none",
-      });
-      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const root = buildLayoutTree(container.firstElementChild);
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 400,
+				fragmentainerBlockSize: 400,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "none",
+			});
+			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
 
-      const out = {
-        rowCount: result.fragment.childFragments.length,
-        rowChildCount: result.fragment.childFragments[0].childFragments.length,
-        rowBlockSize: result.fragment.childFragments[0].blockSize,
-      };
+			const out = {
+				rowCount: result.fragment.childFragments.length,
+				rowChildCount: result.fragment.childFragments[0].childFragments.length,
+				rowBlockSize: result.fragment.childFragments[0].blockSize,
+			};
 
-      container.remove();
-      return out;
-    });
+			container.remove();
+			return out;
+		});
 
-    expect(result.rowCount).toBe(1);
-    expect(result.rowChildCount).toBe(2);
-    expect(result.rowBlockSize).toBe(100);
-  });
+		expect(result.rowCount).toBe(1);
+		expect(result.rowChildCount).toBe(2);
+		expect(result.rowBlockSize).toBe(100);
+	});
 
-  test("multi-row grid stacks rows", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { buildLayoutTree } = await import("/src/dom/index.js");
+	test("multi-row grid stacks rows", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator, getLayoutAlgorithm } =
+				await import("/src/core/layout-request.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { buildLayoutTree } = await import("/src/dom/index.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="display:grid;margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="display:grid;margin:0;padding:0">
         <div style="height:100px;grid-row-start:1;grid-row-end:2;margin:0;padding:0"></div>
         <div style="height:80px;grid-row-start:2;grid-row-end:3;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
+			document.body.appendChild(container);
 
-      const root = buildLayoutTree(container.firstElementChild);
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 400,
-        fragmentainerBlockSize: 400,
-        blockOffsetInFragmentainer: 0,
-        fragmentationType: "none",
-      });
-      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const root = buildLayoutTree(container.firstElementChild);
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 400,
+				fragmentainerBlockSize: 400,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "none",
+			});
+			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
 
-      const out = {
-        rowCount: result.fragment.childFragments.length,
-        blockSize: result.fragment.blockSize,
-      };
+			const out = {
+				rowCount: result.fragment.childFragments.length,
+				blockSize: result.fragment.blockSize,
+			};
 
-      container.remove();
-      return out;
-    });
+			container.remove();
+			return out;
+		});
 
-    expect(result.rowCount).toBe(2);
-    expect(result.blockSize).toBe(180);
-  });
+		expect(result.rowCount).toBe(2);
+		expect(result.blockSize).toBe(180);
+	});
 
-  test("items in the same row fragment independently (parallel flows)", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { buildLayoutTree } = await import("/src/dom/index.js");
+	test("items in the same row fragment independently (parallel flows)", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator, getLayoutAlgorithm } =
+				await import("/src/core/layout-request.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { buildLayoutTree } = await import("/src/dom/index.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;margin:0;padding:0">
         <div style="height:200px;grid-row-start:1;grid-row-end:2;margin:0;padding:0"></div>
         <div style="height:50px;grid-row-start:1;grid-row-end:2;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
+			document.body.appendChild(container);
 
-      const root = buildLayoutTree(container.firstElementChild);
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 100,
-        fragmentainerBlockSize: 100,
-        blockOffsetInFragmentainer: 0,
-        fragmentationType: "page",
-      });
-      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const root = buildLayoutTree(container.firstElementChild);
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 100,
+				fragmentainerBlockSize: 100,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "page",
+			});
+			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
 
-      container.remove();
-      return { hasBreakToken: !!result.breakToken };
-    });
+			container.remove();
+			return { hasBreakToken: !!result.breakToken };
+		});
 
-    expect(result.hasBreakToken).toBe(true);
-  });
+		expect(result.hasBreakToken).toBe(true);
+	});
 
-  test("completed items get isAtBlockEnd tokens", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { buildLayoutTree } = await import("/src/dom/index.js");
+	test("completed items get isAtBlockEnd tokens", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator, getLayoutAlgorithm } =
+				await import("/src/core/layout-request.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { buildLayoutTree } = await import("/src/dom/index.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;margin:0;padding:0">
         <div style="height:200px;grid-row-start:1;grid-row-end:2;margin:0;padding:0"></div>
         <div style="height:50px;grid-row-start:1;grid-row-end:2;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
+			document.body.appendChild(container);
 
-      const root = buildLayoutTree(container.firstElementChild);
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 100,
-        fragmentainerBlockSize: 100,
-        blockOffsetInFragmentainer: 0,
-        fragmentationType: "page",
-      });
-      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const root = buildLayoutTree(container.firstElementChild);
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 100,
+				fragmentainerBlockSize: 100,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "page",
+			});
+			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
 
-      container.remove();
-      return { hasBreakToken: !!result.breakToken };
-    });
+			container.remove();
+			return { hasBreakToken: !!result.breakToken };
+		});
 
-    expect(result.hasBreakToken).toBe(true);
-  });
+		expect(result.hasBreakToken).toBe(true);
+	});
 
-  test("break token has GridData with rowIndex", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { buildLayoutTree } = await import("/src/dom/index.js");
+	test("break token has GridData with rowIndex", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator, getLayoutAlgorithm } =
+				await import("/src/core/layout-request.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { buildLayoutTree } = await import("/src/dom/index.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="display:grid;margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="display:grid;margin:0;padding:0">
         <div style="height:200px;grid-row-start:1;grid-row-end:2;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
+			document.body.appendChild(container);
 
-      const root = buildLayoutTree(container.firstElementChild);
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 100,
-        fragmentainerBlockSize: 100,
-        blockOffsetInFragmentainer: 0,
-        fragmentationType: "page",
-      });
-      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const root = buildLayoutTree(container.firstElementChild);
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 100,
+				fragmentainerBlockSize: 100,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "page",
+			});
+			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
 
-      const out = {
-        hasBreakToken: !!result.breakToken,
-        algorithmDataType: result.breakToken?.algorithmData?.type ?? null,
-        rowIndexType: typeof (result.breakToken?.algorithmData?.rowIndex),
-      };
+			const out = {
+				hasBreakToken: !!result.breakToken,
+				algorithmDataType: result.breakToken?.algorithmData?.type ?? null,
+				rowIndexType: typeof result.breakToken?.algorithmData?.rowIndex,
+			};
 
-      container.remove();
-      return out;
-    });
+			container.remove();
+			return out;
+		});
 
-    expect(result.hasBreakToken).toBe(true);
-    expect(result.algorithmDataType).toBe("GridData");
-    expect(result.rowIndexType).toBe("number");
-  });
+		expect(result.hasBreakToken).toBe(true);
+		expect(result.algorithmDataType).toBe("GridData");
+		expect(result.rowIndexType).toBe("number");
+	});
 
-  test("empty grid container produces zero-height fragment", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { buildLayoutTree } = await import("/src/dom/index.js");
+	test("empty grid container produces zero-height fragment", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator, getLayoutAlgorithm } =
+				await import("/src/core/layout-request.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { buildLayoutTree } = await import("/src/dom/index.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = "<div style=\"display:grid;margin:0;padding:0\"></div>";
-      document.body.appendChild(container);
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = '<div style="display:grid;margin:0;padding:0"></div>';
+			document.body.appendChild(container);
 
-      const root = buildLayoutTree(container.firstElementChild);
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 400,
-        fragmentainerBlockSize: 400,
-        blockOffsetInFragmentainer: 0,
-        fragmentationType: "none",
-      });
-      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const root = buildLayoutTree(container.firstElementChild);
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 400,
+				fragmentainerBlockSize: 400,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "none",
+			});
+			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
 
-      const out = {
-        blockSize: result.fragment.blockSize,
-        breakToken: result.breakToken,
-      };
+			const out = {
+				blockSize: result.fragment.blockSize,
+				breakToken: result.breakToken,
+			};
 
-      container.remove();
-      return out;
-    });
+			container.remove();
+			return out;
+		});
 
-    expect(result.blockSize).toBe(0);
-    expect(result.breakToken).toBe(null);
-  });
+		expect(result.blockSize).toBe(0);
+		expect(result.breakToken).toBe(null);
+	});
 
-  test("auto-placed items (no gridRowStart) each get their own row", async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
-      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-      const { buildLayoutTree } = await import("/src/dom/index.js");
+	test("auto-placed items (no gridRowStart) each get their own row", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator, getLayoutAlgorithm } =
+				await import("/src/core/layout-request.js");
+			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { buildLayoutTree } = await import("/src/dom/index.js");
 
-      const container = document.createElement("div");
-      container.style.cssText = "position:absolute;left:-9999px;width:600px";
-      container.innerHTML = `<div style="display:grid;margin:0;padding:0">
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="display:grid;margin:0;padding:0">
         <div style="height:50px;margin:0;padding:0"></div>
         <div style="height:50px;margin:0;padding:0"></div>
       </div>`;
-      document.body.appendChild(container);
+			document.body.appendChild(container);
 
-      const root = buildLayoutTree(container.firstElementChild);
-      const cs = new ConstraintSpace({
-        availableInlineSize: 600,
-        availableBlockSize: 400,
-        fragmentainerBlockSize: 400,
-        blockOffsetInFragmentainer: 0,
-        fragmentationType: "none",
-      });
-      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const root = buildLayoutTree(container.firstElementChild);
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 400,
+				fragmentainerBlockSize: 400,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "none",
+			});
+			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
 
-      const out = {
-        rowCount: result.fragment.childFragments.length,
-        blockSize: result.fragment.blockSize,
-      };
+			const out = {
+				rowCount: result.fragment.childFragments.length,
+				blockSize: result.fragment.blockSize,
+			};
 
-      container.remove();
-      return out;
-    });
+			container.remove();
+			return out;
+		});
 
-    expect(result.rowCount).toBe(2);
-    expect(result.blockSize).toBe(100);
-  });
+		expect(result.rowCount).toBe(2);
+		expect(result.blockSize).toBe(100);
+	});
 });
