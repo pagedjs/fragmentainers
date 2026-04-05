@@ -26,7 +26,7 @@ export class LayoutModule {
 	 *
 	 * @param {string[]} rules — push CSS rule text strings to this array
 	 */
-	insertRules() {}
+	appendRules() {}
 
 	layout() {
 		return { reservedBlockStart: 0, reservedBlockEnd: 0, afterRender: null };

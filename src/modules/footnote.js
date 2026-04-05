@@ -79,7 +79,7 @@ class FootnoteLayoutModule extends LayoutModule {
 		}
 	}
 
-	insertRules(rules) {
+	appendRules(rules) {
 		if (this.#footnoteSelectors.length === 0) return;
 		// Parse the constant CSS through a temp sheet to get valid rule text
 		if (!this.#defaultSheet) {

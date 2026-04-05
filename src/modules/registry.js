@@ -92,7 +92,7 @@ class ModuleRegistry {
 		// Collect rules from modules into a shared sheet
 		const rules = [];
 		for (const mod of mods) {
-			mod.insertRules(rules);
+			mod.appendRules(rules);
 		}
 		if (rules.length > 0) {
 			const sheet = new CSSStyleSheet();

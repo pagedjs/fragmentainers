@@ -23,7 +23,7 @@ Measurer.setup()
   |     |
   |     +-- module.resetRules()           Reset state from previous pass
   |     +-- module.matchRule(rule, ctx)    Called per leaf CSSStyleRule
-  |     +-- module.insertRules(rules)      Collect CSS rules to prepend
+  |     +-- module.appendRules(rules)      Collect CSS rules to prepend
   |
   +-- module.claimPersistent(content)
   |     Returns: Element[] (included in every measurement segment)
@@ -59,7 +59,7 @@ A module extends `LayoutModule` and implements whichever methods it needs. All a
 
   // Push CSS rule text strings into the array. The registry creates a
   // shared sheet and calls sheet.insertRule() for each.
-  insertRules(rules: string[]) -> void,
+  appendRules(rules: string[]) -> void,
 
   // Reset state accumulated from a previous matchRule pass.
   resetRules() -> void,
@@ -106,7 +106,7 @@ CSS rules are processed in a single pass by `ModuleRegistry.processRules(styles)
 
 The `context.wrappers` array tracks the chain of grouping rule preambles, e.g. `["@media screen"]` for a rule inside `@media screen { ... }`. This is used by the nth-selectors module to reconstruct wrapper context when generating per-fragment override sheets.
 
-After the walk, the registry calls `insertRules(rules)` on each module. Modules push CSS rule text strings into the array. If any rules are collected, the registry creates a single `CSSStyleSheet`, inserts all rules, and prepends it to the styles array before measurement begins.
+After the walk, the registry calls `appendRules(rules)` on each module. Modules push CSS rule text strings into the array. If any rules are collected, the registry creates a single `CSSStyleSheet`, inserts all rules, and prepends it to the styles array before measurement begins.
 
 ## Registration
 
@@ -195,7 +195,7 @@ Built-in modules (in `src/modules/`) are registered by default. You can also wri
 | `PageFit`             | `claim`, `layout`                                                     | Makes elements fill the entire page (`--page-fit: contain\|cover\|fill`)                                                                                          |
 | `RepeatedTableHeader` | `beforeChildren`                                                      | Repeats table headers (`<thead>`) at the top of each continuation page                                                                                            |
 | `FixedPosition`       | `matchRule`, `claimPersistent`                                        | Repeats `position: fixed` elements on every page. Uses `matchRule` to collect selectors, `claimPersistent` for sequential measurement                             |
-| `Footnote`            | `matchRule`, `insertRules`, `claimPersistent`, `afterContentLayout`   | CSS footnotes (`float: footnote`) — removes footnote elements from flow, inserts call markers, and places footnote bodies at the page bottom via iterative layout |
+| `Footnote`            | `matchRule`, `appendRules`, `claimPersistent`, `afterContentLayout`   | CSS footnotes (`float: footnote`) — removes footnote elements from flow, inserts call markers, and places footnote bodies at the page bottom via iterative layout |
 | `NthSelectors`        | `matchRule`, `layout`                                                 | Rewrites `:nth-child()` / `:nth-of-type()` selectors per fragment so structural pseudos match original document order                                             |
 
 To add a built-in module, export it from `src/modules/index.js` -- it will be registered automatically.
