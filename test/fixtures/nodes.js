@@ -173,9 +173,6 @@ export function inlineNode({
       },
     },
     measurer: {
-      measureRange(textNode, start, end) {
-        return measureFn(textNode.textContent.slice(start, end));
-      },
       charTop(textNode, localOffset) {
         // Find which line this offset falls on
         const flatOffset = localOffset; // mock textNode covers full text

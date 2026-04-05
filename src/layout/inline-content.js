@@ -4,162 +4,6 @@ import { BreakScore } from "../core/break-scoring.js";
 import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC, DEFAULT_OVERFLOW_THRESHOLD } from "../core/constants.js";
 
 /**
- * Break a single line from inline items starting at the given position.
- *
- * Uses word-by-word measurement. Breaks at word boundaries (spaces).
- * Returns the line fragment info, or null if no space for even one line.
- *
- * @param {Object} inlineItemsData - { items: InlineItem[], textContent: string }
- * @param {number} startItemIndex
- * @param {number} startTextOffset
- * @param {number} availableInlineSize - line width
- * @param {Object} measurer - { measureRange(textNode, start, end) => width }
- * @param {number} lineHeight
- * @returns {{ fragment: PhysicalFragment, blockSize: number, endItemIndex: number, endTextOffset: number } | null}
- */
-function breakLine(
-  inlineItemsData,
-  startItemIndex,
-  startTextOffset,
-  availableInlineSize,
-  measurer,
-  lineHeight,
-) {
-  const { items, textContent } = inlineItemsData;
-
-  if (startItemIndex >= items.length) return null;
-
-  let currentWidth = 0;
-  let lastBreakItemIndex = startItemIndex;
-  let lastBreakTextOffset = startTextOffset;
-  let hasContent = false;
-  let forcedBreak = false;
-
-  let itemIndex = startItemIndex;
-  let textOffset = startTextOffset;
-
-  while (itemIndex < items.length) {
-    const item = items[itemIndex];
-
-    if (item.type === INLINE_CONTROL) {
-      // Forced line break (<br>)
-      if (hasContent) {
-        // End the line here, advance past the control
-        forcedBreak = true;
-        itemIndex++;
-        textOffset = item.endOffset;
-        break;
-      } else {
-        // Empty line before the break
-        forcedBreak = true;
-        itemIndex++;
-        textOffset = item.endOffset;
-        break;
-      }
-    }
-
-    if (item.type === INLINE_TEXT) {
-      const itemText = textContent.slice(
-        Math.max(item.startOffset, textOffset),
-        item.endOffset,
-      );
-
-      // Measure word by word using Range on the live DOM Text node
-      const words = itemText.split(/(\s+)/);
-      let wordStart = Math.max(item.startOffset, textOffset);
-
-      for (const word of words) {
-        if (word.length === 0) continue;
-
-        const localOffset = wordStart - item.startOffset;
-        const wordWidth = measurer.measureRange(
-          item.domNode,
-          localOffset,
-          localOffset + word.length,
-        );
-
-        if (currentWidth + wordWidth > availableInlineSize && hasContent) {
-          // Line is full — break before this word
-          // Revert to last break opportunity
-          itemIndex = lastBreakItemIndex;
-          textOffset = lastBreakTextOffset;
-
-          // If we haven't moved past the start, we need to take at least one word
-          if (textOffset === startTextOffset && itemIndex === startItemIndex) {
-            textOffset = wordStart + word.length;
-            // Check if we've consumed the entire item
-            if (textOffset >= item.endOffset) {
-              itemIndex++;
-              if (itemIndex < items.length) {
-                textOffset = items[itemIndex].startOffset;
-              }
-            }
-          }
-
-          const fragment = new PhysicalFragment(null, lineHeight);
-          fragment.inlineSize = currentWidth;
-          return {
-            fragment,
-            blockSize: lineHeight,
-            endItemIndex: itemIndex,
-            endTextOffset: textOffset,
-          };
-        }
-
-        currentWidth += wordWidth;
-        hasContent = true;
-        wordStart += word.length;
-
-        // Whitespace is a break opportunity
-        if (/\s/.test(word)) {
-          lastBreakItemIndex = itemIndex;
-          lastBreakTextOffset = wordStart;
-          // Check if we've reached the end of this item
-          if (wordStart >= item.endOffset) {
-            lastBreakItemIndex = itemIndex + 1;
-            if (lastBreakItemIndex < items.length) {
-              lastBreakTextOffset = items[lastBreakItemIndex].startOffset;
-            }
-          }
-        }
-      }
-
-      // Consumed entire text item
-      itemIndex++;
-      if (itemIndex < items.length) {
-        textOffset = items[itemIndex].startOffset;
-      } else {
-        textOffset = textContent.length;
-      }
-      // End of item is a break opportunity
-      lastBreakItemIndex = itemIndex;
-      lastBreakTextOffset = textOffset;
-      continue;
-    }
-
-    // Skip kOpenTag, kCloseTag, kAtomicInline for now
-    itemIndex++;
-    if (itemIndex < items.length) {
-      textOffset = items[itemIndex].startOffset;
-    } else {
-      textOffset = textContent.length;
-    }
-  }
-
-  // Consumed all remaining content for this line
-  if (!hasContent && !forcedBreak) return null;
-
-  const fragment = new PhysicalFragment(null, lineHeight);
-  fragment.inlineSize = currentWidth;
-  return {
-    fragment,
-    blockSize: lineHeight,
-    endItemIndex: itemIndex,
-    endTextOffset: textOffset,
-  };
-}
-
-/**
  * Given a flat textContent offset, find the kText item that contains it
  * and return the item index plus the local offset within that item's domNode.
  * Returns null if the offset falls outside any kText item.
@@ -226,9 +70,8 @@ function advanceToOffset(items, flatOffset, textContentLength) {
 /**
  * Inline content layout generator.
  *
- * When a DOM measurer with charTop() is available, uses the element's
- * rendered height for accurate line counting and binary search for
- * break offsets. Falls back to word-by-word breakLine() for mock/test nodes.
+ * Uses the element's rendered height for accurate line counting and
+ * binary search for break offsets.
  *
  * Content-addressed via itemIndex + textOffset — survives
  * inline-size changes between fragmentainers.
@@ -298,15 +141,11 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
     return { fragment, breakToken: inlineToken };
   }
 
-  // Use browser element height when available (DOM node with element),
-  // fall back to word-by-word breakLine() for mock/test nodes.
-  const useBrowserHeight = measurer.charTop != null && node.element != null;
-
   // Hoisted for orphans/widows scoring at the end
   let consumedLines = 0;
   let remainingLines = 0;
 
-  if (useBrowserHeight) {
+  {
     // Get the element's rendered height from the browser
     const element = node.element;
     const elementRect = element.getBoundingClientRect();
@@ -392,18 +231,24 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
       // Need to break — find the text offset at the break line
       const yCutoff =
         elementRect.top + (consumedLines + linesToPlace) * lineHeight;
-      const searchStart = textOffset;
-      const searchEnd = inlineItems.textContent.length;
 
-      const breakFlatOffset = findBreakOffset(
-        measurer,
-        inlineItems.items,
-        searchStart,
-        searchEnd,
-        yCutoff,
-        linesToPlace,
-        remainingLines,
-      );
+      // Use caretPositionFromPoint when available (O(1) lookup),
+      // fall back to binary search over charTop (O(log n)).
+      let breakFlatOffset;
+      if (measurer.offsetAtY) {
+        breakFlatOffset = measurer.offsetAtY(element, inlineItems.items, yCutoff);
+      }
+      if (breakFlatOffset == null) {
+        const searchStart = textOffset;
+        const searchEnd = inlineItems.textContent.length;
+        breakFlatOffset = findBreakOffset(
+          measurer,
+          inlineItems.items,
+          searchStart,
+          searchEnd,
+          yCutoff,
+        );
+      }
 
       const pos = advanceToOffset(
         inlineItems.items,
@@ -412,32 +257,6 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
       );
       itemIndex = pos.itemIndex;
       textOffset = pos.textOffset;
-    }
-  } else {
-    // Fallback: word-by-word measurement (for tests with mock nodes)
-    while (itemIndex < inlineItems.items.length) {
-      if (
-        Math.floor(blockOffset + lineHeight) > availableBlockSpace &&
-        lineFragments.length > 0
-      ) {
-        break;
-      }
-
-      const line = breakLine(
-        inlineItems,
-        itemIndex,
-        textOffset,
-        constraintSpace.availableInlineSize,
-        measurer,
-        lineHeight,
-      );
-
-      if (line === null) break;
-
-      lineFragments.push(line.fragment);
-      blockOffset += line.blockSize;
-      itemIndex = line.endItemIndex;
-      textOffset = line.endTextOffset;
     }
   }
 

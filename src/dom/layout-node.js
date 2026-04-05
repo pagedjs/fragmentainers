@@ -3,6 +3,7 @@ import {
 } from "./collect-inlines.js";
 import {
   createRangeMeasurer,
+  createCaretMeasurer,
   measureElementBlockSize,
   getLineHeight,
 } from "./measure.js";
@@ -450,7 +451,9 @@ export class DOMLayoutNode {
 
   get measurer() {
     if (!sharedRangeMeasurer) {
-      sharedRangeMeasurer = createRangeMeasurer();
+      sharedRangeMeasurer = typeof document.caretPositionFromPoint === "function"
+        ? createCaretMeasurer()
+        : createRangeMeasurer();
     }
     return sharedRangeMeasurer;
   }
@@ -549,7 +552,9 @@ export class AnonymousBlockNode {
 
   get measurer() {
     if (!sharedRangeMeasurer) {
-      sharedRangeMeasurer = createRangeMeasurer();
+      sharedRangeMeasurer = typeof document.caretPositionFromPoint === "function"
+        ? createCaretMeasurer()
+        : createRangeMeasurer();
     }
     return sharedRangeMeasurer;
   }

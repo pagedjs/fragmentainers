@@ -3,7 +3,7 @@ import { DOMLayoutNode } from "./layout-node.js";
 export { DOMLayoutNode } from "./layout-node.js";
 export { collectInlineItems } from "./collect-inlines.js";
 export { computedStyleMap } from "./computed-style-map.js";
-export { createRangeMeasurer, measureElementBlockSize, getLineHeight, parseLength, countLines } from "./measure.js";
+export { createRangeMeasurer, createCaretMeasurer, measureElementBlockSize, getLineHeight, parseLength, countLines } from "./measure.js";
 export { ContentMeasureElement } from "./content-measure.js";
 export { FragmentContainerElement } from "./fragment-container.js";
 

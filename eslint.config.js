@@ -10,6 +10,7 @@ export default [
         window: "readonly",
         HTMLElement: "readonly",
         Node: "readonly",
+        NodeFilter: "readonly",
         CSSStyleSheet: "readonly",
         getComputedStyle: "readonly",
         customElements: "readonly",

@@ -1,6 +1,7 @@
 import { computedStyleMap } from "./computed-style-map.js";
 import { DOMLayoutNode } from "./layout-node.js";
 import { isForcedBreakValue } from "../core/helpers.js";
+import { INLINE_TEXT } from "../core/constants.js";
 import { modules } from "../modules/registry.js";
 import "../dom/content-measure.js";
 
@@ -15,15 +16,6 @@ export function createRangeMeasurer() {
 
   return {
     /**
-     * Measure the width of a substring within a text node.
-     */
-    measureRange(textNode, startOffset, endOffset) {
-      range.setStart(textNode, startOffset);
-      range.setEnd(textNode, endOffset);
-      return range.getBoundingClientRect().width;
-    },
-
-    /**
      * Get the top position of a character at a given offset in a text node.
      * Returns the vertical position from getBoundingClientRect().
      */
@@ -34,6 +26,74 @@ export function createRangeMeasurer() {
       range.setEnd(textNode, safeEnd);
       const rects = range.getClientRects();
       return rects.length > 0 ? rects[0].top : Infinity;
+    },
+  };
+}
+
+/**
+ * Create a text measurer that uses caretPositionFromPoint() to find
+ * break offsets in a single call, replacing the Range binary search.
+ *
+ * Falls back to the Range-based measurer if caretPositionFromPoint
+ * is not available.
+ */
+export function createCaretMeasurer() {
+  const range = document.createRange();
+
+  return {
+    charTop(textNode, offset) {
+      const safeEnd = Math.min(offset + 1, textNode.textContent.length);
+      if (offset >= safeEnd) return Infinity;
+      range.setStart(textNode, offset);
+      range.setEnd(textNode, safeEnd);
+      const rects = range.getClientRects();
+      return rects.length > 0 ? rects[0].top : Infinity;
+    },
+
+    /**
+     * Find the flat textContent offset at a Y cutoff by hitting the
+     * browser's caret positioning directly.
+     *
+     * @param {Element} element - the inline formatting context element
+     * @param {Object[]} items - InlineItemsData.items
+     * @param {number} yCutoff - Y position to probe
+     * @returns {number|null} flat textContent offset, or null on miss
+     */
+    offsetAtY(element, items, yCutoff) {
+      const rect = element.getBoundingClientRect();
+      // Probe just inside the left content edge to hit the first character
+      const x = rect.left + 1;
+      const pos = document.caretPositionFromPoint(x, yCutoff);
+      if (!pos) return null;
+
+      const node = pos.offsetNode;
+      const localOffset = pos.offset;
+
+      // Match the returned node to an inline text item
+      for (const item of items) {
+        if (item.type === INLINE_TEXT && item.domNode === node) {
+          return item.startOffset + localOffset;
+        }
+      }
+
+      // The caret landed on a non-text node (e.g. element boundary).
+      // Walk the items to find the nearest text item after this node.
+      const walker = element.ownerDocument.createTreeWalker(
+        element,
+        NodeFilter.SHOW_TEXT,
+      );
+      walker.currentNode = node.nodeType === Node.TEXT_NODE ? node : element;
+      let textNode = walker.nextNode();
+      while (textNode) {
+        for (const item of items) {
+          if (item.type === INLINE_TEXT && item.domNode === textNode) {
+            return item.startOffset;
+          }
+        }
+        textNode = walker.nextNode();
+      }
+
+      return null;
     },
   };
 }
