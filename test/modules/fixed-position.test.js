@@ -13,7 +13,7 @@ test.describe("FixedPosition.matches", () => {
       </div>`;
 			document.body.appendChild(container);
 			const root = buildLayoutTree(container.firstElementChild);
-			const match = FixedPosition.matches(root.children[0]);
+			const match = FixedPosition.claim(root.children[0]);
 			container.remove();
 			return match;
 		});
@@ -32,7 +32,7 @@ test.describe("FixedPosition.matches", () => {
       </div>`;
 			document.body.appendChild(container);
 			const root = buildLayoutTree(container.firstElementChild);
-			const match = FixedPosition.matches(root.children[0]);
+			const match = FixedPosition.claim(root.children[0]);
 			container.remove();
 			return match;
 		});

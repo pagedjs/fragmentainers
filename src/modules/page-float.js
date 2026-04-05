@@ -4,7 +4,7 @@ import { composeFragment } from "../compositor/compositor.js";
 import { FRAGMENTATION_NONE } from "../core/constants.js";
 
 class PageFloatLayoutModule extends LayoutModule {
-	matches(node) {
+	claim(node) {
 		return node.getCustomProperty("float-reference") === "page";
 	}
 
@@ -14,7 +14,7 @@ class PageFloatLayoutModule extends LayoutModule {
 		const placed = [];
 
 		for (const child of rootNode.children) {
-			if (!this.matches(child)) continue;
+			if (!this.claim(child)) continue;
 
 			const floatSpace = new ConstraintSpace({
 				availableInlineSize: constraintSpace.availableInlineSize,

@@ -280,8 +280,9 @@ export class Measurer {
 	 * @returns {Element} the content root (slot element)
 	 */
 	setup() {
-		// Let modules claim elements that persist across all segments
-		this.#persistent = modules.claimPersistent(this.#content, this.#styles);
+		// Walk CSS rules and let modules accumulate state, then claim elements
+		modules.processRules(this.#styles);
+		this.#persistent = modules.claimPersistent(this.#content);
 		const persistentSet = new Set(this.#persistent);
 
 		// Resolve break properties only for non-persistent elements

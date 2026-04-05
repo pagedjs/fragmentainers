@@ -16,7 +16,7 @@ test.describe("Footnote.matches", () => {
       </div>`;
 			document.body.appendChild(container);
 			const root = buildLayoutTree(container.firstElementChild);
-			const match = Footnote.matches(root.children[0]);
+			const match = Footnote.claim(root.children[0]);
 			container.remove();
 			style.remove();
 			return match;
@@ -36,7 +36,7 @@ test.describe("Footnote.matches", () => {
       </div>`;
 			document.body.appendChild(container);
 			const root = buildLayoutTree(container.firstElementChild);
-			const match = Footnote.matches(root.children[0]);
+			const match = Footnote.claim(root.children[0]);
 			container.remove();
 			return match;
 		});

@@ -217,9 +217,24 @@ export function buildPerFragmentNthSheet(slot, descriptors) {
 class NthSelectorsModule extends LayoutModule {
 	#descriptors = [];
 
-	claimPersistent(content, styles) {
-		this.#descriptors = extractNthDescriptors(styles);
-		return [];
+	resetRules() {
+		this.#descriptors = [];
+	}
+
+	matchRule(rule, context) {
+		const parts = [];
+		const baseSelector = rule.selectorText.replace(NTH_PSEUDO_RE, (match, pseudo, args) => {
+			parts.push(...parseNthParts(pseudo, args));
+			return "";
+		});
+		if (parts.length > 0) {
+			this.#descriptors.push({
+				baseSelector: baseSelector.trim() || "*",
+				nthParts: parts,
+				cssText: rule.style.cssText,
+				wrappers: [...context.wrappers],
+			});
+		}
 	}
 
 	layout() {

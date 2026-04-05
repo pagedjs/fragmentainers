@@ -1,7 +1,32 @@
 export class LayoutModule {
-	matches() {
+	claim() {
 		return false;
 	}
+
+	/**
+	 * Reset state accumulated from a previous matchRule pass.
+	 * Called by processRules() before the walk begins.
+	 */
+	resetRules() {}
+
+	/**
+	 * Called once per leaf CSSStyleRule during the centralized rule walk.
+	 * Modules override this to inspect CSS rules and accumulate state
+	 * (e.g. selectors for elements they need to claim).
+	 *
+	 * @param {CSSStyleRule} rule — a style rule with .selectorText and .style
+	 * @param {{ wrappers: string[] }} context — grouping rule preambles (e.g. ["@media screen"])
+	 */
+	matchRule() {}
+
+	/**
+	 * Push CSS rule strings to be inserted into a shared stylesheet.
+	 * Called once after the rule walk completes. The registry calls
+	 * sheet.insertRule() for each string in the array.
+	 *
+	 * @param {string[]} rules — push CSS rule text strings to this array
+	 */
+	insertRules() {}
 
 	layout() {
 		return { reservedBlockStart: 0, reservedBlockEnd: 0, afterRender: null };
@@ -17,7 +42,6 @@ export class LayoutModule {
 	 * segments (e.g., position: fixed elements that repeat on every page).
 	 *
 	 * @param {DocumentFragment|Element} content — the full content root
-	 * @param {CSSStyleSheet[]} styles — adopted stylesheets
 	 * @returns {Element[]} elements to include in every measurement segment
 	 */
 	claimPersistent() {

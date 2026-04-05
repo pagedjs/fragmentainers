@@ -28,6 +28,9 @@ export default [
         queueMicrotask: "readonly",
         setTimeout: "readonly",
         CSSRule: "readonly",
+        CSSFontFaceRule: "readonly",
+        FontFace: "readonly",
+        Image: "readonly",
         // Node.js test globals
         console: "readonly",
         process: "readonly",

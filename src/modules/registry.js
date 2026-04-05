@@ -20,8 +20,8 @@ class ModuleRegistry {
 		}
 	}
 
-	matches(node) {
-		return this.#modules.some((m) => m.matches(node));
+	claim(node) {
+		return this.#modules.some((m) => m.claim(node));
 	}
 
 	layout(rootNode, constraintSpace, breakToken, layoutChild) {
@@ -48,17 +48,72 @@ class ModuleRegistry {
 	}
 
 	/**
+	 * Walk all CSS rules in the given stylesheets and dispatch each
+	 * leaf style rule to every module's matchRule() callback. Recurses
+	 * into grouping rules (@media, @supports, @layer, etc.) and tracks
+	 * wrapper preambles for modules that need them (e.g. nth-selectors).
+	 *
+	 * After the walk, collects injected sheets from modules and prepends
+	 * them to the styles array.
+	 *
+	 * @param {CSSStyleSheet[]} styles — adopted stylesheets (mutated: injected sheets prepended)
+	 */
+	processRules(styles) {
+		const mods = this.#modules;
+
+		// Reset module state and give access to the styles array
+		for (const mod of mods) {
+			mod.styles = styles;
+			mod.resetRules();
+		}
+
+		const walk = (ruleList, wrappers) => {
+			for (const rule of ruleList) {
+				if (rule.selectorText !== undefined) {
+					const ctx = { wrappers };
+					for (const mod of mods) {
+						mod.matchRule(rule, ctx);
+					}
+				} else if (rule.cssRules) {
+					const preamble = rule.cssText.substring(0, rule.cssText.indexOf("{")).trim();
+					walk(rule.cssRules, [...wrappers, preamble]);
+				}
+			}
+		};
+
+		for (const sheet of styles) {
+			try {
+				walk(sheet.cssRules, []);
+			} catch {
+				continue;
+			}
+		}
+
+		// Collect rules from modules into a shared sheet
+		const rules = [];
+		for (const mod of mods) {
+			mod.insertRules(rules);
+		}
+		if (rules.length > 0) {
+			const sheet = new CSSStyleSheet();
+			for (const rule of rules) {
+				sheet.insertRule(rule, sheet.cssRules.length);
+			}
+			styles.unshift(sheet);
+		}
+	}
+
+	/**
 	 * Collect elements that modules want persisted across all measurement
-	 * segments. Called once before segmentation with the full content.
+	 * segments. Called after processRules() with the full content.
 	 *
 	 * @param {DocumentFragment|Element} content — the full content root
-	 * @param {CSSStyleSheet[]} styles — adopted stylesheets
 	 * @returns {Element[]} elements to include in every segment's measurer
 	 */
-	claimPersistent(content, styles) {
+	claimPersistent(content) {
 		const elements = [];
 		for (const mod of this.#modules) {
-			const claimed = mod.claimPersistent(content, styles);
+			const claimed = mod.claimPersistent(content);
 			if (claimed.length > 0) elements.push(...claimed);
 		}
 		return elements;

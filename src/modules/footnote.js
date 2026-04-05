@@ -54,8 +54,8 @@ class FootnoteLayoutModule extends LayoutModule {
 	/** @type {string[]} Call IDs in document order */
 	#allCalls = [];
 
-	/** @type {CSSStyleSheet[]} Saved styles for footnote measurement */
-	#styles = null;
+	/** @type {CSSStyleSheet[]} Set by ModuleRegistry.processRules() */
+	styles = null;
 
 	/** @type {Element|null} Dedicated <content-measure> for footnote bodies */
 	#measurer = null;
@@ -66,13 +66,36 @@ class FootnoteLayoutModule extends LayoutModule {
 	/** @type {CSSStyleSheet|null} Default footnote stylesheet */
 	#defaultSheet = null;
 
+	/** @type {string[]} Selectors accumulated from matchRule */
+	#footnoteSelectors = [];
+
+	resetRules() {
+		this.#footnoteSelectors = [];
+	}
+
+	matchRule(rule) {
+		if (rule.style.getPropertyValue("--float").trim() === "footnote") {
+			this.#footnoteSelectors.push(rule.selectorText);
+		}
+	}
+
+	insertRules(rules) {
+		if (this.#footnoteSelectors.length === 0) return;
+		// Parse the constant CSS through a temp sheet to get valid rule text
+		if (!this.#defaultSheet) {
+			this.#defaultSheet = new CSSStyleSheet();
+			this.#defaultSheet.replaceSync(FOOTNOTE_STYLES);
+		}
+		for (const rule of this.#defaultSheet.cssRules) {
+			rules.push(rule.cssText);
+		}
+	}
+
 	/**
-	 * Scan stylesheets for `float: footnote` rules, extract matching
-	 * elements from the content tree, and insert call markers in their
-	 * place. Bodies are stored for separate measurement.
+	 * Extract matching elements from the content tree and insert call
+	 * markers in their place. Bodies are stored for separate measurement.
 	 */
-	claimPersistent(content, styles) {
-		this.#styles = styles;
+	claimPersistent(content) {
 		this.#footnoteMap.clear();
 		this.#allCalls = [];
 		this.#measured = false;
@@ -82,26 +105,10 @@ class FootnoteLayoutModule extends LayoutModule {
 			this.#measurer = null;
 		}
 
-		const footnoteSelectors = [];
-		for (const sheet of styles) {
-			let rules;
-			try {
-				rules = sheet.cssRules;
-			} catch {
-				continue;
-			}
-			for (const rule of rules) {
-				if (!rule.style) continue;
-				if (rule.style.getPropertyValue("--float").trim() === "footnote") {
-					footnoteSelectors.push(rule.selectorText);
-				}
-			}
-		}
-
-		if (footnoteSelectors.length === 0) return [];
+		if (this.#footnoteSelectors.length === 0) return [];
 
 		let counter = 0;
-		for (const selector of footnoteSelectors) {
+		for (const selector of this.#footnoteSelectors) {
 			let elements;
 			try {
 				elements = content.querySelectorAll(selector);
@@ -131,20 +138,10 @@ class FootnoteLayoutModule extends LayoutModule {
 			}
 		}
 
-		if (this.#footnoteMap.size > 0) {
-			if (!this.#defaultSheet) {
-				this.#defaultSheet = new CSSStyleSheet();
-				this.#defaultSheet.replaceSync(FOOTNOTE_STYLES);
-			}
-			if (styles[0] !== this.#defaultSheet) {
-				styles.unshift(this.#defaultSheet);
-			}
-		}
-
 		return [];
 	}
 
-	matches(node) {
+	claim(node) {
 		return node.getCustomProperty("float") === "footnote";
 	}
 
@@ -182,7 +179,7 @@ class FootnoteLayoutModule extends LayoutModule {
 	#measureBodies(constraintSpace) {
 		const measurer = document.createElement("content-measure");
 		measurer.classList.add("footnotes");
-		measurer.setupEmpty(this.#styles);
+		measurer.setupEmpty(this.styles);
 		measurer.style.width = `${constraintSpace.availableInlineSize}px`;
 
 		for (const [, entry] of this.#footnoteMap) {

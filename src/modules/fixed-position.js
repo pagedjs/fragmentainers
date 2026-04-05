@@ -37,39 +37,30 @@ function classifyAnchorEdge(element) {
  * in column/region contexts and don't participate in those flows.
  */
 class FixedPositionLayoutModule extends LayoutModule {
-	matches(node) {
+	#fixedSelectors = [];
+
+	resetRules() {
+		this.#fixedSelectors = [];
+	}
+
+	claim(node) {
 		return node.position === "fixed";
 	}
 
-	/**
-	 * Claim position: fixed elements so they persist across all
-	 * measurement segments. Walks stylesheet rules and inline styles
-	 * to find fixed-position elements without needing live DOM.
-	 */
-	claimPersistent(content, styles) {
-		const fixedSelectors = [];
-		for (const sheet of styles) {
-			let rules;
-			try {
-				rules = sheet.cssRules;
-			} catch {
-				continue;
-			}
-			for (const rule of rules) {
-				if (!rule.style) continue;
-				if (rule.style.getPropertyValue("position").trim() === "fixed") {
-					fixedSelectors.push(rule.selectorText);
-				}
-			}
+	matchRule(rule) {
+		if (rule.style.getPropertyValue("position").trim() === "fixed") {
+			this.#fixedSelectors.push(rule.selectorText);
 		}
+	}
 
+	claimPersistent(content) {
 		const claimed = [];
 		for (const el of content.children) {
 			if (el.style.position === "fixed") {
 				claimed.push(el);
 				continue;
 			}
-			for (const selector of fixedSelectors) {
+			for (const selector of this.#fixedSelectors) {
 				try {
 					if (el.matches(selector)) {
 						claimed.push(el);
@@ -99,7 +90,7 @@ class FixedPositionLayoutModule extends LayoutModule {
 		const collect = (node) => {
 			for (const child of node.children) {
 				if (child.element && !child.element.isConnected) continue;
-				if (this.matches(child)) {
+				if (this.claim(child)) {
 					const fixedSpace = new ConstraintSpace({
 						availableInlineSize: constraintSpace.availableInlineSize,
 						availableBlockSize: constraintSpace.fragmentainerBlockSize,

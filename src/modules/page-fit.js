@@ -5,7 +5,7 @@ import { FRAGMENTATION_NONE } from "../core/constants.js";
 const VALID_VALUES = new Set(["fill", "contain", "cover"]);
 
 class PageFitLayoutModule extends LayoutModule {
-	matches(node) {
+	claim(node) {
 		const value = node.getCustomProperty("page-fit");
 		return value !== null && VALID_VALUES.has(value);
 	}
@@ -14,7 +14,7 @@ class PageFitLayoutModule extends LayoutModule {
 		const placed = [];
 
 		for (const child of rootNode.children) {
-			if (!this.matches(child)) continue;
+			if (!this.claim(child)) continue;
 
 			const value = child.getCustomProperty("page-fit");
 			const floatSpace = new ConstraintSpace({

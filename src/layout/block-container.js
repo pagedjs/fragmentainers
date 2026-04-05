@@ -169,7 +169,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 		}
 
 		// Skip children claimed by a layout module (e.g. page floats)
-		if (modules.matches(child)) continue;
+		if (modules.claim(child)) continue;
 
 		// isBreakBefore means "pushed to this fragmentainer, lay out fresh"
 		const effectiveChildBreakToken = childBreakToken?.isBreakBefore ? null : childBreakToken;
