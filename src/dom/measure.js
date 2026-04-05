@@ -81,7 +81,7 @@ export function getLineHeight(element) {
   // "normal" returns a keyword (no .unit property)
   if (!lh || !lh.unit) {
     const fs = map.get("font-size");
-    return ((fs && fs.unit) ? fs.value : 16) * 1.2;
+    return (fs && fs.unit ? fs.value : 16) * 1.2;
   }
 
   return lh.value;
@@ -95,7 +95,9 @@ export function parseLength(value, parentSize, fontSize) {
   if (value.endsWith("px")) return parseFloat(value);
   if (value.endsWith("%")) return (parseFloat(value) / 100) * parentSize;
   if (value.endsWith("rem")) {
-    const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const rootFontSize = parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
     return parseFloat(value) * rootFontSize;
   }
   if (value.endsWith("em")) return parseFloat(value) * fontSize;
@@ -126,7 +128,12 @@ function resolveBreakProperties(elements, styles) {
       const ba = rule.style.getPropertyValue("break-after").trim();
       const pg = rule.style.getPropertyValue("page").trim();
       if (bb || ba || pg) {
-        breakRules.push({ selector: rule.selectorText, breakBefore: bb, breakAfter: ba, page: pg });
+        breakRules.push({
+          selector: rule.selectorText,
+          breakBefore: bb,
+          breakAfter: ba,
+          page: pg,
+        });
       }
     }
   }
@@ -215,9 +222,9 @@ export class Measurer {
    * the content for layout. If multiple segments are detected, only the
    * first segment's content is measured.
    *
-   * @returns {Promise<Element>} the content root (slot element)
+   * @returns {Element} the content root (slot element)
    */
-  async setup() {
+  setup() {
     // Let modules claim elements that persist across all segments
     this.#persistent = modules.claimPersistent(this.#content, this.#styles);
     const persistentSet = new Set(this.#persistent);
@@ -235,23 +242,22 @@ export class Measurer {
     return this.#setupSegmented(boundaries, flowElements);
   }
 
-  async #setupSingle() {
+  #setupSingle() {
     const measurer = this.#createMeasurer();
     measurer.injectFragment(this.#content, this.#styles);
     document.body.appendChild(measurer);
     void measurer.offsetHeight;
-    if (document.fonts?.ready) await document.fonts.ready;
-    await this.#waitForImages(measurer.contentRoot);
     this.#measureElement = measurer;
     this.#contentStyles = measurer.getContentStyles();
     return measurer.contentRoot;
   }
 
-  async #setupSegmented(boundaries, flowElements) {
+  #setupSegmented(boundaries, flowElements) {
     this.#segments = [];
     for (let i = 0; i < boundaries.length; i++) {
       const start = boundaries[i];
-      const end = i + 1 < boundaries.length ? boundaries[i + 1] : flowElements.length;
+      const end =
+        i + 1 < boundaries.length ? boundaries[i + 1] : flowElements.length;
       this.#segments.push({ start, end });
     }
 
@@ -293,8 +299,6 @@ export class Measurer {
 
     document.body.appendChild(measurer);
     void measurer.offsetHeight;
-    if (document.fonts?.ready) await document.fonts.ready;
-    await this.#waitForImages(measurer.contentRoot);
 
     this.#measureElement = measurer;
     this.#contentStyles = measurer.getContentStyles();
@@ -310,10 +314,10 @@ export class Measurer {
    *
    * @param {import('../core/tokens.js').BlockBreakToken|null} breakToken
    * @param {DOMLayoutNode} tree — root layout node
-   * @returns {Promise<void>}
    */
-  async advance(breakToken, tree) {
-    if (!this.#segments || this.#currentSegment >= this.#segments.length - 1) return;
+  advance(breakToken, tree) {
+    if (!this.#segments || this.#currentSegment >= this.#segments.length - 1)
+      return;
     if (!this.#isAtBoundary(breakToken)) return;
 
     this.#currentSegment++;
@@ -351,8 +355,6 @@ export class Measurer {
 
     document.body.appendChild(measurer);
     void measurer.offsetHeight;
-    if (document.fonts?.ready) await document.fonts.ready;
-    await this.#waitForImages(newSlot);
 
     this.#measureElement = measurer;
 
@@ -488,19 +490,4 @@ export class Measurer {
     return document.createElement("content-measure");
   }
 
-  #waitForImages(root) {
-    if (!root) return Promise.resolve();
-    const pending = [];
-    for (const img of root.querySelectorAll("img:not([loading=lazy])")) {
-      if (!img.complete) {
-        pending.push(
-          new Promise((r) => {
-            img.addEventListener("load", r, { once: true });
-            img.addEventListener("error", r, { once: true });
-          }),
-        );
-      }
-    }
-    return pending.length > 0 ? Promise.all(pending) : Promise.resolve();
-  }
 }

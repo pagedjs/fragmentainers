@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { Footnote } from "../../src/modules/footnote.js";
 import { blockNode } from "../fixtures/nodes.js";
-import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
+import { FragmentedFlow } from "../../src/core/fragmented-flow.js";
 import { ConstraintSpace } from "../../src/core/constraint-space.js";
 import { FRAGMENTATION_PAGE } from "../../src/core/constants.js";
 
@@ -83,11 +83,11 @@ describe("Footnotes in paged media (browser)", () => {
       ".fn { --float: footnote; }",
     );
 
-    layout = new FragmentainerLayout(content, {
+    layout = new FragmentedFlow(content, {
       constraintSpace: pageConstraint(),
       styles,
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
     expect(flow.fragmentainerCount).toBe(1);
 
     const elements = [...flow];
@@ -112,11 +112,11 @@ describe("Footnotes in paged media (browser)", () => {
       ".fn { --float: footnote; }",
     );
 
-    layout = new FragmentainerLayout(content, {
+    layout = new FragmentedFlow(content, {
       constraintSpace: pageConstraint(),
       styles,
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
     const elements = [...flow];
     const el = elements[0];
     document.body.appendChild(el);
@@ -140,11 +140,11 @@ describe("Footnotes in paged media (browser)", () => {
       ".fn { --float: footnote; }",
     );
 
-    layout = new FragmentainerLayout(content, {
+    layout = new FragmentedFlow(content, {
       constraintSpace: pageConstraint(),
       styles,
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
     const elements = [...flow];
     const el = elements[0];
     document.body.appendChild(el);
@@ -177,11 +177,11 @@ describe("Footnotes in paged media (browser)", () => {
       ".fn { --float: footnote; }",
     );
 
-    layout = new FragmentainerLayout(content, {
+    layout = new FragmentedFlow(content, {
       constraintSpace: pageConstraint(),
       styles,
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     expect(flow.fragmentainerCount).toBeGreaterThanOrEqual(2);
   });
@@ -194,11 +194,11 @@ describe("Footnotes in paged media (browser)", () => {
       ".fn { --float: footnote; }",
     );
 
-    layout = new FragmentainerLayout(content, {
+    layout = new FragmentedFlow(content, {
       constraintSpace: pageConstraint(),
       styles,
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
     const elements = [...flow];
     const el = elements[0];
     document.body.appendChild(el);
@@ -219,11 +219,11 @@ describe("Footnotes in paged media (browser)", () => {
       ".fn { --float: footnote; }",
     );
 
-    layout = new FragmentainerLayout(content, {
+    layout = new FragmentedFlow(content, {
       constraintSpace: pageConstraint(200),
       styles,
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
     const elements = [...flow];
 
     // Find the page with the footnote call

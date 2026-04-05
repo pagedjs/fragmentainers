@@ -92,7 +92,7 @@
     <div id="output"></div>
     <script type="module">
       import {
-        FragmentainerLayout,
+        FragmentedFlow,
         ContentParser,
         PageResolver,
       } from "../src/index.js";
@@ -204,7 +204,7 @@
           const size = { inlineSize: pageW, blockSize: pageH };
           const resolver = PageResolver.fromStyleSheets(parsed.styles, size);
 
-          const layout = new FragmentainerLayout(parsed.fragment, {
+          const layout = new FragmentedFlow(parsed.fragment, {
             styles: parsed.styles,
             resolver: resolver.pageRules.length > 0 ? resolver : undefined,
             width: resolver.pageRules.length === 0 ? pageW : undefined,
@@ -212,7 +212,7 @@
           });
 
           const tLayout = performance.now();
-          const flow = await layout.flow();
+          const flow = layout.flow();
           const layoutTime = performance.now() - tLayout;
           const fragments = flow.fragments;
 

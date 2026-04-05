@@ -1,11 +1,11 @@
 /**
  * Paginate a document using @page rules.
  *
- * Moves all body content into a FragmentainerLayout, renders each
+ * Moves all body content into a FragmentedFlow, renders each
  * page into a <page-container> element, and appends them to the body.
  */
 import {
-  FragmentainerLayout,
+  FragmentedFlow,
   PageResolver,
   ContentParser,
 } from "../src/index.js";
@@ -22,8 +22,8 @@ export async function paginate() {
   }
 
   const styles = ContentParser.collectDocumentStyles();
-  const layout = new FragmentainerLayout(frag, { resolver, styles });
-  const flow = await layout.flow();
+  const layout = new FragmentedFlow(frag, { resolver, styles });
+  const flow = layout.flow();
 
   let pageNumber = 0;
   for (const frag of flow) {

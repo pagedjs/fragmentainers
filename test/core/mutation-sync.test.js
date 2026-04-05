@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
+import { FragmentedFlow } from "../../src/core/fragmented-flow.js";
 import { MutationSync } from "../../src/modules/mutation-sync.js";
 import { modules } from "../../src/modules/registry.js";
 import "../../src/dom/content-measure.js";
@@ -10,14 +10,14 @@ describe("MutationSync with shared clone map", () => {
 
   afterEach(() => {
     layout?.destroy();
-    FragmentainerLayout.remove(syncModule);
+    FragmentedFlow.remove(syncModule);
   });
 
   let syncModule;
 
   it("populates the clone map via onClone during composition", async () => {
     syncModule = new MutationSync();
-    FragmentainerLayout.register(syncModule);
+    FragmentedFlow.register(syncModule);
 
     const template = document.createElement("template");
     template.innerHTML = `<div style="margin:0; padding:0;">
@@ -25,8 +25,8 @@ describe("MutationSync with shared clone map", () => {
       <div id="b" style="height: 100px; margin: 0;"></div>
     </div>`;
 
-    layout = new FragmentainerLayout(template.content, { width: 400, height: 150 });
-    const flow = await layout.flow();
+    layout = new FragmentedFlow(template.content, { width: 400, height: 150 });
+    const flow = layout.flow();
 
     // The sync module should be able to resolve attributes on clones
     const fragEl = flow[0];
@@ -236,8 +236,8 @@ describe("FragmentContainerElement.takeMutationRecords()", () => {
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 200px; margin: 0;"></div>
     </div>`;
-    layout = new FragmentainerLayout(template.content, { width: 400, height: 100 });
-    const flow = await layout.flow();
+    layout = new FragmentedFlow(template.content, { width: 400, height: 100 });
+    const flow = layout.flow();
     const fragEl = flow[0];
     document.body.appendChild(fragEl);
 
@@ -276,8 +276,8 @@ describe("reflow with rebuild", () => {
     template.innerHTML = `<div style="margin:0; padding:0;">
       <div style="height: 100px; margin: 0;"></div>
     </div>`;
-    layout = new FragmentainerLayout(template.content, { width: 400, height: 200, trackRefs: true });
-    const flow = await layout.flow();
+    layout = new FragmentedFlow(template.content, { width: 400, height: 200, trackRefs: true });
+    const flow = layout.flow();
     expect(flow.fragmentainerCount).toBe(1);
 
     const wrapper = layout.contentRoot.firstElementChild;
@@ -286,7 +286,7 @@ describe("reflow with rebuild", () => {
     newDiv.style.margin = "0";
     wrapper.appendChild(newDiv);
 
-    const newFlow = await layout.reflow(0, { rebuild: true });
+    const newFlow = layout.reflow(0, { rebuild: true });
     expect(newFlow.fragmentainerCount).toBeGreaterThan(1);
   });
 });

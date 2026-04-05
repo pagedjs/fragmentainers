@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { createFragments } from "../../src/core/layout-request.js";
-import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
+import { FragmentedFlow } from "../../src/core/fragmented-flow.js";
 import { ConstraintSpace } from "../../src/core/constraint-space.js";
 import { FRAGMENTATION_PAGE, FRAGMENTATION_COLUMN } from "../../src/core/constants.js";
 import { FixedPosition } from "../../src/modules/fixed-position.js";
@@ -243,10 +243,10 @@ describe("position: fixed in paged media (browser)", () => {
         <div style="height: 180px; margin: 0; padding: 0;"></div>
       </div>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(400),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     // Without fixed handling: 180 + 180 = 360 fits in 400 → 1 page
     // With fixed handling: 400 - 50 = 350 available, 360 > 350 → 2 pages
@@ -262,10 +262,10 @@ describe("position: fixed in paged media (browser)", () => {
         <div style="height: 200px; margin: 0; padding: 0;"></div>
       </div>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(400),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
 
@@ -288,10 +288,10 @@ describe("position: fixed in paged media (browser)", () => {
         <div style="height: 200px; margin: 0; padding: 0;"></div>
       </div>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(400),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
 
@@ -315,10 +315,10 @@ describe("position: fixed in paged media (browser)", () => {
         <div style="height: 200px; margin: 0; padding: 0;"></div>
       </div>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(400),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     // 400 - 40 - 40 = 320 available, 400 total → 2 pages
     expect(flow.fragmentainerCount).toBe(2);
@@ -340,10 +340,10 @@ describe("position: fixed in paged media (browser)", () => {
         <div style="height: 50px; margin: 0; padding: 0;"></div>
       </div>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(400),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     expect(flow.fragmentainerCount).toBe(1);
   });

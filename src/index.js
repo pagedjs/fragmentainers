@@ -26,8 +26,8 @@ export {
   hasBlockChildFragments,
   buildInlineContent,
 } from "./compositor/compositor.js";
-export { FragmentainerLayout } from "./core/fragmentainer-layout.js";
 export { FragmentedFlow } from "./core/fragmented-flow.js";
+export { FragmentationContext } from "./core/fragmentation-context.js";
 export {
   RegionResolver,
   RegionConstraints,

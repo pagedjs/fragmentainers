@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createFragments } from "../../src/core/layout-request.js";
 import { ConstraintSpace } from "../../src/core/constraint-space.js";
-import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
+import { FragmentedFlow } from "../../src/core/fragmented-flow.js";
 import { FRAGMENTATION_PAGE } from "../../src/core/constants.js";
 import { LayoutModule } from "../../src/modules/module.js";
 import { PageFloat } from "../../src/modules/page-float.js";
@@ -174,30 +174,30 @@ describe("page floats integration with createFragments", () => {
   });
 });
 
-describe("FragmentainerLayout.register / .remove", () => {
+describe("FragmentedFlow.register / .remove", () => {
   afterEach(() => {
-    FragmentainerLayout.remove(PageFloat);
+    FragmentedFlow.remove(PageFloat);
   });
 
   it("register() registers a module globally", () => {
-    FragmentainerLayout.register(PageFloat);
+    FragmentedFlow.register(PageFloat);
     // Registering the same module twice should be a no-op
-    FragmentainerLayout.register(PageFloat);
+    FragmentedFlow.register(PageFloat);
     // After removal, it should be gone
-    FragmentainerLayout.remove(PageFloat);
+    FragmentedFlow.remove(PageFloat);
     // Removing again should be safe
-    FragmentainerLayout.remove(PageFloat);
+    FragmentedFlow.remove(PageFloat);
   });
 
   it("register() does not duplicate a module", () => {
     const spy = new LayoutModule();
-    FragmentainerLayout.register(spy);
-    FragmentainerLayout.register(spy);
-    FragmentainerLayout.remove(spy);
+    FragmentedFlow.register(spy);
+    FragmentedFlow.register(spy);
+    FragmentedFlow.remove(spy);
 
     // After one register + one register (deduped) + one remove, spy should be fully gone.
     // Re-register to verify it was removed
-    FragmentainerLayout.register(spy);
-    FragmentainerLayout.remove(spy);
+    FragmentedFlow.register(spy);
+    FragmentedFlow.remove(spy);
   });
 });

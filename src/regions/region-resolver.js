@@ -34,7 +34,7 @@ export class RegionConstraints {
  *
  * Each region element becomes a fragmentainer. The resolver reads dimensions
  * from the element's client rect. The caller controls the loop via
- * FragmentainerLayout.next() and stops when regions run out.
+ * FragmentedFlow.next() and stops when regions run out.
  */
 export class RegionResolver {
   /**

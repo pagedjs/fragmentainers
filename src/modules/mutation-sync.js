@@ -17,7 +17,7 @@ const COMPOSITOR_ATTRS = new Set([
  * by mapFragment after composition) to resolve clone elements.
  *
  *   const sync = new MutationSync();
- *   FragmentainerLayout.register(sync);
+ *   FragmentedFlow.register(sync);
  *   const flow = await layout.flow();
  *
  *   flow[0].startObserving();

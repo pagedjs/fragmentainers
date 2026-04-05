@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { createFragments, runLayoutGenerator } from "../../src/core/layout-request.js";
 import { layoutBlockContainer } from "../../src/layout/block-container.js";
-import { FragmentainerLayout } from "../../src/core/fragmentainer-layout.js";
+import { FragmentedFlow } from "../../src/core/fragmented-flow.js";
 import { ConstraintSpace } from "../../src/core/constraint-space.js";
 import { blockNode, tableNode, tableHeaderNode } from "../fixtures/nodes.js";
 import { FRAGMENTATION_PAGE, FRAGMENTATION_COLUMN } from "../../src/core/constants.js";
@@ -339,10 +339,10 @@ describe("Repeating table headers (browser)", () => {
         </tbody>
       </table>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
 
@@ -365,10 +365,10 @@ describe("Repeating table headers (browser)", () => {
         </tbody>
       </table>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     expect(flow.fragmentainerCount).toBe(1);
     const tableFragment = flow.fragments[0].childFragments[0];
@@ -394,10 +394,10 @@ describe("Repeating table headers (browser)", () => {
         </tbody>
       </table>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
 
@@ -424,10 +424,10 @@ describe("Repeating table headers (browser)", () => {
         </tbody>
       </table>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     const fragments = flow.fragments;
     for (let i = 1; i < fragments.length; i++) {
@@ -450,10 +450,10 @@ describe("Repeating table headers (browser)", () => {
         </tbody>
       </table>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(100),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     // Table should break across multiple pages and eventually complete
     expect(flow.fragmentainerCount).toBeGreaterThan(1);
@@ -481,10 +481,10 @@ describe("break-inside: avoid push for tables (browser)", () => {
         </table>
       </div>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     expect(flow.fragmentainerCount).toBe(2);
 
@@ -509,10 +509,10 @@ describe("break-inside: avoid push for tables (browser)", () => {
         </table>
       </div>
     `;
-    layout = new FragmentainerLayout(template.content, {
+    layout = new FragmentedFlow(template.content, {
       constraintSpace: pageConstraint(200),
     });
-    const flow = await layout.flow();
+    const flow = layout.flow();
 
     // Should fit on one page
     expect(flow.fragmentainerCount).toBe(1);
