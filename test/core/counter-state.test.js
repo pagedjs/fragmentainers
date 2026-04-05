@@ -1,230 +1,356 @@
-import { describe, it, expect } from "vitest";
-import { parseCounterDirective, CounterState, walkFragmentTree } from "../../src/core/counter-state.js";
-import { PhysicalFragment } from "../../src/core/fragment.js";
-import { BlockBreakToken } from "../../src/core/tokens.js";
-import { blockNode } from "../fixtures/nodes.js";
+import { test, expect } from "../browser-fixture.js";
 
-describe("parseCounterDirective", () => {
-  it("returns [] for null", () => {
-    expect(parseCounterDirective(null)).toEqual([]);
+test.describe("parseCounterDirective", () => {
+  test("returns [] for null", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { parseCounterDirective } = await import("/src/core/counter-state.js");
+      return parseCounterDirective(null);
+    });
+    expect(result).toEqual([]);
   });
 
-  it("returns [] for 'none'", () => {
-    expect(parseCounterDirective("none")).toEqual([]);
+  test("returns [] for 'none'", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { parseCounterDirective } = await import("/src/core/counter-state.js");
+      return parseCounterDirective("none");
+    });
+    expect(result).toEqual([]);
   });
 
-  it("returns [] for empty string", () => {
-    expect(parseCounterDirective("")).toEqual([]);
+  test("returns [] for empty string", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { parseCounterDirective } = await import("/src/core/counter-state.js");
+      return parseCounterDirective("");
+    });
+    expect(result).toEqual([]);
   });
 
-  it("parses a single counter with value", () => {
-    expect(parseCounterDirective("paragraph 0")).toEqual([
-      { name: "paragraph", value: 0 },
-    ]);
+  test("parses a single counter with value", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { parseCounterDirective } = await import("/src/core/counter-state.js");
+      return parseCounterDirective("paragraph 0");
+    });
+    expect(result).toEqual([{ name: "paragraph", value: 0 }]);
   });
 
-  it("parses a single counter with non-zero value", () => {
-    expect(parseCounterDirective("paragraph 3")).toEqual([
-      { name: "paragraph", value: 3 },
-    ]);
+  test("parses a single counter with non-zero value", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { parseCounterDirective } = await import("/src/core/counter-state.js");
+      return parseCounterDirective("paragraph 3");
+    });
+    expect(result).toEqual([{ name: "paragraph", value: 3 }]);
   });
 
-  it("parses multiple counters", () => {
-    expect(parseCounterDirective("paragraph 0 section 0")).toEqual([
-      { name: "paragraph", value: 0 },
-      { name: "section", value: 0 },
-    ]);
+  test("parses multiple counters", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { parseCounterDirective } = await import("/src/core/counter-state.js");
+      return parseCounterDirective("paragraph 0 section 0");
+    });
+    expect(result).toEqual([{ name: "paragraph", value: 0 }, { name: "section", value: 0 }]);
   });
 
-  it("parses counter name without explicit value as 0", () => {
-    expect(parseCounterDirective("paragraph")).toEqual([
-      { name: "paragraph", value: 0 },
-    ]);
+  test("parses counter name without explicit value as 0", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { parseCounterDirective } = await import("/src/core/counter-state.js");
+      return parseCounterDirective("paragraph");
+    });
+    expect(result).toEqual([{ name: "paragraph", value: 0 }]);
   });
 
-  it("filters out list-item counter", () => {
-    expect(parseCounterDirective("list-item 0 paragraph 0")).toEqual([
-      { name: "paragraph", value: 0 },
-    ]);
+  test("filters out list-item counter", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { parseCounterDirective } = await import("/src/core/counter-state.js");
+      return parseCounterDirective("list-item 0 paragraph 0");
+    });
+    expect(result).toEqual([{ name: "paragraph", value: 0 }]);
   });
 
-  it("returns [] when only list-item", () => {
-    expect(parseCounterDirective("list-item 0")).toEqual([]);
+  test("returns [] when only list-item", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { parseCounterDirective } = await import("/src/core/counter-state.js");
+      return parseCounterDirective("list-item 0");
+    });
+    expect(result).toEqual([]);
   });
 
-  it("parses negative values", () => {
-    expect(parseCounterDirective("paragraph -1")).toEqual([
-      { name: "paragraph", value: -1 },
-    ]);
-  });
-});
-
-describe("CounterState", () => {
-  it("starts empty", () => {
-    const state = new CounterState();
-    expect(state.isEmpty()).toBe(true);
-    expect(state.snapshot()).toEqual({});
-  });
-
-  it("applyReset sets counter value", () => {
-    const state = new CounterState();
-    state.applyReset([{ name: "p", value: 0 }]);
-    expect(state.isEmpty()).toBe(false);
-    expect(state.snapshot()).toEqual({ p: 0 });
-  });
-
-  it("applyIncrement on empty state starts from 0", () => {
-    const state = new CounterState();
-    state.applyIncrement([{ name: "p", value: 1 }]);
-    expect(state.snapshot()).toEqual({ p: 1 });
-  });
-
-  it("accumulates increments", () => {
-    const state = new CounterState();
-    state.applyReset([{ name: "p", value: 0 }]);
-    state.applyIncrement([{ name: "p", value: 1 }]);
-    state.applyIncrement([{ name: "p", value: 1 }]);
-    expect(state.snapshot()).toEqual({ p: 2 });
-  });
-
-  it("handles multiple counters", () => {
-    const state = new CounterState();
-    state.applyReset([{ name: "p", value: 0 }, { name: "s", value: 0 }]);
-    state.applyIncrement([{ name: "p", value: 1 }]);
-    expect(state.snapshot()).toEqual({ p: 1, s: 0 });
-  });
-
-  it("handles increment by non-1 value", () => {
-    const state = new CounterState();
-    state.applyIncrement([{ name: "p", value: 5 }]);
-    expect(state.snapshot()).toEqual({ p: 5 });
-  });
-
-  it("reset overwrites previous value", () => {
-    const state = new CounterState();
-    state.applyIncrement([{ name: "p", value: 10 }]);
-    state.applyReset([{ name: "p", value: 0 }]);
-    expect(state.snapshot()).toEqual({ p: 0 });
-  });
-
-  it("snapshot returns a frozen copy", () => {
-    const state = new CounterState();
-    state.applyReset([{ name: "p", value: 0 }]);
-    const snap = state.snapshot();
-    expect(Object.isFrozen(snap)).toBe(true);
-    // Mutating state doesn't affect snapshot
-    state.applyIncrement([{ name: "p", value: 1 }]);
-    expect(snap.p).toBe(0);
-  });
-
-  it("restore() populates counters from a snapshot", () => {
-    const state = new CounterState();
-    state.restore({ p: 5, s: 2 });
-    expect(state.snapshot()).toEqual({ p: 5, s: 2 });
-  });
-
-  it("restore() clears existing state", () => {
-    const state = new CounterState();
-    state.applyReset([{ name: "old", value: 99 }]);
-    state.restore({ p: 1 });
-    expect(state.snapshot()).toEqual({ p: 1 });
-  });
-
-  it("restore(null) clears all counters", () => {
-    const state = new CounterState();
-    state.applyReset([{ name: "p", value: 5 }]);
-    state.restore(null);
-    expect(state.isEmpty()).toBe(true);
-  });
-
-  it("accumulates after restore", () => {
-    const state = new CounterState();
-    state.restore({ p: 3 });
-    state.applyIncrement([{ name: "p", value: 1 }]);
-    expect(state.snapshot()).toEqual({ p: 4 });
+  test("parses negative values", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { parseCounterDirective } = await import("/src/core/counter-state.js");
+      return parseCounterDirective("paragraph -1");
+    });
+    expect(result).toEqual([{ name: "paragraph", value: -1 }]);
   });
 });
 
-describe("walkFragmentTree", () => {
-  /** Helper: create a PhysicalFragment with mock node and optional children/break token */
-  function frag(node, childFragments = [], breakToken = null) {
-    const f = new PhysicalFragment(node, 100, childFragments);
-    f.breakToken = breakToken;
-    return f;
-  }
-
-  it("applies counter-reset and counter-increment for fresh elements", () => {
-    const section = blockNode({ debugName: "section", counterReset: "paragraph 0" });
-    const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
-    const p2 = blockNode({ debugName: "p2", counterIncrement: "paragraph 1" });
-
-    const tree = frag(section, [frag(p1), frag(p2)]);
-    const state = new CounterState();
-    walkFragmentTree(tree, null, state);
-
-    expect(state.snapshot()).toEqual({ paragraph: 2 });
+test.describe("CounterState", () => {
+  test("starts empty", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      return { isEmpty: state.isEmpty(), snapshot: state.snapshot() };
+    });
+    expect(result.isEmpty).toBe(true);
+    expect(result.snapshot).toEqual({});
   });
 
-  it("skips counter operations on continuations", () => {
-    const section = blockNode({ debugName: "section", counterReset: "paragraph 0" });
-    const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
-
-    // section is a continuation (inputBreakToken is non-null)
-    const sectionBT = new BlockBreakToken(section);
-    const tree = frag(section, [frag(p1)]);
-    const state = new CounterState();
-    walkFragmentTree(tree, sectionBT, state);
-
-    // section's counter-reset is skipped, but p1 is fresh (no child break token)
-    expect(state.snapshot()).toEqual({ paragraph: 1 });
+  test("applyReset sets counter value", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      state.applyReset([{ name: "p", value: 0 }]);
+      return { isEmpty: state.isEmpty(), snapshot: state.snapshot() };
+    });
+    expect(result.isEmpty).toBe(false);
+    expect(result.snapshot).toEqual({ p: 0 });
   });
 
-  it("skips both parent and child when both are continuations", () => {
-    const section = blockNode({ debugName: "section", counterReset: "paragraph 0" });
-    const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
-
-    const p1BT = new BlockBreakToken(p1);
-    const sectionBT = new BlockBreakToken(section);
-    sectionBT.childBreakTokens = [p1BT];
-
-    const tree = frag(section, [frag(p1)]);
-    const state = new CounterState();
-    walkFragmentTree(tree, sectionBT, state);
-
-    // Both are continuations — no counter operations
-    expect(state.snapshot()).toEqual({});
+  test("applyIncrement on empty state starts from 0", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      state.applyIncrement([{ name: "p", value: 1 }]);
+      return state.snapshot();
+    });
+    expect(result).toEqual({ p: 1 });
   });
 
-  it("skips fragments with null node", () => {
-    const root = blockNode({ debugName: "root" });
-    const lineFragment = new PhysicalFragment(null, 20);
-    const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
-
-    const tree = frag(root, [lineFragment, frag(p1)]);
-    const state = new CounterState();
-    walkFragmentTree(tree, null, state);
-
-    expect(state.snapshot()).toEqual({ paragraph: 1 });
+  test("accumulates increments", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      state.applyReset([{ name: "p", value: 0 }]);
+      state.applyIncrement([{ name: "p", value: 1 }]);
+      state.applyIncrement([{ name: "p", value: 1 }]);
+      return state.snapshot();
+    });
+    expect(result).toEqual({ p: 2 });
   });
 
-  it("accumulates across multiple calls (simulating fragmentainers)", () => {
-    const section = blockNode({ debugName: "section", counterReset: "paragraph 0" });
-    const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
-    const p2 = blockNode({ debugName: "p2", counterIncrement: "paragraph 1" });
-    const p3 = blockNode({ debugName: "p3", counterIncrement: "paragraph 1" });
+  test("handles multiple counters", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      state.applyReset([{ name: "p", value: 0 }, { name: "s", value: 0 }]);
+      state.applyIncrement([{ name: "p", value: 1 }]);
+      return state.snapshot();
+    });
+    expect(result).toEqual({ p: 1, s: 0 });
+  });
 
-    const state = new CounterState();
+  test("handles increment by non-1 value", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      state.applyIncrement([{ name: "p", value: 5 }]);
+      return state.snapshot();
+    });
+    expect(result).toEqual({ p: 5 });
+  });
 
-    // Fragmentainer 1: section (fresh) + p1 + p2, breaks after p2
-    const bt = new BlockBreakToken(section);
-    const tree1 = frag(section, [frag(p1), frag(p2)], bt);
-    walkFragmentTree(tree1, null, state);
-    expect(state.snapshot()).toEqual({ paragraph: 2 });
+  test("reset overwrites previous value", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      state.applyIncrement([{ name: "p", value: 10 }]);
+      state.applyReset([{ name: "p", value: 0 }]);
+      return state.snapshot();
+    });
+    expect(result).toEqual({ p: 0 });
+  });
 
-    // Fragmentainer 2: section (continuation) + p3 (fresh)
-    const sectionBT = new BlockBreakToken(section);
-    const tree2 = frag(section, [frag(p3)]);
-    walkFragmentTree(tree2, sectionBT, state);
-    expect(state.snapshot()).toEqual({ paragraph: 3 });
+  test("snapshot returns a frozen copy", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      state.applyReset([{ name: "p", value: 0 }]);
+      const snap = state.snapshot();
+      const isFrozen = Object.isFrozen(snap);
+      state.applyIncrement([{ name: "p", value: 1 }]);
+      return { isFrozen, snapP: snap.p };
+    });
+    expect(result.isFrozen).toBe(true);
+    expect(result.snapP).toBe(0);
+  });
+
+  test("restore() populates counters from a snapshot", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      state.restore({ p: 5, s: 2 });
+      return state.snapshot();
+    });
+    expect(result).toEqual({ p: 5, s: 2 });
+  });
+
+  test("restore() clears existing state", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      state.applyReset([{ name: "old", value: 99 }]);
+      state.restore({ p: 1 });
+      return state.snapshot();
+    });
+    expect(result).toEqual({ p: 1 });
+  });
+
+  test("restore(null) clears all counters", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      state.applyReset([{ name: "p", value: 5 }]);
+      state.restore(null);
+      return state.isEmpty();
+    });
+    expect(result).toBe(true);
+  });
+
+  test("accumulates after restore", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState } = await import("/src/core/counter-state.js");
+      const state = new CounterState();
+      state.restore({ p: 3 });
+      state.applyIncrement([{ name: "p", value: 1 }]);
+      return state.snapshot();
+    });
+    expect(result).toEqual({ p: 4 });
+  });
+});
+
+test.describe("walkFragmentTree", () => {
+  test("applies counter-reset and counter-increment for fresh elements", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
+      const { PhysicalFragment } = await import("/src/core/fragment.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+
+      function frag(node, children = [], bt = null) {
+        const f = new PhysicalFragment(node, 100, children);
+        f.breakToken = bt;
+        return f;
+      }
+
+      const section = blockNode({ debugName: "section", counterReset: "paragraph 0" });
+      const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
+      const p2 = blockNode({ debugName: "p2", counterIncrement: "paragraph 1" });
+
+      const tree = frag(section, [frag(p1), frag(p2)]);
+      const state = new CounterState();
+      walkFragmentTree(tree, null, state);
+      return state.snapshot();
+    });
+    expect(result).toEqual({ paragraph: 2 });
+  });
+
+  test("skips counter operations on continuations", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
+      const { PhysicalFragment } = await import("/src/core/fragment.js");
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+
+      function frag(node, children = [], bt = null) {
+        const f = new PhysicalFragment(node, 100, children);
+        f.breakToken = bt;
+        return f;
+      }
+
+      const section = blockNode({ debugName: "section", counterReset: "paragraph 0" });
+      const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
+
+      const sectionBT = new BlockBreakToken(section);
+      const tree = frag(section, [frag(p1)]);
+      const state = new CounterState();
+      walkFragmentTree(tree, sectionBT, state);
+      return state.snapshot();
+    });
+    expect(result).toEqual({ paragraph: 1 });
+  });
+
+  test("skips both parent and child when both are continuations", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
+      const { PhysicalFragment } = await import("/src/core/fragment.js");
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+
+      function frag(node, children = [], bt = null) {
+        const f = new PhysicalFragment(node, 100, children);
+        f.breakToken = bt;
+        return f;
+      }
+
+      const section = blockNode({ debugName: "section", counterReset: "paragraph 0" });
+      const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
+
+      const p1BT = new BlockBreakToken(p1);
+      const sectionBT = new BlockBreakToken(section);
+      sectionBT.childBreakTokens = [p1BT];
+
+      const tree = frag(section, [frag(p1)]);
+      const state = new CounterState();
+      walkFragmentTree(tree, sectionBT, state);
+      return state.snapshot();
+    });
+    expect(result).toEqual({});
+  });
+
+  test("skips fragments with null node", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
+      const { PhysicalFragment } = await import("/src/core/fragment.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+
+      function frag(node, children = [], bt = null) {
+        const f = new PhysicalFragment(node, 100, children);
+        f.breakToken = bt;
+        return f;
+      }
+
+      const root = blockNode({ debugName: "root" });
+      const lineFragment = new PhysicalFragment(null, 20);
+      const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
+
+      const tree = frag(root, [lineFragment, frag(p1)]);
+      const state = new CounterState();
+      walkFragmentTree(tree, null, state);
+      return state.snapshot();
+    });
+    expect(result).toEqual({ paragraph: 1 });
+  });
+
+  test("accumulates across multiple calls (simulating fragmentainers)", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
+      const { PhysicalFragment } = await import("/src/core/fragment.js");
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+
+      function frag(node, children = [], bt = null) {
+        const f = new PhysicalFragment(node, 100, children);
+        f.breakToken = bt;
+        return f;
+      }
+
+      const section = blockNode({ debugName: "section", counterReset: "paragraph 0" });
+      const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
+      const p2 = blockNode({ debugName: "p2", counterIncrement: "paragraph 1" });
+      const p3 = blockNode({ debugName: "p3", counterIncrement: "paragraph 1" });
+
+      const state = new CounterState();
+
+      const bt = new BlockBreakToken(section);
+      const tree1 = frag(section, [frag(p1), frag(p2)], bt);
+      walkFragmentTree(tree1, null, state);
+      const snap1 = state.snapshot();
+
+      const sectionBT = new BlockBreakToken(section);
+      const tree2 = frag(section, [frag(p3)]);
+      walkFragmentTree(tree2, sectionBT, state);
+      const snap2 = state.snapshot();
+
+      return { snap1, snap2 };
+    });
+    expect(result.snap1).toEqual({ paragraph: 2 });
+    expect(result.snap2).toEqual({ paragraph: 3 });
   });
 });

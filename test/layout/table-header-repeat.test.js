@@ -1,520 +1,688 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { createFragments, runLayoutGenerator } from "../../src/core/layout-request.js";
-import { layoutBlockContainer } from "../../src/layout/block-container.js";
-import { FragmentedFlow } from "../../src/core/fragmented-flow.js";
-import { ConstraintSpace } from "../../src/core/constraint-space.js";
-import { blockNode, tableNode, tableHeaderNode } from "../fixtures/nodes.js";
-import { FRAGMENTATION_PAGE, FRAGMENTATION_COLUMN } from "../../src/core/constants.js";
+import { test, expect } from "../browser-fixture.js";
 
-describe("Repeating table headers", () => {
-  function pageSpace(blockSize = 300) {
-    return new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: blockSize,
-      fragmentainerBlockSize: blockSize,
-      fragmentationType: FRAGMENTATION_PAGE,
+test.describe("Repeating table headers", () => {
+  test("repeats thead on page 2 when table breaks across pages", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
+
+      const thead = tableHeaderNode({
+        children: [blockNode({ debugName: "header-row", blockSize: 40 })],
+      });
+      const table = tableNode({
+        children: [
+          thead,
+          blockNode({ debugName: "row1", blockSize: 100 }),
+          blockNode({ debugName: "row2", blockSize: 100 }),
+          blockNode({ debugName: "row3", blockSize: 100 }),
+        ],
+      });
+      const root = blockNode({ children: [table] });
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 250,
+        fragmentainerBlockSize: 250,
+        fragmentationType: "page",
+      }));
+
+      const page2Table = pages[1].childFragments[0];
+      const repeatedHeader = page2Table.childFragments[0];
+      return {
+        length: pages.length,
+        page2TableDefined: !!page2Table,
+        isRepeated: repeatedHeader.isRepeated,
+        blockSize: repeatedHeader.blockSize,
+      };
     });
-  }
-
-  it("repeats thead on page 2 when table breaks across pages", () => {
-    const thead = tableHeaderNode({
-      children: [blockNode({ debugName: "header-row", blockSize: 40 })],
-    });
-    const table = tableNode({
-      children: [
-        thead,
-        blockNode({ debugName: "row1", blockSize: 100 }),
-        blockNode({ debugName: "row2", blockSize: 100 }),
-        blockNode({ debugName: "row3", blockSize: 100 }),
-      ],
-    });
-    const root = blockNode({ children: [table] });
-
-    // Page height 300: thead(40) + row1(100) + row2(100) = 240 fits page 1
-    // row3(100) won't fit → page 2 with repeated thead
-    const pages = createFragments(root, pageSpace(250));
-
-    expect(pages.length).toBe(2);
-
-    // Page 2 should contain the table continuation
-    const page2Table = pages[1].childFragments[0];
-    expect(page2Table).toBeDefined();
-
-    // First child fragment on page 2 should be the repeated header
-    const repeatedHeader = page2Table.childFragments[0];
-    expect(repeatedHeader.isRepeated).toBe(true);
-    expect(repeatedHeader.node).toBe(thead);
-    expect(repeatedHeader.blockSize).toBe(40);
+    expect(result.length).toBe(2);
+    expect(result.page2TableDefined).toBe(true);
+    expect(result.isRepeated).toBe(true);
+    expect(result.blockSize).toBe(40);
   });
 
-  it("does not repeat when table fits on one page", () => {
-    const thead = tableHeaderNode({
-      children: [blockNode({ debugName: "header-row", blockSize: 40 })],
-    });
-    const table = tableNode({
-      children: [
-        thead,
-        blockNode({ debugName: "row1", blockSize: 50 }),
-      ],
-    });
-    const root = blockNode({ children: [table] });
+  test("does not repeat when table fits on one page", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
 
-    const pages = createFragments(root, pageSpace(300));
-    expect(pages.length).toBe(1);
-    // No repeated fragments
-    const tableFragment = pages[0].childFragments[0];
-    for (const child of tableFragment.childFragments) {
-      expect(child.isRepeated).toBe(false);
-    }
+      const thead = tableHeaderNode({
+        children: [blockNode({ debugName: "header-row", blockSize: 40 })],
+      });
+      const table = tableNode({
+        children: [
+          thead,
+          blockNode({ debugName: "row1", blockSize: 50 }),
+        ],
+      });
+      const root = blockNode({ children: [table] });
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 300,
+        fragmentainerBlockSize: 300,
+        fragmentationType: "page",
+      }));
+
+      const tableFragment = pages[0].childFragments[0];
+      const anyRepeated = tableFragment.childFragments.some(c => c.isRepeated);
+      return { length: pages.length, anyRepeated };
+    });
+    expect(result.length).toBe(1);
+    expect(result.anyRepeated).toBe(false);
   });
 
-  it("does not repeat thead in column fragmentation mode", () => {
-    const thead = tableHeaderNode({
-      children: [blockNode({ debugName: "header-row", blockSize: 40 })],
-    });
-    const table = tableNode({
-      children: [
-        thead,
-        blockNode({ debugName: "row1", blockSize: 100 }),
-        blockNode({ debugName: "row2", blockSize: 100 }),
-        blockNode({ debugName: "row3", blockSize: 100 }),
-      ],
-    });
-    const root = blockNode({ children: [table] });
+  test("does not repeat thead in column fragmentation mode", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
 
-    const space = new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 250,
-      fragmentainerBlockSize: 250,
-      fragmentationType: FRAGMENTATION_COLUMN,
-    });
-    const pages = createFragments(root, space);
+      const thead = tableHeaderNode({
+        children: [blockNode({ debugName: "header-row", blockSize: 40 })],
+      });
+      const table = tableNode({
+        children: [
+          thead,
+          blockNode({ debugName: "row1", blockSize: 100 }),
+          blockNode({ debugName: "row2", blockSize: 100 }),
+          blockNode({ debugName: "row3", blockSize: 100 }),
+        ],
+      });
+      const root = blockNode({ children: [table] });
 
-    // Should still break but no repeated headers
-    expect(pages.length).toBeGreaterThan(1);
-    for (let p = 1; p < pages.length; p++) {
-      const tableFragment = pages[p].childFragments[0];
-      if (tableFragment) {
-        for (const child of tableFragment.childFragments) {
-          expect(child.isRepeated).toBe(false);
+      const space = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 250,
+        fragmentainerBlockSize: 250,
+        fragmentationType: "column",
+      });
+      const pages = createFragments(root, space);
+
+      let anyRepeated = false;
+      for (let p = 1; p < pages.length; p++) {
+        const tableFragment = pages[p].childFragments[0];
+        if (tableFragment) {
+          for (const child of tableFragment.childFragments) {
+            if (child.isRepeated) anyRepeated = true;
+          }
         }
       }
-    }
+      return { length: pages.length, anyRepeated };
+    });
+    expect(result.length).toBeGreaterThan(1);
+    expect(result.anyRepeated).toBe(false);
   });
 
-  it("does not repeat when table has no thead", () => {
-    const table = tableNode({
-      children: [
-        blockNode({ debugName: "row1", blockSize: 100 }),
-        blockNode({ debugName: "row2", blockSize: 100 }),
-        blockNode({ debugName: "row3", blockSize: 100 }),
-      ],
+  test("does not repeat when table has no thead", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { blockNode, tableNode } = await import("/test/fixtures/nodes.js");
+
+      const table = tableNode({
+        children: [
+          blockNode({ debugName: "row1", blockSize: 100 }),
+          blockNode({ debugName: "row2", blockSize: 100 }),
+          blockNode({ debugName: "row3", blockSize: 100 }),
+        ],
+      });
+      const root = blockNode({ children: [table] });
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 250,
+        fragmentainerBlockSize: 250,
+        fragmentationType: "page",
+      }));
+
+      const page2Table = pages[1].childFragments[0];
+      const anyRepeated = page2Table.childFragments.some(c => c.isRepeated);
+      return { length: pages.length, anyRepeated };
     });
-    const root = blockNode({ children: [table] });
-
-    const pages = createFragments(root, pageSpace(250));
-    expect(pages.length).toBe(2);
-
-    const page2Table = pages[1].childFragments[0];
-    for (const child of page2Table.childFragments) {
-      expect(child.isRepeated).toBe(false);
-    }
+    expect(result.length).toBe(2);
+    expect(result.anyRepeated).toBe(false);
   });
 
-  it("repeats thead even when it is tall", () => {
-    const thead = tableHeaderNode({
-      children: [blockNode({ debugName: "header-row", blockSize: 120 })],
-    });
-    const table = tableNode({
-      children: [
-        thead,
-        blockNode({ debugName: "row1", blockSize: 100 }),
-        blockNode({ debugName: "row2", blockSize: 100 }),
-        blockNode({ debugName: "row3", blockSize: 100 }),
-      ],
-    });
-    const root = blockNode({ children: [table] });
+  test("repeats thead even when it is tall", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
 
-    // Page 300: thead(120) + row1(100) = 220 fits; row2 pushes to page 2
-    const pages = createFragments(root, pageSpace(300));
-    expect(pages.length).toBeGreaterThan(1);
+      const thead = tableHeaderNode({
+        children: [blockNode({ debugName: "header-row", blockSize: 120 })],
+      });
+      const table = tableNode({
+        children: [
+          thead,
+          blockNode({ debugName: "row1", blockSize: 100 }),
+          blockNode({ debugName: "row2", blockSize: 100 }),
+          blockNode({ debugName: "row3", blockSize: 100 }),
+        ],
+      });
+      const root = blockNode({ children: [table] });
 
-    const page2Table = pages[1].childFragments[0];
-    const repeatedHeader = page2Table.childFragments[0];
-    expect(repeatedHeader.isRepeated).toBe(true);
-    expect(repeatedHeader.blockSize).toBe(120);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 300,
+        fragmentainerBlockSize: 300,
+        fragmentationType: "page",
+      }));
+
+      const page2Table = pages[1].childFragments[0];
+      const repeatedHeader = page2Table.childFragments[0];
+      return {
+        length: pages.length,
+        isRepeated: repeatedHeader.isRepeated,
+        blockSize: repeatedHeader.blockSize,
+      };
+    });
+    expect(result.length).toBeGreaterThan(1);
+    expect(result.isRepeated).toBe(true);
+    expect(result.blockSize).toBe(120);
   });
 
-  it("repeats thead on every continuation page across multiple pages", () => {
-    const thead = tableHeaderNode({
-      children: [blockNode({ debugName: "header-row", blockSize: 30 })],
-    });
-    const rows = [];
-    for (let i = 0; i < 10; i++) {
-      rows.push(blockNode({ debugName: `row${i}`, blockSize: 50 }));
-    }
-    const table = tableNode({
-      children: [thead, ...rows],
-    });
-    const root = blockNode({ children: [table] });
+  test("repeats thead on every continuation page across multiple pages", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
 
-    // Page 150: thead(30) + 2 rows(100) = 130 per page (with header repeated)
-    const pages = createFragments(root, pageSpace(150));
-    expect(pages.length).toBeGreaterThan(2);
+      const thead = tableHeaderNode({
+        children: [blockNode({ debugName: "header-row", blockSize: 30 })],
+      });
+      const rows = [];
+      for (let i = 0; i < 10; i++) {
+        rows.push(blockNode({ debugName: `row${i}`, blockSize: 50 }));
+      }
+      const table = tableNode({
+        children: [thead, ...rows],
+      });
+      const root = blockNode({ children: [table] });
 
-    // Every page after the first should have a repeated header
-    for (let p = 1; p < pages.length; p++) {
-      const tableFragment = pages[p].childFragments[0];
-      const firstChild = tableFragment.childFragments[0];
-      expect(firstChild.isRepeated).toBe(true);
-      expect(firstChild.node).toBe(thead);
-    }
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 150,
+        fragmentainerBlockSize: 150,
+        fragmentationType: "page",
+      }));
+
+      const results = [];
+      for (let p = 1; p < pages.length; p++) {
+        const tableFragment = pages[p].childFragments[0];
+        const firstChild = tableFragment.childFragments[0];
+        results.push(firstChild.isRepeated);
+      }
+      return { length: pages.length, allRepeated: results.every(r => r) };
+    });
+    expect(result.length).toBeGreaterThan(2);
+    expect(result.allRepeated).toBe(true);
   });
 
-  it("hasSeenAllChildren is correct when repeated header is present", () => {
-    const thead = tableHeaderNode({
-      children: [blockNode({ debugName: "header-row", blockSize: 30 })],
+  test("hasSeenAllChildren is correct when repeated header is present", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
+
+      const thead = tableHeaderNode({
+        children: [blockNode({ debugName: "header-row", blockSize: 30 })],
+      });
+      const table = tableNode({
+        children: [
+          thead,
+          blockNode({ debugName: "row1", blockSize: 100 }),
+          blockNode({ debugName: "row2", blockSize: 100 }),
+          blockNode({ debugName: "row3", blockSize: 100 }),
+        ],
+      });
+      const root = blockNode({ children: [table] });
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 160,
+        fragmentainerBlockSize: 160,
+        fragmentationType: "page",
+      }));
+
+      const page2Table = pages[1].childFragments[0];
+      const page3Table = pages[2].childFragments[0];
+      return {
+        length: pages.length,
+        page2HasBreakToken: page2Table.breakToken !== null,
+        page3HasBreakToken: page3Table.breakToken !== null,
+      };
     });
-    const table = tableNode({
-      children: [
-        thead,
-        blockNode({ debugName: "row1", blockSize: 100 }),
-        blockNode({ debugName: "row2", blockSize: 100 }),
-        blockNode({ debugName: "row3", blockSize: 100 }),
-      ],
-    });
-    const root = blockNode({ children: [table] });
-
-    // Page 160: page 1 = thead(30) + row1(100) + row2_partial(30) = 160
-    // page 2 = repeated thead(30) + row2_remaining(70) + row3_partial(60) = 160
-    // page 3 = repeated thead(30) + row3_remaining(40) = 70
-    const pages = createFragments(root, pageSpace(160));
-    expect(pages.length).toBe(3);
-
-    // Page 2: table should still have a break token (row3 partially remains)
-    const page2Table = pages[1].childFragments[0];
-    expect(page2Table.breakToken).not.toBeNull();
-
-    // Page 3: table should complete (no break token)
-    const page3Table = pages[2].childFragments[0];
-    expect(page3Table.breakToken).toBeNull();
+    expect(result.length).toBe(3);
+    expect(result.page2HasBreakToken).toBe(true);
+    expect(result.page3HasBreakToken).toBe(false);
   });
 
-  it("reduces available space for body content by header height", () => {
-    const thead = tableHeaderNode({
-      children: [blockNode({ debugName: "header-row", blockSize: 60 })],
+  test("reduces available space for body content by header height", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
+
+      const thead = tableHeaderNode({
+        children: [blockNode({ debugName: "header-row", blockSize: 60 })],
+      });
+      const table = tableNode({
+        children: [
+          thead,
+          blockNode({ debugName: "row1", blockSize: 80 }),
+          blockNode({ debugName: "row2", blockSize: 80 }),
+          blockNode({ debugName: "row3", blockSize: 80 }),
+        ],
+      });
+      const root = blockNode({ children: [table] });
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const page2Table = pages[1].childFragments[0];
+      const repeated = page2Table.childFragments[0];
+      return {
+        length: pages.length,
+        isRepeated: repeated.isRepeated,
+        blockSize: repeated.blockSize,
+      };
     });
-    const table = tableNode({
-      children: [
-        thead,
-        blockNode({ debugName: "row1", blockSize: 80 }),
-        blockNode({ debugName: "row2", blockSize: 80 }),
-        blockNode({ debugName: "row3", blockSize: 80 }),
-      ],
-    });
-    const root = blockNode({ children: [table] });
-
-    // Page 200: page 1 = thead(60) + row1(80) + row2(60 of 80) → breaks
-    // page 2 = repeated thead(60) + row2 continuation + row3
-    const pages = createFragments(root, pageSpace(200));
-    expect(pages.length).toBeGreaterThan(1);
-
-    // Page 2 table's first fragment must be the repeated header
-    const page2Table = pages[1].childFragments[0];
-    expect(page2Table.childFragments[0].isRepeated).toBe(true);
-    expect(page2Table.childFragments[0].blockSize).toBe(60);
-  });
-});
-
-describe("break-inside: avoid push for tables", () => {
-  function pageSpace(blockSize = 300) {
-    return new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: blockSize,
-      fragmentainerBlockSize: blockSize,
-      fragmentationType: FRAGMENTATION_PAGE,
-    });
-  }
-
-  it("pushes a break-inside:avoid table that does not fit to the next page", () => {
-    // Content before the table fills most of the page
-    const table = tableNode({
-      blockSize: 200,
-      breakInside: "avoid",
-      children: [
-        blockNode({ debugName: "row1", blockSize: 80 }),
-        blockNode({ debugName: "row2", blockSize: 80 }),
-      ],
-    });
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "para", blockSize: 200 }),
-        table,
-      ],
-    });
-
-    // Page 300: para(200) fills most of page, table(200) doesn't fit
-    // in remaining 100. Table should be pushed to page 2.
-    const pages = createFragments(root, pageSpace(300));
-    expect(pages.length).toBe(2);
-
-    // Page 1: only the paragraph
-    expect(pages[0].childFragments.length).toBe(1);
-    expect(pages[0].childFragments[0].node.debugName).toBe("para");
-
-    // Page 2: the table
-    expect(pages[1].childFragments[0].node).toBe(table);
-  });
-
-  it("does not push when table is the first element on the page", () => {
-    // Table is larger than a full page — can't push, must break
-    const table = tableNode({
-      blockSize: 500,
-      breakInside: "avoid",
-      children: [
-        blockNode({ debugName: "row1", blockSize: 200 }),
-        blockNode({ debugName: "row2", blockSize: 200 }),
-      ],
-    });
-    const root = blockNode({ children: [table] });
-
-    // Page 300: table(500) exceeds page, but it's the first element
-    // so it can't be pushed. Must break inside.
-    const pages = createFragments(root, pageSpace(300));
-    expect(pages.length).toBeGreaterThan(1);
-
-    // Page 1 should contain part of the table (not empty)
-    expect(pages[0].childFragments[0].node).toBe(table);
-    expect(pages[0].blockSize).toBeGreaterThan(0);
-  });
-
-  it("does not push when table fits in remaining space", () => {
-    const table = tableNode({
-      blockSize: 80,
-      breakInside: "avoid",
-      children: [
-        blockNode({ debugName: "row1", blockSize: 40 }),
-        blockNode({ debugName: "row2", blockSize: 40 }),
-      ],
-    });
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "para", blockSize: 100 }),
-        table,
-      ],
-    });
-
-    // Page 300: para(100) + table(80) = 180, fits on one page
-    const pages = createFragments(root, pageSpace(300));
-    expect(pages.length).toBe(1);
+    expect(result.length).toBeGreaterThan(1);
+    expect(result.isRepeated).toBe(true);
+    expect(result.blockSize).toBe(60);
   });
 });
 
-let layout;
+test.describe("break-inside: avoid push for tables", () => {
+  test("pushes a break-inside:avoid table that does not fit to the next page", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { blockNode, tableNode } = await import("/test/fixtures/nodes.js");
 
-afterEach(() => {
-  layout?.destroy();
+      const table = tableNode({
+        blockSize: 200,
+        breakInside: "avoid",
+        children: [
+          blockNode({ debugName: "row1", blockSize: 80 }),
+          blockNode({ debugName: "row2", blockSize: 80 }),
+        ],
+      });
+      const root = blockNode({
+        children: [
+          blockNode({ debugName: "para", blockSize: 200 }),
+          table,
+        ],
+      });
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 300,
+        fragmentainerBlockSize: 300,
+        fragmentationType: "page",
+      }));
+
+      return {
+        length: pages.length,
+        page1ChildCount: pages[0].childFragments.length,
+        page1ChildName: pages[0].childFragments[0].node.debugName,
+        page2IsTable: pages[1].childFragments[0].node.isTable,
+      };
+    });
+    expect(result.length).toBe(2);
+    expect(result.page1ChildCount).toBe(1);
+    expect(result.page1ChildName).toBe("para");
+    expect(result.page2IsTable).toBe(true);
+  });
+
+  test("does not push when table is the first element on the page", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { blockNode, tableNode } = await import("/test/fixtures/nodes.js");
+
+      const table = tableNode({
+        blockSize: 500,
+        breakInside: "avoid",
+        children: [
+          blockNode({ debugName: "row1", blockSize: 200 }),
+          blockNode({ debugName: "row2", blockSize: 200 }),
+        ],
+      });
+      const root = blockNode({ children: [table] });
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 300,
+        fragmentainerBlockSize: 300,
+        fragmentationType: "page",
+      }));
+
+      return {
+        length: pages.length,
+        page1IsTable: pages[0].childFragments[0].node.isTable,
+        page1BlockSize: pages[0].blockSize,
+      };
+    });
+    expect(result.length).toBeGreaterThan(1);
+    expect(result.page1IsTable).toBe(true);
+    expect(result.page1BlockSize).toBeGreaterThan(0);
+  });
+
+  test("does not push when table fits in remaining space", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { blockNode, tableNode } = await import("/test/fixtures/nodes.js");
+
+      const table = tableNode({
+        blockSize: 80,
+        breakInside: "avoid",
+        children: [
+          blockNode({ debugName: "row1", blockSize: 40 }),
+          blockNode({ debugName: "row2", blockSize: 40 }),
+        ],
+      });
+      const root = blockNode({
+        children: [
+          blockNode({ debugName: "para", blockSize: 100 }),
+          table,
+        ],
+      });
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 300,
+        fragmentainerBlockSize: 300,
+        fragmentationType: "page",
+      }));
+      return pages.length;
+    });
+    expect(result).toBe(1);
+  });
 });
 
-function pageConstraint(height = 200) {
-  return new ConstraintSpace({
-    availableInlineSize: 400,
-    availableBlockSize: height,
-    fragmentainerBlockSize: height,
-    fragmentationType: FRAGMENTATION_PAGE,
-  });
-}
+test.describe("Repeating table headers (browser)", () => {
+  test("repeats thead in each fragment after the first", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
 
-describe("Repeating table headers (browser)", () => {
-  it("repeats thead in each fragment after the first", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <table style="border-collapse: collapse; margin: 0; padding: 0;">
-        <thead><tr><th style="height: 30px; margin: 0; padding: 0;">Header</th></tr></thead>
-        <tbody>
-          <tr><td style="height: 80px; margin: 0; padding: 0;">Row 1</td></tr>
-          <tr><td style="height: 80px; margin: 0; padding: 0;">Row 2</td></tr>
-          <tr><td style="height: 80px; margin: 0; padding: 0;">Row 3</td></tr>
-          <tr><td style="height: 80px; margin: 0; padding: 0;">Row 4</td></tr>
-        </tbody>
-      </table>
-    `;
-    layout = new FragmentedFlow(template.content, {
-      constraintSpace: pageConstraint(200),
+      const template = document.createElement("template");
+      template.innerHTML = `
+        <table style="border-collapse: collapse; margin: 0; padding: 0;">
+          <thead><tr><th style="height: 30px; margin: 0; padding: 0;">Header</th></tr></thead>
+          <tbody>
+            <tr><td style="height: 80px; margin: 0; padding: 0;">Row 1</td></tr>
+            <tr><td style="height: 80px; margin: 0; padding: 0;">Row 2</td></tr>
+            <tr><td style="height: 80px; margin: 0; padding: 0;">Row 3</td></tr>
+            <tr><td style="height: 80px; margin: 0; padding: 0;">Row 4</td></tr>
+          </tbody>
+        </table>
+      `;
+      const layout = new FragmentedFlow(template.content, {
+        constraintSpace: new ConstraintSpace({
+          availableInlineSize: 400,
+          availableBlockSize: 200,
+          fragmentainerBlockSize: 200,
+          fragmentationType: "page",
+        }),
+      });
+      const flow = layout.flow();
+
+      const results = [];
+      for (let i = 1; i < flow.fragments.length; i++) {
+        const tableFragment = flow.fragments[i].childFragments[0];
+        const firstChild = tableFragment.childFragments[0];
+        results.push(firstChild.isRepeated);
+      }
+      layout.destroy();
+      return {
+        count: flow.fragmentainerCount,
+        allRepeated: results.every(r => r),
+      };
     });
-    const flow = layout.flow();
-
-    expect(flow.fragmentainerCount).toBeGreaterThan(1);
-
-    const fragments = flow.fragments;
-    for (let i = 1; i < fragments.length; i++) {
-      const tableFragment = fragments[i].childFragments[0];
-      expect(tableFragment).toBeDefined();
-      const firstChild = tableFragment.childFragments[0];
-      expect(firstChild.isRepeated).toBe(true);
-    }
-  });
-
-  it("does not repeat thead when table fits on one page", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <table style="border-collapse: collapse; margin: 0; padding: 0;">
-        <thead><tr><th style="height: 30px; margin: 0; padding: 0;">Header</th></tr></thead>
-        <tbody>
-          <tr><td style="height: 40px; margin: 0; padding: 0;">Row 1</td></tr>
-        </tbody>
-      </table>
-    `;
-    layout = new FragmentedFlow(template.content, {
-      constraintSpace: pageConstraint(200),
-    });
-    const flow = layout.flow();
-
-    expect(flow.fragmentainerCount).toBe(1);
-    const tableFragment = flow.fragments[0].childFragments[0];
-    for (const child of tableFragment.childFragments) {
-      expect(child.isRepeated).toBe(false);
-    }
+    expect(result.count).toBeGreaterThan(1);
+    expect(result.allRepeated).toBe(true);
   });
 
-  it("repeated header uses measured DOM height for accurate space accounting", async () => {
-    // Use cell padding to create a discrepancy between layout-computed
-    // and browser-measured height. Layout computes text content only;
-    // measured includes padding.
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <table style="border-collapse: collapse; margin: 0; padding: 0;">
-        <thead>
-          <tr><th style="font-size: 10px; line-height: 10px; padding: 8px 0; margin: 0;">Header</th></tr>
-        </thead>
-        <tbody>
-          <tr><td style="height: 80px; margin: 0; padding: 0;">Row 1</td></tr>
-          <tr><td style="height: 80px; margin: 0; padding: 0;">Row 2</td></tr>
-          <tr><td style="height: 80px; margin: 0; padding: 0;">Row 3</td></tr>
-        </tbody>
-      </table>
-    `;
-    layout = new FragmentedFlow(template.content, {
-      constraintSpace: pageConstraint(200),
+  test("does not repeat thead when table fits on one page", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+
+      const template = document.createElement("template");
+      template.innerHTML = `
+        <table style="border-collapse: collapse; margin: 0; padding: 0;">
+          <thead><tr><th style="height: 30px; margin: 0; padding: 0;">Header</th></tr></thead>
+          <tbody>
+            <tr><td style="height: 40px; margin: 0; padding: 0;">Row 1</td></tr>
+          </tbody>
+        </table>
+      `;
+      const layout = new FragmentedFlow(template.content, {
+        constraintSpace: new ConstraintSpace({
+          availableInlineSize: 400,
+          availableBlockSize: 200,
+          fragmentainerBlockSize: 200,
+          fragmentationType: "page",
+        }),
+      });
+      const flow = layout.flow();
+
+      const tableFragment = flow.fragments[0].childFragments[0];
+      const anyRepeated = tableFragment.childFragments.some(c => c.isRepeated);
+      layout.destroy();
+      return { count: flow.fragmentainerCount, anyRepeated };
     });
-    const flow = layout.flow();
-
-    expect(flow.fragmentainerCount).toBeGreaterThan(1);
-
-    // The repeated header's blockSize should be the DOM-measured height
-    // (content + padding), not just the text content height.
-    const page2 = flow.fragments[1];
-    const tableFragment = page2.childFragments[0];
-    const repeated = tableFragment.childFragments[0];
-    expect(repeated.isRepeated).toBe(true);
-    // With 8px top + 8px bottom padding on a 10px line, measured ~26px.
-    // Layout-only would return ~10px. Verify measured height was used.
-    expect(repeated.blockSize).toBeGreaterThan(10);
+    expect(result.count).toBe(1);
+    expect(result.anyRepeated).toBe(false);
   });
 
-  it("repeated header reduces available space for body content", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <table style="border-collapse: collapse; margin: 0; padding: 0;">
-        <thead><tr><th style="height: 50px; margin: 0; padding: 0;">Header</th></tr></thead>
-        <tbody>
-          <tr><td style="height: 100px; margin: 0; padding: 0;">Row 1</td></tr>
-          <tr><td style="height: 100px; margin: 0; padding: 0;">Row 2</td></tr>
-          <tr><td style="height: 100px; margin: 0; padding: 0;">Row 3</td></tr>
-        </tbody>
-      </table>
-    `;
-    layout = new FragmentedFlow(template.content, {
-      constraintSpace: pageConstraint(200),
-    });
-    const flow = layout.flow();
+  test("repeated header uses measured DOM height for accurate space accounting", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
 
-    const fragments = flow.fragments;
-    for (let i = 1; i < fragments.length; i++) {
-      const tableFragment = fragments[i].childFragments[0];
+      const template = document.createElement("template");
+      template.innerHTML = `
+        <table style="border-collapse: collapse; margin: 0; padding: 0;">
+          <thead>
+            <tr><th style="font-size: 10px; line-height: 10px; padding: 8px 0; margin: 0;">Header</th></tr>
+          </thead>
+          <tbody>
+            <tr><td style="height: 80px; margin: 0; padding: 0;">Row 1</td></tr>
+            <tr><td style="height: 80px; margin: 0; padding: 0;">Row 2</td></tr>
+            <tr><td style="height: 80px; margin: 0; padding: 0;">Row 3</td></tr>
+          </tbody>
+        </table>
+      `;
+      const layout = new FragmentedFlow(template.content, {
+        constraintSpace: new ConstraintSpace({
+          availableInlineSize: 400,
+          availableBlockSize: 200,
+          fragmentainerBlockSize: 200,
+          fragmentationType: "page",
+        }),
+      });
+      const flow = layout.flow();
+
+      const page2 = flow.fragments[1];
+      const tableFragment = page2.childFragments[0];
       const repeated = tableFragment.childFragments[0];
-      expect(repeated.isRepeated).toBe(true);
-      expect(repeated.blockSize).toBeGreaterThan(0);
+      layout.destroy();
+      return {
+        count: flow.fragmentainerCount,
+        isRepeated: repeated.isRepeated,
+        blockSize: repeated.blockSize,
+      };
+    });
+    expect(result.count).toBeGreaterThan(1);
+    expect(result.isRepeated).toBe(true);
+    expect(result.blockSize).toBeGreaterThan(10);
+  });
+
+  test("repeated header reduces available space for body content", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+
+      const template = document.createElement("template");
+      template.innerHTML = `
+        <table style="border-collapse: collapse; margin: 0; padding: 0;">
+          <thead><tr><th style="height: 50px; margin: 0; padding: 0;">Header</th></tr></thead>
+          <tbody>
+            <tr><td style="height: 100px; margin: 0; padding: 0;">Row 1</td></tr>
+            <tr><td style="height: 100px; margin: 0; padding: 0;">Row 2</td></tr>
+            <tr><td style="height: 100px; margin: 0; padding: 0;">Row 3</td></tr>
+          </tbody>
+        </table>
+      `;
+      const layout = new FragmentedFlow(template.content, {
+        constraintSpace: new ConstraintSpace({
+          availableInlineSize: 400,
+          availableBlockSize: 200,
+          fragmentainerBlockSize: 200,
+          fragmentationType: "page",
+        }),
+      });
+      const flow = layout.flow();
+
+      const results = [];
+      for (let i = 1; i < flow.fragments.length; i++) {
+        const tableFragment = flow.fragments[i].childFragments[0];
+        const repeated = tableFragment.childFragments[0];
+        results.push({ isRepeated: repeated.isRepeated, blockSize: repeated.blockSize });
+      }
+      layout.destroy();
+      return results;
+    });
+    for (const r of result) {
+      expect(r.isRepeated).toBe(true);
+      expect(r.blockSize).toBeGreaterThan(0);
     }
   });
 
-  it("hasSeenAllChildren is correct across multi-page table with repeated header", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <table style="border-collapse: collapse; margin: 0; padding: 0;">
-        <thead><tr><th style="height: 20px; margin: 0; padding: 0;">Header</th></tr></thead>
-        <tbody>
-          <tr><td style="height: 60px; margin: 0; padding: 0;">Row 1</td></tr>
-          <tr><td style="height: 60px; margin: 0; padding: 0;">Row 2</td></tr>
-          <tr><td style="height: 60px; margin: 0; padding: 0;">Row 3</td></tr>
-        </tbody>
-      </table>
-    `;
-    layout = new FragmentedFlow(template.content, {
-      constraintSpace: pageConstraint(100),
+  test("hasSeenAllChildren is correct across multi-page table with repeated header", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+
+      const template = document.createElement("template");
+      template.innerHTML = `
+        <table style="border-collapse: collapse; margin: 0; padding: 0;">
+          <thead><tr><th style="height: 20px; margin: 0; padding: 0;">Header</th></tr></thead>
+          <tbody>
+            <tr><td style="height: 60px; margin: 0; padding: 0;">Row 1</td></tr>
+            <tr><td style="height: 60px; margin: 0; padding: 0;">Row 2</td></tr>
+            <tr><td style="height: 60px; margin: 0; padding: 0;">Row 3</td></tr>
+          </tbody>
+        </table>
+      `;
+      const layout = new FragmentedFlow(template.content, {
+        constraintSpace: new ConstraintSpace({
+          availableInlineSize: 400,
+          availableBlockSize: 100,
+          fragmentainerBlockSize: 100,
+          fragmentationType: "page",
+        }),
+      });
+      const flow = layout.flow();
+
+      const lastFragment = flow.fragments[flow.fragments.length - 1];
+      const middleBreakTokens = [];
+      for (let i = 0; i < flow.fragments.length - 1; i++) {
+        middleBreakTokens.push(flow.fragments[i].breakToken !== null);
+      }
+      layout.destroy();
+      return {
+        count: flow.fragmentainerCount,
+        lastBreakTokenNull: lastFragment.breakToken === null,
+        allMiddleHaveBreakTokens: middleBreakTokens.every(b => b),
+      };
     });
-    const flow = layout.flow();
-
-    // Table should break across multiple pages and eventually complete
-    expect(flow.fragmentainerCount).toBeGreaterThan(1);
-
-    // Last fragment should have no break token (table completed)
-    const lastFragment = flow.fragments[flow.fragments.length - 1];
-    expect(lastFragment.breakToken).toBeNull();
-
-    // Middle fragments should have break tokens (table continues)
-    for (let i = 0; i < flow.fragments.length - 1; i++) {
-      expect(flow.fragments[i].breakToken).not.toBeNull();
-    }
+    expect(result.count).toBeGreaterThan(1);
+    expect(result.lastBreakTokenNull).toBe(true);
+    expect(result.allMiddleHaveBreakTokens).toBe(true);
   });
 });
 
-describe("break-inside: avoid push for tables (browser)", () => {
-  it("pushes a break-inside:avoid table when it does not fit at page bottom", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <div style="margin: 0; padding: 0;">
-        <div style="height: 160px; margin: 0; padding: 0;">Filler</div>
-        <table style="break-inside: avoid; border-collapse: collapse; margin: 0; padding: 0;">
-          <tr><td style="height: 60px; margin: 0; padding: 0;">Row 1</td></tr>
-          <tr><td style="height: 60px; margin: 0; padding: 0;">Row 2</td></tr>
-        </table>
-      </div>
-    `;
-    layout = new FragmentedFlow(template.content, {
-      constraintSpace: pageConstraint(200),
+test.describe("break-inside: avoid push for tables (browser)", () => {
+  test("pushes a break-inside:avoid table when it does not fit at page bottom", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+
+      const template = document.createElement("template");
+      template.innerHTML = `
+        <div style="margin: 0; padding: 0;">
+          <div style="height: 160px; margin: 0; padding: 0;">Filler</div>
+          <table style="break-inside: avoid; border-collapse: collapse; margin: 0; padding: 0;">
+            <tr><td style="height: 60px; margin: 0; padding: 0;">Row 1</td></tr>
+            <tr><td style="height: 60px; margin: 0; padding: 0;">Row 2</td></tr>
+          </table>
+        </div>
+      `;
+      const layout = new FragmentedFlow(template.content, {
+        constraintSpace: new ConstraintSpace({
+          availableInlineSize: 400,
+          availableBlockSize: 200,
+          fragmentainerBlockSize: 200,
+          fragmentationType: "page",
+        }),
+      });
+      const flow = layout.flow();
+
+      const page1 = flow.fragments[0];
+      const page2 = flow.fragments[1];
+      const wrapper = page2.childFragments[0];
+      const tableFragment = wrapper.childFragments[0];
+      layout.destroy();
+      return {
+        count: flow.fragmentainerCount,
+        page1ChildCount: page1.childFragments[0].childFragments.length,
+        isTable: tableFragment.node.isTable,
+      };
     });
-    const flow = layout.flow();
-
-    expect(flow.fragmentainerCount).toBe(2);
-
-    // Page 1: only the filler div, table pushed
-    const page1 = flow.fragments[0];
-    expect(page1.childFragments[0].childFragments.length).toBe(1);
-
-    // Page 2: the table appears here
-    const page2 = flow.fragments[1];
-    const wrapper = page2.childFragments[0];
-    const tableFragment = wrapper.childFragments[0];
-    expect(tableFragment.node.isTable).toBe(true);
+    expect(result.count).toBe(2);
+    expect(result.page1ChildCount).toBe(1);
+    expect(result.isTable).toBe(true);
   });
 
-  it("does not push when break-inside:avoid table fits in remaining space", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `
-      <div style="margin: 0; padding: 0;">
-        <div style="height: 50px; margin: 0; padding: 0;">Filler</div>
-        <table style="break-inside: avoid; border-collapse: collapse; margin: 0; padding: 0;">
-          <tr><td style="height: 40px; margin: 0; padding: 0;">Row 1</td></tr>
-        </table>
-      </div>
-    `;
-    layout = new FragmentedFlow(template.content, {
-      constraintSpace: pageConstraint(200),
-    });
-    const flow = layout.flow();
+  test("does not push when break-inside:avoid table fits in remaining space", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
 
-    // Should fit on one page
-    expect(flow.fragmentainerCount).toBe(1);
+      const template = document.createElement("template");
+      template.innerHTML = `
+        <div style="margin: 0; padding: 0;">
+          <div style="height: 50px; margin: 0; padding: 0;">Filler</div>
+          <table style="break-inside: avoid; border-collapse: collapse; margin: 0; padding: 0;">
+            <tr><td style="height: 40px; margin: 0; padding: 0;">Row 1</td></tr>
+          </table>
+        </div>
+      `;
+      const layout = new FragmentedFlow(template.content, {
+        constraintSpace: new ConstraintSpace({
+          availableInlineSize: 400,
+          availableBlockSize: 200,
+          fragmentainerBlockSize: 200,
+          fragmentationType: "page",
+        }),
+      });
+      const flow = layout.flow();
+      layout.destroy();
+      return flow.fragmentainerCount;
+    });
+    expect(result).toBe(1);
   });
 });

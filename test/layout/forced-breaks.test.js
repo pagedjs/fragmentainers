@@ -1,170 +1,285 @@
-import { describe, it, expect } from "vitest";
-import { createFragments } from "../../src/core/layout-request.js";
-import { ConstraintSpace } from "../../src/core/constraint-space.js";
-import { blockNode } from "../fixtures/nodes.js";
+import { test, expect } from "../browser-fixture.js";
 
-describe("Phase 8: Forced breaks", () => {
-  it("break-before: page forces a page break", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 50 }),
-        blockNode({ debugName: "B", blockSize: 50, breakBefore: "page" }),
-        blockNode({ debugName: "C", blockSize: 50 }),
-      ],
+test.describe("Phase 8: Forced breaks", () => {
+  test("break-before: page forces a page break", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+        <div style="height:50px;break-before:page;margin:0;padding:0"></div>
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+      const root = buildLayoutTree(container.firstElementChild);
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 1000,
+        fragmentainerBlockSize: 1000,
+        fragmentationType: "page",
+      }));
+
+      const res = {
+        pageCount: pages.length,
+        page0ChildCount: pages[0].childFragments.length,
+        page0BlockSize: pages[0].blockSize,
+        page0HasBreakToken: !!pages[0].breakToken,
+        page0IsForcedBreak: pages[0].breakToken?.childBreakTokens?.[0]?.isForcedBreak ?? false,
+        page1ChildCount: pages[1].childFragments.length,
+        page1BlockSize: pages[1].blockSize,
+      };
+
+      container.remove();
+      return res;
     });
 
-    // 1000px fragmentainer — everything fits, but forced break before B
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 1000,
-      fragmentainerBlockSize: 1000,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(2);
-
-    // Page 1: only A
-    expect(pages[0].childFragments.length).toBe(1);
-    expect(pages[0].blockSize).toBe(50);
-    expect(pages[0].breakToken).toBeTruthy();
-    expect(pages[0].breakToken.childBreakTokens[0].isForcedBreak).toBe(true);
-
-    // Page 2: B + C
-    expect(pages[1].childFragments.length).toBe(2);
-    expect(pages[1].blockSize).toBe(100);
+    expect(result.pageCount).toBe(2);
+    expect(result.page0ChildCount).toBe(1);
+    expect(result.page0BlockSize).toBe(50);
+    expect(result.page0HasBreakToken).toBe(true);
+    expect(result.page0IsForcedBreak).toBe(true);
+    expect(result.page1ChildCount).toBe(2);
+    expect(result.page1BlockSize).toBe(100);
   });
 
-  it("break-before: column forces a break", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 50 }),
-        blockNode({ debugName: "B", blockSize: 50, breakBefore: "column" }),
-      ],
+  test("break-before: column forces a break", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+        <div style="height:50px;break-before:column;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+      const root = buildLayoutTree(container.firstElementChild);
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 1000,
+        fragmentainerBlockSize: 1000,
+        fragmentationType: "page",
+      }));
+
+      const res = { pageCount: pages.length };
+      container.remove();
+      return res;
     });
 
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 1000,
-      fragmentainerBlockSize: 1000,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(2);
+    expect(result.pageCount).toBe(2);
   });
 
-  it("break-before: always forces a break", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 50 }),
-        blockNode({ debugName: "B", blockSize: 50, breakBefore: "always" }),
-      ],
+  test("break-before: page forces a break (always equivalent)", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+        <div style="height:50px;break-before:page;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+      const root = buildLayoutTree(container.firstElementChild);
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 1000,
+        fragmentainerBlockSize: 1000,
+        fragmentationType: "page",
+      }));
+
+      const res = { pageCount: pages.length };
+      container.remove();
+      return res;
     });
 
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 1000,
-      fragmentainerBlockSize: 1000,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(2);
+    expect(result.pageCount).toBe(2);
   });
 
-  it("break-after: page forces a break after the element", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 50, breakAfter: "page" }),
-        blockNode({ debugName: "B", blockSize: 50 }),
-        blockNode({ debugName: "C", blockSize: 50 }),
-      ],
+  test("break-after: page forces a break after the element", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:50px;break-after:page;margin:0;padding:0"></div>
+        <div style="height:50px;margin:0;padding:0"></div>
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+      const root = buildLayoutTree(container.firstElementChild);
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 1000,
+        fragmentainerBlockSize: 1000,
+        fragmentationType: "page",
+      }));
+
+      const res = {
+        pageCount: pages.length,
+        page0ChildCount: pages[0].childFragments.length,
+        page0BlockSize: pages[0].blockSize,
+        page1ChildCount: pages[1].childFragments.length,
+      };
+
+      container.remove();
+      return res;
     });
 
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 1000,
-      fragmentainerBlockSize: 1000,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(2);
-
-    // Page 1: only A
-    expect(pages[0].childFragments.length).toBe(1);
-    expect(pages[0].blockSize).toBe(50);
-
-    // Page 2: B + C
-    expect(pages[1].childFragments.length).toBe(2);
+    expect(result.pageCount).toBe(2);
+    expect(result.page0ChildCount).toBe(1);
+    expect(result.page0BlockSize).toBe(50);
+    expect(result.page1ChildCount).toBe(2);
   });
 
-  it("break-before on first child does nothing (already at top)", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 50, breakBefore: "page" }),
-        blockNode({ debugName: "B", blockSize: 50 }),
-      ],
+  test("break-before on first child does nothing (already at top)", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:50px;break-before:page;margin:0;padding:0"></div>
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+      const root = buildLayoutTree(container.firstElementChild);
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 1000,
+        fragmentainerBlockSize: 1000,
+        fragmentationType: "page",
+      }));
+
+      const res = {
+        pageCount: pages.length,
+        page0ChildCount: pages[0].childFragments.length,
+      };
+
+      container.remove();
+      return res;
     });
 
-    // First child has break-before but blockOffset is 0 → no effect
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 1000,
-      fragmentainerBlockSize: 1000,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(1);
-    expect(pages[0].childFragments.length).toBe(2);
+    expect(result.pageCount).toBe(1);
+    expect(result.page0ChildCount).toBe(2);
   });
 
-  it("break-after on last child does nothing", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 50 }),
-        blockNode({ debugName: "B", blockSize: 50, breakAfter: "page" }),
-      ],
+  test("break-after on last child does nothing", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+        <div style="height:50px;break-after:page;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+      const root = buildLayoutTree(container.firstElementChild);
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 1000,
+        fragmentainerBlockSize: 1000,
+        fragmentationType: "page",
+      }));
+
+      const res = { pageCount: pages.length };
+      container.remove();
+      return res;
     });
 
-    // Last child has break-after but no more children → no break
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 1000,
-      fragmentainerBlockSize: 1000,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(1);
+    expect(result.pageCount).toBe(1);
   });
 
-  it("multiple forced breaks produce multiple pages", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "ch1", blockSize: 50 }),
-        blockNode({ debugName: "ch2", blockSize: 50, breakBefore: "page" }),
-        blockNode({ debugName: "ch3", blockSize: 50, breakBefore: "page" }),
-        blockNode({ debugName: "ch4", blockSize: 50 }),
-      ],
+  test("multiple forced breaks produce multiple pages", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+        <div style="height:50px;break-before:page;margin:0;padding:0"></div>
+        <div style="height:50px;break-before:page;margin:0;padding:0"></div>
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+      const root = buildLayoutTree(container.firstElementChild);
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 1000,
+        fragmentainerBlockSize: 1000,
+        fragmentationType: "page",
+      }));
+
+      const res = {
+        pageCount: pages.length,
+        page0ChildCount: pages[0].childFragments.length,
+        page1ChildCount: pages[1].childFragments.length,
+        page2ChildCount: pages[2].childFragments.length,
+      };
+
+      container.remove();
+      return res;
     });
 
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 1000,
-      fragmentainerBlockSize: 1000,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(3);
-    expect(pages[0].childFragments.length).toBe(1); // ch1
-    expect(pages[1].childFragments.length).toBe(1); // ch2
-    expect(pages[2].childFragments.length).toBe(2); // ch3 + ch4
+    expect(result.pageCount).toBe(3);
+    expect(result.page0ChildCount).toBe(1);
+    expect(result.page1ChildCount).toBe(1);
+    expect(result.page2ChildCount).toBe(2);
   });
 
-  it("break-before: avoid does not force a break", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 50 }),
-        blockNode({ debugName: "B", blockSize: 50, breakBefore: "avoid" }),
-      ],
+  test("break-before: avoid does not force a break", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+        <div style="height:50px;break-before:avoid;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+      const root = buildLayoutTree(container.firstElementChild);
+
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 1000,
+        fragmentainerBlockSize: 1000,
+        fragmentationType: "page",
+      }));
+
+      const res = { pageCount: pages.length };
+      container.remove();
+      return res;
     });
 
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 1000,
-      fragmentainerBlockSize: 1000,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(1);
+    expect(result.pageCount).toBe(1);
   });
 });

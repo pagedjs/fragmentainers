@@ -1,107 +1,210 @@
-import { describe, it, expect } from "vitest";
-import { ConstraintSpace } from "../../src/core/constraint-space.js";
-import { BlockBreakToken } from "../../src/core/tokens.js";
-import { FRAGMENTATION_PAGE, FRAGMENTATION_COLUMN } from "../../src/core/constants.js";
-import { RepeatedTableHeader } from "../../src/modules/repeated-header.js";
-import { blockNode, tableNode, tableHeaderNode } from "../fixtures/nodes.js";
+import { test, expect } from "../browser-fixture.js";
 
-function pageSpace(blockSize = 300) {
-  return new ConstraintSpace({
-    availableInlineSize: 600,
-    availableBlockSize: blockSize,
-    fragmentainerBlockSize: blockSize,
-    fragmentationType: FRAGMENTATION_PAGE,
-  });
-}
+test.describe("RepeatedTableHeader.beforeChildren", () => {
+  test("returns layout request for thead on table continuation", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+      const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
-describe("RepeatedTableHeader.beforeChildren", () => {
-  it("returns layout request for thead on table continuation", () => {
-    const thead = tableHeaderNode({
-      children: [blockNode({ blockSize: 40 })],
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <table style="border-collapse:collapse;margin:0;padding:0">
+          <thead><tr><td style="height:40px;margin:0;padding:0">Header</td></tr></thead>
+          <tbody><tr><td style="height:100px;margin:0;padding:0">Row</td></tr></tbody>
+        </table>`;
+      document.body.appendChild(container);
+      const tableNode = buildLayoutTree(container.firstElementChild);
+
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 300,
+        fragmentainerBlockSize: 300,
+        fragmentationType: FRAGMENTATION_PAGE,
+      });
+
+      const breakToken = new BlockBreakToken(tableNode);
+      const res = RepeatedTableHeader.beforeChildren(tableNode, cs, breakToken);
+
+      container.remove();
+      return {
+        notNull: res !== null,
+        isRepeated: res ? res.isRepeated : null,
+        nodeIsThead: res ? res.node.isTableHeaderGroup : null,
+      };
     });
-    const table = tableNode({
-      children: [
-        thead,
-        blockNode({ blockSize: 100 }),
-      ],
-    });
-
-    const breakToken = new BlockBreakToken(table);
-    const result = RepeatedTableHeader.beforeChildren(table, pageSpace(), breakToken);
-
-    expect(result).not.toBeNull();
-    expect(result.node).toBe(thead);
+    expect(result.notNull).toBe(true);
     expect(result.isRepeated).toBe(true);
+    expect(result.nodeIsThead).toBe(true);
   });
 
-  it("returns null when there is no break token", () => {
-    const table = tableNode({
-      children: [
-        tableHeaderNode({ children: [blockNode({ blockSize: 40 })] }),
-        blockNode({ blockSize: 100 }),
-      ],
-    });
+  test("returns null when there is no break token", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+      const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
-    const result = RepeatedTableHeader.beforeChildren(table, pageSpace(), null);
-    expect(result).toBeNull();
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <table style="border-collapse:collapse;margin:0;padding:0">
+          <thead><tr><td style="height:40px;margin:0;padding:0">Header</td></tr></thead>
+          <tbody><tr><td style="height:100px;margin:0;padding:0">Row</td></tr></tbody>
+        </table>`;
+      document.body.appendChild(container);
+      const tableNode = buildLayoutTree(container.firstElementChild);
+
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 300,
+        fragmentainerBlockSize: 300,
+        fragmentationType: FRAGMENTATION_PAGE,
+      });
+
+      const res = RepeatedTableHeader.beforeChildren(tableNode, cs, null);
+      container.remove();
+      return { isNull: res === null };
+    });
+    expect(result.isNull).toBe(true);
   });
 
-  it("returns null for non-table nodes", () => {
-    const root = blockNode({
-      children: [blockNode({ blockSize: 100 })],
-    });
-    const breakToken = new BlockBreakToken(root, 0, 100, []);
+  test("returns null for non-table nodes", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+      const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
-    const result = RepeatedTableHeader.beforeChildren(root, pageSpace(), breakToken);
-    expect(result).toBeNull();
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+      const root = buildLayoutTree(container.firstElementChild);
+
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 300,
+        fragmentainerBlockSize: 300,
+        fragmentationType: FRAGMENTATION_PAGE,
+      });
+
+      const breakToken = new BlockBreakToken(root, 0, 100, []);
+      const res = RepeatedTableHeader.beforeChildren(root, cs, breakToken);
+      container.remove();
+      return { isNull: res === null };
+    });
+    expect(result.isNull).toBe(true);
   });
 
-  it("returns null in column fragmentation mode", () => {
-    const thead = tableHeaderNode({
-      children: [blockNode({ blockSize: 40 })],
-    });
-    const table = tableNode({
-      children: [thead, blockNode({ blockSize: 100 })],
-    });
+  test("returns null in column fragmentation mode", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { FRAGMENTATION_COLUMN } = await import("/src/core/constants.js");
+      const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
-    const cs = new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 300,
-      fragmentainerBlockSize: 300,
-      fragmentationType: FRAGMENTATION_COLUMN,
-    });
-    const breakToken = new BlockBreakToken(table);
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <table style="border-collapse:collapse;margin:0;padding:0">
+          <thead><tr><td style="height:40px;margin:0;padding:0">Header</td></tr></thead>
+          <tbody><tr><td style="height:100px;margin:0;padding:0">Row</td></tr></tbody>
+        </table>`;
+      document.body.appendChild(container);
+      const tableNode = buildLayoutTree(container.firstElementChild);
 
-    const result = RepeatedTableHeader.beforeChildren(table, cs, breakToken);
-    expect(result).toBeNull();
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 300,
+        fragmentainerBlockSize: 300,
+        fragmentationType: FRAGMENTATION_COLUMN,
+      });
+
+      const breakToken = new BlockBreakToken(tableNode);
+      const res = RepeatedTableHeader.beforeChildren(tableNode, cs, breakToken);
+      container.remove();
+      return { isNull: res === null };
+    });
+    expect(result.isNull).toBe(true);
   });
 
-  it("returns null when thead has an active break token", () => {
-    const thead = tableHeaderNode({
-      children: [blockNode({ blockSize: 40 })],
-    });
-    const table = tableNode({
-      children: [thead, blockNode({ blockSize: 100 })],
-    });
+  test("returns null when thead has an active break token", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+      const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
-    const theadBT = new BlockBreakToken(thead);
-    const breakToken = new BlockBreakToken(table);
-    breakToken.childBreakTokens = [theadBT];
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <table style="border-collapse:collapse;margin:0;padding:0">
+          <thead><tr><td style="height:40px;margin:0;padding:0">Header</td></tr></thead>
+          <tbody><tr><td style="height:100px;margin:0;padding:0">Row</td></tr></tbody>
+        </table>`;
+      document.body.appendChild(container);
+      const tableNode = buildLayoutTree(container.firstElementChild);
 
-    const result = RepeatedTableHeader.beforeChildren(table, pageSpace(), breakToken);
-    expect(result).toBeNull();
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 300,
+        fragmentainerBlockSize: 300,
+        fragmentationType: FRAGMENTATION_PAGE,
+      });
+
+      const thead = tableNode.children.find(c => c.isTableHeaderGroup);
+      const theadBT = new BlockBreakToken(thead);
+      const breakToken = new BlockBreakToken(tableNode);
+      breakToken.childBreakTokens = [theadBT];
+
+      const res = RepeatedTableHeader.beforeChildren(tableNode, cs, breakToken);
+      container.remove();
+      return { isNull: res === null };
+    });
+    expect(result.isNull).toBe(true);
   });
 
-  it("returns null when table has no thead", () => {
-    const table = tableNode({
-      children: [
-        blockNode({ blockSize: 100 }),
-        blockNode({ blockSize: 100 }),
-      ],
-    });
-    const breakToken = new BlockBreakToken(table);
+  test("returns null when table has no thead", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+      const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
-    const result = RepeatedTableHeader.beforeChildren(table, pageSpace(), breakToken);
-    expect(result).toBeNull();
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <table style="border-collapse:collapse;margin:0;padding:0">
+          <tbody>
+            <tr><td style="height:100px;margin:0;padding:0">Row 1</td></tr>
+            <tr><td style="height:100px;margin:0;padding:0">Row 2</td></tr>
+          </tbody>
+        </table>`;
+      document.body.appendChild(container);
+      const tableNode = buildLayoutTree(container.firstElementChild);
+
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 300,
+        fragmentainerBlockSize: 300,
+        fragmentationType: FRAGMENTATION_PAGE,
+      });
+
+      const breakToken = new BlockBreakToken(tableNode);
+      const res = RepeatedTableHeader.beforeChildren(tableNode, cs, breakToken);
+      container.remove();
+      return { isNull: res === null };
+    });
+    expect(result.isNull).toBe(true);
   });
 });

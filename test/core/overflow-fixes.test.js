@@ -1,225 +1,307 @@
-import { describe, it, expect } from "vitest";
-import { createFragments } from "../../src/core/layout-request.js";
-import { ConstraintSpace } from "../../src/core/constraint-space.js";
-import { blockNode, inlineNode, textToInlineItems } from "../fixtures/nodes.js";
+import { test, expect } from "../browser-fixture.js";
 
-describe("Overflow fixes: margin truncation at breaks", () => {
-  it("trailing margin is truncated when a child breaks", () => {
-    // A paragraph with margin-bottom that breaks across pages.
-    // The margin should NOT be added on the page where the break occurs.
-    const words = Array.from({ length: 100 }, () => "word").join(" ");
-    const para = inlineNode({
-      debugName: "p",
-      inlineItemsData: textToInlineItems(words),
-      lineHeight: 20,
-      measureText: (t) => t.length * 8,
-      availableInlineSize: 200,
-      marginBlockEnd: 16,
+test.describe("Overflow fixes: margin truncation at breaks", () => {
+  test("trailing margin is truncated when a child breaks", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const words = Array.from({ length: 100 }, () => "word").join(" ");
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:200px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <p style="width:200px;font:16px monospace;line-height:20px;margin:0 0 16px 0;padding:0">${words}</p>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 200,
+        availableBlockSize: 100,
+        fragmentainerBlockSize: 100,
+        fragmentationType: "page",
+      }));
+
+      const r = {
+        length: pages.length,
+        p0BlockSize: pages[0].blockSize,
+      };
+      container.remove();
+      return r;
     });
 
-    const root = blockNode({ children: [para] });
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 200,
-      availableBlockSize: 100,
-      fragmentainerBlockSize: 100,
-      fragmentationType: "page",
-    }));
-
-    // Page 1 should NOT exceed 100px (the margin-bottom is truncated at break)
-    expect(pages.length > 1).toBeTruthy();
-    expect(pages[0].blockSize <= 100).toBeTruthy();
+    expect(result.length > 1).toBeTruthy();
+    expect(result.p0BlockSize <= 100).toBeTruthy();
   });
 
-  it("trailing margin is truncated when next sibling is pushed", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "a", blockSize: 90, marginBlockEnd: 20 }),
-        blockNode({ debugName: "b", blockSize: 50 }),
-      ],
+  test("trailing margin is truncated when next sibling is pushed", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:200px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:90px;margin:0 0 20px 0;padding:0"></div>
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 200,
+        availableBlockSize: 100,
+        fragmentainerBlockSize: 100,
+        fragmentationType: "page",
+      }));
+
+      const r = { p0BlockSize: pages[0].blockSize };
+      container.remove();
+      return r;
     });
 
-    // 100px page: child 'a' is 90px, margin-end 20 would push to 110.
-    // But 'b' gets pushed, so 'a's trailing margin is truncated.
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 200,
-      availableBlockSize: 100,
-      fragmentainerBlockSize: 100,
-      fragmentationType: "page",
-    }));
-    expect(pages[0].blockSize <= 100).toBeTruthy();
+    expect(result.p0BlockSize <= 100).toBeTruthy();
   });
 
-  it("trailing margin is included when all children fit", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "a", blockSize: 30, marginBlockEnd: 10 }),
-        blockNode({ debugName: "b", blockSize: 30 }),
-      ],
+  test("trailing margin is included when all children fit", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:200px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:30px;margin:0 0 10px 0;padding:0"></div>
+        <div style="height:30px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 200,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const r = {
+        length: pages.length,
+        p0BlockSize: pages[0].blockSize,
+      };
+      container.remove();
+      return r;
     });
 
-    // 200px page: both fit (30 + 10 margin + 30 = 70). Trailing margin of 'b' is 0.
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 200,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(1);
-    // blockSize should include margin between children
-    expect(pages[0].blockSize >= 70).toBeTruthy();
-  });
-});
-
-describe("Overflow fixes: availableBlockSize propagation", () => {
-  it("inline content respects parent padding reservation", () => {
-    // Container with 20px bottom padding. Inline child should not fill
-    // all the way to the page boundary — it should leave room for padding.
-    const words = Array.from({ length: 200 }, () => "word").join(" ");
-    const para = inlineNode({
-      debugName: "p",
-      inlineItemsData: textToInlineItems(words),
-      lineHeight: 20,
-      measureText: (t) => t.length * 8,
-      availableInlineSize: 200,
-    });
-
-    const container = blockNode({
-      debugName: "section",
-      children: [para],
-      paddingBlockEnd: 20,
-    });
-
-    const root = blockNode({ children: [container] });
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 200,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-
-    // The section fragment on page 1 should not exceed 200px.
-    // The inline content should stop at 180px (200 - 20px padding).
-    expect(pages[0].blockSize <= 200).toBeTruthy();
-  });
-
-  it("leaf node respects parent padding reservation", () => {
-    const container = blockNode({
-      debugName: "section",
-      children: [
-        blockNode({ debugName: "tall-div", blockSize: 300 }),
-      ],
-      paddingBlockEnd: 20,
-    });
-
-    const root = blockNode({ children: [container] });
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 200,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-
-    // Leaf (300px) should fragment respecting the 20px padding reservation
-    expect(pages[0].blockSize <= 200).toBeTruthy();
+    expect(result.length).toBe(1);
+    expect(result.p0BlockSize >= 70).toBeTruthy();
   });
 });
 
-describe("Overflow fixes: insufficient space for inline content", () => {
-  it("inline content defers to next page when less than one line fits", () => {
-    // Place content so that only a fraction of a line height remains,
-    // then start a paragraph. It should NOT force one line and overflow.
-    const words = Array.from({ length: 50 }, () => "word").join(" ");
-    const para = inlineNode({
-      debugName: "p",
-      inlineItemsData: textToInlineItems(words),
-      lineHeight: 20,
-      measureText: (t) => t.length * 8,
-      availableInlineSize: 200,
+test.describe("Overflow fixes: availableBlockSize propagation", () => {
+  test("inline content respects parent padding reservation", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const words = Array.from({ length: 200 }, () => "word").join(" ");
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:200px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="padding:0 0 20px 0;margin:0">
+          <p style="width:200px;font:16px monospace;line-height:20px;margin:0;padding:0">${words}</p>
+        </div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 200,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const r = { p0BlockSize: pages[0].blockSize };
+      container.remove();
+      return r;
     });
 
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "fill", blockSize: 90 }), // leaves 10px
-        para, // needs 20px per line — should defer
-      ],
-    });
-
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 200,
-      availableBlockSize: 100,
-      fragmentainerBlockSize: 100,
-      fragmentationType: "page",
-    }));
-
-    // Page 1: 'fill' (90px) + paragraph defers (0px) = 90px. No overflow.
-    expect(pages[0].blockSize <= 100).toBeTruthy();
-    expect(pages.length >= 2).toBeTruthy();
+    expect(result.p0BlockSize <= 200).toBeTruthy();
   });
 
-  it("inline content still places one line at top of empty page", () => {
-    // If the paragraph is the first thing on a page, it MUST place at
-    // least one line to guarantee progress, even if the page is too short.
-    const words = Array.from({ length: 50 }, () => "word").join(" ");
-    const para = inlineNode({
-      debugName: "p",
-      inlineItemsData: textToInlineItems(words),
-      lineHeight: 20,
-      measureText: (t) => t.length * 8,
-      availableInlineSize: 200,
+  test("leaf node respects parent padding reservation", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:200px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="padding:0 0 20px 0;margin:0">
+          <div style="height:300px;margin:0;padding:0"></div>
+        </div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 200,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const r = { p0BlockSize: pages[0].blockSize };
+      container.remove();
+      return r;
     });
 
-    const root = blockNode({ children: [para] });
+    expect(result.p0BlockSize <= 200).toBeTruthy();
+  });
+});
 
-    // Page height 15px < lineHeight 20px. Still must place one line.
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 200,
-      availableBlockSize: 15,
-      fragmentainerBlockSize: 15,
-      fragmentationType: "page",
-    }));
-    expect(pages.length > 1).toBeTruthy();
-    // First page should have at least one line (20px, overflows by 5px — acceptable for progress)
-    expect(pages[0].blockSize >= 20).toBeTruthy();
+test.describe("Overflow fixes: insufficient space for inline content", () => {
+  test("inline content defers to next page when less than one line fits", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const words = Array.from({ length: 50 }, () => "word").join(" ");
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:200px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:90px;margin:0;padding:0"></div>
+        <p style="width:200px;font:16px monospace;line-height:20px;margin:0;padding:0">${words}</p>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 200,
+        availableBlockSize: 100,
+        fragmentainerBlockSize: 100,
+        fragmentationType: "page",
+      }));
+
+      const r = {
+        p0BlockSize: pages[0].blockSize,
+        length: pages.length,
+      };
+      container.remove();
+      return r;
+    });
+
+    expect(result.p0BlockSize <= 100).toBeTruthy();
+    expect(result.length >= 2).toBeTruthy();
   });
 
-  it("margin collapsing works between siblings", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "a", blockSize: 40, marginBlockEnd: 20 }),
-        blockNode({ debugName: "b", blockSize: 40, marginBlockStart: 15 }),
-        blockNode({ debugName: "c", blockSize: 40 }),
-      ],
+  test("inline content still places one line at top of empty page", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const words = Array.from({ length: 50 }, () => "word").join(" ");
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:200px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <p style="width:200px;font:16px monospace;line-height:20px;margin:0;padding:0">${words}</p>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 200,
+        availableBlockSize: 15,
+        fragmentainerBlockSize: 15,
+        fragmentationType: "page",
+      }));
+
+      const r = {
+        length: pages.length,
+        p0BlockSize: pages[0].blockSize,
+      };
+      container.remove();
+      return r;
     });
 
-    // Margins collapse: max(20, 15) = 20 between a and b.
-    // Total: 40 + 20 + 40 + 40 = 140
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 200,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(1);
-    expect(pages[0].blockSize).toBe(140);
+    expect(result.length > 1).toBeTruthy();
+    expect(result.p0BlockSize >= 20).toBeTruthy();
   });
 
-  it("parent padding is included in fragment blockSize", () => {
-    const container = blockNode({
-      debugName: "padded",
-      children: [blockNode({ blockSize: 50 })],
-      paddingBlockStart: 10,
-      paddingBlockEnd: 10,
+  test("margin collapsing works between siblings", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:200px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:40px;margin:0 0 20px 0;padding:0"></div>
+        <div style="height:40px;margin:15px 0 0 0;padding:0"></div>
+        <div style="height:40px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 200,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const r = {
+        length: pages.length,
+        p0BlockSize: pages[0].blockSize,
+      };
+      container.remove();
+      return r;
     });
 
-    const root = blockNode({ children: [container] });
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 200,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(1);
-    // 10 (padding-top) + 50 (child) + 10 (padding-bottom) = 70
-    expect(pages[0].childFragments[0].blockSize).toBe(70);
+    expect(result.length).toBe(1);
+    expect(result.p0BlockSize).toBe(140);
+  });
+
+  test("parent padding is included in fragment blockSize", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:200px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="padding:10px 0;margin:0">
+          <div style="height:50px;margin:0;padding:0"></div>
+        </div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 200,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const r = {
+        length: pages.length,
+        p0Child0BlockSize: pages[0].childFragments[0].blockSize,
+      };
+      container.remove();
+      return r;
+    });
+
+    expect(result.length).toBe(1);
+    expect(result.p0Child0BlockSize).toBe(70);
   });
 });

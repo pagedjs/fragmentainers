@@ -1,108 +1,187 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { collectInlineItems } from "../../src/dom/collect-inlines.js";
-import {
-  INLINE_TEXT,
-  INLINE_CONTROL,
-  INLINE_OPEN_TAG,
-  INLINE_CLOSE_TAG,
-  INLINE_ATOMIC,
-} from "../../src/core/constants.js";
+import { test, expect } from "../browser-fixture.js";
 
-let container;
+test.describe("collectInlineItems", () => {
+  test("collects plain text as a single INLINE_TEXT item", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
+      const { INLINE_TEXT } = await import("/src/core/constants.js");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML = "<p>Hello world</p>";
+      const p = container.querySelector("p");
+      const { items, textContent } = collectInlineItems(p.childNodes);
+      container.remove();
+      return {
+        length: items.length,
+        type: items[0].type,
+        startOffset: items[0].startOffset,
+        endOffset: items[0].endOffset,
+        textContent,
+        INLINE_TEXT,
+      };
+    });
 
-beforeEach(() => {
-  container = document.createElement("div");
-  document.body.appendChild(container);
-});
-
-afterEach(() => {
-  container.remove();
-});
-
-describe("collectInlineItems", () => {
-  it("collects plain text as a single INLINE_TEXT item", () => {
-    container.innerHTML = "<p>Hello world</p>";
-    const p = container.querySelector("p");
-    const { items, textContent } = collectInlineItems(p.childNodes);
-
-    expect(items).toHaveLength(1);
-    expect(items[0].type).toBe(INLINE_TEXT);
-    expect(items[0].startOffset).toBe(0);
-    expect(items[0].endOffset).toBe(11);
-    expect(textContent).toBe("Hello world");
+    expect(result.length).toBe(1);
+    expect(result.type).toBe(result.INLINE_TEXT);
+    expect(result.startOffset).toBe(0);
+    expect(result.endOffset).toBe(11);
+    expect(result.textContent).toBe("Hello world");
   });
 
-  it("collects mixed inline elements with open/close tags", () => {
-    container.innerHTML = "<p>Hello <em>world</em></p>";
-    const p = container.querySelector("p");
-    const { items } = collectInlineItems(p.childNodes);
+  test("collects mixed inline elements with open/close tags", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
+      const { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } = await import("/src/core/constants.js");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML = "<p>Hello <em>world</em></p>";
+      const p = container.querySelector("p");
+      const { items } = collectInlineItems(p.childNodes);
+      container.remove();
+      return {
+        length: items.length,
+        types: items.map((i) => i.type),
+        tag1: items[1].element.tagName.toLowerCase(),
+        tag3: items[3].element.tagName.toLowerCase(),
+        INLINE_TEXT,
+        INLINE_OPEN_TAG,
+        INLINE_CLOSE_TAG,
+      };
+    });
 
-    expect(items).toHaveLength(4);
-    expect(items[0].type).toBe(INLINE_TEXT);
-    expect(items[1].type).toBe(INLINE_OPEN_TAG);
-    expect(items[1].element.tagName.toLowerCase()).toBe("em");
-    expect(items[2].type).toBe(INLINE_TEXT);
-    expect(items[3].type).toBe(INLINE_CLOSE_TAG);
-    expect(items[3].element.tagName.toLowerCase()).toBe("em");
+    expect(result.length).toBe(4);
+    expect(result.types[0]).toBe(result.INLINE_TEXT);
+    expect(result.types[1]).toBe(result.INLINE_OPEN_TAG);
+    expect(result.tag1).toBe("em");
+    expect(result.types[2]).toBe(result.INLINE_TEXT);
+    expect(result.types[3]).toBe(result.INLINE_CLOSE_TAG);
+    expect(result.tag3).toBe("em");
   });
 
-  it("collects <br> as INLINE_CONTROL", () => {
-    container.innerHTML = "<p>Line one<br>Line two</p>";
-    const p = container.querySelector("p");
-    const { items, textContent } = collectInlineItems(p.childNodes);
+  test("collects <br> as INLINE_CONTROL", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
+      const { INLINE_TEXT, INLINE_CONTROL } = await import("/src/core/constants.js");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML = "<p>Line one<br>Line two</p>";
+      const p = container.querySelector("p");
+      const { items, textContent } = collectInlineItems(p.childNodes);
+      container.remove();
+      return {
+        length: items.length,
+        types: items.map((i) => i.type),
+        brTag: items[1].domNode.tagName.toLowerCase(),
+        textContent,
+        INLINE_TEXT,
+        INLINE_CONTROL,
+      };
+    });
 
-    expect(items).toHaveLength(3);
-    expect(items[0].type).toBe(INLINE_TEXT);
-    expect(items[1].type).toBe(INLINE_CONTROL);
-    expect(items[1].domNode.tagName.toLowerCase()).toBe("br");
-    expect(items[2].type).toBe(INLINE_TEXT);
-    expect(textContent).toBe("Line one\nLine two");
+    expect(result.length).toBe(3);
+    expect(result.types[0]).toBe(result.INLINE_TEXT);
+    expect(result.types[1]).toBe(result.INLINE_CONTROL);
+    expect(result.brTag).toBe("br");
+    expect(result.types[2]).toBe(result.INLINE_TEXT);
+    expect(result.textContent).toBe("Line one\nLine two");
   });
 
-  it("skips display:none elements", () => {
-    container.innerHTML =
-      "<p>visible<span style=\"display:none\">hidden</span></p>";
-    const p = container.querySelector("p");
-    const { items, textContent } = collectInlineItems(p.childNodes);
+  test("skips display:none elements", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
+      const { INLINE_TEXT } = await import("/src/core/constants.js");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML =
+        "<p>visible<span style=\"display:none\">hidden</span></p>";
+      const p = container.querySelector("p");
+      const { items, textContent } = collectInlineItems(p.childNodes);
+      container.remove();
+      return {
+        length: items.length,
+        type: items[0].type,
+        textContent,
+        INLINE_TEXT,
+      };
+    });
 
-    expect(items).toHaveLength(1);
-    expect(items[0].type).toBe(INLINE_TEXT);
-    expect(textContent).toBe("visible");
+    expect(result.length).toBe(1);
+    expect(result.type).toBe(result.INLINE_TEXT);
+    expect(result.textContent).toBe("visible");
   });
 
-  it("collects inline-block as INLINE_ATOMIC", () => {
-    container.innerHTML =
-      "<p>text<span style=\"display:inline-block\">box</span></p>";
-    const p = container.querySelector("p");
-    const { items } = collectInlineItems(p.childNodes);
+  test("collects inline-block as INLINE_ATOMIC", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
+      const { INLINE_TEXT, INLINE_ATOMIC } = await import("/src/core/constants.js");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML =
+        "<p>text<span style=\"display:inline-block\">box</span></p>";
+      const p = container.querySelector("p");
+      const { items } = collectInlineItems(p.childNodes);
+      container.remove();
+      return {
+        length: items.length,
+        types: items.map((i) => i.type),
+        tag: items[1].element.tagName.toLowerCase(),
+        INLINE_TEXT,
+        INLINE_ATOMIC,
+      };
+    });
 
-    expect(items).toHaveLength(2);
-    expect(items[0].type).toBe(INLINE_TEXT);
-    expect(items[1].type).toBe(INLINE_ATOMIC);
-    expect(items[1].element.tagName.toLowerCase()).toBe("span");
+    expect(result.length).toBe(2);
+    expect(result.types[0]).toBe(result.INLINE_TEXT);
+    expect(result.types[1]).toBe(result.INLINE_ATOMIC);
+    expect(result.tag).toBe("span");
   });
 
-  it("includes whitespace-only text nodes", () => {
-    container.innerHTML = "<p><em>a</em> <em>b</em></p>";
-    const p = container.querySelector("p");
-    const { items } = collectInlineItems(p.childNodes);
+  test("includes whitespace-only text nodes", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
+      const { INLINE_TEXT } = await import("/src/core/constants.js");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML = "<p><em>a</em> <em>b</em></p>";
+      const p = container.querySelector("p");
+      const { items } = collectInlineItems(p.childNodes);
+      container.remove();
+      const textItems = items.filter((i) => i.type === INLINE_TEXT);
+      return {
+        textItemsLength: textItems.length,
+        whitespaceSize: textItems[1].endOffset - textItems[1].startOffset,
+      };
+    });
 
     // OPEN + TEXT("a") + CLOSE + TEXT(" ") + OPEN + TEXT("b") + CLOSE
-    const textItems = items.filter((i) => i.type === INLINE_TEXT);
-    expect(textItems).toHaveLength(3);
-    expect(textItems[1].endOffset - textItems[1].startOffset).toBe(1);
+    expect(result.textItemsLength).toBe(3);
+    expect(result.whitespaceSize).toBe(1);
   });
 
-  it("collects items from an array of nodes", () => {
-    container.innerHTML = "hello<span>world</span>!";
-    const nodes = Array.from(container.childNodes);
-    const { items, textContent } = collectInlineItems(nodes);
+  test("collects items from an array of nodes", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
+      const { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } = await import("/src/core/constants.js");
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML = "hello<span>world</span>!";
+      const nodes = Array.from(container.childNodes);
+      const { items, textContent } = collectInlineItems(nodes);
+      container.remove();
+      return {
+        types: items.map((i) => i.type),
+        textContent,
+        INLINE_TEXT,
+        INLINE_OPEN_TAG,
+        INLINE_CLOSE_TAG,
+      };
+    });
 
-    expect(items[0].type).toBe(INLINE_TEXT);
-    expect(items[1].type).toBe(INLINE_OPEN_TAG);
-    expect(items[2].type).toBe(INLINE_TEXT);
-    expect(items[3].type).toBe(INLINE_CLOSE_TAG);
-    expect(items[4].type).toBe(INLINE_TEXT);
-    expect(textContent).toBe("helloworld!");
+    expect(result.types[0]).toBe(result.INLINE_TEXT);
+    expect(result.types[1]).toBe(result.INLINE_OPEN_TAG);
+    expect(result.types[2]).toBe(result.INLINE_TEXT);
+    expect(result.types[3]).toBe(result.INLINE_CLOSE_TAG);
+    expect(result.types[4]).toBe(result.INLINE_TEXT);
+    expect(result.textContent).toBe("helloworld!");
   });
 });

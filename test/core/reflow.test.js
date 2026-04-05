@@ -1,319 +1,438 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { ConstraintSpace } from "../../src/core/constraint-space.js";
-import { FragmentedFlow } from "../../src/core/fragmented-flow.js";
-import { blockNode } from "../fixtures/nodes.js";
-import "../../src/dom/fragment-container.js"; // registers <fragment-container> custom element
+import { test, expect } from "../browser-fixture.js";
 
-describe("FragmentedFlow.reflow()", () => {
-  function makeLayout(children, blockSize = 300) {
-    const root = blockNode({ children });
-    const cs = new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: blockSize,
-      fragmentainerBlockSize: blockSize,
-      fragmentationType: "column",
-    });
-    return new FragmentedFlow(root, { constraintSpace: cs });
-  }
+test.describe("FragmentedFlow.reflow()", () => {
+  test("reflow(0) matches a fresh layout", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
 
-  it("reflow(0) matches a fresh layout", () => {
-    const children = [
-      blockNode({ blockSize: 200 }),
-      blockNode({ blockSize: 200 }),
-      blockNode({ blockSize: 200 }),
-    ];
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:200px;margin:0;padding:0"></div>
+        <div style="height:200px;margin:0;padding:0"></div>
+        <div style="height:200px;margin:0;padding:0"></div>
+      </div>`;
 
-    const fresh = makeLayout(children).flow().fragments;
+      const layout1 = new FragmentedFlow(template.content.cloneNode(true), { width: 600, height: 300 });
+      const fresh = layout1.flow().fragments;
 
-    const layout2 = makeLayout(children);
-    layout2.flow();
-    const reflowed = layout2.reflow(0);
+      const layout2 = new FragmentedFlow(template.content.cloneNode(true), { width: 600, height: 300 });
+      layout2.flow();
+      const reflowed = layout2.reflow(0);
 
-    expect(reflowed.fragments.length).toBe(fresh.length);
-    for (let i = 0; i < fresh.length; i++) {
-      expect(reflowed.fragments[i].blockSize).toBe(fresh[i].blockSize);
-      expect(reflowed.fragments[i].childFragments.length).toBe(
-        fresh[i].childFragments.length,
-      );
-    }
-  });
-
-  it("reflow(1) matches original fragments from index 1", () => {
-    const children = [
-      blockNode({ blockSize: 200 }),
-      blockNode({ blockSize: 200 }),
-      blockNode({ blockSize: 200 }),
-    ];
-
-    const fresh = makeLayout(children).flow().fragments;
-
-    const layout2 = makeLayout(children);
-    layout2.flow();
-    const reflowed = layout2.reflow(1);
-
-    expect(reflowed.fragments.length).toBe(fresh.length - 1);
-    for (let i = 0; i < reflowed.fragments.length; i++) {
-      expect(reflowed.fragments[i].blockSize).toBe(fresh[i + 1].blockSize);
-    }
-  });
-
-  it("reflow() restores counter state from preceding fragment", () => {
-    const section = blockNode({
-      counterReset: "paragraph 0",
-      children: [
-        blockNode({ blockSize: 200, counterIncrement: "paragraph 1" }),
-        blockNode({ blockSize: 200, counterIncrement: "paragraph 1" }),
-        blockNode({ blockSize: 200, counterIncrement: "paragraph 1" }),
-      ],
+      const r = {
+        lengthMatch: reflowed.fragments.length === fresh.length,
+        comparisons: [],
+      };
+      for (let i = 0; i < fresh.length; i++) {
+        r.comparisons.push({
+          blockSizeMatch: reflowed.fragments[i].blockSize === fresh[i].blockSize,
+          childrenMatch: reflowed.fragments[i].childFragments.length === fresh[i].childFragments.length,
+        });
+      }
+      layout1.destroy();
+      layout2.destroy();
+      return r;
     });
 
-    const layout = makeLayout([section]);
-    const fragments = layout.flow().fragments;
-
-    const countersBefore = fragments[0].counterState;
-
-    const reflowed = layout.reflow(1);
-
-    if (countersBefore) {
-      expect(reflowed.fragments[0].counterState).toBeDefined();
+    expect(result.lengthMatch).toBe(true);
+    for (const c of result.comparisons) {
+      expect(c.blockSizeMatch).toBe(true);
+      expect(c.childrenMatch).toBe(true);
     }
   });
 
-  it("reflow(0) on single-fragment content produces identical result", () => {
-    const children = [blockNode({ blockSize: 100 })];
+  test("reflow(1) matches original fragments from index 1", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
 
-    const layout = makeLayout(children);
-    const fresh = layout.flow().fragments;
-    expect(fresh.length).toBe(1);
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:200px;margin:0;padding:0"></div>
+        <div style="height:200px;margin:0;padding:0"></div>
+        <div style="height:200px;margin:0;padding:0"></div>
+      </div>`;
 
-    const reflowed = layout.reflow(0);
-    expect(reflowed.fragments[0].blockSize).toBe(fresh[0].blockSize);
-    expect(reflowed.fragments[0].breakToken).toBeNull();
+      const layout1 = new FragmentedFlow(template.content.cloneNode(true), { width: 600, height: 300 });
+      const fresh = layout1.flow().fragments;
+
+      const layout2 = new FragmentedFlow(template.content.cloneNode(true), { width: 600, height: 300 });
+      layout2.flow();
+      const reflowed = layout2.reflow(1);
+
+      const r = {
+        lengthMatch: reflowed.fragments.length === fresh.length - 1,
+        blockSizeComparisons: [],
+      };
+      for (let i = 0; i < reflowed.fragments.length; i++) {
+        r.blockSizeComparisons.push(
+          reflowed.fragments[i].blockSize === fresh[i + 1].blockSize
+        );
+      }
+      layout1.destroy();
+      layout2.destroy();
+      return r;
+    });
+
+    expect(result.lengthMatch).toBe(true);
+    for (const match of result.blockSizeComparisons) {
+      expect(match).toBe(true);
+    }
+  });
+
+  test("reflow() restores counter state from preceding fragment", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
+
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0;padding:0">
+        <div style="counter-reset:paragraph 0;margin:0;padding:0">
+          <div style="height:200px;counter-increment:paragraph 1;margin:0;padding:0"></div>
+          <div style="height:200px;counter-increment:paragraph 1;margin:0;padding:0"></div>
+          <div style="height:200px;counter-increment:paragraph 1;margin:0;padding:0"></div>
+        </div>
+      </div>`;
+
+      const layout = new FragmentedFlow(template.content, { width: 600, height: 300 });
+      const fragments = layout.flow().fragments;
+
+      const countersBefore = fragments[0].counterState;
+      const reflowed = layout.reflow(1);
+
+      let reflowedHasCounterState = false;
+      if (countersBefore) {
+        reflowedHasCounterState = reflowed.fragments[0].counterState !== undefined;
+      }
+      layout.destroy();
+      return { hadCountersBefore: !!countersBefore, reflowedHasCounterState };
+    });
+
+    if (result.hadCountersBefore) {
+      expect(result.reflowedHasCounterState).toBe(true);
+    }
+  });
+
+  test("reflow(0) on single-fragment content produces identical result", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
+
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+      </div>`;
+
+      const layout = new FragmentedFlow(template.content, { width: 600, height: 300 });
+      const fresh = layout.flow().fragments;
+
+      const reflowed = layout.reflow(0);
+      const r = {
+        freshLength: fresh.length,
+        blockSizeMatch: reflowed.fragments[0].blockSize === fresh[0].blockSize,
+        breakTokenNull: reflowed.fragments[0].breakToken === null,
+      };
+      layout.destroy();
+      return r;
+    });
+
+    expect(result.freshLength).toBe(1);
+    expect(result.blockSizeMatch).toBe(true);
+    expect(result.breakTokenNull).toBe(true);
   });
 });
 
-describe("FragmentedFlow.reflow() (browser)", () => {
-  let layout;
+test.describe("FragmentedFlow.reflow() (browser)", () => {
+  test("reflow(0) after height change produces different fragment count", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
 
-  afterEach(() => {
-    layout?.destroy();
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0; padding:0;">
+        <div id="target" style="height: 200px; margin: 0;"></div>
+      </div>`;
+      const layout = new FragmentedFlow(template.content, {
+        width: 400,
+        height: 100,
+      });
+      const flow = layout.flow();
+      const originalCount = flow.fragmentainerCount;
+
+      const target = layout.contentRoot.querySelector("#target");
+      target.style.height = "50px";
+
+      const newFlow = layout.reflow(0);
+      const r = {
+        originalCountGte2: originalCount >= 2,
+        newCount: newFlow.fragmentainerCount,
+      };
+      layout.destroy();
+      return r;
+    });
+
+    expect(result.originalCountGte2).toBe(true);
+    expect(result.newCount).toBe(1);
   });
 
-  it("reflow(0) after height change produces different fragment count", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `<div style="margin:0; padding:0;">
-      <div id="target" style="height: 200px; margin: 0;"></div>
-    </div>`;
-    layout = new FragmentedFlow(template.content, {
-      width: 400,
-      height: 100,
+  test("reflow(0) after height increase produces more fragments", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
+
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0; padding:0;">
+        <div id="target" style="height: 100px; margin: 0;"></div>
+      </div>`;
+      const layout = new FragmentedFlow(template.content, {
+        width: 400,
+        height: 100,
+      });
+      const flow = layout.flow();
+      const originalCount = flow.fragmentainerCount;
+
+      const target = layout.contentRoot.querySelector("#target");
+      target.style.height = "350px";
+
+      const newFlow = layout.reflow(0);
+      const r = {
+        originalCount,
+        newCountGt1: newFlow.fragmentainerCount > 1,
+      };
+      layout.destroy();
+      return r;
     });
-    const flow = layout.flow();
-    const originalCount = flow.fragmentainerCount;
-    expect(originalCount).toBeGreaterThanOrEqual(2);
 
-    // Shrink the content to fit in one fragmentainer
-    const target = layout.contentRoot.querySelector("#target");
-    target.style.height = "50px";
-
-    const newFlow = layout.reflow(0);
-    expect(newFlow.fragmentainerCount).toBe(1);
+    expect(result.originalCount).toBe(1);
+    expect(result.newCountGt1).toBe(true);
   });
 
-  it("reflow(0) after height increase produces more fragments", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `<div style="margin:0; padding:0;">
-      <div id="target" style="height: 100px; margin: 0;"></div>
-    </div>`;
-    layout = new FragmentedFlow(template.content, {
-      width: 400,
-      height: 100,
+  test("reflow(1) preserves fragment 0 and re-layouts from index 1", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
+
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0; padding:0;">
+        <div style="height: 100px; margin: 0;"></div>
+        <div style="height: 100px; margin: 0;"></div>
+        <div style="height: 100px; margin: 0;"></div>
+      </div>`;
+      const layout = new FragmentedFlow(template.content, {
+        width: 400,
+        height: 150,
+      });
+      const flow = layout.flow();
+
+      const frag0BlockSize = flow.fragments[0].blockSize;
+      const originalCount = flow.fragmentainerCount;
+
+      const newFlow = layout.reflow(1);
+      const r = {
+        originalCount,
+        newFlowLengthGt0: newFlow.length > 0,
+        newFlowTagName: newFlow[0].tagName.toLowerCase(),
+        frag0BlockSizePreserved: flow.fragments[0].blockSize === frag0BlockSize,
+      };
+      layout.destroy();
+      return r;
     });
-    const flow = layout.flow();
-    expect(flow.fragmentainerCount).toBe(1);
 
-    // Grow the content
-    const target = layout.contentRoot.querySelector("#target");
-    target.style.height = "350px";
-
-    const newFlow = layout.reflow(0);
-    expect(newFlow.fragmentainerCount).toBeGreaterThan(1);
-  });
-
-  it("reflow(1) preserves fragment 0 and re-layouts from index 1", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `<div style="margin:0; padding:0;">
-      <div style="height: 100px; margin: 0;"></div>
-      <div style="height: 100px; margin: 0;"></div>
-      <div style="height: 100px; margin: 0;"></div>
-    </div>`;
-    layout = new FragmentedFlow(template.content, {
-      width: 400,
-      height: 150,
-    });
-    const flow = layout.flow();
-
-    const frag0BlockSize = flow.fragments[0].blockSize;
-    const originalCount = flow.fragmentainerCount;
-    expect(originalCount).toBe(2);
-
-    // Reflow from index 1 — fragment 0 should be untouched
-    const newFlow = layout.reflow(1);
-    expect(newFlow.length).toBeGreaterThan(0);
-    expect(newFlow[0].tagName.toLowerCase()).toBe("fragment-container");
-    // Fragment 0 in the original flow should still be the same object
-    expect(flow.fragments[0].blockSize).toBe(frag0BlockSize);
+    expect(result.originalCount).toBe(2);
+    expect(result.newFlowLengthGt0).toBe(true);
+    expect(result.newFlowTagName).toBe("fragment-container");
+    expect(result.frag0BlockSizePreserved).toBe(true);
   });
 });
 
-describe("layout.reflow() returns FragmentationContext (browser)", () => {
-  let layout;
+test.describe("layout.reflow() returns FragmentationContext (browser)", () => {
+  test("reflow(0) returns a FragmentationContext with elements", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
 
-  afterEach(() => {
-    layout?.destroy();
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0; padding:0;">
+        <div style="height: 200px; margin: 0;"></div>
+      </div>`;
+      const layout = new FragmentedFlow(template.content, {
+        width: 400,
+        height: 100,
+      });
+      layout.flow();
+
+      const newFlow = layout.reflow(0);
+      const r = {
+        lengthGt0: newFlow.length > 0,
+        tagName: newFlow[0].tagName.toLowerCase(),
+      };
+      layout.destroy();
+      return r;
+    });
+
+    expect(result.lengthGt0).toBe(true);
+    expect(result.tagName).toBe("fragment-container");
   });
 
-  it("reflow(0) returns a FragmentationContext with elements", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `<div style="margin:0; padding:0;">
-      <div style="height: 200px; margin: 0;"></div>
-    </div>`;
-    layout = new FragmentedFlow(template.content, {
-      width: 400,
-      height: 100,
+  test("reflow(0) after size change returns updated elements", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
+
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0; padding:0;">
+        <div id="target" style="height: 200px; margin: 0;"></div>
+      </div>`;
+      const layout = new FragmentedFlow(template.content, {
+        width: 400,
+        height: 100,
+      });
+      layout.flow();
+
+      const target = layout.contentRoot.querySelector("#target");
+      target.style.height = "50px";
+
+      const newFlow = layout.reflow(0);
+      const r = {
+        fragmentainerCount: newFlow.fragmentainerCount,
+        length: newFlow.length,
+      };
+      layout.destroy();
+      return r;
     });
-    layout.flow();
 
-    const newFlow = layout.reflow(0);
-    expect(newFlow.length).toBeGreaterThan(0);
-    expect(newFlow[0].tagName.toLowerCase()).toBe("fragment-container");
-  });
-
-  it("reflow(0) after size change returns updated elements", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `<div style="margin:0; padding:0;">
-      <div id="target" style="height: 200px; margin: 0;"></div>
-    </div>`;
-    layout = new FragmentedFlow(template.content, {
-      width: 400,
-      height: 100,
-    });
-    layout.flow();
-
-    // Shrink content
-    const target = layout.contentRoot.querySelector("#target");
-    target.style.height = "50px";
-
-    const newFlow = layout.reflow(0);
-    expect(newFlow.fragmentainerCount).toBe(1);
-    expect(newFlow.length).toBe(1);
+    expect(result.fragmentainerCount).toBe(1);
+    expect(result.length).toBe(1);
   });
 });
 
-describe("FragmentContainerElement observers (browser)", () => {
-  let layout;
+test.describe("FragmentContainerElement observers (browser)", () => {
+  test("composed elements have correct fragmentIndex", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
 
-  afterEach(() => {
-    layout?.destroy();
-  });
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0; padding:0;">
+        <div style="height: 200px; margin: 0;"></div>
+      </div>`;
+      const layout = new FragmentedFlow(template.content, {
+        width: 400,
+        height: 100,
+      });
+      const flow = layout.flow();
 
-  it("composed elements have correct fragmentIndex", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `<div style="margin:0; padding:0;">
-      <div style="height: 200px; margin: 0;"></div>
-    </div>`;
-    layout = new FragmentedFlow(template.content, {
-      width: 400,
-      height: 100,
+      const indices = [];
+      for (let i = 0; i < flow.length; i++) {
+        indices.push(flow[i].fragmentIndex);
+      }
+      layout.destroy();
+      return { indices };
     });
-    const flow = layout.flow();
 
-    for (let i = 0; i < flow.length; i++) {
-      expect(flow[i].fragmentIndex).toBe(i);
+    for (let i = 0; i < result.indices.length; i++) {
+      expect(result.indices[i]).toBe(i);
     }
   });
 
-  it("startObserving() fires fragment-change on content mutation", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `<div style="margin:0; padding:0;">
-      <div style="height: 200px; margin: 0;"></div>
-    </div>`;
-    layout = new FragmentedFlow(template.content, {
-      width: 400,
-      height: 100,
-    });
-    const flow = layout.flow();
-    const fragEl = flow[0];
-    document.body.appendChild(fragEl);
+  test("startObserving() fires fragment-change on content mutation", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
 
-    const received = [];
-    fragEl.addEventListener("fragment-change", (e) => {
-      received.push(e.detail);
-    });
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0; padding:0;">
+        <div style="height: 200px; margin: 0;"></div>
+      </div>`;
+      const layout = new FragmentedFlow(template.content, {
+        width: 400,
+        height: 100,
+      });
+      const flow = layout.flow();
+      const fragEl = flow[0];
+      document.body.appendChild(fragEl);
 
-    fragEl.startObserving();
+      const received = [];
+      fragEl.addEventListener("fragment-change", (e) => {
+        received.push(e.detail);
+      });
 
-    // Wait for rAF (startObserving defers) + mutation + microtask
-    await new Promise((resolve) => {
-      requestAnimationFrame(() => {
-        // Mutate content inside the shadow DOM wrapper
-        const wrapper = fragEl.contentRoot;
-        const div = document.createElement("div");
-        div.style.height = "50px";
-        wrapper.appendChild(div);
+      fragEl.startObserving();
 
-        // Wait for microtask coalescing
-        queueMicrotask(() => {
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          const wrapper = fragEl.contentRoot;
+          const div = document.createElement("div");
+          div.style.height = "50px";
+          wrapper.appendChild(div);
+
           queueMicrotask(() => {
-            resolve();
+            queueMicrotask(() => {
+              resolve();
+            });
           });
         });
       });
+
+      const r = {
+        receivedLength: received.length,
+        receivedIndex: received.length > 0 ? received[0].index : null,
+      };
+      fragEl.remove();
+      layout.destroy();
+      return r;
     });
 
-    expect(received.length).toBe(1);
-    expect(received[0].index).toBe(0);
-    fragEl.remove();
+    expect(result.receivedLength).toBe(1);
+    expect(result.receivedIndex).toBe(0);
   });
 
-  it("stopObserving() prevents further events", async () => {
-    const template = document.createElement("template");
-    template.innerHTML = `<div style="margin:0; padding:0;">
-      <div style="height: 200px; margin: 0;"></div>
-    </div>`;
-    layout = new FragmentedFlow(template.content, {
-      width: 400,
-      height: 100,
-    });
-    const flow = layout.flow();
-    const fragEl = flow[0];
-    document.body.appendChild(fragEl);
+  test("stopObserving() prevents further events", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      await import("/src/dom/fragment-container.js");
 
-    const received = [];
-    fragEl.addEventListener("fragment-change", (e) => {
-      received.push(e.detail);
-    });
+      const template = document.createElement("template");
+      template.innerHTML = `<div style="margin:0; padding:0;">
+        <div style="height: 200px; margin: 0;"></div>
+      </div>`;
+      const layout = new FragmentedFlow(template.content, {
+        width: 400,
+        height: 100,
+      });
+      const flow = layout.flow();
+      const fragEl = flow[0];
+      document.body.appendChild(fragEl);
 
-    fragEl.startObserving();
+      const received = [];
+      fragEl.addEventListener("fragment-change", (e) => {
+        received.push(e.detail);
+      });
 
-    // Wait for rAF to attach observers, then stop
-    await new Promise((resolve) => {
-      requestAnimationFrame(() => {
-        fragEl.stopObserving();
+      fragEl.startObserving();
 
-        // Mutate content
-        const wrapper = fragEl.contentRoot;
-        wrapper.appendChild(document.createElement("div"));
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          fragEl.stopObserving();
 
-        queueMicrotask(() => {
+          const wrapper = fragEl.contentRoot;
+          wrapper.appendChild(document.createElement("div"));
+
           queueMicrotask(() => {
-            resolve();
+            queueMicrotask(() => {
+              resolve();
+            });
           });
         });
       });
+
+      const r = { receivedLength: received.length };
+      fragEl.remove();
+      layout.destroy();
+      return r;
     });
 
-    expect(received.length).toBe(0);
-    fragEl.remove();
+    expect(result.receivedLength).toBe(0);
   });
 });

@@ -1,129 +1,210 @@
-import { describe, it, expect } from "vitest";
-import { BlockBreakToken, InlineBreakToken } from "../../src/core/tokens.js";
-import { findChildBreakToken, isMonolithic } from "../../src/core/helpers.js";
-import { blockNode, replacedNode, scrollableNode } from "../fixtures/nodes.js";
+import { test, expect } from "../browser-fixture.js";
 
-describe("BlockBreakToken", () => {
-  it("createBreakBefore sets correct flags", () => {
-    const node = blockNode({ debugName: "pushed" });
-    const token = BlockBreakToken.createBreakBefore(node, false);
-    expect(token.isBreakBefore).toBe(true);
-    expect(token.isForcedBreak).toBe(false);
-    expect(token.node).toBe(node);
+test.describe("BlockBreakToken", () => {
+  test("createBreakBefore sets correct flags", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+      const node = blockNode({ debugName: "pushed" });
+      const token = BlockBreakToken.createBreakBefore(node, false);
+      return {
+        isBreakBefore: token.isBreakBefore,
+        isForcedBreak: token.isForcedBreak,
+        nodeIsSame: token.node === node,
+      };
+    });
+    expect(result.isBreakBefore).toBe(true);
+    expect(result.isForcedBreak).toBe(false);
+    expect(result.nodeIsSame).toBe(true);
   });
 
-  it("createBreakBefore with forced break", () => {
-    const node = blockNode();
-    const token = BlockBreakToken.createBreakBefore(node, true);
-    expect(token.isBreakBefore).toBe(true);
-    expect(token.isForcedBreak).toBe(true);
+  test("createBreakBefore with forced break", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+      const token = BlockBreakToken.createBreakBefore(blockNode(), true);
+      return { isBreakBefore: token.isBreakBefore, isForcedBreak: token.isForcedBreak };
+    });
+    expect(result.isBreakBefore).toBe(true);
+    expect(result.isForcedBreak).toBe(true);
   });
 
-  it("createRepeated sets correct flags", () => {
-    const node = blockNode({ debugName: "thead" });
-    const token = BlockBreakToken.createRepeated(node, 3);
-    expect(token.isRepeated).toBe(true);
-    expect(token.sequenceNumber).toBe(3);
-    expect(token.childBreakTokens).toEqual([]);
+  test("createRepeated sets correct flags", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+      const token = BlockBreakToken.createRepeated(blockNode({ debugName: "thead" }), 3);
+      return {
+        isRepeated: token.isRepeated,
+        sequenceNumber: token.sequenceNumber,
+        childBreakTokens: token.childBreakTokens,
+      };
+    });
+    expect(result.isRepeated).toBe(true);
+    expect(result.sequenceNumber).toBe(3);
+    expect(result.childBreakTokens).toEqual([]);
   });
 
-  it("createForBreakInRepeatedFragment sets all fields", () => {
-    const node = blockNode();
-    const token = BlockBreakToken.createForBreakInRepeatedFragment(node, 2, 150);
-    expect(token.isRepeated).toBe(true);
-    expect(token.sequenceNumber).toBe(2);
-    expect(token.consumedBlockSize).toBe(150);
-  });
-});
-
-describe("Break token tree", () => {
-  it("builds a sparse tree mirroring the box tree", () => {
-    blockNode({ debugName: "child1" });
-    const child2 = blockNode({ debugName: "child2" });
-    const grandchild = blockNode({ debugName: "grandchild" });
-
-    // grandchild broke — its parent (child2) has a break token containing it
-    const grandchildToken = new BlockBreakToken(grandchild);
-    grandchildToken.consumedBlockSize = 50;
-
-    const child2Token = new BlockBreakToken(child2);
-    child2Token.consumedBlockSize = 100;
-    child2Token.childBreakTokens = [grandchildToken];
-
-    const rootToken = new BlockBreakToken(blockNode({ debugName: "root" }));
-    rootToken.consumedBlockSize = 200;
-    rootToken.childBreakTokens = [child2Token];
-
-    // child1 completed — no token in the tree (sparse)
-    expect(rootToken.childBreakTokens.length).toBe(1);
-    expect(rootToken.childBreakTokens[0].node).toBe(child2);
-    expect(rootToken.childBreakTokens[0].childBreakTokens[0].node).toBe(grandchild);
-  });
-
-  it("contains inline break token as leaf", () => {
-    const paragraph = blockNode({ debugName: "p" });
-    const inlineNode = blockNode({ debugName: "text" });
-
-    const inlineToken = new InlineBreakToken(inlineNode);
-    inlineToken.itemIndex = 12;
-    inlineToken.textOffset = 347;
-
-    const pToken = new BlockBreakToken(paragraph);
-    pToken.consumedBlockSize = 280;
-    pToken.childBreakTokens = [inlineToken];
-
-    expect(pToken.childBreakTokens[0].type).toBe("inline");
-    expect(pToken.childBreakTokens[0].itemIndex).toBe(12);
-    expect(pToken.childBreakTokens[0].textOffset).toBe(347);
+  test("createForBreakInRepeatedFragment sets all fields", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+      const token = BlockBreakToken.createForBreakInRepeatedFragment(blockNode(), 2, 150);
+      return {
+        isRepeated: token.isRepeated,
+        sequenceNumber: token.sequenceNumber,
+        consumedBlockSize: token.consumedBlockSize,
+      };
+    });
+    expect(result.isRepeated).toBe(true);
+    expect(result.sequenceNumber).toBe(2);
+    expect(result.consumedBlockSize).toBe(150);
   });
 });
 
-describe("findChildBreakToken", () => {
-  it("returns null when parent is null", () => {
-    const child = blockNode();
-    expect(findChildBreakToken(null, child)).toBe(null);
+test.describe("Break token tree", () => {
+  test("builds a sparse tree mirroring the box tree", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+
+      const child2 = blockNode({ debugName: "child2" });
+      const grandchild = blockNode({ debugName: "grandchild" });
+
+      const grandchildToken = new BlockBreakToken(grandchild);
+      grandchildToken.consumedBlockSize = 50;
+
+      const child2Token = new BlockBreakToken(child2);
+      child2Token.consumedBlockSize = 100;
+      child2Token.childBreakTokens = [grandchildToken];
+
+      const rootToken = new BlockBreakToken(blockNode({ debugName: "root" }));
+      rootToken.consumedBlockSize = 200;
+      rootToken.childBreakTokens = [child2Token];
+
+      return {
+        childCount: rootToken.childBreakTokens.length,
+        firstChildIsChild2: rootToken.childBreakTokens[0].node === child2,
+        grandchildIsGrandchild: rootToken.childBreakTokens[0].childBreakTokens[0].node === grandchild,
+      };
+    });
+    expect(result.childCount).toBe(1);
+    expect(result.firstChildIsChild2).toBe(true);
+    expect(result.grandchildIsGrandchild).toBe(true);
   });
 
-  it("returns null when child has no token", () => {
-    const parent = new BlockBreakToken(blockNode());
-    const child = blockNode();
-    expect(findChildBreakToken(parent, child)).toBe(null);
-  });
+  test("contains inline break token as leaf", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { BlockBreakToken, InlineBreakToken } = await import("/src/core/tokens.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
 
-  it("finds the correct child token", () => {
-    const childA = blockNode({ debugName: "A" });
-    const childB = blockNode({ debugName: "B" });
-    const tokenB = new BlockBreakToken(childB);
+      const paragraph = blockNode({ debugName: "p" });
+      const inlineNode = blockNode({ debugName: "text" });
 
-    const parent = new BlockBreakToken(blockNode());
-    parent.childBreakTokens = [tokenB];
+      const inlineToken = new InlineBreakToken(inlineNode);
+      inlineToken.itemIndex = 12;
+      inlineToken.textOffset = 347;
 
-    expect(findChildBreakToken(parent, childA)).toBe(null);
-    expect(findChildBreakToken(parent, childB)).toBe(tokenB);
+      const pToken = new BlockBreakToken(paragraph);
+      pToken.consumedBlockSize = 280;
+      pToken.childBreakTokens = [inlineToken];
+
+      const leaf = pToken.childBreakTokens[0];
+      return { type: leaf.type, itemIndex: leaf.itemIndex, textOffset: leaf.textOffset };
+    });
+    expect(result.type).toBe("inline");
+    expect(result.itemIndex).toBe(12);
+    expect(result.textOffset).toBe(347);
   });
 });
 
-describe("isMonolithic", () => {
-  it("replaced elements are monolithic", () => {
-    expect(isMonolithic(replacedNode())).toBe(true);
+test.describe("findChildBreakToken", () => {
+  test("returns null when parent is null", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { findChildBreakToken } = await import("/src/core/helpers.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+      return findChildBreakToken(null, blockNode());
+    });
+    expect(result).toBe(null);
   });
 
-  it("scrollable elements are monolithic", () => {
-    expect(isMonolithic(scrollableNode())).toBe(true);
+  test("returns null when child has no token", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { findChildBreakToken } = await import("/src/core/helpers.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+      const parent = new BlockBreakToken(blockNode());
+      return findChildBreakToken(parent, blockNode());
+    });
+    expect(result).toBe(null);
   });
 
-  it("overflow:hidden with explicit height is monolithic", () => {
-    const node = blockNode({ hasOverflowHidden: true, hasExplicitBlockSize: true });
-    expect(isMonolithic(node)).toBe(true);
-  });
+  test("finds the correct child token", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { BlockBreakToken } = await import("/src/core/tokens.js");
+      const { findChildBreakToken } = await import("/src/core/helpers.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
 
-  it("overflow:hidden without explicit height is not monolithic", () => {
-    const node = blockNode({ hasOverflowHidden: true, hasExplicitBlockSize: false });
-    expect(isMonolithic(node)).toBe(false);
-  });
+      const childA = blockNode({ debugName: "A" });
+      const childB = blockNode({ debugName: "B" });
+      const tokenB = new BlockBreakToken(childB);
 
-  it("normal block is not monolithic", () => {
-    expect(isMonolithic(blockNode())).toBe(false);
+      const parent = new BlockBreakToken(blockNode());
+      parent.childBreakTokens = [tokenB];
+
+      return {
+        findA: findChildBreakToken(parent, childA),
+        findBIsTokenB: findChildBreakToken(parent, childB) === tokenB,
+      };
+    });
+    expect(result.findA).toBe(null);
+    expect(result.findBIsTokenB).toBe(true);
   });
 });
 
+test.describe("isMonolithic", () => {
+  test("replaced elements are monolithic", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { isMonolithic } = await import("/src/core/helpers.js");
+      const { replacedNode } = await import("/test/fixtures/nodes.js");
+      return isMonolithic(replacedNode());
+    });
+    expect(result).toBe(true);
+  });
+
+  test("scrollable elements are monolithic", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { isMonolithic } = await import("/src/core/helpers.js");
+      const { scrollableNode } = await import("/test/fixtures/nodes.js");
+      return isMonolithic(scrollableNode());
+    });
+    expect(result).toBe(true);
+  });
+
+  test("overflow:hidden with explicit height is monolithic", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { isMonolithic } = await import("/src/core/helpers.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+      return isMonolithic(blockNode({ hasOverflowHidden: true, hasExplicitBlockSize: true }));
+    });
+    expect(result).toBe(true);
+  });
+
+  test("overflow:hidden without explicit height is not monolithic", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { isMonolithic } = await import("/src/core/helpers.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+      return isMonolithic(blockNode({ hasOverflowHidden: true, hasExplicitBlockSize: false }));
+    });
+    expect(result).toBe(false);
+  });
+
+  test("normal block is not monolithic", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { isMonolithic } = await import("/src/core/helpers.js");
+      const { blockNode } = await import("/test/fixtures/nodes.js");
+      return isMonolithic(blockNode());
+    });
+    expect(result).toBe(false);
+  });
+});

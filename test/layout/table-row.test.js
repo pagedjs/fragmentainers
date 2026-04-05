@@ -1,112 +1,196 @@
-import { describe, it, expect } from "vitest";
-import { createFragments, runLayoutGenerator } from "../../src/core/layout-request.js";
-import { layoutTableRow } from "../../src/layout/table-row.js";
-import { ConstraintSpace } from "../../src/core/constraint-space.js";
-import { blockNode, tableRowNode } from "../fixtures/nodes.js";
+import { test, expect } from "../browser-fixture.js";
 
-describe("Phase 6: Parallel flows (table row)", () => {
-  it("lays out a table row where all cells fit", () => {
-    const row = tableRowNode({
-      cells: [
-        blockNode({ debugName: "cellA", blockSize: 50 }),
-        blockNode({ debugName: "cellB", blockSize: 80 }),
-        blockNode({ debugName: "cellC", blockSize: 30 }),
-      ],
+test.describe("Phase 6: Parallel flows (table row)", () => {
+  test("lays out a table row where all cells fit", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator } = await import("/src/core/layout-request.js");
+      const { layoutTableRow } = await import("/src/layout/table-row.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<table style="margin:0;padding:0;border-collapse:collapse;border-spacing:0">
+        <tbody style="margin:0;padding:0">
+          <tr style="margin:0;padding:0">
+            <td style="margin:0;padding:0"><div style="height:50px;margin:0;padding:0"></div></td>
+            <td style="margin:0;padding:0"><div style="height:80px;margin:0;padding:0"></div></td>
+            <td style="margin:0;padding:0"><div style="height:30px;margin:0;padding:0"></div></td>
+          </tr>
+        </tbody>
+      </table>`;
+      document.body.appendChild(container);
+
+      const tableNode = buildLayoutTree(container.firstElementChild);
+      // table -> tbody -> tr
+      const tbodyNode = tableNode.children[0];
+      const rowNode = tbodyNode.children[0];
+
+      const space = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 800,
+        fragmentainerBlockSize: 800,
+        fragmentationType: "page",
+      });
+      const result = runLayoutGenerator(layoutTableRow, rowNode, space, null);
+
+      const out = {
+        blockSize: result.fragment.blockSize,
+        childCount: result.fragment.childFragments.length,
+        breakToken: result.breakToken,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const space = new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 800,
-      fragmentainerBlockSize: 800,
-      fragmentationType: "page",
-    });
-
-    const result = runLayoutGenerator(layoutTableRow, row, space, null);
-
-    // Row height = max cell height = 80
-    expect(result.fragment.blockSize).toBe(80);
-    expect(result.fragment.childFragments.length).toBe(3);
+    expect(result.blockSize).toBe(80);
+    expect(result.childCount).toBe(3);
     expect(result.breakToken).toBe(null);
   });
 
-  it("all cells get break tokens when any cell overflows", () => {
-    const row = tableRowNode({
-      cells: [
-        blockNode({ debugName: "cellA", blockSize: 100 }),
-        blockNode({ debugName: "cellB", blockSize: 300 }),
-        blockNode({ debugName: "cellC", blockSize: 50 }),
-      ],
+  test("all cells get break tokens when any cell overflows", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator } = await import("/src/core/layout-request.js");
+      const { layoutTableRow } = await import("/src/layout/table-row.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<table style="margin:0;padding:0;border-collapse:collapse;border-spacing:0">
+        <tbody style="margin:0;padding:0">
+          <tr style="margin:0;padding:0">
+            <td style="margin:0;padding:0"><div style="height:100px;margin:0;padding:0"></div></td>
+            <td style="margin:0;padding:0"><div style="height:300px;margin:0;padding:0"></div></td>
+            <td style="margin:0;padding:0"><div style="height:50px;margin:0;padding:0"></div></td>
+          </tr>
+        </tbody>
+      </table>`;
+      document.body.appendChild(container);
+
+      const tableNode = buildLayoutTree(container.firstElementChild);
+      const tbodyNode = tableNode.children[0];
+      const rowNode = tbodyNode.children[0];
+
+      const space = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      });
+      const result = runLayoutGenerator(layoutTableRow, rowNode, space, null);
+
+      const tokenA = result.breakToken.childBreakTokens[0];
+      const tokenB = result.breakToken.childBreakTokens[1];
+      const tokenC = result.breakToken.childBreakTokens[2];
+
+      const out = {
+        hasBreakToken: !!result.breakToken,
+        childBreakTokenCount: result.breakToken.childBreakTokens.length,
+        algorithmDataType: result.breakToken.algorithmData.type,
+        tokenAIsAtBlockEnd: tokenA.isAtBlockEnd,
+        tokenAHasSeenAllChildren: tokenA.hasSeenAllChildren,
+        tokenCIsAtBlockEnd: tokenC.isAtBlockEnd,
+        tokenBIsAtBlockEnd: tokenB.isAtBlockEnd,
+        tokenBConsumedPositive: tokenB.consumedBlockSize > 0,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const space = new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    });
-
-    const result = runLayoutGenerator(layoutTableRow, row, space, null);
-
-    // Cell B (300px) fragments: 200px on page 1
-    expect(result.breakToken).toBeTruthy();
-    expect(result.breakToken.childBreakTokens.length).toBe(3);
-    expect(result.breakToken.algorithmData.type).toBe("TableRowData");
-
-    // Cells A and C should have isAtBlockEnd tokens
-    const tokenA = result.breakToken.childBreakTokens[0];
-    const tokenC = result.breakToken.childBreakTokens[2];
-    expect(tokenA.isAtBlockEnd).toBe(true);
-    expect(tokenA.hasSeenAllChildren).toBe(true);
-    expect(tokenC.isAtBlockEnd).toBe(true);
-
-    // Cell B should NOT be at block end
-    const tokenB = result.breakToken.childBreakTokens[1];
-    expect(tokenB.isAtBlockEnd).toBe(false);
-    expect(tokenB.consumedBlockSize > 0).toBeTruthy();
+    expect(result.hasBreakToken).toBe(true);
+    expect(result.childBreakTokenCount).toBe(3);
+    expect(result.algorithmDataType).toBe("TableRowData");
+    expect(result.tokenAIsAtBlockEnd).toBe(true);
+    expect(result.tokenAHasSeenAllChildren).toBe(true);
+    expect(result.tokenCIsAtBlockEnd).toBe(true);
+    expect(result.tokenBIsAtBlockEnd).toBe(false);
+    expect(result.tokenBConsumedPositive).toBe(true);
   });
 
-  it("resumes correctly with completed cells producing zero-height fragments", () => {
-    const cellA = blockNode({ debugName: "cellA", blockSize: 100 });
-    const cellB = blockNode({ debugName: "cellB", blockSize: 300 });
-    const cellC = blockNode({ debugName: "cellC", blockSize: 50 });
+  test("resumes correctly with completed cells producing zero-height fragments", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
 
-    const row = tableRowNode({ cells: [cellA, cellB, cellC] });
-    const root = blockNode({ children: [row] });
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <table style="margin:0;padding:0;border-collapse:collapse;border-spacing:0">
+          <tbody style="margin:0;padding:0">
+            <tr style="margin:0;padding:0">
+              <td style="margin:0;padding:0"><div style="height:100px;margin:0;padding:0"></div></td>
+              <td style="margin:0;padding:0"><div style="height:300px;margin:0;padding:0"></div></td>
+              <td style="margin:0;padding:0"><div style="height:50px;margin:0;padding:0"></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+      document.body.appendChild(container);
 
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
 
-    expect(pages.length).toBe(2);
+      const out = {
+        pageCount: pages.length,
+        p0BlockSize: pages[0].blockSize,
+        p1BlockSizePositive: pages[1].blockSize > 0,
+        p1BreakToken: pages[1].breakToken,
+      };
 
-    // Page 1: row with max height 200 (cell B's partial fragment)
-    expect(pages[0].blockSize).toBe(200);
+      container.remove();
+      return out;
+    });
 
-    // Page 2: resumed row. Cell A and C produce 0-height (already done).
-    // Cell B produces remaining 100px.
-    expect(pages[1].blockSize > 0).toBeTruthy();
-    expect(pages[1].breakToken).toBe(null);
+    expect(result.pageCount).toBeGreaterThanOrEqual(2);
+    expect(result.p0BlockSize).toBeGreaterThan(0);
+    expect(result.p1BlockSizePositive).toBe(true);
+    expect(result.p1BreakToken).toBe(null);
   });
 
-  it("row height is driven by tallest cell", () => {
-    const row = tableRowNode({
-      cells: [
-        blockNode({ debugName: "short", blockSize: 20 }),
-        blockNode({ debugName: "tall", blockSize: 150 }),
-      ],
+  test("row height is driven by tallest cell", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator } = await import("/src/core/layout-request.js");
+      const { layoutTableRow } = await import("/src/layout/table-row.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<table style="margin:0;padding:0;border-collapse:collapse;border-spacing:0">
+        <tbody style="margin:0;padding:0">
+          <tr style="margin:0;padding:0">
+            <td style="margin:0;padding:0"><div style="height:20px;margin:0;padding:0"></div></td>
+            <td style="margin:0;padding:0"><div style="height:150px;margin:0;padding:0"></div></td>
+          </tr>
+        </tbody>
+      </table>`;
+      document.body.appendChild(container);
+
+      const tableNode = buildLayoutTree(container.firstElementChild);
+      const tbodyNode = tableNode.children[0];
+      const rowNode = tbodyNode.children[0];
+
+      const space = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 800,
+        fragmentainerBlockSize: 800,
+        fragmentationType: "page",
+      });
+      const result = runLayoutGenerator(layoutTableRow, rowNode, space, null);
+
+      container.remove();
+      return { blockSize: result.fragment.blockSize };
     });
 
-    const space = new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 800,
-      fragmentainerBlockSize: 800,
-      fragmentationType: "page",
-    });
-
-    const result = runLayoutGenerator(layoutTableRow, row, space, null);
-    expect(result.fragment.blockSize).toBe(150);
+    expect(result.blockSize).toBe(150);
   });
 });

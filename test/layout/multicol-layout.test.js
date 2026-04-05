@@ -1,185 +1,399 @@
-import { describe, it, expect } from "vitest";
-import { runLayoutGenerator, getLayoutAlgorithm } from "../../src/core/layout-request.js";
-import { layoutMulticolContainer } from "../../src/layout/multicol-container.js";
-import { ConstraintSpace } from "../../src/core/constraint-space.js";
-import { blockNode, multicolNode } from "../fixtures/nodes.js";
+import { test, expect } from "../browser-fixture.js";
 
-/**
- * Helper: run the multicol layout algorithm on a node.
- */
-function layoutMulticol(node, { inlineSize = 600, blockSize = 400 } = {}) {
-  const cs = new ConstraintSpace({
-    availableInlineSize: inlineSize,
-    availableBlockSize: blockSize,
-    fragmentainerBlockSize: blockSize,
-    blockOffsetInFragmentainer: 0,
-    fragmentationType: "none",
-  });
+test.describe("layoutMulticolContainer", () => {
+  test("dispatches multicol nodes to the multicol algorithm", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { layoutMulticolContainer } = await import("/src/layout/multicol-container.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
 
-  return runLayoutGenerator(
-    getLayoutAlgorithm(node), node, cs, null
-  );
-}
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = "<div style=\"column-count:2;column-gap:0;margin:0;padding:0\"></div>";
+      document.body.appendChild(container);
 
-describe("layoutMulticolContainer", () => {
-  it("dispatches multicol nodes to the multicol algorithm", () => {
-    const node = multicolNode({ columnCount: 2 });
-    expect(getLayoutAlgorithm(node)).toBe(layoutMulticolContainer);
-  });
+      const node = buildLayoutTree(container.firstElementChild);
+      const algoName = getLayoutAlgorithm(node).name;
 
-  it("does not dispatch non-multicol nodes to multicol", () => {
-    const node = blockNode();
-    expect(getLayoutAlgorithm(node)).not.toBe(layoutMulticolContainer);
-  });
-
-  it("lays out content across 2 columns", () => {
-    const root = multicolNode({
-      columnCount: 2, columnGap: 0,
-      children: [
-        blockNode({ debugName: "A", blockSize: 100 }),
-        blockNode({ debugName: "B", blockSize: 100 }),
-      ],
+      container.remove();
+      return { algoName, expectedName: layoutMulticolContainer.name };
     });
 
-    // Column height 100: A fills col 1, B fills col 2
-    const result = layoutMulticol(root, { inlineSize: 600, blockSize: 100 });
-    expect(result.fragment.childFragments.length).toBe(2);
-    expect(result.fragment.multicolData.columnCount).toBe(2);
-    expect(result.fragment.multicolData.columnWidth).toBe(300);
+    expect(result.algoName).toBe(result.expectedName);
   });
 
-  it("all content fits in one column when column height is large", () => {
-    const root = multicolNode({
-      columnCount: 2, columnGap: 0,
-      children: [
-        blockNode({ debugName: "A", blockSize: 50 }),
-        blockNode({ debugName: "B", blockSize: 50 }),
-      ],
+  test("does not dispatch non-multicol nodes to multicol", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { layoutMulticolContainer } = await import("/src/layout/multicol-container.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = "<div style=\"margin:0;padding:0\"></div>";
+      document.body.appendChild(container);
+
+      const node = buildLayoutTree(container.firstElementChild);
+      const algoName = getLayoutAlgorithm(node).name;
+
+      container.remove();
+      return { algoName, multicolName: layoutMulticolContainer.name };
     });
 
-    // Column height 200: both children fit in col 1
-    const result = layoutMulticol(root, { inlineSize: 600, blockSize: 200 });
-    expect(result.fragment.childFragments.length).toBe(1);
+    expect(result.algoName).not.toBe(result.multicolName);
   });
 
-  it("content flows across 3 columns", () => {
-    const root = multicolNode({
-      columnCount: 3, columnGap: 0,
-      children: [
-        blockNode({ debugName: "A", blockSize: 100 }),
-        blockNode({ debugName: "B", blockSize: 100 }),
-        blockNode({ debugName: "C", blockSize: 100 }),
-      ],
+  test("lays out content across 2 columns", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="column-count:2;column-gap:0;margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 100,
+        fragmentainerBlockSize: 100,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const out = {
+        columnCount: result.fragment.childFragments.length,
+        multicolColumnCount: result.fragment.multicolData.columnCount,
+        multicolColumnWidth: result.fragment.multicolData.columnWidth,
+      };
+
+      container.remove();
+      return out;
     });
 
-    // Column height 100: one child per column
-    const result = layoutMulticol(root, { inlineSize: 600, blockSize: 100 });
-    expect(result.fragment.childFragments.length).toBe(3);
+    expect(result.columnCount).toBe(2);
+    expect(result.multicolColumnCount).toBe(2);
+    expect(result.multicolColumnWidth).toBe(300);
   });
 
-  it("respects column-fill: auto — stops at column count", () => {
-    const root = multicolNode({
-      columnCount: 2, columnGap: 0, columnFill: "auto",
-      children: [
-        blockNode({ debugName: "A", blockSize: 100 }),
-        blockNode({ debugName: "B", blockSize: 100 }),
-        blockNode({ debugName: "C", blockSize: 100 }),
-      ],
+  test("all content fits in one column when column height is large", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="column-count:2;column-gap:0;margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      container.remove();
+      return { columnCount: result.fragment.childFragments.length };
     });
 
-    // Column height 100, 2 columns, fill: auto → A in col1, B in col2, C overflows
-    const result = layoutMulticol(root, { inlineSize: 600, blockSize: 100 });
-    expect(result.fragment.childFragments.length).toBe(2);
-    // No break token emitted when not in outer fragmentation context
+    expect(result.columnCount).toBe(1);
+  });
+
+  test("content flows across 3 columns", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="column-count:3;column-gap:0;margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 100,
+        fragmentainerBlockSize: 100,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      container.remove();
+      return { columnCount: result.fragment.childFragments.length };
+    });
+
+    expect(result.columnCount).toBe(3);
+  });
+
+  test("respects column-fill: auto - stops at column count", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="column-count:2;column-gap:0;column-fill:auto;margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 100,
+        fragmentainerBlockSize: 100,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const out = {
+        columnCount: result.fragment.childFragments.length,
+        breakToken: result.breakToken,
+      };
+
+      container.remove();
+      return out;
+    });
+
+    expect(result.columnCount).toBe(2);
     expect(result.breakToken).toBe(null);
   });
 
-  it("resolves column width correctly with gap", () => {
-    const root = multicolNode({
-      columnCount: 2, columnGap: 20,
-      children: [blockNode({ blockSize: 50 })],
+  test("resolves column width correctly with gap", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:620px";
+      container.innerHTML = `<div style="column-count:2;column-gap:20px;margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 620,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const out = {
+        columnWidth: result.fragment.multicolData.columnWidth,
+        columnGap: result.fragment.multicolData.columnGap,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const result = layoutMulticol(root, { inlineSize: 620, blockSize: 200 });
-    // W = (620 - 1*20) / 2 = 300
-    expect(result.fragment.multicolData.columnWidth).toBe(300);
-    expect(result.fragment.multicolData.columnGap).toBe(20);
+    expect(result.columnWidth).toBe(300);
+    expect(result.columnGap).toBe(20);
   });
 
-  it("sets multicolData on the fragment", () => {
-    const root = multicolNode({
-      columnCount: 3, columnGap: 10,
-      children: [blockNode({ blockSize: 50 })],
+  test("sets multicolData on the fragment", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:640px";
+      container.innerHTML = `<div style="column-count:3;column-gap:10px;margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 640,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const out = {
+        hasMulticolData: !!result.fragment.multicolData,
+        columnCount: result.fragment.multicolData.columnCount,
+        columnGap: result.fragment.multicolData.columnGap,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const result = layoutMulticol(root, { inlineSize: 640, blockSize: 200 });
-    expect(result.fragment.multicolData).toBeTruthy();
-    expect(result.fragment.multicolData.columnCount).toBe(3);
-    expect(result.fragment.multicolData.columnGap).toBe(10);
+    expect(result.hasMulticolData).toBe(true);
+    expect(result.columnCount).toBe(3);
+    expect(result.columnGap).toBe(10);
   });
 
-  it("break-before: column forces a column break", () => {
-    const root = multicolNode({
-      columnCount: 3, columnGap: 0,
-      children: [
-        blockNode({ debugName: "A", blockSize: 50 }),
-        blockNode({ debugName: "B", blockSize: 50, breakBefore: "column" }),
-      ],
+  test("break-before: column forces a column break", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="column-count:3;column-gap:0;margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+        <div style="height:50px;break-before:column;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      container.remove();
+      return { columnCount: result.fragment.childFragments.length };
     });
 
-    // Column height 200: both fit in one column, but forced break pushes B to col 2
-    const result = layoutMulticol(root, { inlineSize: 600, blockSize: 200 });
-    expect(result.fragment.childFragments.length).toBe(2);
+    expect(result.columnCount).toBe(2);
   });
 
-  it("emits break token with kMulticolData when nested in outer context", () => {
-    const root = multicolNode({
-      columnCount: 2, columnGap: 0, columnFill: "auto",
-      children: [
-        blockNode({ debugName: "A", blockSize: 100 }),
-        blockNode({ debugName: "B", blockSize: 100 }),
-        blockNode({ debugName: "C", blockSize: 100 }),
-      ],
+  test("emits break token with kMulticolData when nested in outer context", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator } = await import("/src/core/layout-request.js");
+      const { layoutMulticolContainer } = await import("/src/layout/multicol-container.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="column-count:2;column-gap:0;column-fill:auto;margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 100,
+        fragmentainerBlockSize: 100,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "page",
+      });
+      const result = runLayoutGenerator(layoutMulticolContainer, root, cs, null);
+
+      const out = {
+        hasBreakToken: !!result.breakToken,
+        algorithmDataType: result.breakToken?.algorithmData?.type ?? null,
+        columnCount: result.breakToken?.algorithmData?.columnCount ?? null,
+        columnWidth: result.breakToken?.algorithmData?.columnWidth ?? null,
+      };
+
+      container.remove();
+      return out;
     });
 
-    // Run in a page fragmentation context
-    const cs = new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 100,
-      fragmentainerBlockSize: 100,
-      blockOffsetInFragmentainer: 0,
-      fragmentationType: "page",
-    });
-
-    const result = runLayoutGenerator(layoutMulticolContainer, root, cs, null);
-    expect(result.breakToken).toBeTruthy();
-    expect(result.breakToken.algorithmData.type).toBe("MulticolData");
-    expect(result.breakToken.algorithmData.columnCount).toBe(2);
-    expect(result.breakToken.algorithmData.columnWidth).toBe(300);
+    expect(result.hasBreakToken).toBe(true);
+    expect(result.algorithmDataType).toBe("MulticolData");
+    expect(result.columnCount).toBe(2);
+    expect(result.columnWidth).toBe(300);
   });
 
-  it("does not infinitely recurse (flow thread pattern)", () => {
-    // This test verifies the core architectural decision:
-    // layoutMulticolContainer creates a flow thread that dispatches
-    // to layoutBlockContainer, not back to layoutMulticolContainer.
-    const root = multicolNode({
-      columnCount: 2, columnGap: 0,
-      children: [blockNode({ blockSize: 50 })],
+  test("does not infinitely recurse (flow thread pattern)", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="column-count:2;column-gap:0;margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const out = {
+        hasFragment: !!result.fragment,
+        columnCount: result.fragment.childFragments.length,
+      };
+
+      container.remove();
+      return out;
     });
 
-    // If this doesn't hang, the flow thread pattern works
-    const result = layoutMulticol(root, { inlineSize: 600, blockSize: 200 });
-    expect(result.fragment).toBeTruthy();
-    expect(result.fragment.childFragments.length).toBe(1);
+    expect(result.hasFragment).toBe(true);
+    expect(result.columnCount).toBe(1);
   });
 
-  it("fragment inlineSize matches container", () => {
-    const root = multicolNode({
-      columnCount: 2, columnGap: 0,
-      children: [blockNode({ blockSize: 50 })],
+  test("fragment inlineSize matches container", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:800px";
+      container.innerHTML = `<div style="column-count:2;column-gap:0;margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 800,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      container.remove();
+      return { inlineSize: result.fragment.inlineSize };
     });
 
-    const result = layoutMulticol(root, { inlineSize: 800, blockSize: 200 });
-    expect(result.fragment.inlineSize).toBe(800);
+    expect(result.inlineSize).toBe(800);
   });
 });

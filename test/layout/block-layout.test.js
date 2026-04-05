@@ -1,352 +1,573 @@
-import { describe, it, expect } from "vitest";
-import { createFragments, runLayoutGenerator } from "../../src/core/layout-request.js";
-import { layoutBlockContainer } from "../../src/layout/block-container.js";
-import { ConstraintSpace } from "../../src/core/constraint-space.js";
-import { blockNode } from "../fixtures/nodes.js";
+import { test, expect } from "../browser-fixture.js";
 
-describe("Phase 2: Block layout (single fragmentainer)", () => {
-  it("lays out a single leaf node", () => {
-    const root = blockNode({ debugName: "root", blockSize: 50, children: [] });
-    const space = new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 800,
-      fragmentainerBlockSize: 800,
-      fragmentationType: "page",
+test.describe("Phase 2: Block layout (single fragmentainer)", () => {
+  test("lays out a single leaf node", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator } = await import("/src/core/layout-request.js");
+      const { layoutBlockContainer } = await import("/src/layout/block-container.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = "<div style=\"height:50px;margin:0;padding:0\"></div>";
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const space = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 800,
+        fragmentainerBlockSize: 800,
+        fragmentationType: "page",
+      });
+
+      const result = runLayoutGenerator(layoutBlockContainer, root, space, null);
+      const out = {
+        blockSize: result.fragment.blockSize,
+        breakToken: result.breakToken,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const result = runLayoutGenerator(layoutBlockContainer, root, space, null);
-    expect(result.fragment.blockSize).toBe(50); // leaf uses intrinsic block size
+    expect(result.blockSize).toBe(50);
     expect(result.breakToken).toBe(null);
   });
 
-  it("lays out a root with block children that all fit", () => {
-    const root = blockNode({
-      debugName: "root",
-      children: [
-        blockNode({ debugName: "a", blockSize: 100 }),
-        blockNode({ debugName: "b", blockSize: 150 }),
-        blockNode({ debugName: "c", blockSize: 50 }),
-      ],
+  test("lays out a root with block children that all fit", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <div style="margin:0;padding:0">
+          <div style="height:100px;margin:0;padding:0"></div>
+          <div style="height:150px;margin:0;padding:0"></div>
+          <div style="height:50px;margin:0;padding:0"></div>
+        </div>
+      `;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 800,
+        fragmentainerBlockSize: 800,
+        fragmentationType: "page",
+      }));
+
+      const out = {
+        length: pages.length,
+        blockSize: pages[0].blockSize,
+        childCount: pages[0].childFragments.length,
+        breakToken: pages[0].breakToken,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 800,
-      fragmentainerBlockSize: 800,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(1);
-    expect(pages[0].blockSize).toBe(300);
-    expect(pages[0].childFragments.length).toBe(3);
-    expect(pages[0].breakToken).toBe(null);
+    expect(result.length).toBe(1);
+    expect(result.blockSize).toBe(300);
+    expect(result.childCount).toBe(3);
+    expect(result.breakToken).toBe(null);
   });
 
-  it("lays out nested block containers", () => {
-    const root = blockNode({
-      debugName: "root",
-      children: [
-        blockNode({
-          debugName: "outer",
-          children: [
-            blockNode({ debugName: "inner1", blockSize: 50 }),
-            blockNode({ debugName: "inner2", blockSize: 75 }),
-          ],
-        }),
-        blockNode({ debugName: "sibling", blockSize: 100 }),
-      ],
+  test("lays out nested block containers", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <div style="margin:0;padding:0">
+          <div style="margin:0;padding:0">
+            <div style="height:50px;margin:0;padding:0"></div>
+            <div style="height:75px;margin:0;padding:0"></div>
+          </div>
+          <div style="height:100px;margin:0;padding:0"></div>
+        </div>
+      `;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 800,
+        fragmentainerBlockSize: 800,
+        fragmentationType: "page",
+      }));
+
+      const out = {
+        length: pages.length,
+        blockSize: pages[0].blockSize,
+        childCount: pages[0].childFragments.length,
+        outerBlockSize: pages[0].childFragments[0].blockSize,
+        outerChildCount: pages[0].childFragments[0].childFragments.length,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 800,
-      fragmentainerBlockSize: 800,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(1);
-    expect(pages[0].blockSize).toBe(225); // 50 + 75 + 100
-    expect(pages[0].childFragments.length).toBe(2);
-    // outer fragment should contain inner1 + inner2
-    expect(pages[0].childFragments[0].blockSize).toBe(125);
-    expect(pages[0].childFragments[0].childFragments.length).toBe(2);
+    expect(result.length).toBe(1);
+    expect(result.blockSize).toBe(225);
+    expect(result.childCount).toBe(2);
+    expect(result.outerBlockSize).toBe(125);
+    expect(result.outerChildCount).toBe(2);
   });
 
-  it("sets inlineSize on fragments", () => {
-    const root = blockNode({
-      children: [blockNode({ blockSize: 50 })],
+  test("sets inlineSize on fragments", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <div style="margin:0;padding:0">
+          <div style="height:50px;margin:0;padding:0"></div>
+        </div>
+      `;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 800,
+        fragmentainerBlockSize: 800,
+        fragmentationType: "page",
+      }));
+
+      const out = { inlineSize: pages[0].inlineSize };
+
+      container.remove();
+      return out;
     });
 
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 800,
-      fragmentainerBlockSize: 800,
-      fragmentationType: "page",
-    }));
-    expect(pages[0].inlineSize).toBe(600);
-  });
-});
-
-describe("Phase 3: Block fragmentation across fragmentainers", () => {
-  it("splits content across 2 pages", () => {
-    const root = blockNode({
-      debugName: "root",
-      children: [
-        blockNode({ debugName: "a", blockSize: 100 }),
-        blockNode({ debugName: "b", blockSize: 100 }),
-        blockNode({ debugName: "c", blockSize: 100 }),
-      ],
-    });
-
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(2);
-
-    // Page 1: children a + b = 200px (fills exactly)
-    expect(pages[0].blockSize).toBe(200);
-    expect(pages[0].childFragments.length).toBe(2);
-    expect(pages[0].breakToken).not.toBe(null);
-
-    // Page 2: child c = 100px
-    expect(pages[1].blockSize).toBe(100);
-    expect(pages[1].childFragments.length).toBe(1);
-    expect(pages[1].breakToken).toBe(null);
-  });
-
-  it("splits content across 3 pages", () => {
-    const children = Array.from({ length: 5 }, (_, i) =>
-      blockNode({ debugName: `child${i}`, blockSize: 100 })
-    );
-    const root = blockNode({ debugName: "root", children });
-
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(3);
-    expect(pages[0].childFragments.length).toBe(2); // 200px
-    expect(pages[1].childFragments.length).toBe(2); // 200px
-    expect(pages[2].childFragments.length).toBe(1); // 100px
-  });
-
-  it("break token has correct consumedBlockSize and sequenceNumber", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ blockSize: 100 }),
-        blockNode({ blockSize: 100 }),
-        blockNode({ blockSize: 100 }),
-      ],
-    });
-
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-    const bt = pages[0].breakToken;
-    expect(bt.consumedBlockSize).toBe(200);
-    expect(bt.sequenceNumber).toBe(0);
-  });
-
-  it("handles nested container breaking mid-child", () => {
-    const root = blockNode({
-      debugName: "root",
-      children: [
-        blockNode({ debugName: "before", blockSize: 50 }),
-        blockNode({
-          debugName: "container",
-          children: [
-            blockNode({ debugName: "inner1", blockSize: 100 }),
-            blockNode({ debugName: "inner2", blockSize: 100 }),
-          ],
-        }),
-      ],
-    });
-
-    // Fragmentainer = 120px. 'before' takes 50px. 'container' gets 70px.
-    // inner1 (100px) fragments: 70px on page 1, 30px on page 2.
-    // inner2 (100px) fragments across pages 2 and 3.
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 120,
-      fragmentainerBlockSize: 120,
-      fragmentationType: "page",
-    }));
-
-    expect(pages.length).toBe(3);
-    // Page 1 break token should have container's break token as child
-    const rootBT = pages[0].breakToken;
-    expect(rootBT).toBeTruthy();
-    expect(rootBT.childBreakTokens.length).toBe(1);
-    const containerBT = rootBT.childBreakTokens[0];
-    expect(containerBT.node.debugName).toBe("container");
-  });
-
-  it("handles the exact-fill edge case (createBreakBefore)", () => {
-    // Children fill space exactly, more remain, no child broke
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "a", blockSize: 100 }),
-        blockNode({ debugName: "b", blockSize: 100 }),
-        blockNode({ debugName: "c", blockSize: 50 }),
-      ],
-    });
-
-    // 200px fragmentainer, a+b fill it exactly, c remains
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(2);
-
-    const bt = pages[0].breakToken;
-    expect(bt).toBeTruthy();
-    // Should have a createBreakBefore token for 'c'
-    expect(bt.childBreakTokens.length).toBe(1);
-    expect(bt.childBreakTokens[0].isBreakBefore).toBe(true);
-    expect(bt.childBreakTokens[0].node.debugName).toBe("c");
-
-    // Page 2 should have 'c'
-    expect(pages[1].blockSize).toBe(50);
-    expect(pages[1].childFragments.length).toBe(1);
-  });
-
-  it("uses varying fragmentainer sizes", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ blockSize: 100 }),
-        blockNode({ blockSize: 100 }),
-        blockNode({ blockSize: 100 }),
-      ],
-    });
-
-    // Page 1: 150px — child0 (100) + child1 partial (50) = 150
-    // Page 2: 250px — child1 remainder (50) + child2 (100) = 150
-    const pages = createFragments(root, {
-      resolve: (index) => {
-        const sizes = [
-          { inlineSize: 600, blockSize: 150 },
-          { inlineSize: 600, blockSize: 250 },
-        ];
-        const size = sizes[index] || sizes.at(-1);
-        return {
-          toConstraintSpace: () => new ConstraintSpace({
-            availableInlineSize: size.inlineSize,
-            availableBlockSize: size.blockSize,
-            fragmentainerBlockSize: size.blockSize,
-            fragmentationType: "page",
-          }),
-        };
-      },
-    });
-    expect(pages.length).toBe(2);
-    expect(pages[0].childFragments.length).toBe(2); // child0 full + child1 partial
-    expect(pages[1].childFragments.length).toBe(2); // child1 remainder + child2
-  });
-
-  it("last fragmentainer size is reused for subsequent pages", () => {
-    const children = Array.from({ length: 6 }, (_, i) =>
-      blockNode({ debugName: `child${i}`, blockSize: 100 })
-    );
-    const root = blockNode({ children });
-
-    // Only one size provided, reused for all pages
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(3);
+    expect(result.inlineSize).toBe(600);
   });
 });
 
-describe("box-decoration-break: clone layout", () => {
-  // Uses a single child that overflows to create exactly 2 fragments.
-  // Container: padding-top=10, padding-bottom=10. Fragmentainer: 200px.
-  // Child: 250px. Available on first fragment: 200 - 10 (top) - 10 (bottom reserved) = 180.
+test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
+  test("splits content across 2 pages", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
 
-  it("includes containerBoxStart in continuation fragment blockOffset", () => {
-    const root = blockNode({
-      debugName: "clone-container",
-      paddingBlockStart: 10,
-      paddingBlockEnd: 10,
-      boxDecorationBreak: "clone",
-      children: [
-        blockNode({ debugName: "child", blockSize: 250 }),
-      ],
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <div style="margin:0;padding:0">
+          <div style="height:100px;margin:0;padding:0"></div>
+          <div style="height:100px;margin:0;padding:0"></div>
+          <div style="height:100px;margin:0;padding:0"></div>
+        </div>
+      `;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const out = {
+        length: pages.length,
+        p0blockSize: pages[0].blockSize,
+        p0childCount: pages[0].childFragments.length,
+        p0hasBreakToken: pages[0].breakToken !== null,
+        p1blockSize: pages[1].blockSize,
+        p1childCount: pages[1].childFragments.length,
+        p1breakToken: pages[1].breakToken,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const fragments = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-
-    expect(fragments.length).toBe(2);
-
-    // Continuation fragment should include containerBoxStart (10) because clone
-    // repeats decorations: padding-top (10) + remaining child (70) + padding-bottom (10) = 90
-    expect(fragments[1].blockSize).toBe(90);
+    expect(result.length).toBe(2);
+    expect(result.p0blockSize).toBe(200);
+    expect(result.p0childCount).toBe(2);
+    expect(result.p0hasBreakToken).toBe(true);
+    expect(result.p1blockSize).toBe(100);
+    expect(result.p1childCount).toBe(1);
+    expect(result.p1breakToken).toBe(null);
   });
 
-  it("includes containerBoxEnd on non-final fragments with clone", () => {
-    const root = blockNode({
-      debugName: "clone-container",
-      paddingBlockStart: 10,
-      paddingBlockEnd: 10,
-      boxDecorationBreak: "clone",
-      children: [
-        blockNode({ debugName: "child", blockSize: 250 }),
-      ],
+  test("splits content across 3 pages", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      let children = "";
+      for (let i = 0; i < 5; i++) {
+        children += "<div style=\"height:100px;margin:0;padding:0\"></div>";
+      }
+      container.innerHTML = `<div style="margin:0;padding:0">${children}</div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const out = {
+        length: pages.length,
+        p0childCount: pages[0].childFragments.length,
+        p1childCount: pages[1].childFragments.length,
+        p2childCount: pages[2].childFragments.length,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const fragments = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-
-    expect(fragments.length).toBe(2);
-
-    // Non-final fragment should include containerBoxEnd (padding-bottom)
-    // padding-top (10) + child portion (180) + padding-bottom (10) = 200
-    expect(fragments[0].blockSize).toBe(200);
+    expect(result.length).toBe(3);
+    expect(result.p0childCount).toBe(2);
+    expect(result.p1childCount).toBe(2);
+    expect(result.p2childCount).toBe(1);
   });
 
-  it("slice mode does NOT include containerBoxStart on continuation", () => {
-    const root = blockNode({
-      debugName: "slice-container",
-      paddingBlockStart: 10,
-      paddingBlockEnd: 10,
-      boxDecorationBreak: "slice",
-      children: [
-        blockNode({ debugName: "child", blockSize: 250 }),
-      ],
+  test("break token has correct consumedBlockSize and sequenceNumber", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <div style="margin:0;padding:0">
+          <div style="height:100px;margin:0;padding:0"></div>
+          <div style="height:100px;margin:0;padding:0"></div>
+          <div style="height:100px;margin:0;padding:0"></div>
+        </div>
+      `;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const bt = pages[0].breakToken;
+      const out = {
+        consumedBlockSize: bt.consumedBlockSize,
+        sequenceNumber: bt.sequenceNumber,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const fragments = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
+    expect(result.consumedBlockSize).toBe(200);
+    expect(result.sequenceNumber).toBe(0);
+  });
 
-    expect(fragments.length).toBe(2);
+  test("handles nested container breaking mid-child", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
 
-    // Slice first fragment: padding-top (10) + child portion (180) = 190 (no bottom padding)
-    expect(fragments[0].blockSize).toBe(190);
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <div style="margin:0;padding:0">
+          <div style="height:50px;margin:0;padding:0"></div>
+          <div style="margin:0;padding:0">
+            <div style="height:100px;margin:0;padding:0"></div>
+            <div style="height:100px;margin:0;padding:0"></div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(container);
 
-    // Slice continuation: NO padding-top, child remainder (70) + padding-bottom (10) = 80
-    expect(fragments[1].blockSize).toBe(80);
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 120,
+        fragmentainerBlockSize: 120,
+        fragmentationType: "page",
+      }));
+
+      const rootBT = pages[0].breakToken;
+      const out = {
+        length: pages.length,
+        hasRootBT: rootBT !== null && rootBT !== undefined,
+        childBreakTokenCount: rootBT ? rootBT.childBreakTokens.length : 0,
+      };
+
+      container.remove();
+      return out;
+    });
+
+    expect(result.length).toBe(3);
+    expect(result.hasRootBT).toBe(true);
+    expect(result.childBreakTokenCount).toBe(1);
+  });
+
+  test("handles the exact-fill edge case (createBreakBefore)", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <div style="margin:0;padding:0">
+          <div style="height:100px;margin:0;padding:0"></div>
+          <div style="height:100px;margin:0;padding:0"></div>
+          <div style="height:50px;margin:0;padding:0"></div>
+        </div>
+      `;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const bt = pages[0].breakToken;
+      const out = {
+        length: pages.length,
+        hasBT: bt !== null && bt !== undefined,
+        childBreakTokenCount: bt ? bt.childBreakTokens.length : 0,
+        isBreakBefore: bt ? bt.childBreakTokens[0].isBreakBefore : false,
+        p1blockSize: pages[1].blockSize,
+        p1childCount: pages[1].childFragments.length,
+      };
+
+      container.remove();
+      return out;
+    });
+
+    expect(result.length).toBe(2);
+    expect(result.hasBT).toBe(true);
+    expect(result.childBreakTokenCount).toBe(1);
+    expect(result.isBreakBefore).toBe(true);
+    expect(result.p1blockSize).toBe(50);
+    expect(result.p1childCount).toBe(1);
+  });
+
+  test("uses varying fragmentainer sizes", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <div style="margin:0;padding:0">
+          <div style="height:100px;margin:0;padding:0"></div>
+          <div style="height:100px;margin:0;padding:0"></div>
+          <div style="height:100px;margin:0;padding:0"></div>
+        </div>
+      `;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+
+      const sizes = [
+        { inlineSize: 600, blockSize: 150 },
+        { inlineSize: 600, blockSize: 250 },
+      ];
+
+      const pages = createFragments(root, {
+        resolve: (index) => {
+          const size = sizes[index] || sizes[sizes.length - 1];
+          return {
+            toConstraintSpace: () => new ConstraintSpace({
+              availableInlineSize: size.inlineSize,
+              availableBlockSize: size.blockSize,
+              fragmentainerBlockSize: size.blockSize,
+              fragmentationType: "page",
+            }),
+          };
+        },
+      });
+
+      const out = {
+        length: pages.length,
+        p0childCount: pages[0].childFragments.length,
+        p1childCount: pages[1].childFragments.length,
+      };
+
+      container.remove();
+      return out;
+    });
+
+    expect(result.length).toBe(2);
+    expect(result.p0childCount).toBe(2);
+    expect(result.p1childCount).toBe(2);
+  });
+
+  test("last fragmentainer size is reused for subsequent pages", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      let children = "";
+      for (let i = 0; i < 6; i++) {
+        children += "<div style=\"height:100px;margin:0;padding:0\"></div>";
+      }
+      container.innerHTML = `<div style="margin:0;padding:0">${children}</div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const out = { length: pages.length };
+
+      container.remove();
+      return out;
+    });
+
+    expect(result.length).toBe(3);
+  });
+});
+
+test.describe("box-decoration-break: clone layout", () => {
+  test("includes containerBoxStart in continuation fragment blockOffset", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <div style="padding:10px 0;margin:0;box-decoration-break:clone">
+          <div style="height:250px;margin:0;padding:0"></div>
+        </div>
+      `;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const fragments = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const out = {
+        length: fragments.length,
+        f1blockSize: fragments[1].blockSize,
+      };
+
+      container.remove();
+      return out;
+    });
+
+    expect(result.length).toBe(2);
+    expect(result.f1blockSize).toBe(90);
+  });
+
+  test("includes containerBoxEnd on non-final fragments with clone", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <div style="padding:10px 0;margin:0;box-decoration-break:clone">
+          <div style="height:250px;margin:0;padding:0"></div>
+        </div>
+      `;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const fragments = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const out = {
+        length: fragments.length,
+        f0blockSize: fragments[0].blockSize,
+      };
+
+      container.remove();
+      return out;
+    });
+
+    expect(result.length).toBe(2);
+    expect(result.f0blockSize).toBe(200);
+  });
+
+  test("slice mode does NOT include containerBoxStart on continuation", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `
+        <div style="padding:10px 0;margin:0;box-decoration-break:slice">
+          <div style="height:250px;margin:0;padding:0"></div>
+        </div>
+      `;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const fragments = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const out = {
+        length: fragments.length,
+        f0blockSize: fragments[0].blockSize,
+        f1blockSize: fragments[1].blockSize,
+      };
+
+      container.remove();
+      return out;
+    });
+
+    expect(result.length).toBe(2);
+    expect(result.f0blockSize).toBe(190);
+    expect(result.f1blockSize).toBe(80);
   });
 });

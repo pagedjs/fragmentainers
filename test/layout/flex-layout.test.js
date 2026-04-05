@@ -1,132 +1,319 @@
-import { describe, it, expect } from "vitest";
-import { runLayoutGenerator, getLayoutAlgorithm } from "../../src/core/layout-request.js";
-import { layoutFlexContainer } from "../../src/layout/flex-container.js";
-import { ConstraintSpace } from "../../src/core/constraint-space.js";
-import { blockNode, flexNode } from "../fixtures/nodes.js";
+import { test, expect } from "../browser-fixture.js";
 
-function layoutFlex(node, { inlineSize = 600, blockSize = 400, fragmentationType = "none" } = {}) {
-  const cs = new ConstraintSpace({
-    availableInlineSize: inlineSize,
-    availableBlockSize: blockSize,
-    fragmentainerBlockSize: blockSize,
-    blockOffsetInFragmentainer: 0,
-    fragmentationType,
-  });
-  return runLayoutGenerator(getLayoutAlgorithm(node), node, cs, null);
-}
+test.describe("layoutFlexContainer", () => {
+  test("dispatches flex nodes to the flex algorithm", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { layoutFlexContainer } = await import("/src/layout/flex-container.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
 
-describe("layoutFlexContainer", () => {
-  it("dispatches flex nodes to the flex algorithm", () => {
-    const node = flexNode();
-    expect(getLayoutAlgorithm(node)).toBe(layoutFlexContainer);
-  });
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = "<div style=\"display:flex;margin:0;padding:0\"></div>";
+      document.body.appendChild(container);
 
-  it("lays out single-line row flex items as parallel flows", () => {
-    const root = flexNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 100 }),
-        blockNode({ debugName: "B", blockSize: 80 }),
-      ],
+      const node = buildLayoutTree(container.firstElementChild);
+      const algoName = getLayoutAlgorithm(node).name;
+
+      container.remove();
+      return { algoName, expectedName: layoutFlexContainer.name };
     });
 
-    const result = layoutFlex(root);
+    expect(result.algoName).toBe(result.expectedName);
+  });
+
+  test("lays out single-line row flex items as parallel flows", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="display:flex;margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:80px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 400,
+        fragmentainerBlockSize: 400,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const out = {
+        childCount: result.fragment.childFragments.length,
+        lineChildCount: result.fragment.childFragments[0].childFragments.length,
+        lineBlockSize: result.fragment.childFragments[0].blockSize,
+      };
+
+      container.remove();
+      return out;
+    });
+
     // One flex line containing both items
-    expect(result.fragment.childFragments.length).toBe(1); // one line
-    const line = result.fragment.childFragments[0];
-    expect(line.childFragments.length).toBe(2); // two items
+    expect(result.childCount).toBe(1);
+    expect(result.lineChildCount).toBe(2);
     // Tallest item (100) drives line height
-    expect(line.blockSize).toBe(100);
+    expect(result.lineBlockSize).toBe(100);
   });
 
-  it("items fragment independently (parallel flows)", () => {
-    const root = flexNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 200 }),
-        blockNode({ debugName: "B", blockSize: 50 }),
-      ],
+  test("items fragment independently (parallel flows)", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="display:flex;margin:0;padding:0">
+        <div style="height:200px;margin:0;padding:0"></div>
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 100,
+        fragmentainerBlockSize: 100,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "page",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const line = result.fragment.childFragments[0];
+      const out = {
+        lineBlockSize: line.blockSize,
+        hasBreakToken: !!result.breakToken,
+      };
+
+      container.remove();
+      return out;
     });
 
-    // Fragmentainer height 100: A breaks, B completes
-    const result = layoutFlex(root, { blockSize: 100, fragmentationType: "page" });
-    const line = result.fragment.childFragments[0];
-    expect(line.blockSize).toBe(100);
-    expect(result.breakToken).toBeTruthy();
+    expect(result.lineBlockSize).toBe(100);
+    expect(result.hasBreakToken).toBe(true);
   });
 
-  it("completed items get isAtBlockEnd tokens", () => {
-    const root = flexNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 200 }),
-        blockNode({ debugName: "B", blockSize: 50 }),
-      ],
+  test("completed items get isAtBlockEnd tokens", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="display:flex;margin:0;padding:0">
+        <div style="height:200px;margin:0;padding:0"></div>
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 100,
+        fragmentainerBlockSize: 100,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "page",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const lineToken = result.breakToken.childBreakTokens[0];
+      const itemTokens = lineToken.childBreakTokens;
+      const completedCount = itemTokens.filter(t => t.isAtBlockEnd).length;
+      const brokeCount = itemTokens.filter(t => !t.isAtBlockEnd).length;
+
+      container.remove();
+      return {
+        hasLineToken: !!lineToken,
+        completedCount,
+        brokeCount,
+      };
     });
 
-    const result = layoutFlex(root, { blockSize: 100, fragmentationType: "page" });
-    // The line break token should have child tokens for both items
-    const lineToken = result.breakToken.childBreakTokens[0];
-    expect(lineToken).toBeTruthy();
-    const itemTokens = lineToken.childBreakTokens;
-    // One item broke, one completed
-    const completed = itemTokens.filter(t => t.isAtBlockEnd);
-    const broke = itemTokens.filter(t => !t.isAtBlockEnd);
-    expect(completed.length).toBe(1);
-    expect(broke.length).toBe(1);
+    expect(result.hasLineToken).toBe(true);
+    expect(result.completedCount).toBe(1);
+    expect(result.brokeCount).toBe(1);
   });
 
-  it("break token has kFlexData", () => {
-    const root = flexNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 200 }),
-      ],
+  test("break token has kFlexData", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="display:flex;margin:0;padding:0">
+        <div style="height:200px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 100,
+        fragmentainerBlockSize: 100,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "page",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const out = {
+        hasBreakToken: !!result.breakToken,
+        algorithmDataType: result.breakToken?.algorithmData?.type ?? null,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const result = layoutFlex(root, { blockSize: 100, fragmentationType: "page" });
-    expect(result.breakToken).toBeTruthy();
-    expect(result.breakToken.algorithmData.type).toBe("FlexData");
+    expect(result.hasBreakToken).toBe(true);
+    expect(result.algorithmDataType).toBe("FlexData");
   });
 
-  it("column flex uses flow thread (sequential fragmentation)", () => {
-    const root = flexNode({
-      flexDirection: "column",
-      children: [
-        blockNode({ debugName: "A", blockSize: 100 }),
-        blockNode({ debugName: "B", blockSize: 100 }),
-      ],
+  test("column flex uses flow thread (sequential fragmentation)", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="display:flex;flex-direction:column;margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 400,
+        fragmentainerBlockSize: 400,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const out = {
+        blockSize: result.fragment.blockSize,
+        breakToken: result.breakToken,
+      };
+
+      container.remove();
+      return out;
     });
 
-    // Items stack sequentially, total 200px
-    const result = layoutFlex(root, { blockSize: 400 });
-    expect(result.fragment.blockSize).toBe(200);
+    expect(result.blockSize).toBe(200);
     expect(result.breakToken).toBe(null);
   });
 
-  it("column flex fragments across pages", () => {
-    const root = flexNode({
-      flexDirection: "column",
-      children: [
-        blockNode({ debugName: "A", blockSize: 100 }),
-        blockNode({ debugName: "B", blockSize: 100 }),
-      ],
+  test("column flex fragments across pages", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="display:flex;flex-direction:column;margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 150,
+        fragmentainerBlockSize: 150,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "page",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const out = {
+        hasBreakToken: !!result.breakToken,
+        algorithmDataType: result.breakToken?.algorithmData?.type ?? null,
+      };
+
+      container.remove();
+      return out;
     });
 
-    const result = layoutFlex(root, { blockSize: 150, fragmentationType: "page" });
-    expect(result.breakToken).toBeTruthy();
-    expect(result.breakToken.algorithmData.type).toBe("FlexData");
+    expect(result.hasBreakToken).toBe(true);
+    expect(result.algorithmDataType).toBe("FlexData");
   });
 
-  it("empty flex container produces zero-height fragment", () => {
-    const root = flexNode({ children: [] });
-    const result = layoutFlex(root);
-    expect(result.fragment.blockSize).toBe(0);
+  test("empty flex container produces zero-height fragment", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = "<div style=\"display:flex;margin:0;padding:0\"></div>";
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 400,
+        fragmentainerBlockSize: 400,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      const out = {
+        blockSize: result.fragment.blockSize,
+        breakToken: result.breakToken,
+      };
+
+      container.remove();
+      return out;
+    });
+
+    expect(result.blockSize).toBe(0);
     expect(result.breakToken).toBe(null);
   });
 
-  it("does not infinitely recurse (flow thread pattern for column)", () => {
-    const root = flexNode({
-      flexDirection: "column",
-      children: [blockNode({ blockSize: 50 })],
+  test("does not infinitely recurse (flow thread pattern for column)", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="display:flex;flex-direction:column;margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const cs = new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 400,
+        fragmentainerBlockSize: 400,
+        blockOffsetInFragmentainer: 0,
+        fragmentationType: "none",
+      });
+      const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+
+      container.remove();
+      return { hasFragment: !!result.fragment };
     });
-    const result = layoutFlex(root);
-    expect(result.fragment).toBeTruthy();
+
+    expect(result.hasFragment).toBe(true);
   });
 });

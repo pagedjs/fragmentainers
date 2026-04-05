@@ -1,131 +1,184 @@
-import { describe, it, expect } from "vitest";
-import { createFragments } from "../../src/core/layout-request.js";
-import { ConstraintSpace } from "../../src/core/constraint-space.js";
-import { blockNode } from "../fixtures/nodes.js";
+import { test, expect } from "../browser-fixture.js";
 
-describe("Phase 7: Break scoring & two-pass layout", () => {
-  it("respects break-after: avoid by choosing an earlier break", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 100 }),
-        blockNode({ debugName: "B", blockSize: 100, breakAfter: "avoid" }),
-        // Without scoring, break would go between B and C (at 200px).
-        // But B has break-after: avoid, so the engine should prefer
-        // breaking between A and B (at 100px) — a "perfect" break.
-        blockNode({ debugName: "C", blockSize: 100 }),
-      ],
+test.describe("Phase 7: Break scoring & two-pass layout", () => {
+  test("respects break-after: avoid by choosing an earlier break", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="break-after:avoid;height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const r = {
+        length: pages.length,
+        p0Children: pages[0].childFragments.length,
+        p0BlockSize: pages[0].blockSize,
+        p1Children: pages[1].childFragments.length,
+      };
+      container.remove();
+      return r;
     });
 
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-
-    // Two-pass should break between A and B (at 100px), not between B and C
-    expect(pages.length).toBe(2);
-    expect(pages[0].childFragments.length).toBe(1); // just A
-    expect(pages[0].blockSize).toBe(100);
-    expect(pages[1].childFragments.length).toBe(2); // B + C
+    expect(result.length).toBe(2);
+    expect(result.p0Children).toBe(1);
+    expect(result.p0BlockSize).toBe(100);
+    expect(result.p1Children).toBe(2);
   });
 
-  it("respects break-before: avoid on the next sibling", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 100 }),
-        blockNode({ debugName: "B", blockSize: 100 }),
-        blockNode({ debugName: "C", blockSize: 100, breakBefore: "avoid" }),
-      ],
+  test("respects break-before: avoid on the next sibling", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="break-before:avoid;height:100px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const r = {
+        length: pages.length,
+        p0Children: pages[0].childFragments.length,
+        p0BlockSize: pages[0].blockSize,
+        p1Children: pages[1].childFragments.length,
+      };
+      container.remove();
+      return r;
     });
 
-    // Without scoring, break goes between B and C (at 200px).
-    // C has break-before: avoid → violating. Better break: between A and B (100px).
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-
-    expect(pages.length).toBe(2);
-    expect(pages[0].childFragments.length).toBe(1); // just A
-    expect(pages[0].blockSize).toBe(100);
-    expect(pages[1].childFragments.length).toBe(2); // B + C
+    expect(result.length).toBe(2);
+    expect(result.p0Children).toBe(1);
+    expect(result.p0BlockSize).toBe(100);
+    expect(result.p1Children).toBe(2);
   });
 
-  it("break-inside: avoid on parent degrades all interior breaks", () => {
-    const container = blockNode({
-      debugName: "container",
-      breakInside: "avoid",
-      children: [
-        blockNode({ debugName: "inner1", blockSize: 100 }),
-        blockNode({ debugName: "inner2", blockSize: 100 }),
-      ],
+  test("break-inside: avoid on parent degrades all interior breaks", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:50px;margin:0;padding:0"></div>
+        <div style="break-inside:avoid;margin:0;padding:0">
+          <div style="height:100px;margin:0;padding:0"></div>
+          <div style="height:100px;margin:0;padding:0"></div>
+        </div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 120,
+        fragmentainerBlockSize: 120,
+        fragmentationType: "page",
+      }));
+
+      const r = { length: pages.length };
+      container.remove();
+      return r;
     });
 
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "before", blockSize: 50 }),
-        container,
-      ],
-    });
-
-    // Fragmentainer = 120px. 'before' takes 50px. Container gets 70px.
-    // Container has break-inside: avoid. The break scoring should detect
-    // that any break inside the container violates the rule.
-    // Without a better alternative at root level, it still breaks inside
-    // (since it has to make progress).
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 120,
-      fragmentainerBlockSize: 120,
-      fragmentationType: "page",
-    }));
-    expect(pages.length >= 2).toBeTruthy();
+    expect(result.length >= 2).toBeTruthy();
   });
 
-  it("falls back to normal break when no better alternative exists", () => {
-    const root = blockNode({
-      children: [
-        // All three siblings have break-after: avoid — no perfect break exists
-        blockNode({ debugName: "A", blockSize: 100, breakAfter: "avoid" }),
-        blockNode({ debugName: "B", blockSize: 100, breakAfter: "avoid" }),
-        blockNode({ debugName: "C", blockSize: 100 }),
-      ],
+  test("falls back to normal break when no better alternative exists", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="break-after:avoid;height:100px;margin:0;padding:0"></div>
+        <div style="break-after:avoid;height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const r = {
+        length: pages.length,
+        p0ChildrenGte1: pages[0].childFragments.length >= 1,
+      };
+      container.remove();
+      return r;
     });
 
-    // 200px fragmentainer. Break between B and C has break-after:avoid on B.
-    // Break between A and B also has break-after:avoid on A.
-    // Both are equal score — falls back to last break (between B and C).
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(2);
-    // Should still make progress — either 1 or 2 children on page 1
-    expect(pages[0].childFragments.length >= 1).toBeTruthy();
+    expect(result.length).toBe(2);
+    expect(result.p0ChildrenGte1).toBeTruthy();
   });
 
-  it("perfect break is not overridden by two-pass", () => {
-    const root = blockNode({
-      children: [
-        blockNode({ debugName: "A", blockSize: 100 }),
-        blockNode({ debugName: "B", blockSize: 100 }),
-        blockNode({ debugName: "C", blockSize: 100 }),
-      ],
+  test("perfect break is not overridden by two-pass", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { createFragments } = await import("/src/core/layout-request.js");
+      const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+      const { buildLayoutTree } = await import("/src/dom/index.js");
+
+      const container = document.createElement("div");
+      container.style.cssText = "position:absolute;left:-9999px;width:600px";
+      container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
+      </div>`;
+      document.body.appendChild(container);
+
+      const root = buildLayoutTree(container.firstElementChild);
+      const pages = createFragments(root, new ConstraintSpace({
+        availableInlineSize: 600,
+        availableBlockSize: 200,
+        fragmentainerBlockSize: 200,
+        fragmentationType: "page",
+      }));
+
+      const r = {
+        length: pages.length,
+        p0Children: pages[0].childFragments.length,
+      };
+      container.remove();
+      return r;
     });
 
-    // No avoid rules — all breaks are perfect. No re-layout needed.
-    const pages = createFragments(root, new ConstraintSpace({
-      availableInlineSize: 600,
-      availableBlockSize: 200,
-      fragmentainerBlockSize: 200,
-      fragmentationType: "page",
-    }));
-    expect(pages.length).toBe(2);
-    expect(pages[0].childFragments.length).toBe(2); // A + B at 200px
+    expect(result.length).toBe(2);
+    expect(result.p0Children).toBe(2);
   });
 });

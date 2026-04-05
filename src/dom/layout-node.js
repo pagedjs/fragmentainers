@@ -1,6 +1,4 @@
-import {
-  collectInlineItems,
-} from "./collect-inlines.js";
+import { collectInlineItems } from "./collect-inlines.js";
 import {
   createRangeMeasurer,
   createCaretMeasurer,
@@ -159,12 +157,19 @@ export class DOMLayoutNode {
 
   get gridRowStart() {
     const v = this.#getStyleMap().get("grid-row-start");
-    return v && v.unit ? v.value : null;
+    if (!v) return null;
+    if (v.unit) return v.value;
+    // Chromium Typed OM returns CSSStyleValue (no .unit) for grid line numbers
+    const n = parseInt(v.toString(), 10);
+    return Number.isFinite(n) ? n : null;
   }
 
   get gridRowEnd() {
     const v = this.#getStyleMap().get("grid-row-end");
-    return v && v.unit ? v.value : null;
+    if (!v) return null;
+    if (v.unit) return v.value;
+    const n = parseInt(v.toString(), 10);
+    return Number.isFinite(n) ? n : null;
   }
 
   //Multicol properties
@@ -451,9 +456,10 @@ export class DOMLayoutNode {
 
   get measurer() {
     if (!sharedRangeMeasurer) {
-      sharedRangeMeasurer = typeof document.caretPositionFromPoint === "function"
-        ? createCaretMeasurer()
-        : createRangeMeasurer();
+      sharedRangeMeasurer =
+        typeof document.caretPositionFromPoint === "function"
+          ? createCaretMeasurer()
+          : createRangeMeasurer();
     }
     return sharedRangeMeasurer;
   }
@@ -552,9 +558,10 @@ export class AnonymousBlockNode {
 
   get measurer() {
     if (!sharedRangeMeasurer) {
-      sharedRangeMeasurer = typeof document.caretPositionFromPoint === "function"
-        ? createCaretMeasurer()
-        : createRangeMeasurer();
+      sharedRangeMeasurer =
+        typeof document.caretPositionFromPoint === "function"
+          ? createCaretMeasurer()
+          : createRangeMeasurer();
     }
     return sharedRangeMeasurer;
   }

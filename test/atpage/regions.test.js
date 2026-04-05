@@ -1,153 +1,206 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { FragmentedFlow } from "../../src/core/fragmented-flow.js";
-import { RegionResolver } from "../../src/regions/region-resolver.js";
+import { test, expect } from "../browser-fixture.js";
 
-describe("RegionResolver", () => {
-  let container;
+test.describe("RegionResolver", () => {
+  test("resolves dimensions from region elements", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { RegionResolver } = await import("/src/regions/region-resolver.js");
 
-  beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML = `
+        <div class="region" style="width: 300px; height: 200px;"></div>
+        <div class="region" style="width: 400px; height: 150px;"></div>
+      `;
+      const regions = [...container.querySelectorAll(".region")];
+      const resolver = new RegionResolver(regions);
+
+      const c0 = resolver.resolve(0);
+      const c1 = resolver.resolve(1);
+
+      const out = {
+        c0InlineSize: c0.contentArea.inlineSize,
+        c0BlockSize: c0.contentArea.blockSize,
+        c0ElementMatch: c0.element === regions[0],
+        c1InlineSize: c1.contentArea.inlineSize,
+        c1BlockSize: c1.contentArea.blockSize,
+        c1ElementMatch: c1.element === regions[1],
+      };
+
+      container.remove();
+      return out;
+    });
+
+    expect(result.c0InlineSize).toBe(300);
+    expect(result.c0BlockSize).toBe(200);
+    expect(result.c0ElementMatch).toBe(true);
+    expect(result.c1InlineSize).toBe(400);
+    expect(result.c1BlockSize).toBe(150);
+    expect(result.c1ElementMatch).toBe(true);
   });
 
-  afterEach(() => {
-    container.remove();
-  });
+  test("toConstraintSpace produces region fragmentation type", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { RegionResolver } = await import("/src/regions/region-resolver.js");
 
-  it("resolves dimensions from region elements", () => {
-    container.innerHTML = `
-      <div class="region" style="width: 300px; height: 200px;"></div>
-      <div class="region" style="width: 400px; height: 150px;"></div>
-    `;
-    const regions = [...container.querySelectorAll(".region")];
-    const resolver = new RegionResolver(regions);
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML = "<div style=\"width: 300px; height: 200px;\"></div>";
+      const resolver = new RegionResolver([container.firstElementChild]);
 
-    const c0 = resolver.resolve(0);
-    expect(c0.contentArea.inlineSize).toBe(300);
-    expect(c0.contentArea.blockSize).toBe(200);
-    expect(c0.element).toBe(regions[0]);
+      const cs = resolver.resolve(0).toConstraintSpace();
+      const out = {
+        fragmentationType: cs.fragmentationType,
+        availableInlineSize: cs.availableInlineSize,
+        availableBlockSize: cs.availableBlockSize,
+      };
 
-    const c1 = resolver.resolve(1);
-    expect(c1.contentArea.inlineSize).toBe(400);
-    expect(c1.contentArea.blockSize).toBe(150);
-    expect(c1.element).toBe(regions[1]);
-  });
+      container.remove();
+      return out;
+    });
 
-  it("toConstraintSpace produces region fragmentation type", () => {
-    container.innerHTML = "<div style=\"width: 300px; height: 200px;\"></div>";
-    const resolver = new RegionResolver([container.firstElementChild]);
-
-    const cs = resolver.resolve(0).toConstraintSpace();
-    expect(cs.fragmentationType).toBe("region");
-    expect(cs.availableInlineSize).toBe(300);
-    expect(cs.availableBlockSize).toBe(200);
+    expect(result.fragmentationType).toBe("region");
+    expect(result.availableInlineSize).toBe(300);
+    expect(result.availableBlockSize).toBe(200);
   });
 });
 
-describe("FragmentedFlow with regions", () => {
-  let container;
+test.describe("FragmentedFlow with regions", () => {
+  test("flows content across region elements via iterator", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      const { RegionResolver } = await import("/src/regions/region-resolver.js");
 
-  beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML = `
+        <div id="content" style="margin:0; padding:0;">
+          <div style="height: 300px; margin: 0;"></div>
+        </div>
+        <div class="region" style="width: 200px; height: 100px;"></div>
+        <div class="region" style="width: 200px; height: 100px;"></div>
+        <div class="region" style="width: 200px; height: 100px;"></div>
+      `;
+
+      const content = container.querySelector("#content");
+      const regions = [...container.querySelectorAll(".region")];
+
+      const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
+      let i = 0;
+      for (const el of layout) {
+        if (i >= regions.length) break;
+        regions[i].appendChild(el);
+        i++;
+      }
+
+      const childCount = regions[0].childNodes.length;
+      container.remove();
+      return { childCount };
+    });
+
+    expect(result.childCount).toBeGreaterThan(0);
   });
 
-  afterEach(() => {
-    container.remove();
-  });
+  test("stops when regions run out with content remaining", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      const { RegionResolver } = await import("/src/regions/region-resolver.js");
 
-  it("flows content across region elements via iterator", () => {
-    // Content: tall block that won't fit in one region
-    container.innerHTML = `
-      <div id="content" style="margin:0; padding:0;">
-        <div style="height: 300px; margin: 0;"></div>
-      </div>
-      <div class="region" style="width: 200px; height: 100px;"></div>
-      <div class="region" style="width: 200px; height: 100px;"></div>
-      <div class="region" style="width: 200px; height: 100px;"></div>
-    `;
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML = `
+        <div id="content" style="margin:0; padding:0;">
+          <div style="height: 500px; margin: 0;"></div>
+        </div>
+        <div class="region" style="width: 200px; height: 100px;"></div>
+      `;
 
-    const content = container.querySelector("#content");
-    const regions = [...container.querySelectorAll(".region")];
+      const content = container.querySelector("#content");
+      const regions = [...container.querySelectorAll(".region")];
 
-    const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
-    let i = 0;
-    for (const el of layout) {
-      if (i >= regions.length) break;
-      regions[i].appendChild(el);
-      i++;
-    }
+      const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
+      let lastResult;
+      for (let i = 0; i < regions.length; i++) {
+        lastResult = layout.next();
+      }
 
-    // 300px of content across 3 regions of 100px each = all consumed
-    // Check that regions received content
-    expect(regions[0].childNodes.length).toBeGreaterThan(0);
-  });
+      const out = { done: lastResult.done };
+      container.remove();
+      return out;
+    });
 
-  it("stops when regions run out with content remaining", () => {
-    container.innerHTML = `
-      <div id="content" style="margin:0; padding:0;">
-        <div style="height: 500px; margin: 0;"></div>
-      </div>
-      <div class="region" style="width: 200px; height: 100px;"></div>
-    `;
-
-    const content = container.querySelector("#content");
-    const regions = [...container.querySelectorAll(".region")];
-
-    const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
-    let result;
-    for (let i = 0; i < regions.length; i++) {
-      result = layout.next();
-    }
-
-    // Only 1 region for 500px of content — iterator should not be done
     expect(result.done).toBe(false);
   });
 
-  it("content fits in a single region", () => {
-    container.innerHTML = `
-      <div id="content" style="margin:0; padding:0;">
-        <div style="height: 50px; margin: 0;"></div>
-      </div>
-      <div class="region" style="width: 200px; height: 200px;"></div>
-    `;
+  test("content fits in a single region", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      const { RegionResolver } = await import("/src/regions/region-resolver.js");
 
-    const content = container.querySelector("#content");
-    const regions = [...container.querySelectorAll(".region")];
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML = `
+        <div id="content" style="margin:0; padding:0;">
+          <div style="height: 50px; margin: 0;"></div>
+        </div>
+        <div class="region" style="width: 200px; height: 200px;"></div>
+      `;
 
-    const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
-    const result = layout.next();
+      const content = container.querySelector("#content");
+      const regions = [...container.querySelectorAll(".region")];
 
-    // Content fits in one region — iterator should be done
-    expect(result.done).toBe(false);
-    expect(result.value).toBeDefined();
-    // Next call should be done
-    const result2 = layout.next();
-    expect(result2.done).toBe(true);
+      const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
+      const r1 = layout.next();
+      const r2 = layout.next();
+
+      const out = {
+        r1Done: r1.done,
+        r1HasValue: r1.value !== undefined,
+        r2Done: r2.done,
+      };
+      container.remove();
+      return out;
+    });
+
+    expect(result.r1Done).toBe(false);
+    expect(result.r1HasValue).toBe(true);
+    expect(result.r2Done).toBe(true);
   });
 
-  it("supports variable-sized regions", () => {
-    container.innerHTML = `
-      <div id="content" style="margin:0; padding:0;">
-        <div style="height: 80px; margin: 0;"></div>
-        <div style="height: 80px; margin: 0;"></div>
-      </div>
-      <div class="region" style="width: 300px; height: 100px;"></div>
-      <div class="region" style="width: 400px; height: 100px;"></div>
-    `;
+  test("supports variable-sized regions", async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+      const { RegionResolver } = await import("/src/regions/region-resolver.js");
 
-    const content = container.querySelector("#content");
-    const regions = [...container.querySelectorAll(".region")];
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      container.innerHTML = `
+        <div id="content" style="margin:0; padding:0;">
+          <div style="height: 80px; margin: 0;"></div>
+          <div style="height: 80px; margin: 0;"></div>
+        </div>
+        <div class="region" style="width: 300px; height: 100px;"></div>
+        <div class="region" style="width: 400px; height: 100px;"></div>
+      `;
 
-    const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
-    const r1 = layout.next();
-    expect(r1.done).toBe(false);
+      const content = container.querySelector("#content");
+      const regions = [...container.querySelectorAll(".region")];
 
-    const r2 = layout.next();
-    expect(r2.done).toBe(false);
+      const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
+      const r1 = layout.next();
+      const r2 = layout.next();
+      const r3 = layout.next();
 
-    // All content placed — next should be done
-    const r3 = layout.next();
-    expect(r3.done).toBe(true);
+      const out = {
+        r1Done: r1.done,
+        r2Done: r2.done,
+        r3Done: r3.done,
+      };
+      container.remove();
+      return out;
+    });
+
+    expect(result.r1Done).toBe(false);
+    expect(result.r2Done).toBe(false);
+    expect(result.r3Done).toBe(true);
   });
 });
