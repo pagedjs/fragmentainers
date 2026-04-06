@@ -135,8 +135,14 @@ export function getLineHeight(element) {
 	const map = computedStyleMap(element);
 	const lh = map.get("line-height");
 
-	// "normal" returns a keyword (no .unit property)
+	// "normal" returns a keyword (no .unit property).
+	// Measure from actual rendering — the 1.2× estimate doesn't match
+	// the browser's font-metric-based normal line-height for all fonts.
 	if (!lh || !lh.unit) {
+		const lines = countLines(element);
+		if (lines > 0) {
+			return element.getBoundingClientRect().height / lines;
+		}
 		const fs = map.get("font-size");
 		return (fs && fs.unit ? fs.value : 16) * 1.2;
 	}
