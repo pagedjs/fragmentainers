@@ -19,6 +19,7 @@ OVERRIDES.replaceSync(`
   text-indent: unset !important;
   margin-block-start: unset !important;
   padding-block-start: unset !important;
+  border-block-start: none !important;
   initial-letter: unset !important;
   counter-increment: unset !important;
   counter-set: unset !important;
@@ -43,7 +44,7 @@ OVERRIDES.replaceSync(`
 }
 
 [data-split-from]::before {
-  content: unset !important;
+  content: none !important;
 }
 
 li[data-split-from] {
@@ -55,6 +56,7 @@ li[data-split-from] {
 [data-split-to] {
   margin-block-end: unset !important;
   padding-block-end: unset !important;
+  border-block-end: none !important;
 }
 
 [data-split-to][data-justify-last] {

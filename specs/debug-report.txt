@@ -1,0 +1,255 @@
+# Fragmentainer Debug Report
+url: ../specs/at-page/widows-orphans
+pageSize: 377.953125x377.953125 (from @page rules)
+totalPages: 10
+layoutTime: 4.6ms
+renderTime: 1.1ms
+totalTime: 10.1ms
+pageIssues: 1/10
+## Document Summary
+- totalPages: 10
+- totalContentHeight: 2838.4px
+- overflowPages: 1
+- forcedBreaks: 0
+### Page 1
+pageSize: 377.953125x377.953125
+blockSize: 246.40
+remaining: 55.96
+
+#### Layout:
+- breakToken(consumed=246.4 children=1)
+- constraints={content: 302.359375x302.359375}
+- first text: "Lorem ipsum dolor sit, amet consectetur adipisicing elit. Mollitia, possimus …"
+- childFragments: 1  childSum=246.40  gap=0.00  remaining=55.96
+- section  blockSize=246.40  margin=0.0/0.0  pad=0.0/0.0  BT(block consumed=246.4)
+  - p  blockSize=230.40  margin=0.0/0.0  pad=0.0/0.0  BT(inline)
+    - IFC: lineHeight=19.20 lines=12 computed=230.40 text=[0..552]/664
+
+#### Spanning elements (2):
+- section (pages 1-10)
+- p (pages 1-10)
+
+#### BreakTokens:
+- block [slot] consumed=246.39999999999998 seq=0 (seen-all)
+  - block [section] consumed=246.39999999999998 seq=0
+    - inline [p] item=0 offset=552
+
+### Page 2
+pageSize: 377.953125x377.953125
+blockSize: 300.80
+remaining: 1.56
+
+#### Layout:
+- breakToken(consumed=547.2 children=1)
+- constraints={content: 302.359375x302.359375}
+- first text: "cumque velit ipsa aspernatur quibusdam laudantium aperiam nam? Tenetur maiore…"
+- last text: "…ure id amet quam non, sit vero officiis debitis dolorum veritatis voluptatem."
+- childFragments: 1  childSum=300.80  gap=0.00  remaining=1.56
+- section  blockSize=300.80  margin=0.0/0.0  pad=0.0/0.0  BT(block consumed=547.2)
+  - p  blockSize=38.40  margin=0.0/0.0  pad=0.0/0.0
+    - IFC: lineHeight=19.20 lines=2 computed=38.40 text=[0..664]/664
+  - p  blockSize=57.60  margin=0.0/0.0  pad=0.0/0.0
+    - IFC: lineHeight=19.20 lines=3 computed=57.60 text=[0..101]/101
+  - p  blockSize=172.80  margin=0.0/0.0  pad=0.0/0.0  BT(inline)
+    - IFC: lineHeight=19.20 lines=9 computed=172.80 text=[0..451]/930
+
+#### Spanning elements (2):
+- section (pages 1-10)
+- p (pages 1-10)
+
+#### BreakTokens:
+- block [slot] consumed=547.1999999999999 seq=1 (seen-all)
+  - block [section] consumed=547.1999999999999 seq=1
+    - inline [p] item=0 offset=451
+
+### Page 3
+pageSize: 377.953125x377.953125
+blockSize: 284.80
+remaining: 17.56
+
+#### Layout:
+- breakToken(consumed=832.0 children=1)
+- constraints={content: 302.359375x302.359375}
+- first text: "Obcaecati, tempore. Temporibus aliquam possimus quasi, quidem provident imped…"
+- last text: "…menda quod incidunt voluptatum fugiat porro nemo quo, consequatur repudiandae"
+- childFragments: 1  childSum=284.80  gap=0.00  remaining=17.56
+- section  blockSize=284.80  margin=0.0/0.0  pad=0.0/0.0  BT(block consumed=832.0)
+  - p  blockSize=192.00  margin=0.0/0.0  pad=0.0/0.0
+    - IFC: lineHeight=19.20 lines=10 computed=192.00 text=[0..930]/930
+  - p  blockSize=76.80  margin=0.0/0.0  pad=0.0/0.0  BT(inline)
+    - IFC: lineHeight=19.20 lines=4 computed=76.80 text=[0..217]/1615
+
+#### Spanning elements (2):
+- section (pages 1-10)
+- p (pages 1-10)
+
+#### BreakTokens:
+- block [slot] consumed=832 seq=2 (seen-all)
+  - block [section] consumed=832 seq=2
+    - inline [p] item=0 offset=217
+
+### Page 4
+pageSize: 377.953125x377.953125
+blockSize: 288.00
+remaining: 14.36
+
+#### Layout:
+- breakToken(consumed=1120.0 children=1)
+- constraints={content: 302.359375x302.359375}
+- first text: "dolorum suscipit soluta accusamus voluptate dolor ad ex distinctio. Porro ali…"
+- childFragments: 1  childSum=288.00  gap=0.00  remaining=14.36
+- section  blockSize=288.00  margin=0.0/0.0  pad=0.0/0.0  BT(block consumed=1120.0)
+  - p  blockSize=288.00  margin=0.0/0.0  pad=0.0/0.0  BT(inline)
+    - IFC: lineHeight=19.20 lines=15 computed=288.00 text=[0..906]/1615
+
+#### Spanning elements (2):
+- section (pages 1-10)
+- p (pages 1-10)
+
+#### BreakTokens:
+- block [slot] consumed=1120 seq=3 (seen-all)
+  - block [section] consumed=1120 seq=3
+    - inline [p] item=0 offset=906
+
+### Page 5
+pageSize: 377.953125x377.953125
+blockSize: 268.80
+remaining: 33.56
+
+#### Layout:
+- breakToken(consumed=1388.8 children=1)
+- constraints={content: 302.359375x302.359375}
+- first text: "quasi cupiditate aspernatur similique voluptates, dolorem delectus id! Autem …"
+- childFragments: 1  childSum=268.80  gap=0.00  remaining=33.56
+- section  blockSize=268.80  margin=0.0/0.0  pad=0.0/0.0  BT(block consumed=1388.8)
+  - p  blockSize=268.80  margin=0.0/0.0  pad=0.0/0.0  BT(inline)
+    - IFC: lineHeight=19.20 lines=14 computed=268.80 text=[0..1551]/1615
+
+#### Spanning elements (2):
+- section (pages 1-10)
+- p (pages 1-10)
+
+#### BreakTokens:
+- block [slot] consumed=1388.8 seq=4 (seen-all)
+  - block [section] consumed=1388.8 seq=4
+    - inline [p] item=0 offset=1551
+
+### Page 6
+pageSize: 377.953125x377.953125
+blockSize: 284.80
+remaining: 17.56
+
+#### Layout:
+- breakToken(consumed=1673.6 children=1)
+- constraints={content: 302.359375x302.359375}
+- first text: "tenetur veniam. Quibusdam, nam porro. Illo, doloremque ex."
+- last text: "…neque esse libero sapiente, ratione necessitatibus sint voluptate nulla sequi"
+- childFragments: 1  childSum=284.80  gap=0.00  remaining=17.56
+- section  blockSize=284.80  margin=0.0/0.0  pad=0.0/0.0  BT(block consumed=1673.6)
+  - p  blockSize=38.40  margin=0.0/0.0  pad=0.0/0.0
+    - IFC: lineHeight=19.20 lines=2 computed=38.40 text=[0..1615]/1615
+  - p  blockSize=230.40  margin=0.0/0.0  pad=0.0/0.0  BT(inline)
+    - IFC: lineHeight=19.20 lines=12 computed=230.40 text=[0..552]/1615
+
+#### Spanning elements (2):
+- section (pages 1-10)
+- p (pages 1-10)
+
+#### BreakTokens:
+- block [slot] consumed=1673.6 seq=5 (seen-all)
+  - block [section] consumed=1673.6 seq=5
+    - inline [p] item=0 offset=552
+
+### Page 7
+pageSize: 377.953125x377.953125
+blockSize: 288.00
+remaining: 14.36
+
+#### Layout:
+- breakToken(consumed=1961.6 children=1)
+- constraints={content: 302.359375x302.359375}
+- first text: "cumque velit ipsa aspernatur quibusdam nesciunt praesentium laudantium aperia…"
+- childFragments: 1  childSum=288.00  gap=0.00  remaining=14.36
+- section  blockSize=288.00  margin=0.0/0.0  pad=0.0/0.0  BT(block consumed=1961.6)
+  - p  blockSize=288.00  margin=0.0/0.0  pad=0.0/0.0  BT(inline)
+    - IFC: lineHeight=19.20 lines=15 computed=288.00 text=[0..1295]/1615
+
+#### Spanning elements (2):
+- section (pages 1-10)
+- p (pages 1-10)
+
+#### BreakTokens:
+- block [slot] consumed=1961.6 seq=6 (seen-all)
+  - block [section] consumed=1961.6 seq=6
+    - inline [p] item=0 offset=1295
+
+### Page 8
+pageSize: 377.953125x377.953125
+blockSize: 284.80
+remaining: 17.56
+
+#### Layout:
+- breakToken(consumed=2246.4 children=1)
+- constraints={content: 302.359375x302.359375}
+- first text: "nesciunt totam eligendi, accusamus consequatur similique exercitationem odit …"
+- last text: "…scipit soluta accusamus voluptate dolor ad ex distinctio. Porro aliquam culpa"
+- childFragments: 1  childSum=284.80  gap=0.00  remaining=17.56
+- section  blockSize=284.80  margin=0.0/0.0  pad=0.0/0.0  BT(block consumed=2246.4)
+  - p  blockSize=153.60  margin=0.0/0.0  pad=0.0/0.0
+    - IFC: lineHeight=19.20 lines=8 computed=153.60 text=[0..1615]/1615
+  - p  blockSize=115.20  margin=0.0/0.0  pad=0.0/0.0  BT(inline)
+    - IFC: lineHeight=19.20 lines=6 computed=115.20 text=[0..308]/1615
+
+#### Spanning elements (2):
+- section (pages 1-10)
+- p (pages 1-10)
+
+#### BreakTokens:
+- block [slot] consumed=2246.3999999999996 seq=7 (seen-all)
+  - block [section] consumed=2246.3999999999996 seq=7 (seen-all)
+    - inline [p] item=0 offset=308
+
+### Page 9
+pageSize: 377.953125x377.953125
+blockSize: 288.00
+remaining: 14.36
+
+#### Layout:
+- breakToken(consumed=2534.4 children=1)
+- constraints={content: 302.359375x302.359375}
+- first text: "assumenda esse recusandae nesciunt ad. Ratione commodi maiores error dicta, n…"
+- childFragments: 1  childSum=288.00  gap=0.00  remaining=14.36
+- section  blockSize=288.00  margin=0.0/0.0  pad=0.0/0.0  BT(block consumed=2534.4)
+  - p  blockSize=288.00  margin=0.0/0.0  pad=0.0/0.0  BT(inline)
+    - IFC: lineHeight=19.20 lines=15 computed=288.00 text=[0..986]/1615
+
+#### Spanning elements (2):
+- section (pages 1-10)
+- p (pages 1-10)
+
+#### BreakTokens:
+- block [slot] consumed=2534.3999999999996 seq=8 (seen-all)
+  - block [section] consumed=2534.3999999999996 seq=8 (seen-all)
+    - inline [p] item=0 offset=986
+
+### Page 10
+pageSize: 377.953125x377.953125
+blockSize: 304.00
+remaining: -1.64
+Issues: 2
+#### Layout:
+- breakToken=null
+- constraints={content: 302.359375x302.359375}
+- first text: "repudiandae quasi accusantium, dignissimos facilis ex laudantium iure id amet…"
+- childFragments: 1  childSum=304.00  gap=0.00  remaining=-1.64
+- section  blockSize=304.00  margin=0.0/0.0  pad=0.0/0.0
+  - p  blockSize=288.00  margin=0.0/0.0  pad=0.0/0.0
+    - IFC: lineHeight=19.20 lines=15 computed=288.00 text=[0..1615]/1615
+
+#### Spanning elements (2):
+- section (pages 1-10)
+- p (pages 1-10)
+
+#### Issues:
+- OVERFLOW by 1.64px
+- Last IFC (p): page blockSize 304.00 > fragmentainer 302.359375 — last line clipped

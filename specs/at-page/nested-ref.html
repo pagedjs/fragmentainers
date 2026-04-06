@@ -1,109 +1,88 @@
 <!doctype html>
 <html lang="en">
 	<style>
-		  @page {
-		    size: A4 portrait;
-		    margin: 0;
-		  }
+		@page {
+			size: A4 portrait;
+			margin: 0;
+		}
 
-		  body {
-		    padding: 0;
-		    margin: 0;
-		    display: flex;
-		    flex-direction: column;
-		  }
-		  page-container {
-		  	--page-width: 210mm;
-		  	--page-height: 297mm;
-		  	--page-margin: 30px;
-		  }
+		body {
+			padding: 0;
+			margin: 0;
+			display: flex;
+			flex-direction: column;
+		}
+		page-container {
+			--page-width: 210mm;
+			--page-height: 297mm;
+			--page-margin: 130px 30px 30px 30px;
+		}
 		/* Test styles */
-		  .base-footer {
-		      text-transform: uppercasse;
-		      font-size: 12px;
-		    }
+		.base-footer {
+			text-transform: uppercasse;
+			font-size: 12px;
+		}
 
-		    .base-header {
-		      height: 100px;
-		      text-align: start;
-		      position: relative;
-		    }
+		.base-header {
+			height: 100px;
+			text-align: start;
+			position: relative;
+		}
 
-		    .base-title {
-		      position: absolute;
-		      left: 295px;
-		      top: 38px;
-		      font-size: 16px;
-		      font-weight: 500;
-		      line-height: 19px;
-		    }
+		.base-title {
+			position: absolute;
+			left: 295px;
+			top: 38px;
+			font-size: 16px;
+			font-weight: 500;
+			line-height: 19px;
+		}
 
-		    .base-description {
-		      margin-top: 6px;
-		      width: 100%;
-		      border-collapse: collapse;
-		    }
+		.base-description {
+			margin-top: 6px;
+			width: 100%;
+			border-collapse: collapse;
+		}
 
-		    .base-description th,
-		    .base-description td {
-		      font-size: 12px;
-		      padding: 1em;
-		      border: 1px solid #dcdcdc;
-		    }
+		.base-description th,
+		.base-description td {
+			font-size: 12px;
+			padding: 1em;
+			border: 1px solid #dcdcdc;
+		}
 
-		    .base-description td:nth-child(odd) {
-		      width: 120px;
-		      background: #ebedf1;
-		    }
+		.base-description td:nth-child(odd) {
+			width: 120px;
+			background: #ebedf1;
+		}
 
-		    .base-description td:nth-child(even) {
-		      width: 249px;
-		    }
+		.base-description td:nth-child(even) {
+			width: 249px;
+		}
 
-		    .base-evaluation {
-		      width: 100%;
-		      border-collapse: collapse;
-		    }
+		.base-evaluation {
+			width: 100%;
+			border-collapse: collapse;
+		}
 
-		    .base-evaluation thead tr {
-		      background: #ebedf1;
-		    }
+		.base-evaluation thead tr {
+			background: #ebedf1;
+		}
 
-		    .base-evaluation thead tr th {
-		      text-align: center;
-		    }
+		.base-evaluation thead tr th {
+			text-align: center;
+		}
 
-		    .base-evaluation th,
-		    .base-evaluation td {
-		      font-size: 12px;
-		      border: 1px solid #dcdcdc;
-		      padding: 1em;
-		    }
+		.base-evaluation th,
+		.base-evaluation td {
+			font-size: 12px;
+			border: 1px solid #dcdcdc;
+			padding: 1em;
+		}
 
-
-
-		    .mate-pro {
-		      page: matePro;
-		    }
-
-		    .mate-pro-header {
-
-		    }
-
-		    .mate-pro-footer {
-
-		    }
-
-
-
-		      @bottom-center {
-		        content: element(mateproFooterRunning);
-		      }
-
-		      @bottom-left {
-		        content: counter(page) "page, total:" counter(pages) "pages";
-		      }
-		    }
+		.mate-pro {
+			page: matePro;
+		}
 	</style>
 	<script type="module" src="/debug/page-container.js"></script>
 	<page-container>
@@ -113,11 +92,7 @@
 		<footer class="base-footer mate-pro-footer">footer mate 60 pro</footer>
 	</page-container>
 	<page-container>
-		<section
-			class="mate-pro"
-			data-split-to=""
-			style="border-block: none; padding-block: 0px"
-		>
+		<section class="mate-pro" data-split-to="" style="border-block: none; padding-block: 0px">
 			<table class="base-description">
 				<tbody>
 					<tr>
@@ -242,23 +217,33 @@
 						<td>fffff</td>
 						<td colspan="5"></td>
 					</tr>
-					<tr data-split-to="" style="border-block-end: none; padding-block-end: 0px">
-						<td data-split-to=""></td>
-						<td data-split-to=""></td>
+					<!-- Note: In Chrome this is split, not moved to the next page -->
+					<!-- <tr data-split-to="" style="border-block-end: none; padding-block-end: 0px">
+						<td data-split-to="" style="border-block-end: none; padding-block-end: 0px">4</td>
+						<td data-split-to="" style="border-block-end: none; padding-block-end: 0px">fffff</td>
 						<td colspan="5" data-split-to="" style="border-block-end: none; padding-block-end: 0px">
-							<table data-split-to="" style="border-block-end: none; padding-block-end: 0px">
-								<thead data-split-to="" style="border-block-end: none; padding-block-end: 0px">
-									<tr data-split-to="" style="border-block-end: none; padding-block-end: 0px">
-										<th class="opacity" data-split-to=""></th>
-										<th data-split-to=""></th>
-										<th data-split-to=""></th>
-										<th data-split-to=""></th>
-										<th data-split-to=""></th>
+							<table>
+								<thead>
+									<tr>
+										<th class="opacity">--</th>
+										<th>总时</th>
+										<th>费率</th>
+										<th>人数</th>
+										<th>合计</th>
 									</tr>
 								</thead>
+								<tbody>
+									<tr>
+										<td style="width: 29%; padding: 0 8px 0 0">1</td>
+										<td>2</td>
+										<td>3</td>
+										<td>4</td>
+										<td>5</td>
+									</tr>
+								</tbody>
 							</table>
 						</td>
-					</tr>
+					</tr> -->
 				</tbody>
 			</table>
 		</section>
@@ -269,26 +254,66 @@
 			data-split-from=""
 			style="border-block-start: none; padding-block-start: 0px"
 		>
-			<table
-				class="base-evaluation"
-				data-split-from=""
-				style="border-block-start: none; padding-block-start: 0px"
-			>
-				<tbody data-split-from="" style="border-block-start: none; padding-block-start: 0px">
-					<tr data-split-from="" style="border-block-start: none; padding-block-start: 0px">
-						<td data-split-from="">4</td>
-						<td data-split-from="">fffff</td>
+			<table class="base-evaluation">
+				<thead>
+					<tr>
+						<th rowspan="2" style="width: 6%">序号<br />Item</th>
+						<th rowspan="2" style="width: 51%">项目内容<br />Description</th>
+						<th colspan="5">Hour</th>
+					</tr>
+					<tr>
+						<th>Normal</th>
+						<th>O/T 1</th>
+						<th>O/T 2</th>
+						<th colspan="2">Travel/Waiting</th>
+					</tr>
+				</thead>
+				<tbody>
+					<!-- Note: In Chrome this was split, we move it to this page for a cleaner break -->
+					<!-- <tr>
+						<td data-split-from="" style="border-block-start: none; padding-block-start: 0px">4</td>
+						<td data-split-from="" style="border-block-start: none; padding-block-start: 0px">
+							fffff
+						</td>
 						<td
 							colspan="5"
 							data-split-from=""
 							style="border-block-start: none; padding-block-start: 0px"
 						>
-							<table data-split-from="" style="border-block-start: none; padding-block-start: 0px">
-								<thead
-									data-split-from=""
-									style="border-block-start: none; padding-block-start: 0px"
-								>
-									<tr data-split-from="" style="border-block-start: none; padding-block-start: 0px">
+							<table>
+								<thead>
+									<tr>
+										<th class="opacity">--</th>
+										<th>总时</th>
+										<th>费率</th>
+										<th>人数</th>
+										<th>合计</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td style="width: 29%; padding: 0 8px 0 0">1</td>
+										<td>2</td>
+										<td>3</td>
+										<td>4</td>
+										<td>5</td>
+									</tr>
+									<tr>
+										<td class="opacity">--</td>
+										<td colspan="3">Sub-Total</td>
+										<td>1</td>
+									</tr>
+								</tbody>
+							</table>
+						</td>
+					</tr> -->
+					<tr>
+						<td>4</td>
+						<td>fffff</td>
+						<td colspan="5">
+							<table>
+								<thead>
+									<tr>
 										<th class="opacity">--</th>
 										<th>总时</th>
 										<th>费率</th>
@@ -344,6 +369,7 @@
 							</table>
 						</td>
 					</tr>
+
 					<tr>
 						<td>6</td>
 						<td>fffff</td>

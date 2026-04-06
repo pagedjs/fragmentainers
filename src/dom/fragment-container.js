@@ -220,7 +220,7 @@ export class FragmentContainerElement extends HTMLElement {
 			const pairs = Object.entries(counterSnapshot)
 				.map(([name, value]) => `${name} ${value}`)
 				.join(" ");
-			counterSheet.replaceSync(`:host { counter-set: ${pairs}; }`);
+			counterSheet.replaceSync(`slot { counter-set: ${pairs}; }`);
 			const sheets = this.#shadow.adoptedStyleSheets;
 			this.#shadow.adoptedStyleSheets = [
 				...sheets.slice(0, -1),

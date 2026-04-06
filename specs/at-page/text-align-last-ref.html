@@ -1,44 +1,42 @@
 <!doctype html>
 <html lang="en">
 	<style>
-		  @page {
-		    size: A6;
-		    margin: 0;
-		  }
+		@page {
+			size: 105mm 148mm;
+			margin: 0;
+		}
 
-		  body {
-		    padding: 0;
-		    margin: 0;
-		    display: flex;
-		    flex-direction: column;
-		  }
-		  page-container {
-		  	--page-width: 105mm;
-		  	--page-height: 148mm;
-		  	--page-margin: 20mm 20mm;
-		  }
+		body {
+			padding: 0;
+			margin: 0;
+			display: flex;
+			flex-direction: column;
+		}
+		page-container {
+			--page-width: 105mm;
+			--page-height: 148mm;
+			--page-margin: 20mm 20mm;
+		}
 		/* Test styles */
-		  :root {
-		        font-size: 18px;
-		      }
+		:root {
+			font-size: 18px;
+		}
 
+		p {
+			text-align: justify;
+			font-size: 12px;
+			line-height: 1.3;
+		}
 
-		      }
-		      "nav" p {
-		        text-align: justify;
-		        font-size: 12px;
-		        line-height: 1.3;
-		      }
+		p.left {
+			text-align: left;
+			break-before: page;
+		}
 
-		      p.left {
-		        text-align: left;
-		        break-before: page;
-		      }
-
-		      section {
-		        break-before: page;
-		        page-break-before: always;
-		      }
+		section {
+			break-before: page;
+			page-break-before: always;
+		}
 	</style>
 	<script type="module" src="/debug/page-container.js"></script>
 	<page-container>
@@ -76,11 +74,7 @@
 		</section>
 	</page-container>
 	<page-container>
-		<section
-			class="chapter"
-			data-split-to=""
-			style="border-block: none; padding-block: 0px"
-		>
+		<section class="chapter" data-split-to="" style="border-block: none; padding-block: 0px">
 			<p>
 				a watch to take out of it, and, burning with curiosity, she ran across the field after it
 				and was just in time to see it pop down a large rabbit-hole, under the hedge. In another
@@ -91,11 +85,7 @@
 		</section>
 	</page-container>
 	<page-container>
-		<section
-			class="chapter"
-			data-split-to=""
-			style="border-block: none; padding-block: 0px"
-		>
+		<section class="chapter" data-split-to="" style="border-block: none; padding-block: 0px">
 			<p class="left" data-split-to="">
 				Either the well was very deep, or she fell very slowly, for she had plenty of time, as she
 				went down, to look about her. First, she tried to make out what she was coming to, but it
@@ -108,11 +98,7 @@
 		</section>
 	</page-container>
 	<page-container>
-		<section
-			class="chapter"
-			data-split-to=""
-			style="border-block: none; padding-block: 0px"
-		>
+		<section class="chapter" data-split-to="" style="border-block: none; padding-block: 0px">
 			<p class="left" data-split-to="">
 				one of the cupboards as she fell past it. Down, down, down! Would the fall never come to an
 				end? There was nothing else to do, so Alice soon began talking to herself. "Dinah'll miss me
@@ -125,10 +111,7 @@
 		</section>
 	</page-container>
 	<page-container>
-		<section
-			class="chapter"
-			style="border-block-start: none; padding-block-start: 0px"
-		>
+		<section class="chapter" style="border-block-start: none; padding-block-start: 0px">
 			<p class="left">
 				looked up, but it was all dark overhead; before her was another long passage and the White
 				Rabbit was still in sight, hurrying down it. There was not a moment to be lost. Away went

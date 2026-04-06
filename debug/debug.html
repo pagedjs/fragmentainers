@@ -87,6 +87,7 @@
 				.page-row-title,
 				.page-row-data {
 					display: none !important;
+					margin: 0;
 				}
 				body {
 					margin: 0;
@@ -94,6 +95,7 @@
 				}
 				#output {
 					gap: 0;
+					margin: 0;
 				}
 				.page-row {
 					border: none;
@@ -104,8 +106,13 @@
 					margin: 0;
 					outline: none;
 				}
-				.page-row {
-					break-after: page;
+
+				.page-row.has-issues .page-row-render {
+					outline: none;
+				}
+
+				@page {
+					margin: 0 !important;
 				}
 			}
 		</style>
@@ -181,7 +188,14 @@
 			const downloadBtn = document.createElement("button");
 			downloadBtn.textContent = "Download";
 			downloadBtn.addEventListener("click", () => {
-				const blob = new Blob([fullDebugText], { type: "text/plain" });
+				// Rebuild from live DOM so async overflow issues are included
+				const header = headerEl.textContent || "";
+				const summary = summaryEl.textContent || "";
+				const pages = [...outputEl.querySelectorAll(".page-row-data")]
+					.map((el) => el.textContent)
+					.join("\n");
+				const text = [header, summary, pages].join("\n");
+				const blob = new Blob([text], { type: "text/plain" });
 				const a = document.createElement("a");
 				a.href = URL.createObjectURL(blob);
 				a.download = "debug-report.txt";
@@ -221,7 +235,7 @@
 					const baseURL = url.substring(0, url.lastIndexOf("/") + 1);
 					const parsed = await ContentParser.fromString(content, baseURL);
 
-					const size = { inlineSize: pageW, blockSize: pageH };
+					const size = pageW && pageH ? { inlineSize: pageW, blockSize: pageH } : undefined;
 					const resolver = PageResolver.fromStyleSheets(parsed.styles, size);
 
 					const layout = new FragmentedFlow(parsed.fragment, {

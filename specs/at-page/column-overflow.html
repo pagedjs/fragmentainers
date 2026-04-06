@@ -6,7 +6,24 @@
 		}
 
 		@page matePro {
-			size: A4 portrait;
+			@top-left {
+				content: "left";
+			}
+			@top-right {
+				content: "right";
+			}
+			@top-center {
+				content: element(HeaderRunning);
+			}
+			@bottom-center {
+				content: element(FooterRunning);
+			}
+			@bottom-left {
+				content: counter(page) "page, total:" counter(pages) "pages";
+			}
+			@bottom-right {
+				content: "right";
+			}
 		}
 
 		.mate-pro {

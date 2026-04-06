@@ -6,7 +6,6 @@ import {
 	INLINE_CLOSE_TAG,
 	INLINE_ATOMIC,
 	BREAK_TOKEN_INLINE,
-	BOX_DECORATION_CLONE,
 } from "../core/constants.js";
 import { modules } from "../modules/registry.js";
 
@@ -53,9 +52,6 @@ export function composeFragment(fragment, inputBreakToken, parentEl) {
 		if (inputBreakToken && el.tagName === "OL") {
 			applyListContinuation(el, node, inputBreakToken);
 		}
-		if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
-			applySliceDecorations(el, inputBreakToken, fragment);
-		}
 		for (const child of fragment.childFragments) {
 			if (!child.node) continue;
 			const childInputBT = findChildBreakToken(inputBreakToken, child.node);
@@ -79,9 +75,6 @@ export function composeFragment(fragment, inputBreakToken, parentEl) {
 		const el = node.element.cloneNode(true);
 		if (fragment.isRepeated) el.setAttribute("data-repeated", "");
 		applySplitAttributes(el, inputBreakToken, fragment);
-		if (node.boxDecorationBreak !== BOX_DECORATION_CLONE) {
-			applySliceDecorations(el, inputBreakToken, fragment);
-		}
 
 		// Sliced monolithic content: wrap in a clip container and offset
 		// by the consumed amount to show the correct portion.
@@ -321,7 +314,13 @@ function composeMulticolFragment(fragment, inputBreakToken, parentEl) {
  * @param {import("../core/fragment.js").PhysicalFragment} fragment
  */
 function applySplitAttributes(el, inputBreakToken, fragment) {
-	if (inputBreakToken && !inputBreakToken.isBreakBefore && inputBreakToken.consumedBlockSize > 0)
+	if (
+		inputBreakToken &&
+		!inputBreakToken.isBreakBefore &&
+		(inputBreakToken.type === BREAK_TOKEN_INLINE
+			? inputBreakToken.textOffset > 0
+			: inputBreakToken.consumedBlockSize > 0)
+	)
 		el.setAttribute("data-split-from", "");
 	if (fragment.breakToken) {
 		el.setAttribute("data-split-to", "");
@@ -362,17 +361,6 @@ function applyListContinuation(el, node, inputBreakToken) {
 	}
 
 	el.setAttribute("start", String(originalStart + itemCount));
-}
-
-export function applySliceDecorations(el, inputBreakToken, fragment) {
-	if (inputBreakToken !== null) {
-		el.style.borderBlockStart = "none";
-		el.style.paddingBlockStart = "0";
-	}
-	if (fragment.breakToken !== null) {
-		el.style.borderBlockEnd = "none";
-		el.style.paddingBlockEnd = "0";
-	}
 }
 
 /**

@@ -72,28 +72,6 @@
 		.mate-pro {
 			page: matePro;
 		}
-
-		.mate-pro-header {
-			position: running(mateproHeaderRunning);
-		}
-
-		.mate-pro-footer {
-			position: running(mateproFooterRunning);
-		}
-
-		@page matePro {
-			@top-center {
-				content: element(mateproHeaderRunning);
-			}
-
-			@bottom-center {
-				content: element(mateproFooterRunning);
-			}
-
-			@bottom-left {
-				content: counter(page) "page, total:" counter(pages) "pages";
-			}
-		}
 	</style>
 	<header class="base-header mate-pro-header">
 		<span class="base-title">HUAWEI Mate 60 Pro</span>

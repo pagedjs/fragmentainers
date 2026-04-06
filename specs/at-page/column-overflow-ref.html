@@ -1,224 +1,209 @@
 <!doctype html>
 <style>
-  @page {
-    size: A4 portrait;
-    margin: 0;
-  }
+	@page {
+		size: A4 portrait;
+		margin: 0;
+	}
 
-  body {
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: row;
-  }
-  page-container {
-  	--page-width: 210mm;
-  	--page-height: 297mm;
-  }
-  .mate-pro {
-    page: matePro;
-  }
-  page-container.matePro {
-    width: 816px;
-    height: 1056px;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  th,
-  td {
-    font-size: 12px;
-    border: 3px solid #000;
-    padding: 1em;
-    box-decoration-break: clone;
-  }
-  tr,
-  td {
-    break-inside: avoid;
-  }</style>
+	@page matePro {
+		@top-left {
+			content: "left";
+		}
+		@top-right {
+			content: "right";
+		}
+		@top-center {
+			content: element(HeaderRunning);
+		}
+		@bottom-center {
+			content: element(FooterRunning);
+		}
+		@bottom-left {
+			content: counter(page) "page, total:" counter(pages) "pages";
+		}
+		@bottom-right {
+			content: "right";
+		}
+	}
+
+	body {
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	page-container {
+		--page-width: 210mm;
+		--page-height: 297mm;
+	}
+	.mate-pro {
+		page: matePro;
+	}
+	page-container.matePro {
+		--page-width: 210mm;
+		--page-height: 297mm;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+	th,
+	td {
+		font-size: 12px;
+		border: 3px solid #000;
+		padding: 1em;
+		box-decoration-break: clone;
+	}
+	tr,
+	td {
+		break-inside: avoid;
+	}
+</style>
 <script type="module" src="/debug/page-container.js"></script>
 <page-container>
-      <section class="mate-pro">
-      <div class="mate-header">header</div>
-      <div class="mate-footer">footer</div>
-      <table>
-        <thead>
-          <tr>
-            <th>No</th>
-            <th>Title</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>1</td>
-            <td>
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholde1 placeholde2
-              placeholde3 placeholde4 placeholde5 placeholde6 placeholde7
-              placeholde8 placeholde9
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-  
-  </page-container>
-  <page-container>
-      <section class="mate-pro">
-      <tbody>
-          <tr>
-            <td>2</td>
-            <td>
-              placeholde1 placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-              placeholder placeholder placeholder placeholder placeholder
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-  
+	<section class="mate-pro">
+		<div class="mate-header">header</div>
+		<div class="mate-footer">footer</div>
+		<table>
+			<thead>
+				<tr>
+					<th>No</th>
+					<th>Title</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>1</td>
+					<td>
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholde1 placeholde2 placeholde3 placeholde4 placeholde5
+						placeholde6 placeholde7 placeholde8 placeholde9
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</section>
+</page-container>
+<page-container>
+	<section class="mate-pro">
+		<table>
+			<thead>
+				<tr>
+					<th>No</th>
+					<th>Title</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td>2</td>
+					<td>
+						placeholde1 placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+						placeholder placeholder placeholder
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</section>
 </page-container>
