@@ -1,6 +1,11 @@
 <!doctype html>
 <html lang="en">
 	<style>
+		@page {
+			size: 2cm 2cm;
+			margin: 0;
+		}
+
 		body {
 			padding: 0;
 			margin: 0;
@@ -8,13 +13,8 @@
 			flex-direction: column;
 		}
 		page-container {
-			width: 2cm;
-			height: 2cm;
-			padding: 0px;
-			box-sizing: border-box;
-			overflow: hidden;
-			display: flex;
-			flex-shrink: 0;
+			--page-width: 2cm;
+			--page-height: 2cm;
 		}
 		.big {
 			font-size: 150px;

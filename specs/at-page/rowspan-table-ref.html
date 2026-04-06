@@ -1,6 +1,11 @@
 <!doctype html>
 <html lang="en">
 	<style>
+		@page {
+			size: 600px 300px;
+			margin: 0;
+		}
+
 		body {
 			padding: 0;
 			margin: 0;
@@ -8,15 +13,8 @@
 			flex-direction: column;
 		}
 		page-container {
-			all: initial;
-			display: flex;
-			contain: strict;
-			width: 600px;
-			height: 300px;
-			padding: 0px;
-			box-sizing: border-box;
-			overflow: hidden;
-			flex-shrink: 0;
+			--page-width: 600px;
+			--page-height: 300px;
 		}
 		/* Test styles */
 		table {

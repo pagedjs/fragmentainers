@@ -19,15 +19,17 @@ import { OVERRIDES } from "../src/styles/overrides.js";
 const STYLES = `
   :host {
     display: flex;
+    flex-direction: column;
     box-sizing: border-box;
     overflow: hidden;
     flex-shrink: 0;
     width: var(--page-width);
     height: var(--page-height);
-    padding: var(--page-padding, 0px);
+    padding: var(--page-margin, 0px);
   }
-  slot.body {
-    display: block;
+  div.body {
+    display: flex;
+    flex-direction: column;
     flex-grow: 1;
   }
 `;
@@ -41,11 +43,13 @@ export class PageContainer extends HTMLElement {
 		const style = document.createElement("style");
 		style.textContent = STYLES;
 		shadow.appendChild(style);
+		const body = document.createElement("div");
+		body.classList.add("body");
+		body.setAttribute("part", "body");
 		this.#slot = document.createElement("slot");
-		this.#slot.classList.add("body");
-		this.#slot.setAttribute("part", "body");
 		this.#slot.addEventListener("slotchange", () => this.#onSlotChange());
-		shadow.appendChild(this.#slot);
+		body.appendChild(this.#slot);
+		shadow.appendChild(body);
 	}
 
 	connectedCallback() {
@@ -66,7 +70,7 @@ export class PageContainer extends HTMLElement {
 		this.style.setProperty("--page-height", `${height}px`);
 		if (margins) {
 			this.style.setProperty(
-				"--page-padding",
+				"--page-margin",
 				`${margins.top || 0}px ${margins.right || 0}px ${margins.bottom || 0}px ${margins.left || 0}px`,
 			);
 		}

@@ -1,6 +1,11 @@
 <!doctype html>
 <html lang="en">
 	<style>
+		@page {
+			size: 100mm 100mm;
+			margin: 0;
+		}
+
 		body {
 			padding: 0;
 			margin: 0;
@@ -8,15 +13,9 @@
 			flex-direction: column;
 		}
 		page-container {
-			all: initial;
-			display: flex;
-			contain: strict;
-			width: 377.953px;
-			height: 377.953px;
-			padding: 37.7953px;
-			box-sizing: border-box;
-			overflow: hidden;
-			flex-shrink: 0;
+			--page-width: 100mm;
+			--page-height: 100mm;
+			--page-margin: 10mm;
 		}
 		p {
 			widows: 3;

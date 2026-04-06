@@ -19,18 +19,18 @@ export function createSpecSuite(
 	suiteDir,
 	{ maxDiffPixelRatio = 0.1, threshold = 0.1 } = {},
 ) {
-	const raw = YAML.parse(fs.readFileSync(path.join(suiteDir, "tests.yml"), "utf8"))[suiteName];
+	const specsDir = path.resolve(suiteDir, "..");
+	const raw = YAML.parse(fs.readFileSync(path.join(specsDir, "tests.yml"), "utf8"))[suiteName];
 
-	const entries = raw.map((entry) => {
-		if (typeof entry === "string") {
-			return { name: entry, skip: false };
-		}
-		return { name: entry.name, skip: entry.skip || false };
-	});
+	const entries = raw.map((entry) => ({
+		name: entry.name,
+		type: entry.type,
+		skip: entry.skip || false,
+	}));
 
 	test.describe.configure({ mode: "parallel" });
 	test.describe(suiteName, () => {
-		for (const { name, skip } of entries) {
+		for (const { name, type, skip } of entries) {
 			test(name, async ({ page }, testInfo) => {
 				if (skip) {
 					test.skip(true, typeof skip === "string" ? skip : undefined);
@@ -42,6 +42,9 @@ export function createSpecSuite(
 				await page.goto(`/specs/${suiteName}/${name}.html${refSuffix}`, {
 					waitUntil: "load",
 				});
+				await page.evaluate((t) => {
+					document.documentElement.dataset.specType = t;
+				}, type);
 				await page.addScriptTag({
 					type: "module",
 					url: "/specs/helpers/process.js",
@@ -66,6 +69,7 @@ export function createSpecSuite(
 				}
 
 				const testShot = await page.screenshot({ fullPage: true });
+				await testInfo.attach("test", { body: testShot, contentType: "image/png" });
 
 				await page.goto(`/specs/${suiteName}/${name}-ref.html`, {
 					waitUntil: "load",
@@ -73,10 +77,11 @@ export function createSpecSuite(
 
 				const refFilename = `${name}.png`;
 				const snapshotPath = test.info().snapshotPath(refFilename);
-				await page.screenshot({
+				const refShot = await page.screenshot({
 					fullPage: true,
 					path: snapshotPath,
 				});
+				await testInfo.attach("ref", { body: refShot, contentType: "image/png" });
 
 				await expect(testShot).toMatchSnapshot(refFilename, {
 					maxDiffPixelRatio,

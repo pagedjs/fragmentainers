@@ -1,0 +1,51 @@
+css-page:
+  - name: basic-pagination-001-print
+    type: print
+  - name: basic-pagination-002-print
+    type: print
+  - name: basic-pagination-003-print
+    type: print
+  - name: basic-pagination-004-print
+    type: print
+
+fragmentation:
+  - name: border-padding-overflow
+    type: print
+
+at-page:
+  - name: awesome
+    type: print
+  - name: break-elements
+    type: print
+  - name: column-overflow
+    type: print
+  - name: copy-column-widths
+    type: print
+    skip: "unhandled"
+  - name: exceeding-rowspan-table
+    type: print
+  - name: infinite-loop
+    type: print
+  - name: lists
+    type: print
+  - name: long-table
+    type: print
+    skip: "ref HTML needs updating after IFC padding fix"
+  - name: nested
+    type: print
+  - name: numbering
+    type: print
+  - name: pre
+    type: print
+  - name: rebuild
+    type: print
+  - name: rebuild-all-tds
+    type: print
+  - name: rowspan-table
+    type: print
+  - name: text-align-last
+    type: print
+  - name: whitespaces
+    type: print
+  - name: widows-orphans
+    type: print

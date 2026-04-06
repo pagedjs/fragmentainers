@@ -1,6 +1,11 @@
 <!doctype html>
 <html lang="en">
 	<style>
+		  @page {
+		    size: A6;
+		    margin: 0;
+		  }
+
 		  body {
 		    padding: 0;
 		    margin: 0;
@@ -8,15 +13,9 @@
 		    flex-direction: column;
 		  }
 		  page-container {
-		    all: initial;
-		    display: flex;
-		    contain: strict;
-		    width: 397px;
-		    height: 559px;
-		    padding: 75.5906px;
-		    box-sizing: border-box;
-		    overflow: hidden;
-		    flex-shrink: 0;
+		  	--page-width: 105mm;
+		  	--page-height: 148mm;
+		  	--page-margin: 20mm 20mm;
 		  }
 		/* Test styles */
 		  :root {

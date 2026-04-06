@@ -1,5 +1,10 @@
 <!doctype html>
 <style>
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
   body {
     padding: 0;
     margin: 0;
@@ -7,12 +12,8 @@
     flex-direction: row;
   }
   page-container {
-    width: 816px;
-    height: 1056px;
-    box-sizing: border-box;
-    overflow: hidden;
-    display: flex;
-    flex-shrink: 0;
+  	--page-width: 210mm;
+  	--page-height: 297mm;
   }
   .mate-pro {
     page: matePro;
