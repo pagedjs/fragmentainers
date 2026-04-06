@@ -79,6 +79,35 @@
 					flex-direction: column;
 				}
 			}
+
+			@media print {
+				#controls,
+				#header,
+				#summary,
+				.page-row-title,
+				.page-row-data {
+					display: none !important;
+				}
+				body {
+					margin: 0;
+					background: none;
+				}
+				#output {
+					gap: 0;
+				}
+				.page-row {
+					border: none;
+					padding: 0;
+				}
+				.page-row-render {
+					transform: none;
+					margin: 0;
+					outline: none;
+				}
+				.page-row {
+					break-after: page;
+				}
+			}
 		</style>
 	</head>
 	<body>
@@ -210,6 +239,9 @@
 					const fragments = flow.fragments;
 
 					const [startIdx, endIdx] = parseRange(range, fragments.length);
+
+					// Adopt the content's stylesheets so @page rules apply when printing
+					document.adoptedStyleSheets = [...document.adoptedStyleSheets, ...parsed.styles];
 
 					const summaryText = buildDocumentSummary(fragments, pageH);
 					summaryEl.innerHTML = summaryText;

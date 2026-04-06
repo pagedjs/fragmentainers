@@ -11,20 +11,29 @@ export function parseCSSLength(str) {
 	if (!match) return null;
 	const value = parseFloat(match[1]);
 	const unit = match[2] || "px";
+	let px;
 	switch (unit) {
 		case "px":
-			return value;
+			px = value;
+			break;
 		case "in":
-			return value * 96;
+			px = value * 96;
+			break;
 		case "cm":
-			return (value * 96) / 2.54;
+			px = (value * 96) / 2.54;
+			break;
 		case "mm":
-			return (value * 96) / 25.4;
+			px = (value * 96) / 25.4;
+			break;
 		case "pt":
-			return (value * 96) / 72;
+			px = (value * 96) / 72;
+			break;
 		default:
-			return value;
+			px = value;
 	}
+	// Snap to 1/64px grid to match Chromium's sub-pixel quantization
+	// (LayoutUnit::FromFloatRound uses roundf, not floor).
+	return Math.round(px * 64) / 64;
 }
 
 /**
