@@ -321,7 +321,8 @@ function composeMulticolFragment(fragment, inputBreakToken, parentEl) {
  * @param {import("../core/fragment.js").PhysicalFragment} fragment
  */
 function applySplitAttributes(el, inputBreakToken, fragment) {
-	if (inputBreakToken) el.setAttribute("data-split-from", "");
+	if (inputBreakToken && !inputBreakToken.isBreakBefore && inputBreakToken.consumedBlockSize > 0)
+		el.setAttribute("data-split-from", "");
 	if (fragment.breakToken) {
 		el.setAttribute("data-split-to", "");
 		if (fragment.node.textAlign === "justify") {

@@ -46,7 +46,7 @@ OVERRIDES.replaceSync(`
   content: unset !important;
 }
 
-li[data-split-from]:first-of-type {
+li[data-split-from] {
   list-style: none !important;
 }
 

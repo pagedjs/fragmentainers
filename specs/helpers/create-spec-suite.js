@@ -68,25 +68,46 @@ export function createSpecSuite(
 					return;
 				}
 
-				const testShot = await page.screenshot({ fullPage: true });
-				await testInfo.attach("test", { body: testShot, contentType: "image/png" });
+				// Screenshot each page-container individually
+				const testContainers = page.locator("page-container");
+				const testCount = await testContainers.count();
+				const testShots = [];
+				for (let i = 0; i < testCount; i++) {
+					const shot = await testContainers.nth(i).screenshot();
+					testShots.push(shot);
+					await testInfo.attach(`test-page-${i}`, { body: shot, contentType: "image/png" });
+				}
 
 				await page.goto(`/specs/${suiteName}/${name}-ref.html`, {
 					waitUntil: "load",
 				});
 
-				const refFilename = `${name}.png`;
-				const snapshotPath = test.info().snapshotPath(refFilename);
-				const refShot = await page.screenshot({
-					fullPage: true,
-					path: snapshotPath,
-				});
-				await testInfo.attach("ref", { body: refShot, contentType: "image/png" });
+				const refContainers = page.locator("page-container");
+				const refCount = await refContainers.count();
 
-				await expect(testShot).toMatchSnapshot(refFilename, {
-					maxDiffPixelRatio,
-					threshold,
-				});
+				// Attach all ref screenshots before asserting
+				const refShots = [];
+				for (let i = 0; i < refCount; i++) {
+					const refShot = await refContainers.nth(i).screenshot();
+					refShots.push(refShot);
+					await testInfo.attach(`ref-page-${i}`, { body: refShot, contentType: "image/png" });
+				}
+
+				expect(testCount).toBe(refCount);
+
+				for (let i = 0; i < refCount; i++) {
+					const snapshotName = `${name}-page-${i}.png`;
+					const snapshotPath = testInfo.snapshotPath(snapshotName);
+					const snapshotDir = path.dirname(snapshotPath);
+					if (!fs.existsSync(snapshotDir)) {
+						fs.mkdirSync(snapshotDir, { recursive: true });
+					}
+					fs.writeFileSync(snapshotPath, refShots[i]);
+					await expect(testShots[i]).toMatchSnapshot(snapshotName, {
+						maxDiffPixelRatio,
+						threshold,
+					});
+				}
 			});
 		}
 	});

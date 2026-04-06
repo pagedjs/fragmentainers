@@ -17,7 +17,6 @@ const CONTAINER_HOST_STYLES = `
     all: initial;
     display: block;
     contain: strict;
-    text-rendering: geometricPrecision;
   }
   slot {
     display: block;
