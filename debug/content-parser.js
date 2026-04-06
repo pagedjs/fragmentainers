@@ -144,6 +144,7 @@ export class ContentParser {
 			}
 		}
 
+		document.adoptedStyleSheets = [...document.adoptedStyleSheets, ...sheets];
 		return sheets;
 	}
 

@@ -14,7 +14,6 @@ import {
 } from "../atpage/page-resolver.js";
 import "../dom/content-measure.js";
 import "../dom/fragment-container.js";
-import { ContentParser } from "../dom/content-parser.js";
 import { Measurer } from "../dom/measure.js";
 import { modules } from "../modules/registry.js";
 import "../modules/index.js";
@@ -108,11 +107,11 @@ export class FragmentedFlow extends Iterator {
 			img.setAttribute("loading", "lazy");
 		}
 
-		this.#styles = options.styles
-			? Array.isArray(options.styles)
-				? options.styles
-				: [options.styles]
-			: undefined;
+		if (options.styles) {
+			this.#styles = Array.isArray(options.styles) ? options.styles : [options.styles];
+		} else {
+			this.#styles = [...document.adoptedStyleSheets];
+		}
 
 		if (options.constraintSpace) {
 			this.#constraintSpace = options.constraintSpace;
@@ -470,7 +469,7 @@ export class FragmentedFlow extends Iterator {
 	#layout(forceUpdate = false) {
 		if (this.#tree && this.#measureElement && !forceUpdate) return;
 		const content = this.#content;
-		const styles = this.#styles || ContentParser.collectDocumentStyles();
+		const styles = this.#styles;
 		if (
 			this.#tree &&
 			!this.#measureElement &&
@@ -543,7 +542,7 @@ export class FragmentedFlow extends Iterator {
 	 * @returns {Promise<string[]>}
 	 */
 	preloadFonts() {
-		const styles = this.#styles || ContentParser.collectDocumentStyles();
+		const styles = this.#styles;
 		for (const sheet of styles) {
 			let rules;
 			try {

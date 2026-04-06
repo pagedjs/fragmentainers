@@ -4,7 +4,8 @@
  * Moves all body content into a FragmentedFlow, renders each
  * page into a <page-container> element, and appends them to the body.
  */
-import { FragmentedFlow, PageResolver, ContentParser } from "../src/index.js";
+import { FragmentedFlow, PageResolver } from "../src/index.js";
+import { ContentParser } from "./content-parser.js";
 import "../src/dom/fragment-container.js";
 import "./page-container.js";
 
