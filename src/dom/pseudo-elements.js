@@ -123,7 +123,7 @@ export function buildPseudoStyleSheet(styles, registry) {
 	if (sheet.cssRules.length > 0) {
 		try {
 			sheet.insertRule(
-				`[data-frag-resolved-before]::before { content: none !important; }`,
+				"[data-frag-resolved-before]::before { content: none !important; }",
 				sheet.cssRules.length,
 			);
 		} catch {
@@ -131,7 +131,7 @@ export function buildPseudoStyleSheet(styles, registry) {
 		}
 		try {
 			sheet.insertRule(
-				`[data-frag-resolved-after]::after { content: none !important; }`,
+				"[data-frag-resolved-after]::after { content: none !important; }",
 				sheet.cssRules.length,
 			);
 		} catch {
