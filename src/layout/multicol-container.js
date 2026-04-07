@@ -1,6 +1,6 @@
 import { BlockBreakToken } from "../core/tokens.js";
 import { ConstraintSpace } from "../core/constraint-space.js";
-import { PhysicalFragment } from "../core/fragment.js";
+import { Fragment } from "../core/fragment.js";
 import { layoutChild } from "../core/layout-request.js";
 import { FRAGMENTATION_COLUMN, FRAGMENTATION_NONE, ALGORITHM_MULTICOL } from "../core/constants.js";
 
@@ -149,7 +149,7 @@ export function* layoutMulticolContainer(node, constraintSpace, breakToken) {
 			? Math.max(...columnFragments.map((f) => f.blockSize), 0)
 			: columnHeight;
 
-	const fragment = new PhysicalFragment(node, multicolBlockSize, columnFragments);
+	const fragment = new Fragment(node, multicolBlockSize, columnFragments);
 	fragment.inlineSize = containerInlineSize;
 	fragment.multicolData = { columnWidth: width, columnGap: gap, columnCount: count };
 

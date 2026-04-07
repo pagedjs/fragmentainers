@@ -123,7 +123,7 @@ class ModuleRegistry {
 	 * Called after content layout for a fragmentainer. Aggregates
 	 * reservedBlockEnd and afterRender callbacks across all modules.
 	 *
-	 * @param {import('../core/fragment.js').PhysicalFragment} fragment
+	 * @param {import('../core/fragment.js').Fragment} fragment
 	 * @param {import('../core/constraint-space.js').ConstraintSpace} constraintSpace
 	 * @param {import('../core/tokens.js').BreakToken|null} inputBreakToken
 	 * @returns {{ reservedBlockEnd: number, afterRenderCallbacks: Function[] }|null}

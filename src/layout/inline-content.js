@@ -1,5 +1,5 @@
 import { InlineBreakToken } from "../core/tokens.js";
-import { PhysicalFragment } from "../core/fragment.js";
+import { Fragment } from "../core/fragment.js";
 import { BreakScore } from "../core/break-scoring.js";
 import {
 	INLINE_TEXT,
@@ -92,7 +92,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 
 	// Guard: if no inline items data, return empty fragment
 	if (!inlineItems || !inlineItems.items || inlineItems.items.length === 0) {
-		const fragment = new PhysicalFragment(node, 0);
+		const fragment = new Fragment(node, 0);
 		fragment.inlineSize = constraintSpace.availableInlineSize;
 		return { fragment, breakToken: null };
 	}
@@ -106,7 +106,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 	);
 	if (!hasContentItems) {
 		const measuredHeight = node.element ? node.element.getBoundingClientRect().height : 0;
-		const fragment = new PhysicalFragment(node, measuredHeight);
+		const fragment = new Fragment(node, measuredHeight);
 		fragment.inlineSize = constraintSpace.availableInlineSize;
 		return { fragment, breakToken: null };
 	}
@@ -129,7 +129,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 	// break token and the content resumes in the next fragmentainer with full space.
 	// The progress guarantee is enforced at the fragmentainer level, not here.
 	if (availableBlockSpace < lineHeight && constraintSpace.blockOffsetInFragmentainer > 0) {
-		const fragment = new PhysicalFragment(node, 0, []);
+		const fragment = new Fragment(node, 0, []);
 		fragment.inlineSize = constraintSpace.availableInlineSize;
 		const inlineToken = new InlineBreakToken(node);
 		inlineToken.itemIndex = itemIndex;
@@ -201,7 +201,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 
 		if (linesToPlace <= 0 && constraintSpace.blockOffsetInFragmentainer > 0) {
 			// No lines fit — defer to next fragmentainer
-			const fragment = new PhysicalFragment(node, 0, []);
+			const fragment = new Fragment(node, 0, []);
 			fragment.inlineSize = constraintSpace.availableInlineSize;
 			const inlineToken = new InlineBreakToken(node);
 			inlineToken.itemIndex = itemIndex;
@@ -212,7 +212,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 
 		// Create line fragments
 		for (let i = 0; i < linesToPlace; i++) {
-			lineFragments.push(new PhysicalFragment(null, lineHeight));
+			lineFragments.push(new Fragment(null, lineHeight));
 		}
 		blockOffset = linesToPlace * lineHeight;
 
@@ -252,7 +252,7 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 		}
 	}
 
-	const fragment = new PhysicalFragment(node, blockOffset, lineFragments);
+	const fragment = new Fragment(node, blockOffset, lineFragments);
 	fragment.inlineSize = constraintSpace.availableInlineSize;
 	fragment.lineCount = lineFragments.length;
 

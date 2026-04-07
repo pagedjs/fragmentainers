@@ -74,7 +74,7 @@ export class CounterState {
 
 	/**
 	 * Return a frozen snapshot of current counter values.
-	 * The snapshot is a plain object suitable for storage on PhysicalFragment.
+	 * The snapshot is a plain object suitable for storage on Fragment.
 	 * @returns {Object<string, number>}
 	 */
 	snapshot() {
@@ -86,7 +86,7 @@ export class CounterState {
 	}
 
 	/**
-	 * Restore counter state from a snapshot (from PhysicalFragment.counterState).
+	 * Restore counter state from a snapshot (from Fragment.counterState).
 	 * Clears existing state and populates from the snapshot.
 	 * @param {Object<string, number>|null} snapshot
 	 */
@@ -113,7 +113,7 @@ export class CounterState {
  * (where inputBreakToken is non-null) since those were already counted
  * in a previous fragmentainer.
  *
- * @param {import("./fragment.js").PhysicalFragment} fragment
+ * @param {import("./fragment.js").Fragment} fragment
  * @param {import("./tokens.js").BreakToken|null} inputBreakToken
  * @param {CounterState} counterState
  */

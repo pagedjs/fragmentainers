@@ -4,14 +4,14 @@ test.describe("FragmentationContext", () => {
 	test("exposes fragments array", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
 
 			function makeFragments(count) {
 				const fragments = [];
 				for (let i = 0; i < count; i++) {
 					const node = document.createElement("div");
-					const frag = new PhysicalFragment(node, 200, []);
+					const frag = new Fragment(node, 200, []);
 					frag.constraints = {
 						contentArea: { inlineSize: 816, blockSize: 1056 },
 					};
@@ -37,14 +37,14 @@ test.describe("FragmentationContext", () => {
 	test("reports correct fragmentainerCount", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
 
 			function makeFragments(count) {
 				const fragments = [];
 				for (let i = 0; i < count; i++) {
 					const node = document.createElement("div");
-					const frag = new PhysicalFragment(node, 200, []);
+					const frag = new Fragment(node, 200, []);
 					frag.constraints = {
 						contentArea: { inlineSize: 816, blockSize: 1056 },
 					};
@@ -78,14 +78,14 @@ test.describe("FragmentationContext", () => {
 	test("skips element creation when contentStyles is null", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
 
 			function makeFragments(count) {
 				const fragments = [];
 				for (let i = 0; i < count; i++) {
 					const node = document.createElement("div");
-					const frag = new PhysicalFragment(node, 200, []);
+					const frag = new Fragment(node, 200, []);
 					frag.constraints = {
 						contentArea: { inlineSize: 816, blockSize: 1056 },
 					};
@@ -115,14 +115,14 @@ test.describe("FragmentationContext", () => {
 	test("Symbol.species returns Array", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
 
 			function makeFragments(count) {
 				const fragments = [];
 				for (let i = 0; i < count; i++) {
 					const node = document.createElement("div");
-					const frag = new PhysicalFragment(node, 200, []);
+					const frag = new Fragment(node, 200, []);
 					frag.constraints = {
 						contentArea: { inlineSize: 816, blockSize: 1056 },
 					};
@@ -589,6 +589,7 @@ test.describe("namedPage property", () => {
 	test("sets namedPage property from fragment constraints", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			await import("/src/dom/fragment-container.js");
 
 			const size = { inlineSize: 400, blockSize: 800 };
@@ -598,35 +599,14 @@ test.describe("namedPage property", () => {
 				sourceRefs: null,
 				refMap: null,
 			};
-			const fragments = [
-				{
-					node: null,
-					blockSize: 0,
-					childFragments: [],
-					breakToken: null,
-					isBlank: false,
-					constraints: { contentArea: size, namedPage: "cover" },
-					counterState: null,
-				},
-				{
-					node: null,
-					blockSize: 0,
-					childFragments: [],
-					breakToken: null,
-					isBlank: false,
-					constraints: { contentArea: size, namedPage: "chapter" },
-					counterState: null,
-				},
-				{
-					node: null,
-					blockSize: 0,
-					childFragments: [],
-					breakToken: null,
-					isBlank: false,
-					constraints: { contentArea: size, namedPage: null },
-					counterState: null,
-				},
-			];
+
+			const frag1 = new Fragment(null, 0);
+			frag1.constraints = { contentArea: size, namedPage: "cover" };
+			const frag2 = new Fragment(null, 0);
+			frag2.constraints = { contentArea: size, namedPage: "chapter" };
+			const frag3 = new Fragment(null, 0);
+			frag3.constraints = { contentArea: size, namedPage: null };
+			const fragments = [frag1, frag2, frag3];
 
 			const flow = new FragmentationContext(fragments, contentStyles);
 			const namedPages = [];

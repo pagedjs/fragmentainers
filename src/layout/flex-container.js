@@ -1,6 +1,6 @@
 import { BlockBreakToken } from "../core/tokens.js";
 import { ConstraintSpace } from "../core/constraint-space.js";
-import { PhysicalFragment } from "../core/fragment.js";
+import { Fragment } from "../core/fragment.js";
 import { layoutChild } from "../core/layout-request.js";
 import { findChildBreakToken } from "../core/helpers.js";
 import { FRAGMENTATION_NONE, ALGORITHM_FLEX, ALGORITHM_FLEX_LINE } from "../core/constants.js";
@@ -27,7 +27,7 @@ export function* layoutFlexContainer(node, constraintSpace, breakToken) {
 
 	const children = node.children;
 	if (children.length === 0) {
-		const fragment = new PhysicalFragment(node, 0);
+		const fragment = new Fragment(node, 0);
 		fragment.inlineSize = constraintSpace.availableInlineSize;
 		return { fragment, breakToken: null };
 	}
@@ -95,7 +95,7 @@ export function* layoutFlexContainer(node, constraintSpace, breakToken) {
 		}
 	}
 
-	const fragment = new PhysicalFragment(node, blockOffset, lineFragments);
+	const fragment = new Fragment(node, blockOffset, lineFragments);
 	fragment.inlineSize = constraintSpace.availableInlineSize;
 	if (containerBreakToken) fragment.breakToken = containerBreakToken;
 
@@ -153,7 +153,7 @@ function* layoutFlexLine(node, lineItems, constraintSpace, blockOffset, parentBr
 		}
 	}
 
-	const lineFragment = new PhysicalFragment(node, maxItemBlockSize, itemFragments);
+	const lineFragment = new Fragment(node, maxItemBlockSize, itemFragments);
 	lineFragment.inlineSize = constraintSpace.availableInlineSize;
 
 	let lineToken = null;
@@ -214,7 +214,7 @@ function* layoutFlexColumn(node, constraintSpace, breakToken) {
 	const contentToken = breakToken?.childBreakTokens?.[0] ?? null;
 	const result = yield layoutChild(flowThread, constraintSpace, contentToken);
 
-	const fragment = new PhysicalFragment(
+	const fragment = new Fragment(
 		node,
 		result.fragment.blockSize,
 		result.fragment.childFragments,

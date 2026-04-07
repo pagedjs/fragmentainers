@@ -1,5 +1,5 @@
 import { ConstraintSpace } from "./constraint-space.js";
-import { PhysicalFragment } from "./fragment.js";
+import { Fragment } from "./fragment.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import {
 	resolveForcedBreakValue,
@@ -108,7 +108,7 @@ export function getLayoutAlgorithm(node) {
  * @param {{ fragmentainerIndex: number, blockOffset: number }|null} [continuation]
  *   When provided, starts layout at the given fragmentainer index and block offset.
  *   Used to continue fragmentation across multiple independent elements.
- * @returns {import('./fragment.js').PhysicalFragment[]|{ fragments: import('./fragment.js').PhysicalFragment[], continuation: { fragmentainerIndex: number, blockOffset: number } }}
+ * @returns {import('./fragment.js').Fragment[]|{ fragments: import('./fragment.js').Fragment[], continuation: { fragmentainerIndex: number, blockOffset: number } }}
  *   When continuation is null: returns a flat array (backwards compatible).
  *   When continuation is provided: returns { fragments, continuation } with final state.
  */
@@ -153,7 +153,7 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
 						breakToken,
 						true,
 					);
-					const blankFragment = new PhysicalFragment(rootNode, 0);
+					const blankFragment = new Fragment(rootNode, 0);
 					blankFragment.isBlank = true;
 					blankFragment.constraints = blankConstraints;
 					blankFragment.breakToken = breakToken;

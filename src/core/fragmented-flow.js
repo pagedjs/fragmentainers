@@ -4,7 +4,7 @@ import { FragmentationContext } from "./fragmentation-context.js";
 import { PageResolver } from "../atpage/page-resolver.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
-import { PhysicalFragment } from "./fragment.js";
+import { Fragment } from "./fragment.js";
 import { FRAGMENTATION_COLUMN } from "./constants.js";
 import {
 	resolveForcedBreakValue,
@@ -364,10 +364,10 @@ export class FragmentedFlow extends Iterator {
 	}
 
 	/**
-	 * Lay out the next fragmentainer and return its PhysicalFragment.
+	 * Lay out the next fragmentainer and return its Fragment.
 	 * Handles blank page insertion, constraint resolution, and counter state.
 	 *
-	 * @returns {import('./fragment.js').PhysicalFragment}
+	 * @returns {import('./fragment.js').Fragment}
 	 */
 	#nextFragment() {
 		// Check if a side-specific break requires a blank page before layout.
@@ -393,7 +393,7 @@ export class FragmentedFlow extends Iterator {
 						this.#breakToken,
 						true,
 					);
-					const blankFragment = new PhysicalFragment(this.#tree, 0);
+					const blankFragment = new Fragment(this.#tree, 0);
 					blankFragment.isBlank = true;
 					blankFragment.constraints = blankConstraints;
 					blankFragment.breakToken = this.#breakToken;

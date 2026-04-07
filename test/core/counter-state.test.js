@@ -226,11 +226,11 @@ test.describe("walkFragmentTree", () => {
 	test("applies counter-reset and counter-increment for fresh elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			function frag(node, children = [], bt = null) {
-				const f = new PhysicalFragment(node, 100, children);
+				const f = new Fragment(node, 100, children);
 				f.breakToken = bt;
 				return f;
 			}
@@ -250,12 +250,12 @@ test.describe("walkFragmentTree", () => {
 	test("skips counter operations on continuations", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			function frag(node, children = [], bt = null) {
-				const f = new PhysicalFragment(node, 100, children);
+				const f = new Fragment(node, 100, children);
 				f.breakToken = bt;
 				return f;
 			}
@@ -275,12 +275,12 @@ test.describe("walkFragmentTree", () => {
 	test("skips both parent and child when both are continuations", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			function frag(node, children = [], bt = null) {
-				const f = new PhysicalFragment(node, 100, children);
+				const f = new Fragment(node, 100, children);
 				f.breakToken = bt;
 				return f;
 			}
@@ -303,17 +303,17 @@ test.describe("walkFragmentTree", () => {
 	test("skips fragments with null node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			function frag(node, children = [], bt = null) {
-				const f = new PhysicalFragment(node, 100, children);
+				const f = new Fragment(node, 100, children);
 				f.breakToken = bt;
 				return f;
 			}
 
 			const root = blockNode({ debugName: "root" });
-			const lineFragment = new PhysicalFragment(null, 20);
+			const lineFragment = new Fragment(null, 20);
 			const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
 
 			const tree = frag(root, [lineFragment, frag(p1)]);
@@ -327,12 +327,12 @@ test.describe("walkFragmentTree", () => {
 	test("accumulates across multiple calls (simulating fragmentainers)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			function frag(node, children = [], bt = null) {
-				const f = new PhysicalFragment(node, 100, children);
+				const f = new Fragment(node, 100, children);
 				f.breakToken = bt;
 				return f;
 			}

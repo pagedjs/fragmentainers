@@ -1,6 +1,6 @@
 import { BlockBreakToken } from "../core/tokens.js";
 import { ConstraintSpace } from "../core/constraint-space.js";
-import { PhysicalFragment } from "../core/fragment.js";
+import { Fragment } from "../core/fragment.js";
 import { layoutChild } from "../core/layout-request.js";
 import { findChildBreakToken } from "../core/helpers.js";
 import { ALGORITHM_TABLE_ROW } from "../core/constants.js";
@@ -75,7 +75,7 @@ export function* layoutTableRow(node, constraintSpace, breakToken) {
 		}
 	}
 
-	const fragment = new PhysicalFragment(node, maxCellBlockSize, cellFragments);
+	const fragment = new Fragment(node, maxCellBlockSize, cellFragments);
 	fragment.inlineSize = constraintSpace.availableInlineSize;
 
 	if (anyChildBroke) {

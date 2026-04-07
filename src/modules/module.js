@@ -80,7 +80,7 @@ export class LayoutModule {
 	 * block-end space (e.g., for footnotes). Returning a different
 	 * reservedBlockEnd than what was used triggers a re-layout.
 	 *
-	 * @param {import('../core/fragment.js').PhysicalFragment} fragment
+	 * @param {import('../core/fragment.js').Fragment} fragment
 	 * @param {import('../core/constraint-space.js').ConstraintSpace} constraintSpace
 	 * @param {import('../core/tokens.js').BreakToken|null} inputBreakToken
 	 * @returns {{ reservedBlockEnd: number, afterRender: Function|null }|null}

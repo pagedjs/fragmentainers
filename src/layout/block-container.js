@@ -1,6 +1,6 @@
 import { BlockBreakToken } from "../core/tokens.js";
 import { ConstraintSpace } from "../core/constraint-space.js";
-import { PhysicalFragment } from "../core/fragment.js";
+import { Fragment } from "../core/fragment.js";
 import { layoutChild } from "../core/layout-request.js";
 import { findChildBreakToken, isMonolithic, getMonolithicBlockSize } from "../core/helpers.js";
 import {
@@ -63,7 +63,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 				remaining > availableSpace &&
 				availableSpace > 0
 			) {
-				const fragment = new PhysicalFragment(node, availableSpace);
+				const fragment = new Fragment(node, availableSpace);
 				fragment.inlineSize = constraintSpace.availableInlineSize;
 				const token = new BlockBreakToken(node);
 				token.consumedBlockSize = consumed + availableSpace;
@@ -73,7 +73,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 				return { fragment, breakToken: token };
 			}
 
-			const fragment = new PhysicalFragment(node, remaining);
+			const fragment = new Fragment(node, remaining);
 			fragment.inlineSize = constraintSpace.availableInlineSize;
 			return { fragment, breakToken: null };
 		}
@@ -90,7 +90,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 			remaining > availableSpace &&
 			availableSpace > 0
 		) {
-			const fragment = new PhysicalFragment(node, availableSpace);
+			const fragment = new Fragment(node, availableSpace);
 			fragment.inlineSize = constraintSpace.availableInlineSize;
 			const token = new BlockBreakToken(node);
 			token.consumedBlockSize = consumed + availableSpace;
@@ -100,7 +100,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 			return { fragment, breakToken: token };
 		}
 
-		const fragment = new PhysicalFragment(node, remaining);
+		const fragment = new Fragment(node, remaining);
 		fragment.inlineSize = constraintSpace.availableInlineSize;
 		return { fragment, breakToken: null };
 	}
@@ -488,7 +488,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 	}
 
 	// Build the output fragment
-	const fragment = new PhysicalFragment(node, blockOffset, childFragments);
+	const fragment = new Fragment(node, blockOffset, childFragments);
 	fragment.inlineSize = constraintSpace.availableInlineSize;
 
 	// Build break token if the container needs to continue

@@ -1,55 +1,51 @@
 import { test, expect } from "../browser-fixture.js";
 
-test.describe("hasBlockChildFragments", () => {
+test.describe("hasBlockChildren", () => {
 	test("returns false for empty childFragments", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
-			const { hasBlockChildFragments } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
-			const fragment = new PhysicalFragment(blockNode(), 100, []);
-			return hasBlockChildFragments(fragment);
+			const fragment = new Fragment(blockNode(), 100, []);
+			return fragment.hasBlockChildren;
 		});
 		expect(result).toBe(false);
 	});
 
 	test("returns false when all children have null nodes (line fragments)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
-			const { hasBlockChildFragments } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
-			const lineFragment = new PhysicalFragment(null, 20);
-			const fragment = new PhysicalFragment(blockNode(), 100, [lineFragment, lineFragment]);
-			return hasBlockChildFragments(fragment);
+			const lineFragment = new Fragment(null, 20);
+			const fragment = new Fragment(blockNode(), 100, [lineFragment, lineFragment]);
+			return fragment.hasBlockChildren;
 		});
 		expect(result).toBe(false);
 	});
 
 	test("returns true when at least one child has a node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
-			const { hasBlockChildFragments } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
-			const lineFragment = new PhysicalFragment(null, 20);
-			const blockChild = new PhysicalFragment(blockNode({ debugName: "child" }), 50);
-			const fragment = new PhysicalFragment(blockNode(), 100, [lineFragment, blockChild]);
-			return hasBlockChildFragments(fragment);
+			const lineFragment = new Fragment(null, 20);
+			const blockChild = new Fragment(blockNode({ debugName: "child" }), 50);
+			const fragment = new Fragment(blockNode(), 100, [lineFragment, blockChild]);
+			return fragment.hasBlockChildren;
 		});
 		expect(result).toBe(true);
 	});
 
 	test("returns true when all children have nodes", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
-			const { hasBlockChildFragments } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
-			const child1 = new PhysicalFragment(blockNode({ debugName: "a" }), 50);
-			const child2 = new PhysicalFragment(blockNode({ debugName: "b" }), 50);
-			const fragment = new PhysicalFragment(blockNode(), 100, [child1, child2]);
-			return hasBlockChildFragments(fragment);
+			const child1 = new Fragment(blockNode({ debugName: "a" }), 50);
+			const child2 = new Fragment(blockNode({ debugName: "b" }), 50);
+			const fragment = new Fragment(blockNode(), 100, [child1, child2]);
+			return fragment.hasBlockChildren;
 		});
 		expect(result).toBe(true);
 	});
@@ -58,13 +54,13 @@ test.describe("hasBlockChildFragments", () => {
 test.describe("empty container shell detection", () => {
 	test("detects an empty container with pushed children", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const child = blockNode({ debugName: "child" });
 			const container = blockNode({ debugName: "container", children: [child] });
-			const fragment = new PhysicalFragment(container, 0, []);
+			const fragment = new Fragment(container, 0, []);
 			fragment.breakToken = new BlockBreakToken(container);
 			fragment.breakToken.childBreakTokens = [BlockBreakToken.createBreakBefore(child)];
 
@@ -79,12 +75,12 @@ test.describe("empty container shell detection", () => {
 
 	test("does not flag a leaf node being sliced", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const leaf = blockNode({ debugName: "leaf" });
-			const fragment = new PhysicalFragment(leaf, 200, []);
+			const fragment = new Fragment(leaf, 200, []);
 			fragment.breakToken = new BlockBreakToken(leaf);
 			fragment.breakToken.consumedBlockSize = 200;
 
@@ -99,14 +95,14 @@ test.describe("empty container shell detection", () => {
 
 	test("does not flag a container with placed children", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const child = blockNode({ debugName: "child" });
 			const container = blockNode({ debugName: "container", children: [child] });
-			const childFrag = new PhysicalFragment(child, 50);
-			const fragment = new PhysicalFragment(container, 50, [childFrag]);
+			const childFrag = new Fragment(child, 50);
+			const fragment = new Fragment(container, 50, [childFrag]);
 			fragment.breakToken = new BlockBreakToken(container);
 
 			return (
@@ -120,13 +116,13 @@ test.describe("empty container shell detection", () => {
 
 	test("does not flag a completed container (no break token)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const child = blockNode({ debugName: "child" });
 			const container = blockNode({ debugName: "container", children: [child] });
-			const childFrag = new PhysicalFragment(child, 50);
-			const fragment = new PhysicalFragment(container, 50, [childFrag]);
+			const childFrag = new Fragment(child, 50);
+			const fragment = new Fragment(container, 50, [childFrag]);
 
 			return (
 				fragment.childFragments.length === 0 &&
@@ -202,13 +198,13 @@ test.describe("inline items data for compositor", () => {
 test.describe("buildInlineContent", () => {
 	test("composes simple text into a container", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildInlineContent } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { INLINE_TEXT } = await import("/src/core/constants.js");
 
 			const items = [{ type: INLINE_TEXT, startOffset: 0, endOffset: 11 }];
 			const textContent = "Hello world";
 			const target = document.createElement("div");
-			buildInlineContent(items, textContent, 0, 11, target);
+			Fragment.buildInlineContent(items, textContent, 0, 11, target);
 			return target.textContent;
 		});
 		expect(result).toBe("Hello world");
@@ -216,13 +212,13 @@ test.describe("buildInlineContent", () => {
 
 	test("composes a sliced range from the middle of text", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildInlineContent } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { INLINE_TEXT } = await import("/src/core/constants.js");
 
 			const textContent = "Hello world test content";
 			const items = [{ type: INLINE_TEXT, startOffset: 0, endOffset: textContent.length }];
 			const target = document.createElement("div");
-			buildInlineContent(items, textContent, 6, 16, target);
+			Fragment.buildInlineContent(items, textContent, 6, 16, target);
 			return target.textContent;
 		});
 		expect(result).toBe("world test");
@@ -230,7 +226,7 @@ test.describe("buildInlineContent", () => {
 
 	test("composes inline elements using open/close tag items", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildInlineContent } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } =
 				await import("/src/core/constants.js");
 
@@ -252,7 +248,7 @@ test.describe("buildInlineContent", () => {
 			];
 
 			const target = document.createElement("div");
-			buildInlineContent(items, textContent, 0, 19, target);
+			Fragment.buildInlineContent(items, textContent, 0, 19, target);
 
 			const hasSpan = target.querySelector("span.highlight") !== null;
 			const spanText = target.querySelector("span.highlight")?.textContent || "";
@@ -270,7 +266,7 @@ test.describe("buildInlineContent", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { buildInlineContent } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } =
 				await import("/src/core/constants.js");
 
@@ -290,7 +286,7 @@ test.describe("buildInlineContent", () => {
 			];
 
 			const target = document.createElement("div");
-			buildInlineContent(items, textContent, 0, 13, target);
+			Fragment.buildInlineContent(items, textContent, 0, 13, target);
 
 			const out = {
 				textContent: target.textContent,
@@ -307,7 +303,7 @@ test.describe("buildInlineContent", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { buildInlineContent } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } =
 				await import("/src/core/constants.js");
 
@@ -327,7 +323,7 @@ test.describe("buildInlineContent", () => {
 			];
 
 			const target = document.createElement("div");
-			buildInlineContent(items, textContent, 13, 28, target);
+			Fragment.buildInlineContent(items, textContent, 13, 28, target);
 
 			const out = {
 				textContent: target.textContent,
@@ -342,7 +338,7 @@ test.describe("buildInlineContent", () => {
 
 	test("composes a break element for INLINE_CONTROL items", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildInlineContent } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { INLINE_TEXT, INLINE_CONTROL } = await import("/src/core/constants.js");
 
 			const textContent = "line one\nline two";
@@ -352,7 +348,7 @@ test.describe("buildInlineContent", () => {
 				{ type: INLINE_TEXT, startOffset: 9, endOffset: 17 },
 			];
 			const target = document.createElement("div");
-			buildInlineContent(items, textContent, 0, 17, target);
+			Fragment.buildInlineContent(items, textContent, 0, 17, target);
 			return {
 				hasBr: target.querySelector("br") !== null,
 				textContent: target.textContent,
@@ -363,11 +359,10 @@ test.describe("buildInlineContent", () => {
 	});
 });
 
-test.describe("composeFragment", () => {
-	test("composes child fragments as cloned elements", async ({ page }) => {
+test.describe("Fragment.build", () => {
+	test("builds child fragments as cloned elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
-			const { composeFragment } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
 
 			const container = document.createElement("div");
@@ -386,11 +381,11 @@ test.describe("composeFragment", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const childFrag1 = new PhysicalFragment(childNodes[0], 20);
-			const childFrag2 = new PhysicalFragment(childNodes[1], 20);
-			const rootFragment = new PhysicalFragment(outerNode, 40, [childFrag1, childFrag2]);
+			const childFrag1 = new Fragment(childNodes[0], 20);
+			const childFrag2 = new Fragment(childNodes[1], 20);
+			const rootFragment = new Fragment(outerNode, 40, [childFrag1, childFrag2]);
 
-			const docFrag = composeFragment(rootFragment, null);
+			const docFrag = rootFragment.build(null);
 
 			const out = {
 				childCount: docFrag.childNodes.length,
@@ -411,8 +406,7 @@ test.describe("composeFragment", () => {
 
 	test("skips null-node children (line fragments)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
-			const { composeFragment } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
 
 			const container = document.createElement("div");
@@ -428,11 +422,11 @@ test.describe("composeFragment", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const lineFrag = new PhysicalFragment(null, 20);
-			const childFrag = new PhysicalFragment(childNodes[0], 30);
-			const rootFragment = new PhysicalFragment(outerNode, 50, [lineFrag, childFrag]);
+			const lineFrag = new Fragment(null, 20);
+			const childFrag = new Fragment(childNodes[0], 30);
+			const rootFragment = new Fragment(outerNode, 50, [lineFrag, childFrag]);
 
-			const docFrag = composeFragment(rootFragment, null);
+			const docFrag = rootFragment.build(null);
 
 			const out = {
 				childCount: docFrag.childNodes.length,
@@ -449,9 +443,8 @@ test.describe("composeFragment", () => {
 
 	test("sets data-split-to when fragment has a break token", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { composeFragment } = await import("/src/compositor/compositor.js");
 			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
 
 			const container = document.createElement("div");
@@ -467,11 +460,11 @@ test.describe("composeFragment", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const childFrag = new PhysicalFragment(childNodes[0], 50);
+			const childFrag = new Fragment(childNodes[0], 50);
 			childFrag.breakToken = new BlockBreakToken(childNodes[0]);
-			const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
-			const docFrag = composeFragment(rootFragment, null);
+			const docFrag = rootFragment.build(null);
 
 			const out = {
 				childCount: docFrag.childNodes.length,
@@ -486,9 +479,8 @@ test.describe("composeFragment", () => {
 
 	test("sets data-justify-last on split fragments with text-align: justify", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { composeFragment } = await import("/src/compositor/compositor.js");
 			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
 
 			const container = document.createElement("div");
@@ -505,11 +497,11 @@ test.describe("composeFragment", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const childFrag = new PhysicalFragment(childNodes[0], 50);
+			const childFrag = new Fragment(childNodes[0], 50);
 			childFrag.breakToken = new BlockBreakToken(childNodes[0]);
-			const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
-			const docFrag = composeFragment(rootFragment, null);
+			const docFrag = rootFragment.build(null);
 			const composed = docFrag.childNodes[0];
 
 			const out = {
@@ -525,9 +517,8 @@ test.describe("composeFragment", () => {
 
 	test("does not set data-justify-last when text-align is not justify", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { composeFragment } = await import("/src/compositor/compositor.js");
 			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
 
 			const container = document.createElement("div");
@@ -544,11 +535,11 @@ test.describe("composeFragment", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const childFrag = new PhysicalFragment(childNodes[0], 50);
+			const childFrag = new Fragment(childNodes[0], 50);
 			childFrag.breakToken = new BlockBreakToken(childNodes[0]);
-			const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
-			const docFrag = composeFragment(rootFragment, null);
+			const docFrag = rootFragment.build(null);
 			const composed = docFrag.childNodes[0];
 
 			const out = {
@@ -564,9 +555,8 @@ test.describe("composeFragment", () => {
 
 	test("sets data-justify-last after element is detached from DOM", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { composeFragment } = await import("/src/compositor/compositor.js");
 			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
 
 			const container = document.createElement("div");
@@ -588,11 +578,11 @@ test.describe("composeFragment", () => {
 			// Detach
 			container.removeChild(outer);
 
-			const childFrag = new PhysicalFragment(childNodes[0], 50);
+			const childFrag = new Fragment(childNodes[0], 50);
 			childFrag.breakToken = new BlockBreakToken(childNodes[0]);
-			const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
-			const docFrag = composeFragment(rootFragment, null);
+			const docFrag = rootFragment.build(null);
 			const composed = docFrag.childNodes[0];
 
 			const out = {
@@ -610,8 +600,7 @@ test.describe("composeFragment", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
-			const { composeFragment } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
 
 			const container = document.createElement("div");
@@ -628,11 +617,11 @@ test.describe("composeFragment", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const childFrag = new PhysicalFragment(childNodes[0], 50);
+			const childFrag = new Fragment(childNodes[0], 50);
 			childFrag.truncateMarginBlockStart = true;
-			const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
-			const docFrag = composeFragment(rootFragment, null);
+			const docFrag = rootFragment.build(null);
 			const composed = docFrag.childNodes[0];
 
 			const out = {
@@ -648,8 +637,7 @@ test.describe("composeFragment", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
-			const { composeFragment } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
 
 			const container = document.createElement("div");
@@ -665,10 +653,10 @@ test.describe("composeFragment", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const childFrag = new PhysicalFragment(childNodes[0], 50);
-			const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+			const childFrag = new Fragment(childNodes[0], 50);
+			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
-			const docFrag = composeFragment(rootFragment, null);
+			const docFrag = rootFragment.build(null);
 			const composed = docFrag.childNodes[0];
 
 			const out = {
@@ -684,8 +672,7 @@ test.describe("composeFragment", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { PhysicalFragment } = await import("/src/core/fragment.js");
-			const { composeFragment } = await import("/src/compositor/compositor.js");
+			const { Fragment } = await import("/src/core/fragment.js");
 			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
 
 			const container = document.createElement("div");
@@ -702,11 +689,11 @@ test.describe("composeFragment", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const childFrag = new PhysicalFragment(childNodes[0], 50);
+			const childFrag = new Fragment(childNodes[0], 50);
 			childFrag.truncateMarginBlockEnd = true;
-			const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
-			const docFrag = composeFragment(rootFragment, null);
+			const docFrag = rootFragment.build(null);
 			const composed = docFrag.childNodes[0];
 
 			const out = {

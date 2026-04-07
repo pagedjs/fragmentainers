@@ -1,6 +1,6 @@
 import { BlockBreakToken } from "../core/tokens.js";
 import { ConstraintSpace } from "../core/constraint-space.js";
-import { PhysicalFragment } from "../core/fragment.js";
+import { Fragment } from "../core/fragment.js";
 import { layoutChild } from "../core/layout-request.js";
 import { findChildBreakToken } from "../core/helpers.js";
 import { FRAGMENTATION_NONE, ALGORITHM_GRID } from "../core/constants.js";
@@ -19,7 +19,7 @@ import { FRAGMENTATION_NONE, ALGORITHM_GRID } from "../core/constants.js";
 export function* layoutGridContainer(node, constraintSpace, breakToken) {
 	const children = node.children;
 	if (children.length === 0) {
-		const fragment = new PhysicalFragment(node, 0);
+		const fragment = new Fragment(node, 0);
 		fragment.inlineSize = constraintSpace.availableInlineSize;
 		return { fragment, breakToken: null };
 	}
@@ -75,7 +75,7 @@ export function* layoutGridContainer(node, constraintSpace, breakToken) {
 		}
 	}
 
-	const fragment = new PhysicalFragment(node, blockOffset, rowFragments);
+	const fragment = new Fragment(node, blockOffset, rowFragments);
 	fragment.inlineSize = constraintSpace.availableInlineSize;
 	if (containerBreakToken) fragment.breakToken = containerBreakToken;
 
@@ -133,7 +133,7 @@ function* layoutGridRow(node, rowItems, constraintSpace, blockOffset, parentBrea
 		}
 	}
 
-	const rowFragment = new PhysicalFragment(node, maxItemBlockSize, itemFragments);
+	const rowFragment = new Fragment(node, maxItemBlockSize, itemFragments);
 	rowFragment.inlineSize = constraintSpace.availableInlineSize;
 
 	let rowToken = null;

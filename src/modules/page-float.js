@@ -1,6 +1,5 @@
 import { LayoutModule } from "./module.js";
 import { ConstraintSpace } from "../core/constraint-space.js";
-import { composeFragment } from "../compositor/compositor.js";
 import { FRAGMENTATION_NONE } from "../core/constants.js";
 
 class PageFloatLayoutModule extends LayoutModule {
@@ -42,7 +41,7 @@ class PageFloatLayoutModule extends LayoutModule {
 				if (placed.length === 0) return;
 				fragment.style.setProperty("position", "relative");
 				for (const pf of placed) {
-					const floatContent = composeFragment(pf.fragment, null, null, contentStyles?.sourceRefs);
+					const floatContent = pf.fragment.build(null);
 					const floatWrapper = document.createElement("div");
 					floatWrapper.style.setProperty("position", "absolute");
 					floatWrapper.style.setProperty("left", "0");

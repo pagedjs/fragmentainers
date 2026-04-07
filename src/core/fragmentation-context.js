@@ -1,4 +1,3 @@
-import { composeFragment, mapFragment } from "../compositor/compositor.js";
 import { DEFAULT_OVERFLOW_THRESHOLD } from "./constants.js";
 
 /**
@@ -6,7 +5,7 @@ import { DEFAULT_OVERFLOW_THRESHOLD } from "./constants.js";
  *
  * Extends Array so it is directly iterable as the array of
  * <fragment-container> elements. Also exposes the underlying
- * PhysicalFragment data via .fragments.
+ * Fragment data via .fragments.
  */
 export class FragmentationContext extends Array {
 	#fragments;
@@ -17,7 +16,7 @@ export class FragmentationContext extends Array {
 	}
 
 	/**
-	 * @param {import("./fragment.js").PhysicalFragment[]} fragments
+	 * @param {import("./fragment.js").Fragment[]} fragments
 	 * @param {{ sheets: CSSStyleSheet[] }|null} contentStyles
 	 * @param {{ start?: number, stop?: number }} [range]
 	 */
@@ -33,7 +32,7 @@ export class FragmentationContext extends Array {
 		}
 	}
 
-	/** @returns {import("./fragment.js").PhysicalFragment[]} */
+	/** @returns {import("./fragment.js").Fragment[]} */
 	get fragments() {
 		return this.#fragments;
 	}
@@ -73,8 +72,8 @@ export class FragmentationContext extends Array {
 		const prevBreakToken = index > 0 ? this.#fragments[index - 1].breakToken : null;
 		const counterSnapshot = index > 0 ? this.#fragments[index - 1].counterState : null;
 		const wrapper = el.setupForRendering(this.#contentStyles, counterSnapshot);
-		wrapper.appendChild(composeFragment(fragment, prevBreakToken));
-		mapFragment(fragment, prevBreakToken, wrapper);
+		wrapper.appendChild(fragment.build(prevBreakToken));
+		fragment.map(prevBreakToken, wrapper);
 
 		if (fragment.afterRender) {
 			for (const callback of fragment.afterRender) {
