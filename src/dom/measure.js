@@ -147,6 +147,13 @@ export function getLineHeight(element) {
 		return (fs && fs.unit ? fs.value : 16) * 1.2;
 	}
 
+	// Unitless line-height (e.g. 1.3) — computedStyleMap returns unit "number".
+	// Multiply by font-size to resolve to px.
+	if (lh.unit === "number") {
+		const fs = map.get("font-size");
+		return lh.value * (fs && fs.unit ? fs.value : 16);
+	}
+
 	return lh.value;
 }
 
