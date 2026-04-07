@@ -25,7 +25,7 @@ const STYLES = `
     flex-shrink: 0;
     width: var(--page-width);
     height: var(--page-height);
-    padding: var(--page-margin, 0.5in);
+    padding: var(--page-margin, 0px);
   }
   div.body {
     display: flex;

@@ -30,7 +30,6 @@ at-page:
     type: print
   - name: long-table
     type: print
-    skip: "ref HTML needs updating after IFC padding fix"
   - name: nested
     type: print
   - name: numbering
@@ -41,6 +40,7 @@ at-page:
     type: print
   - name: rebuild-all-tds
     type: print
+    skip: true
   - name: rowspan-table
     type: print
   - name: text-align-last

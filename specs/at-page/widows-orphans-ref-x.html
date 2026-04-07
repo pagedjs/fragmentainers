@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+	<style>
+		@page {
+			size: 100mm 100mm;
+			margin: 0;
+		}
+
+		body {
+			padding: 0;
+			margin: 0;
+			display: flex;
+			flex-direction: column;
+		}
+		page-container {
+			--page-width: 100mm;
+			--page-height: 100mm;
+			--page-margin: 10mm;
+		}
+		p {
+			widows: 3;
+			orphans: 3;
+		}
+
+		.red {
+			color: purple;
+		}
+	</style>
+	<script type="module" src="/debug/page-container.js"></script>
+	<page-container>
+		<section data-split-to="">
+			<p data-split-to="">
+				Lorem ipsum dolor sit, amet consectetur adipisicing elit. Mollitia, possimus commodi. Ipsam
+				placeat voluptas explicabo omnis assumenda quod incidunt voluptatum fugiat porro nemo quo,
+				consequatur repudiandae dolorum suscipit soluta accusamus voluptate dolor ad ex distinctio.
+				Porro aliquam culpa assumenda esse recusandae nesciunt ad. Ratione commodi maiores error
+				dicta, necessitatibus in sunt ipsa, quisquam sit quibusdam, nam temporibus aperiam. Beatae
+				neque esse libero sapiente, ratione necessitatibus sint voluptate nulla sequi
+			</p>
+		</section>
+	</page-container>
+	<page-container>
+		<section data-split-from="" data-split-to="">
+			<p data-split-from="">
+				cumque velit ipsa aspernatur quibusdam laudantium aperiam nam? Tenetur maiores atque neque
+				animi? Officiis
+			</p>
+			<p>
+				<span class="red"
+					>this page must start with “cumque velit ipsa aspernatur quibusdam laudantium aperiam
+					nam?”</span
+				>
+			</p>
+			<p data-split-to="">
+				distinctio blanditiis qui. Impedit magni, nemo officia delectus tempore fugit! Tempora
+				inventore delectus asperiores culpa harum. Quis qui veritatis suscipit debitis recusandae,
+				aperiam libero facere, fuga nobis a quasi cupiditate aspernatur similique voluptates,
+				dolorem delectus id! Autem repudiandae quasi accusantium, dignissimos facilis ex
+			</p>
+		</section>
+	</page-container>
+	<page-container>
+		<section data-split-from="" data-split-to="">
+			<p>
+				laudantium iure id amet quam non, sit vero officiis debitis dolorum veritatis voluptatem.
+				Obcaecati, tempore. Temporibus aliquam possimus quasi, quidem provident impedit veritatis
+				repellendus et. Illum quae porro cum quod! Officiis culpa tenetur nesciunt totam eligendi,
+				accusamus consequatur similique exercitationem odit eos qui aliquam provident dolorum
+				maiores soluta minima quidem illo autem corporis rerum? Atque veritatis voluptates laborum,
+				consectetur vel sed distinctio quas maiores tenetur veniam. Quibusdam, nam porro. Illo,
+				doloremque ex.
+			</p>
+			<p data-split-to="">
+				Lorem ipsum dolor sit, amet consectetur adipisicing elit. Mollitia, possimus commodi.
+			</p>
+		</section>
+	</page-container>
+	<page-container>
+		<section data-split-from="" data-split-to="">
+			<p data-split-to="" data-split-from="">
+				Ipsam placeat voluptas explicabo omnis assumenda quod incidunt voluptatum fugiat porro nemo
+				quo, consequatur repudiandae dolorum suscipit soluta accusamus voluptate dolor ad ex
+				distinctio. Porro aliquam culpa assumenda esse recusandae nesciunt ad. Ratione commodi
+				maiores error dicta, necessitatibus in sunt ipsa, quisquam sit quibusdam, nam temporibus
+				aperiam. Beatae neque esse libero sapiente, ratione necessitatibus sint voluptate nulla
+				sequi cumque velit ipsa aspernatur quibusdam nesciunt praesentium laudantium aperiam nam?
+				Tenetur maiores atque neque animi? Officiis distinctio blanditiis qui. Impedit magni, nemo
+				officia delectus tempore fugit!
+			</p>
+		</section>
+	</page-container>
+	<page-container>
+		<section data-split-from="" data-split-to="">
+			<p data-split-from="" data-split-to="">
+				Tempora inventore delectus asperiores culpa harum. Quis qui veritatis suscipit debitis
+				recusandae, aperiam libero facere, fuga nobis a quasi cupiditate aspernatur similique
+				voluptates, dolorem delectus id! Autem repudiandae quasi accusantium, dignissimos facilis ex
+				laudantium iure id amet quam non, sit vero officiis debitis dolorum veritatis voluptatem.
+				Obcaecati, tempore. Temporibus aliquam possimus quasi, quidem provident impedit veritatis
+				repellendus et. Illum quae porro cum quod! Officiis culpa tenetur nesciunt totam eligendi,
+				accusamus consequatur similique exercitationem odit eos qui aliquam provident dolorum
+				maiores soluta minima quidem illo autem corporis rerum?
+			</p>
+		</section>
+	</page-container>
+	<page-container>
+		<section data-split-from="" data-split-to="">
+			<p data-split-from="">
+				Atque veritatis voluptates laborum, consectetur vel sed distinctio quas maiores tenetur
+				veniam. Quibusdam, nam porro. Illo, doloremque ex.
+			</p>
+			<p data-split-to="">
+				Lorem ipsum dolor sit, amet consectetur adipisicing elit. Mollitia, possimus commodi. Ipsam
+				placeat voluptas explicabo omnis assumenda quod incidunt voluptatum fugiat porro nemo quo,
+				consequatur repudiandae dolorum suscipit soluta accusamus voluptate dolor ad ex distinctio.
+				Porro aliquam culpa assumenda esse recusandae nesciunt ad. Ratione commodi maiores error
+				dicta, necessitatibus in sunt ipsa, quisquam sit quibusdam, nam temporibus aperiam. Beatae
+			</p>
+		</section>
+	</page-container>
+	<page-container>
+		<section data-split-from="" data-split-to="">
+			<p data-split-from="" data-split-to="">
+				neque esse libero sapiente, ratione necessitatibus sint voluptate nulla sequi cumque velit
+				ipsa aspernatur quibusdam nesciunt praesentium laudantium aperiam nam? Tenetur maiores atque
+				neque animi? Officiis distinctio blanditiis qui. Impedit magni, nemo officia delectus
+				tempore fugit! Tempora inventore delectus asperiores culpa harum. Quis qui veritatis
+				suscipit debitis recusandae, aperiam libero facere, fuga nobis a quasi cupiditate aspernatur
+				similique voluptates, dolorem delectus id! Autem repudiandae quasi accusantium, dignissimos
+				facilis ex laudantium iure id amet quam non, sit vero officiis debitis dolorum veritatis
+				voluptatem. Obcaecati, tempore. Temporibus
+			</p>
+		</section>
+	</page-container>
+	<page-container>
+		<section data-split-from="" data-split-to="">
+			<p data-split-to="" data-split-from="">
+				aliquam possimus quasi, quidem provident impedit veritatis repellendus et. Illum quae porro
+				cum quod! Officiis culpa tenetur nesciunt totam eligendi, accusamus consequatur similique
+				exercitationem odit eos qui aliquam provident dolorum maiores soluta minima quidem illo
+				autem corporis rerum? Atque veritatis voluptates laborum, consectetur vel sed distinctio
+				quas maiores tenetur veniam. Quibusdam, nam porro. Illo, doloremque ex.
+			</p>
+			<p data-split-to="">
+				Lorem ipsum dolor sit, amet consectetur adipisicing elit. Mollitia, possimus commodi. Ipsam
+				placeat voluptas explicabo omnis assumenda quod incidunt voluptatum fugiat
+			</p>
+		</section>
+	</page-container>
+	<page-container>
+		<section data-split-from="" data-split-to="">
+			<p data-split-to="" data-split-from="">
+				porro nemo quo, consequatur repudiandae dolorum suscipit soluta accusamus voluptate dolor ad
+				ex distinctio. Porro aliquam culpa assumenda esse recusandae nesciunt ad. Ratione commodi
+				maiores error dicta, necessitatibus in sunt ipsa, quisquam sit quibusdam, nam temporibus
+				aperiam. Beatae neque esse libero sapiente, ratione necessitatibus sint voluptate nulla
+				sequi cumque velit ipsa aspernatur quibusdam nesciunt praesentium laudantium aperiam nam?
+				Tenetur maiores atque neque animi? Officiis distinctio blanditiis qui. Impedit magni, nemo
+				officia delectus tempore fugit! Tempora inventore delectus asperiores culpa harum. Quis qui
+				veritatis suscipit debitis
+			</p>
+		</section>
+	</page-container>
+	<page-container>
+		<section data-split-from="" data-split-to="">
+			<p>
+				recusandae, aperiam libero facere, fuga nobis a quasi cupiditate aspernatur similique
+				voluptates, dolorem delectus id! Autem repudiandae quasi accusantium, dignissimos facilis ex
+				laudantium iure id amet quam non, sit vero officiis debitis dolorum veritatis voluptatem.
+				Obcaecati, tempore. Temporibus aliquam possimus quasi, quidem provident impedit veritatis
+				repellendus et. Illum quae porro cum quod! Officiis culpa tenetur nesciunt totam eligendi,
+				accusamus consequatur similique exercitationem odit eos qui aliquam provident dolorum
+				maiores soluta minima quidem illo autem corporis rerum? Atque veritatis voluptates laborum,
+			</p>
+		</section>
+	</page-container>
+	<page-container>
+		<section data-split-from="">
+			<p>
+				consectetur vel sed distinctio quas maiores tenetur veniam. Quibusdam, nam porro. Illo,
+				doloremque ex.
+			</p>
+		</section>
+	</page-container>
+</html>

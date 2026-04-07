@@ -462,9 +462,8 @@ test.describe("Blank page insertion", () => {
 		});
 		expect(result.isBlank).toBe(true);
 		expect(result.hasConstraints).toBe(true);
-		// UA default margin 48px per side: 600 - 96 = 504, 1000 - 96 = 904
-		expect(result.inlineSize).toBe(504);
-		expect(result.blockSize).toBe(904);
+		expect(result.inlineSize).toBe(600);
+		expect(result.blockSize).toBe(1000);
 		expect(result.constraintIsBlank).toBe(true);
 	});
 
@@ -514,7 +513,7 @@ test.describe(":blank pseudo-class matching", () => {
 				blankIsBlank: blank.isBlank,
 			};
 		});
-		expect(result.normalMarginTop).toBe(48); // UA default
+		expect(result.normalMarginTop).toBe(0);
 		expect(result.blankMarginTop).toBe(100);
 		expect(result.blankIsBlank).toBe(true);
 	});
@@ -534,9 +533,8 @@ test.describe(":blank pseudo-class matching", () => {
 				blockSize: c.contentArea.blockSize,
 			};
 		});
-		// :blank rule doesn't match, so default size with UA margins: 600-96=504, 1000-96=904
-		expect(result.inlineSize).toBe(504);
-		expect(result.blockSize).toBe(904);
+		expect(result.inlineSize).toBe(600);
+		expect(result.blockSize).toBe(1000);
 	});
 });
 

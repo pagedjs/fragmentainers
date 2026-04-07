@@ -287,22 +287,15 @@ export class PageResolver {
 		return size;
 	}
 
-	/** Resolve margin declarations to pixel values.
-	 *  When no margin is declared, use the typical user-agent default of 0.5in per side. */
+	/** Resolve margin declarations to pixel values. */
 	resolveMargins(marginDecl, _pageSize) {
-		const defaultMargin = parseCSSLength("0.5in"); // 48px — default
-		const defaults = {
-			top: defaultMargin,
-			right: defaultMargin,
-			bottom: defaultMargin,
-			left: defaultMargin,
-		};
+		const defaults = { top: 0, right: 0, bottom: 0, left: 0 };
 		if (!marginDecl) return defaults;
 		return {
-			top: marginDecl.top ?? defaultMargin,
-			right: marginDecl.right ?? defaultMargin,
-			bottom: marginDecl.bottom ?? defaultMargin,
-			left: marginDecl.left ?? defaultMargin,
+			top: marginDecl.top ?? 0,
+			right: marginDecl.right ?? 0,
+			bottom: marginDecl.bottom ?? 0,
+			left: marginDecl.left ?? 0,
 		};
 	}
 

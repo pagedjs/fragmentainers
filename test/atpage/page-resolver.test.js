@@ -12,9 +12,8 @@ test.describe("PageResolver", () => {
 				margins: c.margins,
 			};
 		});
-		// UA default margin is 0.5in (48px) per side
-		expect(result.margins).toEqual({ top: 48, right: 48, bottom: 48, left: 48 });
-		expect(result.contentArea).toEqual({ inlineSize: 720, blockSize: 960 });
+		expect(result.margins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+		expect(result.contentArea).toEqual({ inlineSize: 816, blockSize: 1056 });
 	});
 
 	test("defaults to US Letter when no size given", async ({ page }) => {
@@ -24,8 +23,7 @@ test.describe("PageResolver", () => {
 			const c = resolver.resolve(0, null, null);
 			return c.contentArea;
 		});
-		// 816 - 96 = 720, 1056 - 96 = 960
-		expect(result).toEqual({ inlineSize: 720, blockSize: 960 });
+		expect(result).toEqual({ inlineSize: 816, blockSize: 1056 });
 	});
 
 	test("universal @page with explicit size", async ({ page }) => {
