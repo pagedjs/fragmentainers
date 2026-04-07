@@ -27,16 +27,10 @@
 		strong {
 			color: blue;
 		}
-		.continuation,
-		.continuation > * {
-			margin-block-start: 0;
-			padding-block-start: 0;
-			border-block-start: none;
-		}
 	</style>
 	<script type="module" src="/debug/page-container.js"></script>
 	<page-container>
-		<section>
+		<section data-split-to="">
 			<h3>This is a new section</h3>
 			<p>
 				Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam malesuada lacus vehicula
@@ -61,8 +55,8 @@
 				dignissim porta vel sagittis nunc. Vestibulum convallis fringilla ante sit amet ultrices.
 				Vestibulum neque ex, ullamcorper sit amet diam sed, pharetra laoreet sem.
 			</p>
-			<div>
-				<ol>
+			<div data-split-to="">
+				<ol data-split-to="">
 					<li>Item 1</li>
 					<li>Item 2</li>
 					<li>Item 3</li>
@@ -73,9 +67,9 @@
 		</section>
 	</page-container>
 	<page-container>
-		<section class="continuation">
-			<div class="continuation">
-				<ol start="6" class="continuation">
+		<section data-split-from="" data-split-to="">
+			<div data-split-from="">
+				<ol start="6" data-split-from="">
 					<li>Item 6</li>
 					<li>Item 7</li>
 					<li>Item 8</li>
@@ -96,8 +90,8 @@
 				dignissim porta vel sagittis nunc. Vestibulum convallis fringilla ante sit amet ultrices.
 				Vestibulum neque ex, ullamcorper sit amet diam sed, pharetra laoreet sem.
 			</p>
-			<div>
-				<ul>
+			<div data-split-to="">
+				<ul data-split-to="">
 					<li>
 						Morbi in sem quis dui placerat ornare. Pellentesque odio nisi, euismod in, pharetra a,
 						ultricies in, diam. Sed arcu. Cras consequat
@@ -125,9 +119,9 @@
 		</section>
 	</page-container>
 	<page-container>
-		<section class="continuation">
-			<div class="continuation">
-				<ul class="continuation">
+		<section data-split-from="" data-split-to="">
+			<div data-split-from="">
+				<ul data-split-from="">
 					<li>Suspendisse commodo ullamcorper magna.</li>
 					<li>
 						Nulla sed leo. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per

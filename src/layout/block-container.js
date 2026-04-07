@@ -189,15 +189,20 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 		// isBreakBefore means "pushed to this fragmentainer, lay out fresh"
 		const effectiveChildBreakToken = childBreakToken?.isBreakBefore ? null : childBreakToken;
 
-		// Add child's margin-before (collapsed with previous child's margin-end)
+		// Add child's margin-before (collapsed with previous child's margin-end).
+		// CSS2 §8.3.1: when a child's first-child margin collapses through it
+		// (child has no border/padding), include that grandchild margin in the
+		// sibling collapsing so it isn't double-counted inside the child.
 		const childMarginBefore = child.marginBlockStart || 0;
+		const childCollapsedThrough = child.collapsedMarginBlockStart || 0;
+		const effectiveChildMargin = Math.max(childMarginBefore, childCollapsedThrough);
 		const blockOffsetBeforeMargin = blockOffset;
 		if (i === startIndex && !breakToken) {
 			// First child on first fragment: add full margin
-			blockOffset += childMarginBefore;
+			blockOffset += effectiveChildMargin;
 		} else if (i > startIndex) {
 			// Adjacent siblings: collapse margins (use the larger of the two)
-			blockOffset += Math.max(childMarginBefore, prevChildMarginEnd);
+			blockOffset += Math.max(effectiveChildMargin, prevChildMarginEnd);
 			prevChildMarginEnd = 0; // consumed by collapsing
 		}
 
@@ -270,7 +275,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 			breakBefore !== "auto" &&
 			breakBefore !== "avoid" &&
 			!effectiveChildBreakToken &&
-			blockOffset > 0
+			blockOffsetBeforeMargin > 0
 		) {
 			const forcedToken = BlockBreakToken.createBreakBefore(child, true, breakBefore);
 			childBreakTokens.push(forcedToken);
@@ -318,12 +323,19 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 			}
 		}
 
+		// CSS2 §8.3.1: when a child's first-child margin collapses through
+		// it, the parent's sibling collapsing already consumed that margin.
+		// The child's internal layout will also add it, so compensate here
+		// by giving the child more space and adjusting its offset.
+		const collapseAdj = childCollapsedThrough > 0 && !effectiveChildBreakToken
+			? childCollapsedThrough : 0;
+
 		// Build constraint space for the child
 		const childConstraint = new ConstraintSpace({
 			availableInlineSize: constraintSpace.availableInlineSize,
-			availableBlockSize: remainingSpace,
+			availableBlockSize: remainingSpace + collapseAdj,
 			fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
-			blockOffsetInFragmentainer: containerOffsetInFragmentainer + blockOffset,
+			blockOffsetInFragmentainer: containerOffsetInFragmentainer + blockOffset - collapseAdj,
 			fragmentationType: constraintSpace.fragmentationType,
 			preserveForcedBreakMargins: constraintSpace.preserveForcedBreakMargins,
 		});
@@ -347,6 +359,13 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 
 		childFragments.push(result.fragment);
 		blockOffset += result.fragment.blockSize;
+
+		// CSS2 §8.3.1: if this child's first-child margin collapsed through
+		// it, that margin was already included in the sibling collapsing above.
+		// Subtract it from blockOffset to avoid double-counting.
+		if (childCollapsedThrough > 0 && !effectiveChildBreakToken) {
+			blockOffset -= childCollapsedThrough;
+		}
 
 		// Table border-spacing: gap between adjacent rows/sections.
 		if (tableSpacing > 0 && i < children.length - 1) {

@@ -45,9 +45,11 @@ export function parseCSSLength(str) {
 		default:
 			px = value;
 	}
-	// Snap to 1/64px grid to match Chromium's sub-pixel quantization
-	// (LayoutUnit::FromFloatRound uses roundf, not floor).
-	return Math.round(px * 64) / 64;
+	// Snap to 1/64px grid to match Chromium's LayoutUnit quantization
+	// (truncates toward zero, not round-to-nearest).
+	// Add a small epsilon before flooring to absorb floating-point
+	// precision loss (e.g. 25.4 * 96 / 25.4 → 95.9999... not 96).
+	return Math.floor(px * 64 + 1e-6) / 64;
 }
 
 /**
@@ -124,7 +126,6 @@ export class PageConstraints {
 			fragmentainerBlockSize: this.contentArea.blockSize,
 			blockOffsetInFragmentainer: 0,
 			fragmentationType: FRAGMENTATION_PAGE,
-			cssInlineSize: this.cssText?.contentArea?.inline?.toString() ?? null,
 		});
 	}
 }
@@ -246,8 +247,11 @@ export class PageResolver {
 	 */
 	cascadeRules(matchingRules) {
 		const result = {
-			size: null, margin: null, pageOrientation: null,
-			rawSize: null, rawMargin: null,
+			size: null,
+			margin: null,
+			pageOrientation: null,
+			rawSize: null,
+			rawMargin: null,
 		};
 
 		// Stable sort by specificity — Array.sort is stable in modern engines

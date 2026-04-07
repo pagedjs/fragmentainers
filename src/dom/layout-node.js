@@ -235,6 +235,32 @@ export class DOMLayoutNode {
 		return v && v.unit ? v.value : 0;
 	}
 
+	/**
+	 * CSS2 §8.3.1: first child's margin-start that collapses through this
+	 * element when it has no block-start border or padding. Returns 0 when
+	 * the margin doesn't collapse through (parent has border/padding).
+	 */
+	get collapsedMarginBlockStart() {
+		if (this.paddingBlockStart === 0 && this.borderBlockStart === 0) {
+			const first = this.children[0];
+			if (first) return first.marginBlockStart;
+		}
+		return 0;
+	}
+
+	/**
+	 * CSS2 §8.3.1: last child's margin-end that collapses through this
+	 * element when it has no block-end border or padding.
+	 */
+	get collapsedMarginBlockEnd() {
+		if (this.paddingBlockEnd === 0 && this.borderBlockEnd === 0) {
+			const children = this.children;
+			const last = children[children.length - 1];
+			if (last) return last.marginBlockEnd;
+		}
+		return 0;
+	}
+
 	get paddingBlockStart() {
 		const v = this.#getStyleMap().get("padding-top");
 		return v && v.unit ? v.value : 0;
