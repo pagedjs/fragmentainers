@@ -12,8 +12,9 @@ test.describe("PageResolver", () => {
 				margins: c.margins,
 			};
 		});
-		expect(result.contentArea).toEqual({ inlineSize: 816, blockSize: 1056 });
-		expect(result.margins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+		// UA default margin is 0.5in (48px) per side
+		expect(result.margins).toEqual({ top: 48, right: 48, bottom: 48, left: 48 });
+		expect(result.contentArea).toEqual({ inlineSize: 720, blockSize: 960 });
 	});
 
 	test("defaults to US Letter when no size given", async ({ page }) => {
@@ -23,13 +24,15 @@ test.describe("PageResolver", () => {
 			const c = resolver.resolve(0, null, null);
 			return c.contentArea;
 		});
-		expect(result).toEqual({ inlineSize: 816, blockSize: 1056 });
+		// 816 - 96 = 720, 1056 - 96 = 960
+		expect(result).toEqual({ inlineSize: 720, blockSize: 960 });
 	});
 
 	test("universal @page with explicit size", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
-			const resolver = new PageResolver([new PageRule({ size: [600, 800] })], {
+			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
+			const resolver = new PageResolver([new PageRule({ size: [600, 800], margin: M0 })], {
 				inlineSize: 816,
 				blockSize: 1056,
 			});
@@ -97,9 +100,10 @@ test.describe("PageResolver", () => {
 	test(":first pseudo-class matches only page 0", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
 			const resolver = new PageResolver(
 				[
-					new PageRule({ size: [600, 800] }),
+					new PageRule({ size: [600, 800], margin: M0 }),
 					new PageRule({ pseudoClass: "first", size: [400, 500] }),
 				],
 				{ inlineSize: 816, blockSize: 1056 },
@@ -148,8 +152,9 @@ test.describe("PageResolver", () => {
 			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
+			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
 			const resolver = new PageResolver(
-				[new PageRule({ size: [600, 800] }), new PageRule({ name: "chapter", size: [500, 700] })],
+				[new PageRule({ size: [600, 800], margin: M0 }), new PageRule({ name: "chapter", size: [500, 700], margin: M0 })],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
 
@@ -172,12 +177,13 @@ test.describe("PageResolver", () => {
 			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
-			const resolver = new PageResolver(
+			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
+				const resolver = new PageResolver(
 				[
-					new PageRule({ size: [100, 100] }),
-					new PageRule({ pseudoClass: "first", size: [200, 200] }),
-					new PageRule({ name: "cover", size: [300, 300] }),
-					new PageRule({ name: "cover", pseudoClass: "first", size: [400, 400] }),
+					new PageRule({ size: [100, 100], margin: M0 }),
+					new PageRule({ pseudoClass: "first", size: [200, 200], margin: M0 }),
+					new PageRule({ name: "cover", size: [300, 300], margin: M0 }),
+					new PageRule({ name: "cover", pseudoClass: "first", size: [400, 400], margin: M0 }),
 				],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
@@ -607,7 +613,8 @@ test.describe("createFragments with PageResolver", () => {
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const DEFAULT_SIZE = { inlineSize: 600, blockSize: 1000 };
-			const resolver = new PageResolver([new PageRule({ size: [600, 1000] })], DEFAULT_SIZE);
+			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
+			const resolver = new PageResolver([new PageRule({ size: [600, 1000], margin: M0 })], DEFAULT_SIZE);
 
 			const root = blockNode({
 				children: [blockNode({ blockSize: 800 }), blockNode({ blockSize: 800 })],
@@ -631,8 +638,9 @@ test.describe("createFragments with PageResolver", () => {
 			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
-			const resolver = new PageResolver(
-				[new PageRule({ size: [600, 200] }), new PageRule({ name: "wide", size: [800, 200] })],
+			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
+				const resolver = new PageResolver(
+				[new PageRule({ size: [600, 200], margin: M0 }), new PageRule({ name: "wide", size: [800, 200], margin: M0 })],
 				{ inlineSize: 600, blockSize: 200 },
 			);
 
