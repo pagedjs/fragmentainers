@@ -15,6 +15,7 @@ export class ConstraintSpace {
 		isNewFormattingContext = false,
 		reservedBlockStart = 0,
 		reservedBlockEnd = 0,
+		preserveForcedBreakMargins = false,
 	} = {}) {
 		this.availableInlineSize = availableInlineSize;
 		this.availableBlockSize = availableBlockSize;
@@ -24,5 +25,6 @@ export class ConstraintSpace {
 		this.isNewFormattingContext = isNewFormattingContext;
 		this.reservedBlockStart = reservedBlockStart;
 		this.reservedBlockEnd = reservedBlockEnd;
+		this.preserveForcedBreakMargins = preserveForcedBreakMargins;
 	}
 }

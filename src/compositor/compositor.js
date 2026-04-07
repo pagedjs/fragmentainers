@@ -49,6 +49,8 @@ export function composeFragment(fragment, inputBreakToken, parentEl) {
 		const el = node.element.cloneNode(false);
 		if (fragment.isRepeated) el.setAttribute("data-repeated", "");
 		applySplitAttributes(el, inputBreakToken, fragment);
+		if (fragment.truncateMarginBlockStart) el.setAttribute("data-truncate-margin", "");
+		if (fragment.truncateMarginBlockEnd) el.setAttribute("data-truncate-margin-end", "");
 		if (inputBreakToken && el.tagName === "OL") {
 			applyListContinuation(el, node, inputBreakToken);
 		}
@@ -75,6 +77,8 @@ export function composeFragment(fragment, inputBreakToken, parentEl) {
 		const el = node.element.cloneNode(true);
 		if (fragment.isRepeated) el.setAttribute("data-repeated", "");
 		applySplitAttributes(el, inputBreakToken, fragment);
+		if (fragment.truncateMarginBlockStart) el.setAttribute("data-truncate-margin", "");
+		if (fragment.truncateMarginBlockEnd) el.setAttribute("data-truncate-margin-end", "");
 
 		// Sliced monolithic content: wrap in a clip container and offset
 		// by the consumed amount to show the correct portion.
@@ -204,6 +208,8 @@ function composeInlineFragment(fragment, inputBreakToken, parentEl) {
 	if (!data || !data.items || data.items.length === 0) {
 		if (!isAnonymous) {
 			const el = node.element.cloneNode(false);
+			if (fragment.truncateMarginBlockStart) el.setAttribute("data-truncate-margin", "");
+			if (fragment.truncateMarginBlockEnd) el.setAttribute("data-truncate-margin-end", "");
 			parentEl.appendChild(el);
 		}
 		return;
@@ -242,6 +248,8 @@ function composeInlineFragment(fragment, inputBreakToken, parentEl) {
 	} else {
 		const el = node.element.cloneNode(false);
 		applySplitAttributes(el, inputBreakToken, fragment);
+		if (fragment.truncateMarginBlockStart) el.setAttribute("data-truncate-margin", "");
+		if (fragment.truncateMarginBlockEnd) el.setAttribute("data-truncate-margin-end", "");
 		buildInlineContent(
 			data.items,
 			data.textContent,

@@ -51,6 +51,15 @@ li[data-split-from] {
   list-style: none !important;
 }
 
+/* Margins adjoining a fragmentation break are truncated (CSS Fragmentation L3 §5.2). */
+[data-truncate-margin] {
+  margin-block-start: unset !important;
+}
+
+[data-truncate-margin-end] {
+  margin-block-end: unset !important;
+}
+
 /* === First fragments that continue (NOT the last) === */
 
 [data-split-to] {

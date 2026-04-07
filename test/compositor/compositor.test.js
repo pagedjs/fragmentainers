@@ -605,4 +605,116 @@ test.describe("composeFragment", () => {
 		expect(result.hasSplitTo).toBe(true);
 		expect(result.hasJustifyLast).toBe(true);
 	});
+
+	test("sets data-truncate-margin on fragment with truncateMarginBlockStart", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { composeFragment } = await import("/src/compositor/compositor.js");
+			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px";
+			document.body.appendChild(container);
+
+			const outer = document.createElement("div");
+			const child = document.createElement("div");
+			child.style.marginTop = "20px";
+			child.textContent = "Content";
+			outer.appendChild(child);
+			container.appendChild(outer);
+
+			const outerNode = new DOMLayoutNode(outer);
+			const childNodes = outerNode.children;
+
+			const childFrag = new PhysicalFragment(childNodes[0], 50);
+			childFrag.truncateMarginBlockStart = true;
+			const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+
+			const docFrag = composeFragment(rootFragment, null);
+			const composed = docFrag.childNodes[0];
+
+			const out = {
+				hasTruncateMargin: composed.hasAttribute("data-truncate-margin"),
+			};
+			container.remove();
+			return out;
+		});
+		expect(result.hasTruncateMargin).toBe(true);
+	});
+
+	test("does not set data-truncate-margin when truncateMarginBlockStart is false", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { composeFragment } = await import("/src/compositor/compositor.js");
+			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px";
+			document.body.appendChild(container);
+
+			const outer = document.createElement("div");
+			const child = document.createElement("div");
+			child.textContent = "Content";
+			outer.appendChild(child);
+			container.appendChild(outer);
+
+			const outerNode = new DOMLayoutNode(outer);
+			const childNodes = outerNode.children;
+
+			const childFrag = new PhysicalFragment(childNodes[0], 50);
+			const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+
+			const docFrag = composeFragment(rootFragment, null);
+			const composed = docFrag.childNodes[0];
+
+			const out = {
+				hasTruncateMargin: composed.hasAttribute("data-truncate-margin"),
+			};
+			container.remove();
+			return out;
+		});
+		expect(result.hasTruncateMargin).toBe(false);
+	});
+
+	test("sets data-truncate-margin-end on fragment with truncateMarginBlockEnd", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { PhysicalFragment } = await import("/src/core/fragment.js");
+			const { composeFragment } = await import("/src/compositor/compositor.js");
+			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px";
+			document.body.appendChild(container);
+
+			const outer = document.createElement("div");
+			const child = document.createElement("div");
+			child.style.marginBottom = "20px";
+			child.textContent = "Content";
+			outer.appendChild(child);
+			container.appendChild(outer);
+
+			const outerNode = new DOMLayoutNode(outer);
+			const childNodes = outerNode.children;
+
+			const childFrag = new PhysicalFragment(childNodes[0], 50);
+			childFrag.truncateMarginBlockEnd = true;
+			const rootFragment = new PhysicalFragment(outerNode, 50, [childFrag]);
+
+			const docFrag = composeFragment(rootFragment, null);
+			const composed = docFrag.childNodes[0];
+
+			const out = {
+				hasTruncateMarginEnd: composed.hasAttribute("data-truncate-margin-end"),
+			};
+			container.remove();
+			return out;
+		});
+		expect(result.hasTruncateMarginEnd).toBe(true);
+	});
 });

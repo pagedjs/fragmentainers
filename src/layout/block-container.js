@@ -133,6 +133,10 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 	// Track previous child's margin-end for collapsing with next child's margin-start
 	let prevChildMarginEnd = 0;
 
+	// Margin-end of the last placed child (not zeroed during collapsing).
+	// Used after the loop to set truncateMarginBlockEnd.
+	let lastPlacedChildMarginEnd = 0;
+
 	// Effective start of this container within the fragmentainer
 	const containerOffsetInFragmentainer = constraintSpace.blockOffsetInFragmentainer;
 
@@ -307,16 +311,32 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 			fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
 			blockOffsetInFragmentainer: containerOffsetInFragmentainer + blockOffset,
 			fragmentationType: constraintSpace.fragmentationType,
+			preserveForcedBreakMargins: constraintSpace.preserveForcedBreakMargins,
 		});
 
 		// Yield layout request — driver runs child generator and returns result
 		const result = yield layoutChild(child, childConstraint, effectiveChildBreakToken);
+
+		// Mark fragment when its margin-block-start was truncated at a break
+		// boundary (CSS Fragmentation L3 §5.2). The compositor uses this to
+		// suppress the margin in the rendered DOM.
+		// By default, margins are truncated at all breaks (matching browser
+		// behavior). When preserveForcedBreakMargins is set, margins after
+		// a forced break are preserved per §5.2.
+		if (i === startIndex && breakToken && childMarginBefore > 0) {
+			const preserveMargin =
+				constraintSpace.preserveForcedBreakMargins && childBreakToken?.isForcedBreak;
+			if (!preserveMargin) {
+				result.fragment.truncateMarginBlockStart = true;
+			}
+		}
 
 		childFragments.push(result.fragment);
 		blockOffset += result.fragment.blockSize;
 
 		// Track this child's margin-end for collapsing with the next sibling
 		prevChildMarginEnd = child.marginBlockEnd || 0;
+		lastPlacedChildMarginEnd = prevChildMarginEnd;
 
 		if (result.breakToken) {
 			// Track break quality from child (e.g. orphans/widows violation,
@@ -372,6 +392,17 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 	// Per CSS Fragmentation: margins adjoining a break are truncated to zero.
 	if (prevChildMarginEnd > 0 && childFragments.length > 0 && childBreakTokens.length === 0) {
 		blockOffset += prevChildMarginEnd;
+	}
+
+	// Mark the last child fragment when its margin-block-end was truncated
+	// at a break boundary (CSS Fragmentation L3 §5.2). Margins before a
+	// break are always truncated (both forced and unforced).
+	// Skip when the child itself was split (data-split-to already handles it).
+	if (childBreakTokens.length > 0 && lastPlacedChildMarginEnd > 0 && childFragments.length > 0) {
+		const lastChildFrag = childFragments[childFragments.length - 1];
+		if (!lastChildFrag.breakToken) {
+			lastChildFrag.truncateMarginBlockEnd = true;
+		}
 	}
 
 	// Add container's bottom padding+border.
