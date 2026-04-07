@@ -6,3 +6,4 @@ specs/results.json
 *-snapshots
 .DS_Store
 examples
+debug-report.txt

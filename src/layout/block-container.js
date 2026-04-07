@@ -130,6 +130,17 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 	const isClone = node.boxDecorationBreak === BOX_DECORATION_CLONE;
 	let blockOffset = breakToken && !isClone ? 0 : containerBoxStart;
 
+	// Table border-spacing (separated borders model): adds gaps between
+	// rows/sections and at table edges. Non-zero only for <table> and
+	// <thead>/<tbody>/<tfoot> nodes whose table uses border-collapse: separate.
+	const tableSpacing = node.borderSpacingBlock;
+
+	// Top-edge border-spacing: gap before the first row/section in the table.
+	// Only on the first fragment (continuation fragments start at the break).
+	if (tableSpacing > 0 && node.isTable && !breakToken) {
+		blockOffset += tableSpacing;
+	}
+
 	// Track previous child's margin-end for collapsing with next child's margin-start
 	let prevChildMarginEnd = 0;
 
@@ -202,12 +213,15 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 			break;
 		}
 
-		// Reserve space for container's bottom box inset when computing remaining space
+		// Reserve space for container's bottom box inset (and table bottom-edge
+		// border-spacing) when computing remaining space
+		const tableEdgeEnd = tableSpacing > 0 && node.isTable ? tableSpacing : 0;
 		const remainingSpace =
 			constraintSpace.fragmentainerBlockSize -
 			containerOffsetInFragmentainer -
 			blockOffset -
-			containerBoxEnd;
+			containerBoxEnd -
+			tableEdgeEnd;
 
 		// Pass 2: if earlyBreakTarget says "break before this child", do it now
 		if (
@@ -334,6 +348,11 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 		childFragments.push(result.fragment);
 		blockOffset += result.fragment.blockSize;
 
+		// Table border-spacing: gap between adjacent rows/sections.
+		if (tableSpacing > 0 && i < children.length - 1) {
+			blockOffset += tableSpacing;
+		}
+
 		// Track this child's margin-end for collapsing with the next sibling
 		prevChildMarginEnd = child.marginBlockEnd || 0;
 		lastPlacedChildMarginEnd = prevChildMarginEnd;
@@ -403,6 +422,12 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 		if (!lastChildFrag.breakToken) {
 			lastChildFrag.truncateMarginBlockEnd = true;
 		}
+	}
+
+	// Bottom-edge border-spacing: gap after the last row/section in the table.
+	// Only on the final fragment (no break token pending).
+	if (tableSpacing > 0 && node.isTable && hasSeenAllChildren && childBreakTokens.length === 0) {
+		blockOffset += tableSpacing;
 	}
 
 	// Add container's bottom padding+border.

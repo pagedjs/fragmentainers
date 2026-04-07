@@ -29,6 +29,7 @@ export function buildCumulativeHeights(node) {
 	const children = node.children;
 	const n = children.length;
 	const cumulative = new Float64Array(n + 1);
+	const tableSpacing = node.borderSpacingBlock;
 
 	for (let i = 0; i < n; i++) {
 		const child = children[i];
@@ -36,7 +37,8 @@ export function buildCumulativeHeights(node) {
 			i > 0
 				? Math.max(child.marginBlockStart || 0, children[i - 1].marginBlockEnd || 0)
 				: child.marginBlockStart || 0;
-		cumulative[i + 1] = cumulative[i] + margin + (child.blockSize || 0);
+		const spacing = tableSpacing > 0 && i > 0 ? tableSpacing : 0;
+		cumulative[i + 1] = cumulative[i] + margin + spacing + (child.blockSize || 0);
 	}
 
 	return cumulative;

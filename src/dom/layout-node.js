@@ -40,6 +40,7 @@ export class DOMLayoutNode {
 	#textAlign = null;
 	#whiteSpace = null;
 	#lineHeightCache = null;
+	#borderSpacingBlock = undefined;
 	#breakBeforeOverride = null;
 	#pageOverride = undefined;
 
@@ -125,6 +126,36 @@ export class DOMLayoutNode {
 
 	get isTableHeaderGroup() {
 		return this.display === "table-header-group";
+	}
+
+	get isTableSection() {
+		const d = this.display;
+		return d === "table-row-group" || d === "table-header-group" || d === "table-footer-group";
+	}
+
+	/**
+	 * Vertical border-spacing for tables using the separated borders model.
+	 * Returns the table's vertical spacing value for table and table-section
+	 * nodes; 0 for everything else and for border-collapse: collapse tables.
+	 */
+	get borderSpacingBlock() {
+		if (this.#borderSpacingBlock !== undefined) return this.#borderSpacingBlock;
+		const el = this.isTable ? this.element
+			: this.isTableSection ? this.element.closest("table")
+			: null;
+		if (!el) {
+			this.#borderSpacingBlock = 0;
+			return 0;
+		}
+		const style = getComputedStyle(el);
+		if (style.borderCollapse === "collapse") {
+			this.#borderSpacingBlock = 0;
+			return 0;
+		}
+		const val = style.borderSpacing || "";
+		const parts = val.split(/\s+/);
+		this.#borderSpacingBlock = parseFloat(parts.length >= 2 ? parts[1] : parts[0]) || 0;
+		return this.#borderSpacingBlock;
 	}
 
 	get isFlexContainer() {
