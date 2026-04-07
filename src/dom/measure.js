@@ -3,6 +3,7 @@ import { DOMLayoutNode } from "./layout-node.js";
 import { isForcedBreakValue } from "../core/helpers.js";
 import { INLINE_TEXT } from "../core/constants.js";
 import { modules } from "../modules/registry.js";
+import { buildPseudoStyleSheet, materializePseudoElements } from "./pseudo-elements.js";
 import "../dom/content-measure.js";
 
 /**
@@ -295,6 +296,15 @@ export class Measurer {
 	setup() {
 		// Walk CSS rules and let modules accumulate state, then claim elements
 		modules.processRules(this.#styles);
+
+		// Build pseudo element stylesheet (rewrites ::before/::after rules
+		// to target <frag-pseudo> synthetic elements). Must run after
+		// processRules so modules can opt out via claimPseudoRule.
+		const pseudoSheet = buildPseudoStyleSheet(this.#styles, modules);
+		if (pseudoSheet.cssRules.length > 0) {
+			this.#styles = [pseudoSheet, ...this.#styles];
+		}
+
 		this.#persistent = modules.claimPersistent(this.#content);
 		const persistentSet = new Set(this.#persistent);
 
@@ -316,6 +326,13 @@ export class Measurer {
 		measurer.injectFragment(this.#content, this.#styles);
 		document.body.appendChild(measurer);
 		void measurer.offsetHeight;
+
+		// Materialize pseudo elements after browser has computed styles.
+		// Sets data-frag-resolved-* attributes; suppression rules in the
+		// pseudo stylesheet (already adopted) take effect on next reflow.
+		materializePseudoElements(measurer.contentRoot, modules);
+		void measurer.offsetHeight;
+
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
 		return measurer.contentRoot;
@@ -366,6 +383,10 @@ export class Measurer {
 		measurer.injectFragment(this.#content, this.#styles);
 
 		document.body.appendChild(measurer);
+		void measurer.offsetHeight;
+
+		// Materialize pseudo elements after browser has computed styles
+		materializePseudoElements(measurer.contentRoot, modules);
 		void measurer.offsetHeight;
 
 		this.#measureElement = measurer;
@@ -421,6 +442,10 @@ export class Measurer {
 		newSlot.appendChild(frag);
 
 		document.body.appendChild(measurer);
+		void measurer.offsetHeight;
+
+		// Materialize pseudo elements in the new segment
+		materializePseudoElements(newSlot, modules);
 		void measurer.offsetHeight;
 
 		this.#measureElement = measurer;

@@ -141,6 +141,17 @@ class FootnoteLayoutModule extends LayoutModule {
 		return [];
 	}
 
+	claimPseudo(element, pseudo) {
+		if (pseudo === "after" && element.hasAttribute("data-footnote-call")) return true;
+		return false;
+	}
+
+	claimPseudoRule(rule, pseudo) {
+		if (pseudo === "after" && rule.selectorText.includes("[data-footnote-call]")) return true;
+		if (pseudo === "marker" && rule.selectorText.includes("[data-footnote-marker]")) return true;
+		return false;
+	}
+
 	claim(node) {
 		return node.getCustomProperty("float") === "footnote";
 	}

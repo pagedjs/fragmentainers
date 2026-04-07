@@ -76,6 +76,16 @@ li[data-split-from] {
   content: unset !important;
 }
 
+/* === Materialized pseudo element suppression === */
+
+[data-split-from] > frag-pseudo[data-pseudo="before"] {
+  display: none !important;
+}
+
+[data-split-to] > frag-pseudo[data-pseudo="after"] {
+  display: none !important;
+}
+
 `);
 
 export { OVERRIDES };

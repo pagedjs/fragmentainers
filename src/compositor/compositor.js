@@ -8,6 +8,27 @@ import {
 	BREAK_TOKEN_INLINE,
 } from "../core/constants.js";
 import { modules } from "../modules/registry.js";
+import { isPseudoElement } from "../dom/pseudo-elements.js";
+
+/**
+ * Determine whether a materialized pseudo element should be composed
+ * into the current fragment. ::before is excluded on continuation
+ * fragments; ::after is excluded on non-last fragments.
+ *
+ * @param {Element} element — the <frag-pseudo> element
+ * @param {import("../core/tokens.js").BreakToken|null} inputBreakToken — parent's input break token
+ * @param {import("../core/fragment.js").PhysicalFragment} fragment — parent fragment
+ * @returns {boolean} true if the pseudo should be included
+ */
+function shouldComposePseudo(element, inputBreakToken, fragment) {
+	if (!isPseudoElement(element)) return true;
+	const which = element.dataset.pseudo;
+	// ::before only appears on the first fragment (no inputBreakToken)
+	if (which === "before" && inputBreakToken && !inputBreakToken.isBreakBefore) return false;
+	// ::after only appears on the last fragment (no output breakToken)
+	if (which === "after" && fragment.breakToken) return false;
+	return true;
+}
 
 /**
  * Check if a fragment has block-level child fragments (not line fragments).
@@ -56,6 +77,9 @@ export function composeFragment(fragment, inputBreakToken, parentEl) {
 		}
 		for (const child of fragment.childFragments) {
 			if (!child.node) continue;
+			// Skip materialized pseudo elements at wrong split boundaries
+			if (child.node.element && !shouldComposePseudo(child.node.element, inputBreakToken, fragment))
+				continue;
 			const childInputBT = findChildBreakToken(inputBreakToken, child.node);
 			composeFragment(child, childInputBT, el);
 		}
@@ -233,6 +257,18 @@ function composeInlineFragment(fragment, inputBreakToken, parentEl) {
 	const collapseWS = !ws.startsWith("pre");
 	const isHyphenated = fragment.breakToken?.isHyphenated ?? false;
 
+	// Build context for pseudo element suppression at split boundaries
+	const isContinuation =
+		inputBreakToken &&
+		!inputBreakToken.isBreakBefore &&
+		(inputBreakToken.type === BREAK_TOKEN_INLINE
+			? inputBreakToken.textOffset > 0
+			: inputBreakToken.consumedBlockSize > 0);
+	const pseudoContext = {
+		isContinuation: !!isContinuation,
+		willContinue: !!fragment.breakToken,
+	};
+
 	if (isAnonymous) {
 		const docFragment = document.createDocumentFragment();
 		buildInlineContent(
@@ -243,6 +279,7 @@ function composeInlineFragment(fragment, inputBreakToken, parentEl) {
 			docFragment,
 			collapseWS,
 			isHyphenated,
+			pseudoContext,
 		);
 		parentEl.appendChild(docFragment);
 	} else {
@@ -258,6 +295,7 @@ function composeInlineFragment(fragment, inputBreakToken, parentEl) {
 			el,
 			collapseWS,
 			isHyphenated,
+			pseudoContext,
 		);
 		parentEl.appendChild(el);
 	}
@@ -391,6 +429,7 @@ export function buildInlineContent(
 	container,
 	collapseWS = false,
 	_isHyphenated = false,
+	pseudoContext = null,
 ) {
 	let current = container;
 	const stack = [];
@@ -433,6 +472,23 @@ export function buildInlineContent(
 				}
 				continue;
 			}
+			// Skip materialized pseudo elements at wrong split boundaries
+			if (pseudoContext && isPseudoElement(item.element)) {
+				const which = item.element.dataset.pseudo;
+				const skip =
+					(which === "before" && pseudoContext.isContinuation) ||
+					(which === "after" && pseudoContext.willContinue);
+				if (skip) {
+					let depth = 1;
+					i++;
+					while (i < items.length && depth > 0) {
+						if (items[i].type === INLINE_OPEN_TAG) depth++;
+						else if (items[i].type === INLINE_CLOSE_TAG) depth--;
+						i++;
+					}
+					continue;
+				}
+			}
 			const el = item.element.cloneNode(false);
 			current.appendChild(el);
 			stack.push(current);
@@ -445,6 +501,17 @@ export function buildInlineContent(
 			}
 		} else if (item.type === INLINE_ATOMIC) {
 			if (item.startOffset >= startOffset && item.startOffset < endOffset) {
+				// Skip materialized pseudo elements at wrong split boundaries
+				if (pseudoContext && isPseudoElement(item.element)) {
+					const which = item.element.dataset.pseudo;
+					const skip =
+						(which === "before" && pseudoContext.isContinuation) ||
+						(which === "after" && pseudoContext.willContinue);
+					if (skip) {
+						i++;
+						continue;
+					}
+				}
 				const el = item.element.cloneNode(true);
 				current.appendChild(el);
 			}

@@ -136,6 +136,14 @@ class ModuleRegistry {
 		return this.#cloneMap.get(clone);
 	}
 
+	claimPseudo(element, pseudo, contentValue) {
+		return this.#modules.some((m) => m.claimPseudo(element, pseudo, contentValue));
+	}
+
+	claimPseudoRule(rule, pseudo) {
+		return this.#modules.some((m) => m.claimPseudoRule(rule, pseudo));
+	}
+
 	afterContentLayout(fragment, constraintSpace, inputBreakToken) {
 		let reservedBlockEnd = 0;
 		const afterRenderCallbacks = [];

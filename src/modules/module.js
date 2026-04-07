@@ -49,6 +49,32 @@ export class LayoutModule {
 	}
 
 	/**
+	 * Called during pseudo element materialization for each detected
+	 * ::before/::after. Return true to claim the pseudo and prevent
+	 * materialization (the module manages it via CSS).
+	 *
+	 * @param {Element} element — the element with the pseudo
+	 * @param {string} pseudo — "before" or "after"
+	 * @param {string} contentValue — the computed content CSS value
+	 * @returns {boolean}
+	 */
+	claimPseudo() {
+		return false;
+	}
+
+	/**
+	 * Called during CSS rule rewriting for each rule with ::before/::after.
+	 * Return true to skip rewriting this rule (the module owns it).
+	 *
+	 * @param {CSSStyleRule} rule — the CSS rule
+	 * @param {string} pseudo — "before" or "after"
+	 * @returns {boolean}
+	 */
+	claimPseudoRule() {
+		return false;
+	}
+
+	/**
 	 * Called after content layout completes for a fragmentainer.
 	 * Modules can inspect the resulting fragment and request additional
 	 * block-end space (e.g., for footnotes). Returning a different
