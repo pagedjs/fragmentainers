@@ -285,7 +285,7 @@
 						const renderBox = document.createElement("page-container");
 						renderBox.className = "page-row-render";
 
-						const fragEl = flow.createFragmentainer(i);
+						const fragEl = flow[i];
 						renderBox.appendChild(fragEl);
 						contentEl.appendChild(renderBox);
 
