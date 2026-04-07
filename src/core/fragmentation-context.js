@@ -51,14 +51,14 @@ export class FragmentationContext extends Array {
 	 */
 	createFragmentainer(index) {
 		const fragment = this.#fragments[index];
-		const { contentArea } = fragment.constraints;
+		const { contentArea, cssText } = fragment.constraints;
 
 		const el = document.createElement("fragment-container");
 		el.fragmentIndex = index;
 		el.pageConstraints = fragment.constraints;
 		el.namedPage = fragment.constraints?.namedPage ?? null;
-		el.style.width = `${contentArea.inlineSize}px`;
-		el.style.height = `${contentArea.blockSize}px`;
+		el.style.width = cssText?.contentArea?.inline?.toString() || `${contentArea.inlineSize}px`;
+		el.style.height = cssText?.contentArea?.block?.toString() || `${contentArea.blockSize}px`;
 		el.style.overflow = "hidden";
 
 		if (fragment.isBlank) {

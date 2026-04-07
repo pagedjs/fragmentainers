@@ -11,9 +11,9 @@
 export function saveRef(flow) {
 	const pages = [];
 	for (let i = 0; i < flow.fragmentainerCount; i++) {
-		const { pageBoxSize, margins } = flow.fragments[i].constraints;
+		const constraints = flow.fragments[i].constraints;
 		const fragEl = document.querySelector(`[data-page-index="${i}"] fragment-container`);
-		pages.push({ pageBoxSize, margins, html: fragEl.contentRoot.innerHTML });
+		pages.push({ constraints, html: fragEl.contentRoot.innerHTML });
 	}
 	document.documentElement.dataset.refHtml = buildRefHtml(pages);
 }
@@ -37,74 +37,35 @@ function collectStylesWithoutPageRules() {
 }
 
 /**
- * Find the universal @page rule and extract size/margin in original CSS units.
- * Returns null if no @page rule exists.
- */
-function extractPageRuleCSS() {
-	for (const sheet of document.styleSheets) {
-		try {
-			for (const rule of sheet.cssRules) {
-				if (!(rule instanceof CSSPageRule)) continue;
-				if (rule.selectorText && rule.selectorText.trim()) continue;
-
-				const style = rule.style;
-				const sizeStr = style.getPropertyValue("size").trim();
-
-				let width = null;
-				let height = null;
-				if (sizeStr) {
-					const parts = sizeStr.split(/\s+/);
-					if (parts.length >= 2 && /^[\d.]+\w+$/.test(parts[0])) {
-						width = parts[0];
-						height = parts[1];
-					} else if (parts.length === 1 && /^[\d.]+\w+$/.test(parts[0])) {
-						width = parts[0];
-						height = parts[0];
-					}
-				}
-
-				const marginTop = style.getPropertyValue("margin-top").trim();
-				const marginRight = style.getPropertyValue("margin-right").trim();
-				const marginBottom = style.getPropertyValue("margin-bottom").trim();
-				const marginLeft = style.getPropertyValue("margin-left").trim();
-				const hasMargin = marginTop || marginRight || marginBottom || marginLeft;
-
-				return {
-					sizeStr,
-					width,
-					height,
-					margin: hasMargin
-						? `${marginTop || "0px"} ${marginRight || "0px"} ${marginBottom || "0px"} ${marginLeft || "0px"}`
-						: null,
-				};
-			}
-		} catch {
-			// Cross-origin sheets can't be read — skip
-		}
-	}
-	return null;
-}
-
-/**
  * Build a static reference HTML document from rendered pages.
  *
- * @param {{ pageBoxSize: { inlineSize: number, blockSize: number }, margins: object, html: string }[]} pages
+ * @param {{ constraints: object, html: string }[]} pages
  * @returns {string}
  */
 export function buildRefHtml(pages) {
 	const contentStyles = collectStylesWithoutPageRules();
-	const cssInfo = extractPageRuleCSS();
+	const { constraints } = pages[0];
+	const css = constraints.cssText;
 
-	const { pageBoxSize, margins } = pages[0];
-	const pageWidth = cssInfo?.width || `${pageBoxSize.inlineSize}px`;
-	const pageHeight = cssInfo?.height || `${pageBoxSize.blockSize}px`;
-	const pageMargin = cssInfo?.margin
-		|| `${margins.top}px ${margins.right}px ${margins.bottom}px ${margins.left}px`;
+	// Use original CSS units when available, fall back to computed px
+	const pageWidth = css?.pageBoxSize?.inline?.toString() || `${constraints.pageBoxSize.inlineSize}px`;
+	const pageHeight = css?.pageBoxSize?.block?.toString() || `${constraints.pageBoxSize.blockSize}px`;
+
+	let pageMargin;
+	if (css?.margin) {
+		const m = css.margin;
+		pageMargin = `${m.top} ${m.right} ${m.bottom} ${m.left}`;
+	} else {
+		const m = constraints.margins;
+		pageMargin = `${m.top}px ${m.right}px ${m.bottom}px ${m.left}px`;
+	}
 
 	// Reconstruct the @page rule with the original size but margin: 0
 	// (margins are handled by page-container padding via --page-margin).
-	const sizeDecl = cssInfo?.sizeStr || `${pageBoxSize.inlineSize}px ${pageBoxSize.blockSize}px`;
-	const atPageRule = `@page { size: ${sizeDecl}; margin: 0; }`;
+	const sizeStr = css?.pageBoxSize
+		? `${css.pageBoxSize.inline} ${css.pageBoxSize.block}`
+		: `${constraints.pageBoxSize.inlineSize}px ${constraints.pageBoxSize.blockSize}px`;
+	const atPageRule = `@page { size: ${sizeStr}; margin: 0; }`;
 
 	const containerRule = `page-container {
     --page-width: ${pageWidth};

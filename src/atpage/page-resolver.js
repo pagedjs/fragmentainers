@@ -2,6 +2,20 @@ import { ConstraintSpace } from "../core/constraint-space.js";
 import { FRAGMENTATION_PAGE, NAMED_SIZES, BREAK_TOKEN_INLINE } from "../core/constants.js";
 
 /**
+ * Parse a CSS length string into a CSSUnitValue.
+ * Returns null for non-length values (keywords, named sizes, etc.).
+ * @param {string} str - e.g. "105mm", "20px", "1in"
+ * @returns {CSSUnitValue|null}
+ */
+export function parseCSSUnitValue(str) {
+	const match = str.trim().match(/^([\d.]+)(px|in|cm|mm|pt)?$/);
+	if (!match) return null;
+	const value = parseFloat(match[1]);
+	const unit = match[2] || "px";
+	return new CSSUnitValue(value, unit);
+}
+
+/**
  * Parse a CSS length string to CSS pixels (96 DPI).
  * @param {string} str
  * @returns {number|null}
@@ -47,13 +61,17 @@ export class PageRule {
 	 * @param {string|number[]|null} [opts.size] - 'a4', 'letter landscape', [width, height], or null
 	 * @param {object|null} [opts.margin] - { top, right, bottom, left } in CSS px
 	 * @param {string|null} [opts.pageOrientation] - 'rotate-left', 'rotate-right', or null
+	 * @param {CSSUnitValue[]|null} [opts.rawSize] - [inline, block] as CSSUnitValues with original units
+	 * @param {object|null} [opts.rawMargin] - { top, right, bottom, left } as CSSUnitValues
 	 */
-	constructor({ name, pseudoClass, size, margin, pageOrientation } = {}) {
+	constructor({ name, pseudoClass, size, margin, pageOrientation, rawSize, rawMargin } = {}) {
 		this.name = name || null;
 		this.pseudoClass = pseudoClass || null;
 		this.size = size ?? null;
 		this.margin = margin ?? null;
 		this.pageOrientation = pageOrientation ?? null;
+		this.rawSize = rawSize ?? null;
+		this.rawMargin = rawMargin ?? null;
 	}
 }
 
@@ -72,6 +90,7 @@ export class PageConstraints {
 	 * @param {boolean} opts.isLeftPage
 	 * @param {boolean} [opts.isBlank]
 	 * @param {PageRule[]} [opts.matchedRules] - The @page rules that matched this page
+	 * @param {object|null} [opts.cssText] - Original CSS unit values for rendering
 	 */
 	constructor({
 		pageIndex,
@@ -83,6 +102,7 @@ export class PageConstraints {
 		isLeftPage,
 		isBlank = false,
 		matchedRules = [],
+		cssText = null,
 	}) {
 		this.pageIndex = pageIndex;
 		this.namedPage = namedPage;
@@ -93,6 +113,7 @@ export class PageConstraints {
 		this.isLeftPage = isLeftPage;
 		this.isBlank = isBlank;
 		this.matchedRules = matchedRules;
+		this.cssText = cssText;
 	}
 
 	/** Build a ConstraintSpace for layout from these page constraints. */
@@ -103,6 +124,7 @@ export class PageConstraints {
 			fragmentainerBlockSize: this.contentArea.blockSize,
 			blockOffsetInFragmentainer: 0,
 			fragmentationType: FRAGMENTATION_PAGE,
+			cssInlineSize: this.cssText?.contentArea?.inline?.toString() ?? null,
 		});
 	}
 }
@@ -179,6 +201,10 @@ export class PageResolver {
 			blockSize: orientedSize.blockSize - margins.top - margins.bottom,
 		};
 
+		// Build cssText with original CSS units using CSSUnitValue arithmetic.
+		// Falls back to null when raw values are unavailable or units are mixed.
+		const cssText = buildCSSText(resolved.rawSize, resolved.rawMargin, resolved.pageOrientation);
+
 		return new PageConstraints({
 			pageIndex,
 			namedPage,
@@ -189,6 +215,7 @@ export class PageResolver {
 			isLeftPage: this.isLeftPage(pageIndex),
 			isBlank,
 			matchedRules: matchingRules,
+			cssText,
 		});
 	}
 
@@ -218,7 +245,10 @@ export class PageResolver {
 	 * Within same specificity, document order (array index) wins.
 	 */
 	cascadeRules(matchingRules) {
-		const result = { size: null, margin: null, pageOrientation: null };
+		const result = {
+			size: null, margin: null, pageOrientation: null,
+			rawSize: null, rawMargin: null,
+		};
 
 		// Stable sort by specificity — Array.sort is stable in modern engines
 		const sorted = [...matchingRules].sort((a, b) => {
@@ -228,8 +258,14 @@ export class PageResolver {
 		});
 
 		for (const rule of sorted) {
-			if (rule.size != null) result.size = rule.size;
-			if (rule.margin != null) result.margin = { ...result.margin, ...rule.margin };
+			if (rule.size != null) {
+				result.size = rule.size;
+				result.rawSize = rule.rawSize;
+			}
+			if (rule.margin != null) {
+				result.margin = { ...result.margin, ...rule.margin };
+				result.rawMargin = { ...result.rawMargin, ...rule.rawMargin };
+			}
 			if (rule.pageOrientation != null) result.pageOrientation = rule.pageOrientation;
 		}
 
@@ -362,7 +398,11 @@ function parseOnePageRule(rule) {
 	const margin = parsePageMargins(rule.style);
 	const pageOrientation = rule.style.getPropertyValue("page-orientation").trim() || null;
 
-	return new PageRule({ name, pseudoClass, size, margin, pageOrientation });
+	// Extract original CSS unit values from the specified style
+	const rawSize = parseRawPageSize(rule.style);
+	const rawMargin = parseRawPageMargins(rule.style);
+
+	return new PageRule({ name, pseudoClass, size, margin, pageOrientation, rawSize, rawMargin });
 }
 
 /**
@@ -411,6 +451,97 @@ function parsePageMargins(style) {
 	}
 
 	return margin;
+}
+
+/**
+ * Extract the `size` descriptor as CSSUnitValue pair [inline, block].
+ * Returns null for named sizes, orientation-only, or unparseable values.
+ * @param {CSSStyleDeclaration} style
+ * @returns {CSSUnitValue[]|null}
+ */
+function parseRawPageSize(style) {
+	const sizeStr = style.getPropertyValue("size").trim();
+	if (!sizeStr) return null;
+
+	const parts = sizeStr.split(/\s+/);
+	const values = parts.map(parseCSSUnitValue).filter((v) => v !== null);
+	if (values.length === 1) return [values[0], values[0]];
+	if (values.length >= 2) return [values[0], values[1]];
+	return null;
+}
+
+/**
+ * Extract margin longhands as CSSUnitValue objects.
+ * Returns null if no margins are specified.
+ * @param {CSSStyleDeclaration} style
+ * @returns {{ top: CSSUnitValue, right: CSSUnitValue, bottom: CSSUnitValue, left: CSSUnitValue }|null}
+ */
+function parseRawPageMargins(style) {
+	const SIDES = ["top", "right", "bottom", "left"];
+	let rawMargin = null;
+	const zero = new CSSUnitValue(0, "px");
+
+	for (const side of SIDES) {
+		const raw = style.getPropertyValue(`margin-${side}`).trim();
+		if (raw) {
+			const val = parseCSSUnitValue(raw);
+			if (val !== null) {
+				if (!rawMargin) rawMargin = { top: zero, right: zero, bottom: zero, left: zero };
+				rawMargin[side] = val;
+			}
+		}
+	}
+
+	return rawMargin;
+}
+
+/**
+ * Build a cssText object with original CSS unit values for rendering.
+ * Uses CSSUnitValue arithmetic to compute the content area in original units.
+ * Returns null when raw values are unavailable.
+ *
+ * @param {CSSUnitValue[]|null} rawSize - [inline, block] from cascaded rules
+ * @param {object|null} rawMargin - { top, right, bottom, left } CSSUnitValues
+ * @param {string|null} pageOrientation - 'rotate-left', 'rotate-right', or null
+ * @returns {object|null}
+ */
+function buildCSSText(rawSize, rawMargin, pageOrientation) {
+	if (!rawSize) return null;
+
+	let [inlineSize, blockSize] = rawSize;
+
+	// Apply orientation by swapping dimensions
+	if (pageOrientation === "rotate-left" || pageOrientation === "rotate-right") {
+		[inlineSize, blockSize] = [blockSize, inlineSize];
+	}
+
+	const margin = rawMargin || {
+		top: new CSSUnitValue(0, "px"),
+		right: new CSSUnitValue(0, "px"),
+		bottom: new CSSUnitValue(0, "px"),
+		left: new CSSUnitValue(0, "px"),
+	};
+
+	// Compute content area using CSSUnitValue arithmetic.
+	// sub() works when units are the same (e.g. mm - mm).
+	// For mixed units, fall back to null.
+	let contentInline, contentBlock;
+	try {
+		contentInline = inlineSize.sub(margin.left).sub(margin.right);
+		contentBlock = blockSize.sub(margin.top).sub(margin.bottom);
+	} catch {
+		return {
+			pageBoxSize: { inline: inlineSize, block: blockSize },
+			margin,
+			contentArea: null,
+		};
+	}
+
+	return {
+		pageBoxSize: { inline: inlineSize, block: blockSize },
+		contentArea: { inline: contentInline, block: contentBlock },
+		margin,
+	};
 }
 
 /**

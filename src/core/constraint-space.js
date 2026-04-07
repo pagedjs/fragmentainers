@@ -16,6 +16,7 @@ export class ConstraintSpace {
 		reservedBlockStart = 0,
 		reservedBlockEnd = 0,
 		preserveForcedBreakMargins = false,
+		cssInlineSize = null,
 	} = {}) {
 		this.availableInlineSize = availableInlineSize;
 		this.availableBlockSize = availableBlockSize;
@@ -26,5 +27,7 @@ export class ConstraintSpace {
 		this.reservedBlockStart = reservedBlockStart;
 		this.reservedBlockEnd = reservedBlockEnd;
 		this.preserveForcedBreakMargins = preserveForcedBreakMargins;
+		/** Original CSS inline size string (e.g. "65mm") for browser-native unit conversion. */
+		this.cssInlineSize = cssInlineSize;
 	}
 }

@@ -28,6 +28,7 @@ export default [
         queueMicrotask: "readonly",
         setTimeout: "readonly",
         CSSRule: "readonly",
+        CSSUnitValue: "readonly",
         CSSFontFaceRule: "readonly",
         FontFace: "readonly",
         Image: "readonly",

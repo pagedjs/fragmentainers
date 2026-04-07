@@ -59,20 +59,25 @@ export class PageContainer extends HTMLElement {
 	}
 
 	/**
-	 * Set page-box dimensions and margins from numeric values.
+	 * Set page-box dimensions and margins.
+	 * Accepts CSS strings (e.g. "105mm") or numbers (px fallback).
 	 *
-	 * @param {number} width  — page box inline size in px
-	 * @param {number} height — page box block size in px
-	 * @param {{ top?: number, right?: number, bottom?: number, left?: number }} [margins]
+	 * @param {string|number} width  — page box inline size
+	 * @param {string|number} height — page box block size
+	 * @param {string|object} [margins] — CSS string or { top, right, bottom, left } in px
 	 */
 	setPageBox(width, height, margins) {
-		this.style.setProperty("--page-width", `${width}px`);
-		this.style.setProperty("--page-height", `${height}px`);
+		this.style.setProperty("--page-width", typeof width === "string" ? width : `${width}px`);
+		this.style.setProperty("--page-height", typeof height === "string" ? height : `${height}px`);
 		if (margins) {
-			this.style.setProperty(
-				"--page-margin",
-				`${margins.top || 0}px ${margins.right || 0}px ${margins.bottom || 0}px ${margins.left || 0}px`,
-			);
+			if (typeof margins === "string") {
+				this.style.setProperty("--page-margin", margins);
+			} else {
+				this.style.setProperty(
+					"--page-margin",
+					`${margins.top || 0}px ${margins.right || 0}px ${margins.bottom || 0}px ${margins.left || 0}px`,
+				);
+			}
 		}
 	}
 
@@ -84,7 +89,18 @@ export class PageContainer extends HTMLElement {
 		for (const node of this.#slot.assignedElements()) {
 			const constraints = node.pageConstraints;
 			if (!constraints) continue;
-			if (constraints.pageBoxSize) {
+
+			const css = constraints.cssText;
+			if (css?.pageBoxSize) {
+				const marginStr = css.margin
+					? `${css.margin.top} ${css.margin.right} ${css.margin.bottom} ${css.margin.left}`
+					: undefined;
+				this.setPageBox(
+					css.pageBoxSize.inline.toString(),
+					css.pageBoxSize.block.toString(),
+					marginStr,
+				);
+			} else if (constraints.pageBoxSize) {
 				this.setPageBox(
 					constraints.pageBoxSize.inlineSize,
 					constraints.pageBoxSize.blockSize,
