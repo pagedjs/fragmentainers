@@ -13,8 +13,6 @@
 
 const OVERRIDES = new CSSStyleSheet();
 OVERRIDES.replaceSync(`
-/* === Continuation fragments (NOT the first) === */
-
 [data-split-from] {
   text-indent: unset !important;
   margin-block-start: unset !important;
@@ -76,7 +74,7 @@ li[data-split-from] {
   content: unset !important;
 }
 
-/* === Materialized pseudo element suppression === */
+/* Materialized pseudo element suppression */
 
 [data-split-from] > frag-pseudo[data-pseudo="before"] {
   display: none !important;

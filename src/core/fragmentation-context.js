@@ -58,7 +58,6 @@ export class FragmentationContext extends Array {
 		el.namedPage = fragment.constraints?.namedPage ?? null;
 		el.style.width = `${contentArea.inlineSize}px`;
 		el.style.height = `${contentArea.blockSize}px`;
-		el.style.overflow = "hidden";
 
 		if (fragment.isBlank) {
 			const counterSnapshot = index > 0 ? this.#fragments[index - 1].counterState : null;
