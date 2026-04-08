@@ -28,8 +28,7 @@ const STYLES = `
     padding: var(--page-margin, 0px);
   }
   div.body {
-    display: flex;
-    flex-direction: column;
+    display: flow-root;
     flex-grow: 1;
   }
 `;

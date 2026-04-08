@@ -16,12 +16,10 @@ const CONTAINER_HOST_STYLES = `
   :host {
     all: initial;
     display: block;
-		contain: strict;
 		overflow: hidden;
   }
   slot {
-    display: flex;
-    flex-direction: column;
+    display: flow-root;
     min-height: 100%;
   }
 `;

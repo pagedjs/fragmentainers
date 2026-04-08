@@ -295,14 +295,16 @@ function materializePseudo(el, which, registry) {
 	} else {
 		// Counter/attr/mixed — relocation strategy.
 		// buildPseudoStyleSheet already created a rule that sets content on
-		// this element's own ::before/::after. Force inline-block for inline
-		// pseudos so it's an atomic inline in layout; keep block displays as-is.
+		// this element's own ::before/::after. Match the original pseudo's
+		// display so padding/sizing behaves identically (inline padding
+		// doesn't affect line height, inline-block does).
 		const display = pseudoStyle.display;
 		if (display === "block" || display === "flex" || display === "grid") {
 			synthetic.style.display = display;
-		} else {
+		} else if (display === "inline-block") {
 			synthetic.style.display = "inline-block";
 		}
+		// else: leave as inline (default), matching the original pseudo
 	}
 
 	if (which === "before") {

@@ -9,6 +9,7 @@ export default defineConfig({
 	use: {
 		baseURL: "http://localhost:8080",
 		browserName: "chromium",
+		channel: "chrome",
 	},
 	projects: [
 		{
