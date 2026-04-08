@@ -6,7 +6,6 @@ import {
 	ConstraintSpace,
 	buildLayoutTree,
 	createFragments,
-	composeFragment,
 	constants,
 } from "../src/index.js";
 import "./multicol-container.js";
@@ -79,7 +78,7 @@ export async function multicol(container) {
 	for (let i = 0; i < fragments.length; i++) {
 		const colEl = document.createElement("div");
 		const prevBT = i > 0 ? fragments[i - 1].breakToken : null;
-		colEl.appendChild(composeFragment(fragments[i], prevBT));
+		colEl.appendChild(fragments[i].build(prevBT));
 		mc.appendChild(colEl);
 	}
 
