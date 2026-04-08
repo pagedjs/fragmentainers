@@ -5,17 +5,23 @@
 		<title>Fragmentainer Debug</title>
 		<style>
 			body {
+				margin: 0;
+			}
+			/* Apply debug body styles directly to UI chrome so content
+			   stylesheets (which may reset body) don't affect them. */
+			#controls,
+			#header,
+			#summary,
+			.page-row-data {
 				font-family: monospace;
 				font-size: 12px;
-				margin: 1rem;
-				background: #fff;
 				color: #000;
 			}
 			#controls {
 				display: flex;
 				gap: 8px;
 				align-items: center;
-				margin-bottom: 8px;
+				padding: 8px 8px 0 8px;
 			}
 			#controls input,
 			#controls button {
@@ -29,22 +35,21 @@
 				background: #f8f8f8;
 				border: 1px solid #ccc;
 				padding: 8px;
-				margin-bottom: 8px;
+				margin: 8px;
 				display: none;
-				width: calc(100vw - 60px);
 			}
 			#output {
 				display: flex;
 				flex-direction: column;
 				gap: 16px;
-				margin-top: 8px;
+				padding: 0 8px 8px 8px;
 			}
 
 			/* Rendered page rows */
 			.page-row {
 				--page-scale: min(1, tan(atan2(100vw, var(--page-inline-size) * 1px)));
 				border-bottom: 1px solid #ccc;
-				padding-bottom: 8px;
+				padding-bottom: 16px;
 			}
 			.page-row-title {
 				font-weight: bold;
@@ -286,6 +291,7 @@
 						renderBox.className = "page-row-render";
 
 						const fragEl = flow[i];
+						fragEl.slot = "direct";
 						renderBox.appendChild(fragEl);
 						contentEl.appendChild(renderBox);
 

@@ -27,6 +27,10 @@ const STYLES = `
     height: var(--page-height);
     padding: var(--page-margin, 0px);
   }
+	slot[name="direct"] {
+    display: block;
+    flex-grow: 1;
+  }
   div.body {
     display: flow-root;
     flex-grow: 1;
@@ -36,24 +40,50 @@ const STYLES = `
 export class PageContainer extends HTMLElement {
 	#slot = null;
 
+	#directSlot = null;
+
+	#shadow = null;
+
 	constructor() {
 		super();
-		const shadow = this.attachShadow({ mode: "open" });
+		this.#shadow = this.attachShadow({ mode: "open" });
 		const style = document.createElement("style");
 		style.textContent = STYLES;
-		shadow.appendChild(style);
+		this.#shadow.appendChild(style);
+
+		// Named "direct" slot — no body wrapper, for fragment-containers
+		// that handle body margin via their own adopted stylesheets
+		this.#directSlot = document.createElement("slot");
+		this.#directSlot.name = "direct";
+		this.#directSlot.addEventListener("slotchange", () => this.#onSlotChange());
+		this.#shadow.appendChild(this.#directSlot);
+	}
+
+	/**
+	 * Lazily create the default slot wrapped in a div.body with UA body
+	 * margin. Only built when content uses the default slot (ref pages).
+	 */
+	#ensureDefaultSlot() {
+		if (this.#slot) return;
 		const body = document.createElement("div");
 		body.classList.add("body");
 		body.setAttribute("part", "body");
 		this.#slot = document.createElement("slot");
 		this.#slot.addEventListener("slotchange", () => this.#onSlotChange());
 		body.appendChild(this.#slot);
-		shadow.appendChild(body);
+		this.#shadow.appendChild(body);
 	}
 
 	connectedCallback() {
 		if (!document.adoptedStyleSheets.includes(OVERRIDES)) {
 			document.adoptedStyleSheets = [...document.adoptedStyleSheets, OVERRIDES];
+		}
+		// Create the default slot if any child doesn't use slot="direct"
+		for (const child of this.children) {
+			if (child.slot !== "direct") {
+				this.#ensureDefaultSlot();
+				break;
+			}
 		}
 	}
 
@@ -85,7 +115,11 @@ export class PageContainer extends HTMLElement {
 	 * and apply the page-box dimensions automatically.
 	 */
 	#onSlotChange() {
-		for (const node of this.#slot.assignedElements()) {
+		const assigned = [
+			...(this.#slot?.assignedElements() ?? []),
+			...this.#directSlot.assignedElements(),
+		];
+		for (const node of assigned) {
 			const constraints = node.pageConstraints;
 			if (!constraints) continue;
 

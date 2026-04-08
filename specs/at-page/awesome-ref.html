@@ -17,7 +17,7 @@
 			--page-height: 10cm;
 			--page-margin: 0 0.3cm;
 		}
-		/* Test styles */
+
 		p {
 			font-size: 80pt;
 			margin: 0;
@@ -25,6 +25,10 @@
 			padding-left: 0;
 			padding-right: 0;
 			hyphens: auto;
+		}
+
+		page-container::part(body) {
+			margin: 0;
 		}
 	</style>
 	<script type="module" src="/debug/page-container.js"></script>
