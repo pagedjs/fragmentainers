@@ -53,3 +53,16 @@ export const NAMED_SIZES = {
 	LEGAL: { inlineSize: 816, blockSize: 1344 },
 	LEDGER: { inlineSize: 1056, blockSize: 1632 },
 };
+
+// Named page sizes in original CSS units (for subpixel-accurate rendering)
+export const NAMED_SIZES_CSS = {
+	A6: { inline: [105, "mm"], block: [148, "mm"] },
+	A5: { inline: [148, "mm"], block: [210, "mm"] },
+	A4: { inline: [210, "mm"], block: [297, "mm"] },
+	A3: { inline: [297, "mm"], block: [420, "mm"] },
+	B5: { inline: [176, "mm"], block: [250, "mm"] },
+	B4: { inline: [250, "mm"], block: [353, "mm"] },
+	LETTER: { inline: [8.5, "in"], block: [11, "in"] },
+	LEGAL: { inline: [8.5, "in"], block: [14, "in"] },
+	LEDGER: { inline: [11, "in"], block: [17, "in"] },
+};

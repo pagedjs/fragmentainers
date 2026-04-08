@@ -1,5 +1,5 @@
 import { ConstraintSpace } from "../core/constraint-space.js";
-import { FRAGMENTATION_PAGE, NAMED_SIZES, BREAK_TOKEN_INLINE } from "../core/constants.js";
+import { FRAGMENTATION_PAGE, NAMED_SIZES, NAMED_SIZES_CSS, BREAK_TOKEN_INLINE } from "../core/constants.js";
 
 /**
  * Parse a CSS length string into a CSSUnitValue.
@@ -468,6 +468,20 @@ function parseRawPageSize(style) {
 	if (!sizeStr) return null;
 
 	const parts = sizeStr.split(/\s+/);
+
+	// Handle named sizes (a4, letter, etc.) with optional orientation
+	const namePart = parts.find((p) => NAMED_SIZES_CSS[p.toUpperCase()]);
+	if (namePart) {
+		const css = NAMED_SIZES_CSS[namePart.toUpperCase()];
+		const orientation = parts.find((p) => p === "landscape" || p === "portrait");
+		let inlineVal = new CSSUnitValue(css.inline[0], css.inline[1]);
+		let blockVal = new CSSUnitValue(css.block[0], css.block[1]);
+		if (orientation === "landscape") {
+			[inlineVal, blockVal] = [blockVal, inlineVal];
+		}
+		return [inlineVal, blockVal];
+	}
+
 	const values = parts.map(parseCSSUnitValue).filter((v) => v !== null);
 	if (values.length === 1) return [values[0], values[0]];
 	if (values.length >= 2) return [values[0], values[1]];
