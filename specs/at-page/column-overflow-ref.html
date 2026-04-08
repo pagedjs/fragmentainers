@@ -6,36 +6,21 @@
 	}
 
 	@page matePro {
-		@top-left {
-			content: "left";
-		}
-		@top-right {
-			content: "right";
-		}
-		@top-center {
-			content: element(HeaderRunning);
-		}
-		@bottom-center {
-			content: element(FooterRunning);
-		}
-		@bottom-left {
-			content: counter(page) "page, total:" counter(pages) "pages";
-		}
-		@bottom-right {
-			content: "right";
-		}
+		size: A4 portrait;
+		margin: 0;
 	}
 
 	body {
 		padding: 0;
 		margin: 0;
-		display: flex;
-		flex-direction: column;
 	}
 	page-container {
 		--page-width: 210mm;
 		--page-height: 297mm;
-		--page-margin: 0.5in;
+		--page-margin-top: 0.5in;
+		--page-margin-right: 0.5in;
+		--page-margin-bottom: 0.5in;
+		--page-margin-left: 0.5in;
 	}
 	.mate-pro {
 		page: matePro;

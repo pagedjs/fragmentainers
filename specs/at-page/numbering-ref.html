@@ -6,13 +6,14 @@
   body {
     padding: 0;
     margin: 0;
-    display: flex;
-    flex-direction: column;
   }
   page-container {
     --page-width: 140mm;
     --page-height: 205mm;
-    --page-margin: 12mm 12mm 12mm 12mm;
+    --page-margin-top: 12mm;
+    --page-margin-right: 12mm;
+    --page-margin-bottom: 12mm;
+    --page-margin-left: 12mm;
   }
   .section { counter-reset: paragraph 0; }
   .section p::before { background-color: red; color: white; font-weight: bold; padding: 3px; margin-right: 3px; content: counter(paragraph); }

@@ -28,7 +28,6 @@ export async function paginate() {
 		const page = document.createElement("page-container");
 		page.className = "spec-page";
 		page.dataset.pageIndex = pageNumber++;
-		frag.slot = "direct";
 		page.appendChild(frag);
 		document.body.appendChild(page);
 	}

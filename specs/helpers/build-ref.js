@@ -45,32 +45,25 @@ function collectStylesWithoutPageRules() {
 export function buildRefHtml(pages) {
 	const contentStyles = collectStylesWithoutPageRules();
 	const { constraints } = pages[0];
-	const css = constraints.cssText;
 
-	// Use original CSS units when available, fall back to computed px
-	const pageWidth = css?.pageBoxSize?.inline?.toString() || `${constraints.pageBoxSize.inlineSize}px`;
-	const pageHeight = css?.pageBoxSize?.block?.toString() || `${constraints.pageBoxSize.blockSize}px`;
+	// Always use computed pixel values
+	const pageWidth = `${constraints.pageBoxSize.inlineSize}px`;
+	const pageHeight = `${constraints.pageBoxSize.blockSize}px`;
 
-	let pageMargin;
-	if (css?.margin) {
-		const m = css.margin;
-		pageMargin = `${m.top} ${m.right} ${m.bottom} ${m.left}`;
-	} else {
-		const m = constraints.margins;
-		pageMargin = `${m.top}px ${m.right}px ${m.bottom}px ${m.left}px`;
-	}
+	const m = constraints.margins;
 
-	// Reconstruct the @page rule with the original size but margin: 0
+	// Reconstruct the @page rule with pixel sizes and margin: 0
 	// (margins are handled by page-container padding via --page-margin).
-	const sizeStr = css?.pageBoxSize
-		? `${css.pageBoxSize.inline} ${css.pageBoxSize.block}`
-		: `${constraints.pageBoxSize.inlineSize}px ${constraints.pageBoxSize.blockSize}px`;
+	const sizeStr = `${constraints.pageBoxSize.inlineSize}px ${constraints.pageBoxSize.blockSize}px`;
 	const atPageRule = `@page { size: ${sizeStr}; margin: 0; }`;
 
 	const containerRule = `page-container {
     --page-width: ${pageWidth};
     --page-height: ${pageHeight};
-    --page-margin: ${pageMargin};
+    --page-margin-top: ${m.top}px;
+    --page-margin-right: ${m.right}px;
+    --page-margin-bottom: ${m.bottom}px;
+    --page-margin-left: ${m.left}px;
   }`;
 
 	const pageHtml = pages
@@ -85,8 +78,6 @@ export function buildRefHtml(pages) {
   body {
     padding: 0;
     margin: 0;
-    display: flex;
-    flex-direction: column;
   }
   ${containerRule}
   ${contentStyles}

@@ -197,9 +197,25 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 		const childCollapsedThrough = child.collapsedMarginBlockStart || 0;
 		const effectiveChildMargin = Math.max(childMarginBefore, childCollapsedThrough);
 		const blockOffsetBeforeMargin = blockOffset;
+
+		// CSS Fragmentation L3 §5.2: margins adjoining a fragmentation break
+		// are truncated. The top of every fragmentainer (including the first)
+		// is a break boundary, so the first child's margin is truncated when
+		// it sits at the fragmentainer top edge.
+		const atFragmentainerTop =
+			constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
+			containerOffsetInFragmentainer + blockOffset === 0;
+
 		if (i === startIndex && !breakToken) {
-			// First child on first fragment: add full margin
-			blockOffset += effectiveChildMargin;
+			// First child on first fragment: add full margin, unless the
+			// element's own margin sits at the fragmentainer top edge.
+			// When a descendant's margin collapses through (childCollapsedThrough > 0),
+			// the margin is handled by the collapse mechanism, not truncated here.
+			if (atFragmentainerTop && childCollapsedThrough === 0) {
+				// Element's own margin adjoins fragmentainer top — truncate (§5.2)
+			} else {
+				blockOffset += effectiveChildMargin;
+			}
 		} else if (i > startIndex) {
 			// Adjacent siblings: collapse margins (use the larger of the two)
 			blockOffset += Math.max(effectiveChildMargin, prevChildMarginEnd);
@@ -327,12 +343,8 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 		// it, the parent's sibling collapsing already consumed that margin.
 		// The child's internal layout will also add it, so compensate here
 		// by giving the child more space and adjusting its offset.
-		// Only apply for later siblings (i > startIndex) where the margin
-		// was consumed in the sibling collapsed gap. For the first child,
-		// the margin-through occupies real space at the BFC/fragmentainer
-		// top edge and should not be given back.
-		const collapseAdj = childCollapsedThrough > 0 && !effectiveChildBreakToken && i > startIndex
-			? childCollapsedThrough : 0;
+		const collapseAdj =
+			childCollapsedThrough > 0 && !effectiveChildBreakToken ? childCollapsedThrough : 0;
 
 		// Build constraint space for the child
 		const childConstraint = new ConstraintSpace({
@@ -350,15 +362,10 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 		// Mark fragment when its margin-block-start was truncated at a break
 		// boundary (CSS Fragmentation L3 §5.2). The compositor uses this to
 		// suppress the margin in the rendered DOM.
-		// By default, margins are truncated at all breaks (matching browser
-		// behavior). When preserveForcedBreakMargins is set, margins after
-		// a forced break are preserved per §5.2.
-		if (i === startIndex && breakToken && childMarginBefore > 0) {
-			const preserveMargin =
-				constraintSpace.preserveForcedBreakMargins && childBreakToken?.isForcedBreak;
-			if (!preserveMargin) {
-				result.fragment.truncateMarginBlockStart = true;
-			}
+		// Elements starting fresh due to a forced break (break-before: page)
+		// preserve their margin — it's not adjoining a fragmentation split.
+		if (i === startIndex && breakToken && childMarginBefore > 0 && !childBreakToken?.isForcedBreak) {
+			result.fragment.truncateMarginBlockStart = true;
 		}
 
 		childFragments.push(result.fragment);

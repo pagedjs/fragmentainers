@@ -1,5 +1,10 @@
 import { ConstraintSpace } from "../core/constraint-space.js";
-import { FRAGMENTATION_PAGE, NAMED_SIZES, NAMED_SIZES_CSS, BREAK_TOKEN_INLINE } from "../core/constants.js";
+import {
+	FRAGMENTATION_PAGE,
+	NAMED_SIZES,
+	NAMED_SIZES_CSS,
+	BREAK_TOKEN_INLINE,
+} from "../core/constants.js";
 
 /**
  * Parse a CSS length string into a CSSUnitValue.
@@ -45,11 +50,7 @@ export function parseCSSLength(str) {
 		default:
 			px = value;
 	}
-	// Snap to 1/64px grid to match Chromium's LayoutUnit quantization
-	// (truncates toward zero, not round-to-nearest).
-	// Add a small epsilon before flooring to absorb floating-point
-	// precision loss (e.g. 25.4 * 96 / 25.4 → 95.9999... not 96).
-	return Math.floor(px * 64 + 1e-6) / 64;
+	return px;
 }
 
 /**
@@ -216,7 +217,7 @@ export class PageResolver {
 			isLeftPage: this.isLeftPage(pageIndex),
 			isBlank,
 			matchedRules: matchingRules,
-			cssText,
+			cssText: {},
 		});
 	}
 
@@ -278,45 +279,37 @@ export class PageResolver {
 
 	/** Resolve CSS size property to physical dimensions in CSS pixels. */
 	resolveSize(sizeValue) {
-		if (!sizeValue || sizeValue === "auto") return { ...this.size };
+		let inlineSize, blockSize;
 
-		if (typeof sizeValue === "string") {
+		if (!sizeValue || sizeValue === "auto") {
+			({ inlineSize, blockSize } = this.size);
+		} else if (typeof sizeValue === "string") {
 			const parts = sizeValue.toLowerCase().split(/\s+/);
 			const name = parts.find((p) => NAMED_SIZES[p.toUpperCase()]);
 			const orientation = parts.find((p) => p === "landscape" || p === "portrait");
 
 			if (name) {
-				const size = { ...NAMED_SIZES[name.toUpperCase()] };
-				if (orientation === "landscape") {
-					return { inlineSize: size.blockSize, blockSize: size.inlineSize };
-				}
-				return size;
+				const size = NAMED_SIZES[name.toUpperCase()];
+				inlineSize = orientation === "landscape" ? size.blockSize : size.inlineSize;
+				blockSize = orientation === "landscape" ? size.inlineSize : size.blockSize;
+			} else if (sizeValue === "landscape") {
+				inlineSize = this.size.blockSize;
+				blockSize = this.size.inlineSize;
+			} else if (sizeValue === "portrait") {
+				({ inlineSize, blockSize } = this.size);
+			} else {
+				const lengths = parts.map(parseCSSLength).filter((v) => v !== null);
+				inlineSize = lengths[0] ?? this.size.inlineSize;
+				blockSize = lengths[1] ?? lengths[0] ?? this.size.blockSize;
 			}
-
-			// Bare 'landscape' / 'portrait' — rotate the default size
-			if (sizeValue === "landscape") {
-				return {
-					inlineSize: this.size.blockSize,
-					blockSize: this.size.inlineSize,
-				};
-			}
-			if (sizeValue === "portrait") return { ...this.size };
-
-			// Try parsing as one or two length values
-			const lengths = parts.map(parseCSSLength).filter((v) => v !== null);
-			if (lengths.length === 1) return { inlineSize: lengths[0], blockSize: lengths[0] };
-			if (lengths.length >= 2) return { inlineSize: lengths[0], blockSize: lengths[1] };
+		} else if (Array.isArray(sizeValue)) {
+			inlineSize = sizeValue[0];
+			blockSize = sizeValue[1] ?? sizeValue[0];
+		} else {
+			({ inlineSize, blockSize } = this.size);
 		}
 
-		// Array: [width, height] or [side]
-		if (Array.isArray(sizeValue)) {
-			return {
-				inlineSize: sizeValue[0],
-				blockSize: sizeValue[1] ?? sizeValue[0],
-			};
-		}
-
-		return { ...this.size };
+		return { inlineSize: Math.floor(inlineSize), blockSize: Math.floor(blockSize) };
 	}
 
 	/** Apply page-orientation by swapping dimensions. */
@@ -328,15 +321,13 @@ export class PageResolver {
 	}
 
 	/** Resolve margin declarations to pixel values. */
-	resolveMargins(marginDecl, _pageSize) {
-		const defaults = { top: 0, right: 0, bottom: 0, left: 0 };
-		if (!marginDecl) return defaults;
-		return {
-			top: marginDecl.top ?? 0,
-			right: marginDecl.right ?? 0,
-			bottom: marginDecl.bottom ?? 0,
-			left: marginDecl.left ?? 0,
-		};
+	resolveMargins(marginDecl) {
+		const SIDES = ["top", "right", "bottom", "left"];
+		const margins = {};
+		for (const side of SIDES) {
+			margins[side] = Math.floor(marginDecl?.[side] ?? 0);
+		}
+		return margins;
 	}
 
 	/** In LTR page progression, page 0 is right (recto), page 1 is left (verso). */

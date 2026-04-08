@@ -10,6 +10,15 @@ export default defineConfig({
 		baseURL: "http://localhost:8080",
 		browserName: "chromium",
 		channel: "chrome",
+		deviceScaleFactor: 2,
+		headless: true,
+		launchOptions: {
+			args: [
+				"--font-render-hinting=none",
+				"--disable-font-subpixel-positioning",
+				"--disable-lcd-text",
+			],
+		},
 	},
 	projects: [
 		{

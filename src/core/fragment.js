@@ -30,6 +30,8 @@ export class Fragment {
 		this.isBlank = false;
 		this.counterState = null;
 		this.afterRender = null;
+		this.isFirst = false;
+		this.isLast = false;
 	}
 
 	/**

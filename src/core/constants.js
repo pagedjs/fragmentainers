@@ -41,14 +41,14 @@ export const ALGORITHM_MULTICOL = "MulticolData";
 // Used when the fragment's root node has no computed lineHeight.
 export const DEFAULT_OVERFLOW_THRESHOLD = 16 * 1.2;
 
-// Named page sizes (CSS pixels at 96 DPI)
+// Named page sizes (CSS pixels at 96 DPI, floor-rounded to match resolveSize)
 export const NAMED_SIZES = {
-	A6: { inlineSize: 397, blockSize: 559 },
-	A5: { inlineSize: 559, blockSize: 794 },
-	A4: { inlineSize: 794, blockSize: 1123 },
-	A3: { inlineSize: 1123, blockSize: 1587 },
-	B5: { inlineSize: 665, blockSize: 945 },
-	B4: { inlineSize: 945, blockSize: 1334 },
+	A6: { inlineSize: 396, blockSize: 559 },
+	A5: { inlineSize: 559, blockSize: 793 },
+	A4: { inlineSize: 793, blockSize: 1122 },
+	A3: { inlineSize: 1122, blockSize: 1587 },
+	B5: { inlineSize: 665, blockSize: 944 },
+	B4: { inlineSize: 944, blockSize: 1334 },
 	LETTER: { inlineSize: 816, blockSize: 1056 },
 	LEGAL: { inlineSize: 816, blockSize: 1344 },
 	LEDGER: { inlineSize: 1056, blockSize: 1632 },

@@ -56,8 +56,17 @@ export class FragmentationContext extends Array {
 		el.fragmentIndex = index;
 		el.pageConstraints = fragment.constraints;
 		el.namedPage = fragment.constraints?.namedPage ?? null;
-		el.style.width = `${contentArea.inlineSize}px`;
-		el.style.height = `${contentArea.blockSize}px`;
+		if (!fragment.constraints.pageBoxSize) {
+			el.style.width = `${contentArea.inlineSize}px`;
+			el.style.height = `${contentArea.blockSize}px`;
+		}
+
+		if (fragment.isFirst) {
+			el.setAttribute("data-first", "");
+		}
+		if (fragment.isLast) {
+			el.setAttribute("data-last", "");
+		}
 
 		if (fragment.isBlank) {
 			const counterSnapshot = index > 0 ? this.#fragments[index - 1].counterState : null;

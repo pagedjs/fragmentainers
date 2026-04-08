@@ -32,7 +32,12 @@ await new Promise((r) => setTimeout(r, 1000));
 const url = `http://localhost:${PORT}/${specPath}`;
 console.log(`Opening ${url}`);
 
-const browser = await chromium.launch({ headless: false, devtools: true });
+const browser = await chromium.launch({
+	headless: false,
+	devtools: true,
+	channel: "chrome",
+	deviceScaleFactor: 2,
+});
 const page = await browser.newPage();
 
 page.on("console", (msg) => console.log(`[browser] ${msg.type()}: ${msg.text()}`));

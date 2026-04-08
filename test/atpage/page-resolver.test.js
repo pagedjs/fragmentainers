@@ -51,8 +51,8 @@ test.describe("PageResolver", () => {
 			const c = resolver.resolve(0, null, null);
 			return { inlineSize: c.pageBoxSize.inlineSize, blockSize: c.pageBoxSize.blockSize };
 		});
-		expect(result.inlineSize).toBe(794);
-		expect(result.blockSize).toBe(1123);
+		expect(result.inlineSize).toBe(793);
+		expect(result.blockSize).toBe(1122);
 	});
 
 	test("named size with landscape orientation", async ({ page }) => {

@@ -14,13 +14,12 @@ import { OVERRIDES } from "../styles/overrides.js";
 
 const CONTAINER_HOST_STYLES = `
   :host {
-    all: initial;
     display: block;
 		overflow: hidden;
   }
   slot {
-    display: flow-root;
-    min-height: 100%;
+    display: block;
+    height: 100%;
   }
 `;
 
@@ -206,6 +205,8 @@ export class FragmentContainerElement extends HTMLElement {
 	setupForRendering(contentStyles, counterSnapshot = null) {
 		this.#ensureSetup();
 		this.#slot.innerHTML = "";
+
+		this.dataset.fragment = this.#fragmentIndex;
 
 		if (contentStyles.sheets.length > 0) {
 			this.#shadow.adoptedStyleSheets = [...contentStyles.sheets, OVERRIDES];

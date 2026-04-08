@@ -11,9 +11,21 @@
  * rules that target html become `:host` rules. The override sheet is
  * appended after the original sheets so rewritten rules win by source order.
  *
+ * Body background properties are special-cased: per CSS spec, background
+ * on body propagates to the canvas, so they target :host (the
+ * fragment-container) rather than slot.
+ *
  * Follows the same non-mutating override pattern as
  * buildNthOverrideSheet in nth-selectors.js.
  */
+
+import { buildRule } from "./utils.js";
+
+const BACKGROUND_PROPS = new Set([
+	"background", "background-color", "background-image", "background-position",
+	"background-size", "background-repeat", "background-attachment",
+	"background-origin", "background-clip",
+]);
 
 /**
  * Recursively collect override rules for body/html-targeting selectors
@@ -33,7 +45,10 @@ function collectBodyOverrides(ruleList, target, bodyEl, htmlEl) {
 			const matchesBody = safeMatches(bodyEl, rule.selectorText);
 			const matchesHtml = safeMatches(htmlEl, rule.selectorText);
 			if (matchesBody) {
-				target.insertRule(`slot { ${rule.style.cssText} }`, target.cssRules.length);
+				const slotRule = buildRule("slot", rule.style, (p) => !BACKGROUND_PROPS.has(p));
+				const hostBgRule = buildRule(":host", rule.style, (p) => BACKGROUND_PROPS.has(p));
+				if (slotRule) target.insertRule(slotRule, target.cssRules.length);
+				if (hostBgRule) target.insertRule(hostBgRule, target.cssRules.length);
 			}
 			if (matchesHtml && !matchesBody) {
 				target.insertRule(`:host { ${rule.style.cssText} }`, target.cssRules.length);

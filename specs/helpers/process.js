@@ -27,9 +27,7 @@ async function process() {
 			}
 
 			// Reset body styles to match ref layout
-			document.body.setAttribute("style",
-				"margin: 0; padding: 0; display: flex; flex-direction: column; background: none;");
-
+			document.body.setAttribute("style", "margin: 0; padding: 0; background: none;");
 		}
 
 		document.documentElement.dataset.specReady = "true";

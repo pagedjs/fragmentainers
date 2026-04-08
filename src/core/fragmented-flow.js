@@ -16,6 +16,7 @@ import "../dom/content-measure.js";
 import "../dom/fragment-container.js";
 import { Measurer } from "../dom/measure.js";
 import { modules } from "../modules/registry.js";
+import { UA_DEFAULTS } from "../styles/ua-defaults.js";
 import "../modules/index.js";
 
 function buildLayoutTree(rootElement) {
@@ -155,6 +156,10 @@ export class FragmentedFlow extends Iterator {
 
 		const fragment = this.#nextFragment();
 
+		if (this.#fragments.length === 1) {
+			fragment.isFirst = true;
+		}
+
 		// Segment advancement (sync)
 		if (this.#measurer) {
 			this.#measurer.advance(fragment.breakToken, this.#tree);
@@ -176,6 +181,7 @@ export class FragmentedFlow extends Iterator {
 		// Check if this is the last fragment
 		if (fragment.breakToken === null && !fragment.isBlank) {
 			this.#done = true;
+			fragment.isLast = true;
 		}
 
 		// Create element and push to internal context (if contentStyles available)
@@ -205,12 +211,15 @@ export class FragmentedFlow extends Iterator {
 	flow({ start, stop } = {}) {
 		this.#layout();
 
-		const fragments = [];
 		let zeroProgressCount = 0;
 		let fragment;
 
 		do {
 			fragment = this.#nextFragment();
+
+			if (this.#fragments.length === 1) {
+				fragment.isFirst = true;
+			}
 
 			if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
 				zeroProgressCount++;
@@ -229,6 +238,8 @@ export class FragmentedFlow extends Iterator {
 				this.#measurer.advance(fragment.breakToken, this.#tree);
 			}
 		} while (fragment.breakToken !== null || fragment.isBlank);
+
+		fragment.isLast = true;
 
 		// Layout is done — release the measurer. Composition only needs
 		// cloneNode/getAttribute/tagName, which work on detached elements.
@@ -276,12 +287,23 @@ export class FragmentedFlow extends Iterator {
 		do {
 			fragment = this.#nextFragment();
 			newFragments.push(fragment);
+
+			if (this.#fragments.length === 1) {
+				fragment.isFirst = true;
+			}
+
 			if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
 				if (++zeroProgressCount >= MAX_ZERO_PROGRESS) break;
 			} else {
 				zeroProgressCount = 0;
 			}
+
+			if (this.#measurer) {
+				this.#measurer.advance(fragment.breakToken, this.#tree);
+			}
 		} while (fragment.breakToken !== null || fragment.isBlank);
+
+		fragment.isLast = true;
 
 		// Layout is done — release the measurer before composition.
 		this.releaseMeasurer();
@@ -480,8 +502,11 @@ export class FragmentedFlow extends Iterator {
 			// The tree's DOMLayoutNode wrappers still reference the same
 			// element objects; moving them back into the measurer restores
 			// live measurement capability.
+			const isPageBased =
+				this.#resolver instanceof PageResolver || (!this.#resolver && !this.#constraintSpace);
+			const layoutStyles = isPageBased ? [UA_DEFAULTS, ...styles] : styles;
 			const measurer = document.createElement("content-measure");
-			measurer.injectFragment(content, styles);
+			measurer.injectFragment(content, layoutStyles);
 			document.body.appendChild(measurer);
 			void measurer.offsetHeight;
 			this.#measureElement = measurer;
@@ -498,7 +523,12 @@ export class FragmentedFlow extends Iterator {
 		} else if (typeof DocumentFragment !== "undefined" && content instanceof DocumentFragment) {
 			// Delegate to the Measurer class, which handles segmented
 			// measurement when top-level children have forced breaks.
-			this.#measurer = new Measurer(content, styles);
+			// For page-based flows, prepend UA defaults (body margin)
+			// so the slot matches the browser's body element.
+			const isPageBased =
+				this.#resolver instanceof PageResolver || (!this.#resolver && !this.#constraintSpace);
+			const layoutStyles = isPageBased ? [UA_DEFAULTS, ...styles] : styles;
+			this.#measurer = new Measurer(content, layoutStyles);
 			const contentRoot = this.#measurer.setup();
 
 			this.#tree = buildLayoutTree(contentRoot);

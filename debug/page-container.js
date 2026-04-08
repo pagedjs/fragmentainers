@@ -18,29 +18,36 @@ import { OVERRIDES } from "../src/styles/overrides.js";
 
 const STYLES = `
   :host {
-    display: flex;
-    flex-direction: column;
+		display: block;
     box-sizing: border-box;
     overflow: hidden;
-    flex-shrink: 0;
-    width: var(--page-width);
-    height: var(--page-height);
-    padding: var(--page-margin, 0px);
+    width: round(down, var(--page-width), 1px);
+    height: round(down, var(--page-height), 1px);
+    padding-top: round(down, var(--page-margin-top, 0px), 1px);
+    padding-right: round(down, var(--page-margin-right, 0px), 1px);
+    padding-bottom: round(down, var(--page-margin-bottom, 0px), 1px);
+    padding-left: round(down, var(--page-margin-left, 0px), 1px);
   }
-	slot[name="direct"] {
+	div.body {
     display: block;
-    flex-grow: 1;
+    overflow: hidden;
+    height: 100%;
   }
-  div.body {
-    display: flow-root;
-    flex-grow: 1;
+	div.body > slot {
+    display: block;
+    min-height: 100%;
+		margin: 8px;
+  }
+	:host(:not(:first-of-type)) div.body > slot {
+    margin-block-start: 0;
+  }
+	:host(:not(:last-of-type)) div.body > slot {
+    margin-block-end: 0;
   }
 `;
 
 export class PageContainer extends HTMLElement {
 	#slot = null;
-
-	#directSlot = null;
 
 	#shadow = null;
 
@@ -51,40 +58,32 @@ export class PageContainer extends HTMLElement {
 		style.textContent = STYLES;
 		this.#shadow.appendChild(style);
 
-		// Named "direct" slot — no body wrapper, for fragment-containers
-		// that handle body margin via their own adopted stylesheets
-		this.#directSlot = document.createElement("slot");
-		this.#directSlot.name = "direct";
-		this.#directSlot.addEventListener("slotchange", () => this.#onSlotChange());
-		this.#shadow.appendChild(this.#directSlot);
-	}
-
-	/**
-	 * Lazily create the default slot wrapped in a div.body with UA body
-	 * margin. Only built when content uses the default slot (ref pages).
-	 */
-	#ensureDefaultSlot() {
-		if (this.#slot) return;
-		const body = document.createElement("div");
-		body.classList.add("body");
-		body.setAttribute("part", "body");
 		this.#slot = document.createElement("slot");
 		this.#slot.addEventListener("slotchange", () => this.#onSlotChange());
-		body.appendChild(this.#slot);
-		this.#shadow.appendChild(body);
+		this.#shadow.appendChild(this.#slot);
 	}
 
 	connectedCallback() {
 		if (!document.adoptedStyleSheets.includes(OVERRIDES)) {
 			document.adoptedStyleSheets = [...document.adoptedStyleSheets, OVERRIDES];
 		}
-		// Create the default slot if any child doesn't use slot="direct"
-		for (const child of this.children) {
-			if (child.slot !== "direct") {
-				this.#ensureDefaultSlot();
-				break;
-			}
-		}
+		this.#wrapSlotIfNeeded();
+	}
+
+	/**
+	 * Wrap the slot in a div.body for ref pages (plain HTML content).
+	 * Skip wrapping when a fragment-container is slotted.
+	 */
+	#wrapSlotIfNeeded() {
+		const hasFragmentContainer = [...this.children].some((c) => c.tagName === "FRAGMENT-CONTAINER");
+		if (hasFragmentContainer || this.#slot.parentElement?.classList.contains("body")) return;
+
+		const body = document.createElement("div");
+		body.classList.add("body");
+		this.#slot.setAttribute("part", "body");
+		this.#slot.remove();
+		body.appendChild(this.#slot);
+		this.#shadow.appendChild(body);
 	}
 
 	/**
@@ -100,12 +99,17 @@ export class PageContainer extends HTMLElement {
 		this.style.setProperty("--page-height", typeof height === "string" ? height : `${height}px`);
 		if (margins) {
 			if (typeof margins === "string") {
-				this.style.setProperty("--page-margin", margins);
+				const parts = margins.split(/\s+/);
+				const [t, r = t, b = t, l = r] = parts;
+				this.style.setProperty("--page-margin-top", t);
+				this.style.setProperty("--page-margin-right", r);
+				this.style.setProperty("--page-margin-bottom", b);
+				this.style.setProperty("--page-margin-left", l);
 			} else {
-				this.style.setProperty(
-					"--page-margin",
-					`${margins.top || 0}px ${margins.right || 0}px ${margins.bottom || 0}px ${margins.left || 0}px`,
-				);
+				this.style.setProperty("--page-margin-top", `${margins.top || 0}px`);
+				this.style.setProperty("--page-margin-right", `${margins.right || 0}px`);
+				this.style.setProperty("--page-margin-bottom", `${margins.bottom || 0}px`);
+				this.style.setProperty("--page-margin-left", `${margins.left || 0}px`);
 			}
 		}
 	}
@@ -115,10 +119,7 @@ export class PageContainer extends HTMLElement {
 	 * and apply the page-box dimensions automatically.
 	 */
 	#onSlotChange() {
-		const assigned = [
-			...(this.#slot?.assignedElements() ?? []),
-			...this.#directSlot.assignedElements(),
-		];
+		const assigned = this.#slot.assignedElements();
 		for (const node of assigned) {
 			const constraints = node.pageConstraints;
 			if (!constraints) continue;

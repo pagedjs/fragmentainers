@@ -189,7 +189,7 @@ test.describe("Margin truncation at break boundaries (CSS Fragmentation L3 §5.2
 		expect(result.firstChildTruncated).toBe(false);
 	});
 
-	test("truncateMarginBlockStart IS set after a forced break by default", async ({ page }) => {
+	test("truncateMarginBlockStart is NOT set after a forced break", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { createFragments } = await import("/src/core/layout-request.js");
 			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
@@ -211,46 +211,6 @@ test.describe("Margin truncation at break boundaries (CSS Fragmentation L3 §5.2
 					availableBlockSize: 200,
 					fragmentainerBlockSize: 200,
 					fragmentationType: "page",
-				}),
-			);
-
-			const r = {
-				pageCount: pages.length,
-				p1FirstChildTruncated: pages[1].childFragments[0]?.truncateMarginBlockStart ?? false,
-			};
-			container.remove();
-			return r;
-		});
-
-		expect(result.pageCount).toBe(2);
-		expect(result.p1FirstChildTruncated).toBe(true);
-	});
-
-	test("truncateMarginBlockStart is NOT set after a forced break with preserveForcedBreakMargins", async ({
-		page,
-	}) => {
-		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-
-			const container = document.createElement("div");
-			container.style.cssText = "position:absolute;left:-9999px;width:200px";
-			container.innerHTML = `<div style="margin:0;padding:0">
-				<div style="height:50px;margin:0;padding:0"></div>
-				<div style="height:50px;margin:20px 0 0 0;padding:0;break-before:page"></div>
-			</div>`;
-			document.body.appendChild(container);
-
-			const root = buildLayoutTree(container.firstElementChild);
-			const pages = createFragments(
-				root,
-				new ConstraintSpace({
-					availableInlineSize: 200,
-					availableBlockSize: 200,
-					fragmentainerBlockSize: 200,
-					fragmentationType: "page",
-					preserveForcedBreakMargins: true,
 				}),
 			);
 
