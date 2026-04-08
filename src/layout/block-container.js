@@ -327,7 +327,11 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 		// it, the parent's sibling collapsing already consumed that margin.
 		// The child's internal layout will also add it, so compensate here
 		// by giving the child more space and adjusting its offset.
-		const collapseAdj = childCollapsedThrough > 0 && !effectiveChildBreakToken
+		// Only apply for later siblings (i > startIndex) where the margin
+		// was consumed in the sibling collapsed gap. For the first child,
+		// the margin-through occupies real space at the BFC/fragmentainer
+		// top edge and should not be given back.
+		const collapseAdj = childCollapsedThrough > 0 && !effectiveChildBreakToken && i > startIndex
 			? childCollapsedThrough : 0;
 
 		// Build constraint space for the child
