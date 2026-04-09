@@ -14,11 +14,16 @@
 
 const UA_DEFAULTS = new CSSStyleSheet();
 UA_DEFAULTS.replaceSync(`
-    slot { margin: 8px; }
-    :host(:not([data-first])) > slot {
+    :host {
+      height: 100%;
+    }
+    slot {
+      margin: 8px;
+    }
+    :host(fragment-container:not([data-first])) > slot {
       margin-block-start: 0 !important;
     }
-    :host(:not([data-last])) > slot {
+    :host(fragment-container:not([data-last])) > slot {
       margin-block-end: 0 !important;
     }
   `);

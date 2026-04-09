@@ -12,6 +12,8 @@
  * substitute for the full per-child loop.
  */
 
+import { collapseMargins } from "./margin-collapsing.js";
+
 /**
  * Build a prefix sum of block sizes for a node's children.
  *
@@ -35,7 +37,7 @@ export function buildCumulativeHeights(node) {
 		const child = children[i];
 		const margin =
 			i > 0
-				? Math.max(child.marginBlockStart || 0, children[i - 1].marginBlockEnd || 0)
+				? collapseMargins(children[i - 1].marginBlockEnd || 0, child.marginBlockStart || 0)
 				: child.marginBlockStart || 0;
 		const spacing = tableSpacing > 0 && i > 0 ? tableSpacing : 0;
 		cumulative[i + 1] = cumulative[i] + margin + spacing + (child.blockSize || 0);

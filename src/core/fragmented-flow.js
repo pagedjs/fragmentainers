@@ -438,6 +438,11 @@ export class FragmentedFlow extends Iterator {
 			constraintSpace = this.#constraintSpace;
 		}
 
+		// First page: carry body margin for collapsing with first child
+		if (!this.#breakToken && this.#tree.marginBlockStart) {
+			constraintSpace.bodyMarginBlockStart = this.#tree.marginBlockStart;
+		}
+
 		// Sync DOM measurement container
 		if (this.#measurer) {
 			this.#measurer.applyConstraintSpace(constraintSpace);

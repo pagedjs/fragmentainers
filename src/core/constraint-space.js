@@ -28,6 +28,8 @@ export class ConstraintSpace {
 		this.reservedBlockStart = reservedBlockStart;
 		this.reservedBlockEnd = reservedBlockEnd;
 		this.preserveForcedBreakMargins = preserveForcedBreakMargins;
+		/** Body margin-block-start for first-page collapsing (0 on non-first pages). */
+		this.bodyMarginBlockStart = 0;
 		/** Original CSS inline size string (e.g. "65mm") for browser-native unit conversion. */
 		this.cssInlineSize = cssInlineSize;
 		/** Original CSS block size string (e.g. "181mm") for browser-native unit conversion. */
