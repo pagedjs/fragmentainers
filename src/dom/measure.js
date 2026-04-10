@@ -104,6 +104,41 @@ export function measureElementBlockSize(element) {
 }
 
 /**
+ * Measure rendered line boxes in an element using getClientRects().
+ *
+ * Returns both the line count and an accurate line height measured from
+ * the gap between the last two line tops. This avoids first-line distortion
+ * from ::before pseudo-elements or mixed font metrics (e.g. bold <strong>).
+ *
+ * Only called when content breaks across fragmentainers — not on every
+ * element. For non-breaking content, the cheap fontSize * 1.2 estimate
+ * from getLineHeight() is sufficient.
+ *
+ * @param {Element} element
+ * @returns {{ count: number, lineHeight: number }}
+ */
+export function measureLines(element) {
+	const range = document.createRange();
+	range.selectNodeContents(element);
+	const rects = range.getClientRects();
+	if (rects.length === 0) return { count: 0, lineHeight: 0 };
+
+	const tops = [rects[0].top];
+	for (let i = 1; i < rects.length; i++) {
+		if (rects[i].top > tops[tops.length - 1] + 0.5) {
+			tops.push(rects[i].top);
+		}
+	}
+
+	let lineHeight = 0;
+	if (tops.length >= 2) {
+		lineHeight = tops[tops.length - 1] - tops[tops.length - 2];
+	}
+
+	return { count: tops.length, lineHeight };
+}
+
+/**
  * Count the number of rendered line boxes in an element using getClientRects().
  *
  * Creates a Range spanning the element's contents and counts distinct
@@ -131,19 +166,19 @@ export function countLines(element) {
 
 /**
  * Get the computed line height of an element in pixels.
+ *
+ * Returns a cheap estimate — no DOM measurement for "normal".
+ * The accurate gap-based measurement (measureLines) is deferred to
+ * layoutInlineContent's breaking path where it's actually needed.
  */
 export function getLineHeight(element) {
 	const map = computedStyleMap(element);
 	const lh = map.get("line-height");
 
 	// "normal" returns a keyword (no .unit property).
-	// Measure from actual rendering — the 1.2× estimate doesn't match
-	// the browser's font-metric-based normal line-height for all fonts.
+	// Use fontSize * 1.2 as a cheap estimate. The accurate measurement
+	// happens in layoutInlineContent only when content breaks.
 	if (!lh || !lh.unit) {
-		const lines = countLines(element);
-		if (lines > 0) {
-			return element.getBoundingClientRect().height / lines;
-		}
 		const fs = map.get("font-size");
 		return (fs && fs.unit ? fs.value : 16) * 1.2;
 	}

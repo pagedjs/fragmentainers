@@ -7,6 +7,7 @@ import {
 	INLINE_ATOMIC,
 	DEFAULT_OVERFLOW_THRESHOLD,
 } from "../core/constants.js";
+import { measureLines } from "../dom/measure.js";
 
 /**
  * Given a flat textContent offset, find the kText item that contains it
@@ -150,105 +151,124 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 		const elementRect = element ? element.getBoundingClientRect() : node.contentRect;
 		const totalHeight = elementRect.height;
 
-		// Compute total lines from the element's actual rendered height.
-		// This is accurate regardless of inline elements splitting text nodes.
-		const totalLines = Math.round(totalHeight / lineHeight);
-
-		// How many lines were already consumed (from break token)?
-		// The element top + consumed lines * lineHeight = where we resume.
+		// Compute consumed height from break token (for continuation fragments)
+		let consumedHeight = 0;
 		if (textOffset > 0) {
-			// Find the Y position of the first char we're resuming at
 			const loc = findItemAtOffset(inlineItems.items, textOffset);
 			if (loc) {
 				const charY = measurer.charTop(loc.item.domNode, loc.localOffset);
-				consumedLines = Math.round((charY - elementRect.top) / lineHeight);
+				consumedHeight = charY - elementRect.top;
 			}
 		}
+		const remainingHeight = totalHeight - consumedHeight;
 
-		remainingLines = totalLines - consumedLines;
-		const fittingLines = Math.floor(availableBlockSpace / lineHeight);
-		// Guarantee at least one line for progress when at top of page
-		const minLines = remainingLines > 0 && constraintSpace.blockOffsetInFragmentainer === 0 ? 1 : 0;
-		let linesToPlace = Math.max(minLines, Math.min(remainingLines, fittingLines));
+		if (remainingHeight <= availableBlockSpace) {
+			// FAST PATH — all remaining content fits, no expensive measurement needed.
+			// Use the cheap lineHeight estimate for line count, but actual measured
+			// height for the fragment size.
+			const totalLines = Math.round(totalHeight / lineHeight);
+			consumedLines = Math.round(consumedHeight / lineHeight);
+			remainingLines = totalLines - consumedLines;
+			if (remainingLines < 1) remainingLines = 1;
+			const effectiveLineHeight = remainingHeight / remainingLines;
 
-		// Orphans/widows clamping (CSS Fragmentation §4.4 Rule 3)
-		const contentWillBreak = linesToPlace < remainingLines;
-		if (contentWillBreak && constraintSpace.fragmentationType !== "none") {
-			const orphans = node.orphans || 2;
-			const widows = node.widows || 2;
-
-			if (orphans + widows > remainingLines) {
-				// Fewer lines than constraints — keep all together if they fit
-				if (remainingLines <= fittingLines) {
-					linesToPlace = remainingLines;
-				}
-				// Otherwise can't satisfy — place what fits, score as violation
-			} else {
-				// Clamp for orphans (minimum lines before break)
-				if (linesToPlace < orphans && fittingLines >= orphans) {
-					linesToPlace = orphans;
-				}
-				// Clamp for widows (minimum lines after break)
-				const linesAfter = remainingLines - linesToPlace;
-				if (linesAfter < widows && linesAfter > 0) {
-					const maxLines = remainingLines - widows;
-					if (maxLines >= orphans && maxLines > 0) {
-						linesToPlace = maxLines;
-					}
-				}
+			for (let i = 0; i < remainingLines; i++) {
+				lineFragments.push(new Fragment(null, effectiveLineHeight));
 			}
-		}
+			blockOffset = remainingLines * effectiveLineHeight;
 
-		if (linesToPlace <= 0 && constraintSpace.blockOffsetInFragmentainer > 0) {
-			// No lines fit — defer to next fragmentainer
-			const fragment = new Fragment(node, 0, []);
-			fragment.inlineSize = constraintSpace.availableInlineSize;
-			const inlineToken = new InlineBreakToken(node);
-			inlineToken.itemIndex = itemIndex;
-			inlineToken.textOffset = textOffset;
-			fragment.breakToken = inlineToken;
-			return { fragment, breakToken: inlineToken };
-		}
-
-		// Create line fragments
-		for (let i = 0; i < linesToPlace; i++) {
-			lineFragments.push(new Fragment(null, lineHeight));
-		}
-		blockOffset = linesToPlace * lineHeight;
-
-		if (linesToPlace >= remainingLines) {
-			// All remaining content fits — consume everything
+			// Consume everything
 			itemIndex = inlineItems.items.length;
 			textOffset = inlineItems.textContent.length;
 		} else {
-			// Need to break — find the text offset at the break line
-			const yCutoff = elementRect.top + (consumedLines + linesToPlace) * lineHeight;
+			// SLOW PATH — content breaks. Use accurate gap-based line height
+			// from measureLines() to determine exactly how many lines fit.
+			const measured = element ? measureLines(element) : null;
+			const accurateLineHeight =
+				measured && measured.lineHeight > 0 ? measured.lineHeight : lineHeight;
+			const totalLines = measured && measured.count > 0
+				? measured.count
+				: Math.round(totalHeight / accurateLineHeight);
 
-			// Use caretPositionFromPoint when available (O(1) lookup),
-			// fall back to binary search over charTop (O(log n)).
-			let breakFlatOffset;
-			if (measurer.offsetAtY) {
-				breakFlatOffset = measurer.offsetAtY(element, inlineItems.items, yCutoff);
+			consumedLines = Math.round(consumedHeight / accurateLineHeight);
+			remainingLines = totalLines - consumedLines;
+			const fittingLines = Math.floor(availableBlockSpace / accurateLineHeight);
+			// Guarantee at least one line for progress when at top of page
+			const minLines =
+				remainingLines > 0 && constraintSpace.blockOffsetInFragmentainer === 0 ? 1 : 0;
+			let linesToPlace = Math.max(minLines, Math.min(remainingLines, fittingLines));
+
+			// Orphans/widows clamping (CSS Fragmentation §4.4 Rule 3)
+			const contentWillBreak = linesToPlace < remainingLines;
+			if (contentWillBreak && constraintSpace.fragmentationType !== "none") {
+				const orphans = node.orphans || 2;
+				const widows = node.widows || 2;
+
+				if (orphans + widows > remainingLines) {
+					if (remainingLines <= fittingLines) {
+						linesToPlace = remainingLines;
+					}
+				} else {
+					if (linesToPlace < orphans && fittingLines >= orphans) {
+						linesToPlace = orphans;
+					}
+					const linesAfter = remainingLines - linesToPlace;
+					if (linesAfter < widows && linesAfter > 0) {
+						const maxLines = remainingLines - widows;
+						if (maxLines >= orphans && maxLines > 0) {
+							linesToPlace = maxLines;
+						}
+					}
+				}
 			}
-			if (breakFlatOffset == null) {
-				const searchStart = textOffset;
-				const searchEnd = inlineItems.textContent.length;
-				breakFlatOffset = findBreakOffset(
-					measurer,
+
+			if (linesToPlace <= 0 && constraintSpace.blockOffsetInFragmentainer > 0) {
+				const fragment = new Fragment(node, 0, []);
+				fragment.inlineSize = constraintSpace.availableInlineSize;
+				const inlineToken = new InlineBreakToken(node);
+				inlineToken.itemIndex = itemIndex;
+				inlineToken.textOffset = textOffset;
+				fragment.breakToken = inlineToken;
+				return { fragment, breakToken: inlineToken };
+			}
+
+			for (let i = 0; i < linesToPlace; i++) {
+				lineFragments.push(new Fragment(null, accurateLineHeight));
+			}
+			blockOffset = linesToPlace * accurateLineHeight;
+
+			if (linesToPlace >= remainingLines) {
+				itemIndex = inlineItems.items.length;
+				textOffset = inlineItems.textContent.length;
+			} else {
+				// Find the text offset at the break line
+				const yCutoff =
+					elementRect.top + (consumedLines + linesToPlace) * accurateLineHeight;
+
+				let breakFlatOffset;
+				if (measurer.offsetAtY) {
+					breakFlatOffset = measurer.offsetAtY(element, inlineItems.items, yCutoff);
+				}
+				if (breakFlatOffset == null) {
+					const searchStart = textOffset;
+					const searchEnd = inlineItems.textContent.length;
+					breakFlatOffset = findBreakOffset(
+						measurer,
+						inlineItems.items,
+						searchStart,
+						searchEnd,
+						yCutoff,
+					);
+				}
+
+				const pos = advanceToOffset(
 					inlineItems.items,
-					searchStart,
-					searchEnd,
-					yCutoff,
+					breakFlatOffset,
+					inlineItems.textContent.length,
 				);
+				itemIndex = pos.itemIndex;
+				textOffset = pos.textOffset;
 			}
-
-			const pos = advanceToOffset(
-				inlineItems.items,
-				breakFlatOffset,
-				inlineItems.textContent.length,
-			);
-			itemIndex = pos.itemIndex;
-			textOffset = pos.textOffset;
 		}
 	}
 

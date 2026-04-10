@@ -10,6 +10,7 @@ export {
 	getLineHeight,
 	parseLength,
 	countLines,
+	measureLines,
 } from "./measure.js";
 export { ContentMeasureElement } from "./content-measure.js";
 export { FragmentContainerElement } from "./fragment-container.js";
