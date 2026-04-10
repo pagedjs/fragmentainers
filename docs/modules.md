@@ -16,37 +16,6 @@ A module hooks into the engine at these points:
 
 5. **After-render** -- The module's `layout()` method returns an `afterRender` closure. After the engine composes normal content into the fragmentainer, it calls this closure. The module uses it to inject its own composed output (e.g., absolutely-positioned floats).
 
-```
-Measurer.setup()
-  |
-  +-- modules.processRules(styles)
-  |     |
-  |     +-- module.resetRules()           Reset state from previous pass
-  |     +-- module.matchRule(rule, ctx)    Called per leaf CSSStyleRule
-  |     +-- module.appendRules(rules)      Collect CSS rules to prepend
-  |
-  +-- module.claimPersistent(content)
-  |     Returns: Element[] (included in every measurement segment)
-  |
-FragmentedFlow
-  |
-  +-- #layoutFragmentainer()
-  |     |
-  |     +-- module.layout(rootNode, constraintSpace, breakToken, layoutChild)
-  |     |     Returns: { reservedBlockStart, reservedBlockEnd, afterRender }
-  |     |
-  |     +-- Adjust constraintSpace (reduce available space by reservations)
-  |     |
-  |     +-- Run normal layout (module-claimed children are skipped)
-  |     |
-  |     +-- Attach afterRender callbacks to fragment
-  |
-  +-- createFragmentainer()
-        |
-        +-- Compose normal content
-        +-- Call fragment.afterRender callbacks
-```
-
 ## Module Interface
 
 A module extends `LayoutModule` and implements whichever methods it needs. All are optional:
@@ -116,9 +85,9 @@ All modules must extend the `LayoutModule` base class. Modules are registered on
 import { LayoutModule, FragmentedFlow } from "fragmentainers";
 
 class MyModule extends LayoutModule {
-  claim(node) {
-    /* ... */
-  }
+	claim(node) {
+		/* ... */
+	}
 }
 
 FragmentedFlow.register(new MyModule());
@@ -142,37 +111,36 @@ The image element is pulled out of normal flow. The engine reserves the full pag
 const VALID_VALUES = new Set(["fill", "contain", "cover"]);
 
 export const PageFit = {
-  claim(node) {
-    const value = node.getCustomProperty("page-fit");
-    return value !== null && VALID_VALUES.has(value);
-  },
+	claim(node) {
+		const value = node.getCustomProperty("page-fit");
+		return value !== null && VALID_VALUES.has(value);
+	},
 
-  layout(rootNode, constraintSpace, breakToken, layoutChild) {
-    const placed = [];
+	layout(rootNode, constraintSpace, breakToken, layoutChild) {
+		const placed = [];
 
-    for (const child of rootNode.children) {
-      if (!this.claim(child)) continue;
-      placed.push({ node: child, fit: child.getCustomProperty("page-fit") });
-    }
+		for (const child of rootNode.children) {
+			if (!this.claim(child)) continue;
+			placed.push({ node: child, fit: child.getCustomProperty("page-fit") });
+		}
 
-    return {
-      reservedBlockStart:
-        placed.length > 0 ? constraintSpace.fragmentainerBlockSize : 0,
-      reservedBlockEnd: 0,
-      afterRender(fragment) {
-        for (const pf of placed) {
-          const clone = pf.node.element.cloneNode(true);
-          clone.style.setProperty("width", "100%");
-          clone.style.setProperty("height", "100%");
-          clone.style.setProperty("object-fit", pf.fit);
-          clone.style.setProperty("position", "absolute");
-          clone.style.setProperty("inset", "0");
-          fragment.style.setProperty("position", "relative");
-          fragment.appendChild(clone);
-        }
-      },
-    };
-  },
+		return {
+			reservedBlockStart: placed.length > 0 ? constraintSpace.fragmentainerBlockSize : 0,
+			reservedBlockEnd: 0,
+			afterRender(fragment) {
+				for (const pf of placed) {
+					const clone = pf.node.element.cloneNode(true);
+					clone.style.setProperty("width", "100%");
+					clone.style.setProperty("height", "100%");
+					clone.style.setProperty("object-fit", pf.fit);
+					clone.style.setProperty("position", "absolute");
+					clone.style.setProperty("inset", "0");
+					fragment.style.setProperty("position", "relative");
+					fragment.appendChild(clone);
+				}
+			},
+		};
+	},
 };
 ```
 
@@ -185,17 +153,19 @@ export const PageFit = {
 5. The `layoutChild` callback provided to `layout()` runs a node through the full layout algorithm. Use it to measure elements.
 6. Export a singleton instance and register it via `FragmentedFlow.register()`.
 
+### Module Options
+
+`FragmentedFlow` passes its options to all registered modules via the registry. Modules read `this.options` to check for relevant flags:
+
+```javascript
+const flow = new FragmentedFlow(content, {
+	styles: [sheet],
+	normalizeLineHeight: true, // enables the NormalizeLayoutModule
+});
+```
+
 ## Built-in Modules
 
-Built-in modules (in `src/modules/`) are registered by default. You can also write and register your own.
-
-| Module                | Hooks used                                                            | Description                                                                                                                                                       |
-| --------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PageFloat`           | `claim`, `layout`                                                     | Removes elements from normal flow and places them at the top or bottom of the page                                                                                |
-| `PageFit`             | `claim`, `layout`                                                     | Makes elements fill the entire page (`--page-fit: contain\|cover\|fill`)                                                                                          |
-| `RepeatedTableHeader` | `beforeChildren`                                                      | Repeats table headers (`<thead>`) at the top of each continuation page                                                                                            |
-| `FixedPosition`       | `matchRule`, `claimPersistent`                                        | Repeats `position: fixed` elements on every page. Uses `matchRule` to collect selectors, `claimPersistent` for sequential measurement                             |
-| `Footnote`            | `matchRule`, `appendRules`, `claimPersistent`, `afterContentLayout`   | CSS footnotes (`float: footnote`) — removes footnote elements from flow, inserts call markers, and places footnote bodies at the page bottom via iterative layout |
-| `NthSelectors`        | `matchRule`, `layout`                                                 | Rewrites `:nth-child()` / `:nth-of-type()` selectors per fragment so structural pseudos match original document order                                             |
+Built-in modules (in `src/modules/`) are registered by default.
 
 To add a built-in module, export it from `src/modules/index.js` -- it will be registered automatically.
