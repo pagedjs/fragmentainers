@@ -75,6 +75,14 @@ export class NormalizeLayoutModule extends LayoutModule {
 	#collectedRules = [];
 	#defaultFont = { family: "serif", weight: "400", style: "normal", size: 16 };
 	#normSheet = null;
+	#enabled = false;
+
+	init() {
+		// Only Blink-based browsers need line-height normalization.
+		// All Blink browsers (Chrome, Edge, Opera, etc.) include "Chrome/" in the UA.
+		this.#enabled =
+			typeof navigator !== "undefined" && /\bChrome\//.test(navigator.userAgent);
+	}
 
 	resetRules() {
 		this.#collectedRules = [];
@@ -83,7 +91,7 @@ export class NormalizeLayoutModule extends LayoutModule {
 	}
 
 	matchRule(rule, context) {
-		if (!this.options.normalizeLineHeight) return;
+		if (!this.#enabled) return;
 
 		const s = rule.style;
 		const hasFont =
@@ -120,10 +128,14 @@ export class NormalizeLayoutModule extends LayoutModule {
 	}
 
 	afterMeasurementSetup(contentRoot) {
-		if (!this.options.normalizeLineHeight) return;
+		if (!this.#enabled) return;
 
 		const fm = getSharedFontMetrics();
 		const screenDpr = fm.dpr;
+
+		// At DPR 1 the browser's native rounding matches the layout target,
+		// so the normalization sheet would be a no-op.
+		if (screenDpr === 1) return;
 		// Build the normalization sheet at DPR 1 (floored integers)
 		// for consistent PDF output.
 		fm.dpr = 1;
@@ -138,7 +150,7 @@ export class NormalizeLayoutModule extends LayoutModule {
 			this.#defaultFont.style,
 			this.#defaultFont.size,
 		);
-		rules.push(`:where(*) { line-height: ${defaultLh}px; }`);
+		rules.push(`:where(slot) { line-height: ${defaultLh}px; }`);
 
 		// UA defaults for inline elements with different font properties
 		const boldLh = fm.computeNormalLineHeight(

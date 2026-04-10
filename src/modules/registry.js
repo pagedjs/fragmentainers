@@ -9,6 +9,7 @@ class ModuleRegistry {
 			throw new TypeError("Module must extend the LayoutModule base class");
 		}
 		if (!this.#modules.includes(module)) {
+			module.init();
 			this.#modules.push(module);
 		}
 	}
@@ -45,16 +46,6 @@ class ModuleRegistry {
 			if (result) return result;
 		}
 		return null;
-	}
-
-	/**
-	 * Pass options from FragmentedFlow to all registered modules.
-	 * @param {Object} options
-	 */
-	setOptions(options) {
-		for (const mod of this.#modules) {
-			mod.options = options;
-		}
 	}
 
 	/**

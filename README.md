@@ -54,7 +54,6 @@ for (const el of flow) {
 - **`constraintSpace`** — `ConstraintSpace` for sizing
 - **`resolver`** — A `PageResolver` or `RegionResolver` instance
 - **`width` / `height`** — Resolves to a constraint space for fixed size fragmentation
-- **`normalizeLineHeight`** — Set explicit `line-height` values on elements with `line-height: normal` for consistent rendering across DPRs (see [Line-Height Normalization](#line-height-normalization))
 - _(none)_ — Auto-creates `PageResolver` from `@page` rules in styles
 
 **Static methods:**
@@ -180,15 +179,9 @@ See [Layout Modules](docs/modules.md) for the full module interface and how to w
 
 Blink-based browsers round `line-height: normal` to the device pixel ratio — integer CSS pixels at DPR 1, half-pixels at DPR 2. This means the same content renders at different line heights screen vs print, causing fragmentation mismatches between layout and rendering.
 
-The `NormalizeLayoutModule` (enabled via `normalizeLineHeight: true`) solves this by generating a screen-only stylesheet with explicit `line-height` values derived from canvas font metrics (`fontBoundingBoxAscent + fontBoundingBoxDescent`) when `normal` is used.
+The `NormalizeLayoutModule` solves this by generating a screen-only stylesheet with explicit `line-height` values derived from canvas font metrics (`fontBoundingBoxAscent + fontBoundingBoxDescent`) when `normal` is used. It is enabled automatically in Blink-based browsers and skipped in Firefox and Safari where it is not needed.
 
 The normalization sheet is **not** used for measurement or printing, it only provides previews of the print output. The layout uses DPR 1 line-heights for block size computation in the inline layout, while the measurer continues to render at the screen's native DPR. The fragment-container rendering matches the layout's DPR 1 values via the adopted stylesheet.
-
-```javascript
-const flow = new FragmentedFlow(content, {
-	normalizeLineHeight: true,
-});
-```
 
 ## Documentation
 

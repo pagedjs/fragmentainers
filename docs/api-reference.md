@@ -72,7 +72,6 @@ new FragmentedFlow(content, options?)
 | `options.width`               | `number`                                    | Container width in CSS px (column fragmentation)                                                                                          |
 | `options.height`              | `number`                                    | Container height in CSS px (column fragmentation)                                                                                         |
 | `options.type`                | `string`                                    | Fragmentation type when using `width`/`height` (default: `FRAGMENTATION_COLUMN`)                                                          |
-| `options.normalizeLineHeight` | `boolean`                                   | Set explicit `line-height` on elements with `line-height: normal` for consistent rendering across DPRs (default: `false`)                 |
 
 Options are checked in priority order: `constraintSpace` > `resolver` > `width`/`height` > auto-create `PageResolver` from `@page` rules in styles.
 
@@ -1170,7 +1169,7 @@ All built-in modules are registered automatically. They can also be imported dir
 | `RepeatedTableHeader` | `import { RepeatedTableHeader } from "fragmentainers"`                         | Repeat `<thead>` on continuation pages                                        |
 | `FixedPosition`       | `import { FixedPosition } from "fragmentainers/src/modules/fixed-position.js"` | Repeat `position: fixed` elements on every page                               |
 | `Footnote`            | `import { Footnote } from "fragmentainers/src/modules/footnote.js"`            | CSS footnotes (`float: footnote`) with iterative layout                       |
-| `Normalize`           | `import { Normalize } from "fragmentainers/src/modules/normalize.js"`          | Line-height normalization via `normalizeLineHeight` option                    |
+| `Normalize`           | `import { Normalize } from "fragmentainers/src/modules/normalize.js"`          | Line-height normalization (auto-enabled in Blink browsers)                    |
 
 ---
 

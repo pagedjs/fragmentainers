@@ -6,13 +6,16 @@ import {
 	BREAK_TOKEN_INLINE,
 } from "../core/constants.js";
 
+const HAS_CSS_UNIT_VALUE = typeof CSSUnitValue !== "undefined";
+
 /**
  * Parse a CSS length string into a CSSUnitValue.
- * Returns null for non-length values (keywords, named sizes, etc.).
+ * Returns null when the browser lacks CSS Typed OM or the value is unparseable.
  * @param {string} str - e.g. "105mm", "20px", "1in"
  * @returns {CSSUnitValue|null}
  */
 export function parseCSSUnitValue(str) {
+	if (!HAS_CSS_UNIT_VALUE) return null;
 	const match = str.trim().match(/^([\d.]+)(px|in|cm|mm|pt)?$/);
 	if (!match) return null;
 	const value = parseFloat(match[1]);
@@ -445,6 +448,27 @@ function parsePageMargins(style) {
 		}
 	}
 
+	// Firefox may not expand the margin shorthand to longhands in @page rules.
+	// Fall back to parsing the shorthand directly.
+	if (!margin) {
+		const shorthand = style.getPropertyValue("margin").trim();
+		if (shorthand) {
+			const parts = shorthand
+				.split(/\s+/)
+				.map(parseCSSLength)
+				.filter((v) => v !== null);
+			if (parts.length === 1) {
+				margin = { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] };
+			} else if (parts.length === 2) {
+				margin = { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] };
+			} else if (parts.length === 3) {
+				margin = { top: parts[0], right: parts[1], bottom: parts[2], left: parts[1] };
+			} else if (parts.length >= 4) {
+				margin = { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] };
+			}
+		}
+	}
+
 	return margin;
 }
 
@@ -455,6 +479,7 @@ function parsePageMargins(style) {
  * @returns {CSSUnitValue[]|null}
  */
 function parseRawPageSize(style) {
+	if (!HAS_CSS_UNIT_VALUE) return null;
 	const sizeStr = style.getPropertyValue("size").trim();
 	if (!sizeStr) return null;
 
@@ -486,6 +511,7 @@ function parseRawPageSize(style) {
  * @returns {{ top: CSSUnitValue, right: CSSUnitValue, bottom: CSSUnitValue, left: CSSUnitValue }|null}
  */
 function parseRawPageMargins(style) {
+	if (!HAS_CSS_UNIT_VALUE) return null;
 	const SIDES = ["top", "right", "bottom", "left"];
 	let rawMargin = null;
 	const zero = new CSSUnitValue(0, "px");
@@ -497,6 +523,26 @@ function parseRawPageMargins(style) {
 			if (val !== null) {
 				if (!rawMargin) rawMargin = { top: zero, right: zero, bottom: zero, left: zero };
 				rawMargin[side] = val;
+			}
+		}
+	}
+
+	// Shorthand fallback (Firefox may not expand margin to longhands in @page)
+	if (!rawMargin) {
+		const shorthand = style.getPropertyValue("margin").trim();
+		if (shorthand) {
+			const parts = shorthand
+				.split(/\s+/)
+				.map(parseCSSUnitValue)
+				.filter((v) => v !== null);
+			if (parts.length === 1) {
+				rawMargin = { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] };
+			} else if (parts.length === 2) {
+				rawMargin = { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] };
+			} else if (parts.length === 3) {
+				rawMargin = { top: parts[0], right: parts[1], bottom: parts[2], left: parts[1] };
+			} else if (parts.length >= 4) {
+				rawMargin = { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] };
 			}
 		}
 	}

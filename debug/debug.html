@@ -48,7 +48,7 @@
 
 			/* Rendered page rows */
 			.page-row {
-				--page-scale: min(1, tan(atan2(100vw, var(--page-inline-size) * 1px)));
+				--page-scale: min(1, 60vw / (var(--page-inline-size) * 1px));
 				border-bottom: 1px solid #ccc;
 				padding-bottom: 16px;
 			}
@@ -63,10 +63,7 @@
 				align-items: flex-start;
 			}
 			.page-row-render {
-				transform: scale(var(--page-scale));
-				transform-origin: top left;
-				margin-right: calc(var(--page-inline-size) * (var(--page-scale) - 1) * 1px);
-				margin-bottom: calc(var(--page-block-size) * (var(--page-scale) - 1) * 1px);
+				zoom: var(--page-scale);
 				outline: 1px solid #999;
 				background: #fff;
 			}
@@ -96,7 +93,7 @@
 			.fragment-overlay [data-frag-label] {
 				position: absolute;
 				font: 9px/1 monospace;
-				background: rgba(255,255,255,0.75);
+				background: rgba(255, 255, 255, 0.75);
 				padding: 0 2px;
 				white-space: nowrap;
 			}
@@ -130,7 +127,7 @@
 					padding: 0;
 				}
 				.page-row-render {
-					transform: none;
+					zoom: 1;
 					margin: 0;
 					outline: none;
 				}
@@ -287,8 +284,7 @@
 						resolver: resolver.pageRules.length > 0 ? resolver : undefined,
 						width: resolver.pageRules.length === 0 ? pageW : undefined,
 						height: resolver.pageRules.length === 0 ? pageH : undefined,
-						normalizeLineHeight: true,
-					});
+						});
 
 					await layout.preload();
 
@@ -335,11 +331,7 @@
 
 						// Fragment borders overlay
 						if (c) {
-							const overlay = buildFragmentOverlay(
-								fragments[i],
-								c.contentArea,
-								c.margins,
-							);
+							const overlay = buildFragmentOverlay(fragments[i], c.contentArea, c.margins);
 							renderBox.appendChild(overlay);
 						}
 

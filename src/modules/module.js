@@ -1,6 +1,9 @@
 export class LayoutModule {
-	/** Options passed from FragmentedFlow via the registry. */
-	options = {};
+	/**
+	 * Called once when the module is registered. Modules can run
+	 * feature detection or set internal flags here.
+	 */
+	init() {}
 
 	claim() {
 		return false;

@@ -6,6 +6,8 @@ Layout modules extend the fragmentation engine with custom behaviors. A module i
 
 A module hooks into the engine at these points:
 
+0. **Initialization** -- When a module is registered, the engine calls `module.init()`. Modules use this for one-time feature detection (e.g., browser sniffing to enable/disable behavior).
+
 1. **CSS rule matching** -- Before measurement begins, the engine walks all CSS rules in a single pass and calls `module.matchRule(rule, context)` for each leaf style rule. Modules accumulate state (selectors, descriptors) for use in later hooks. After the walk, `module.injectSheets()` can return additional stylesheets to prepend.
 
 2. **Persistent element claim** -- After rule processing, the engine calls `module.claimPersistent(content)`. The module uses state from step 1 to identify elements that must be present in every measurement segment (e.g., `position: fixed` elements).
@@ -22,6 +24,10 @@ A module extends `LayoutModule` and implements whichever methods it needs. All a
 
 ```javascript
 {
+  // Called once when the module is registered.
+  // Use for feature detection or setting internal flags.
+  init() -> void,
+
   // Called per CSS style rule during the centralized rule walk.
   // context.wrappers contains grouping rule preambles (e.g. ["@media screen"]).
   matchRule(rule, context) -> void,
@@ -153,15 +159,19 @@ export const PageFit = {
 5. The `layoutChild` callback provided to `layout()` runs a node through the full layout algorithm. Use it to measure elements.
 6. Export a singleton instance and register it via `FragmentedFlow.register()`.
 
-### Module Options
+### Module Initialization
 
-`FragmentedFlow` passes its options to all registered modules via the registry. Modules read `this.options` to check for relevant flags:
+Modules can override `init()` to run one-time setup when registered — typically feature detection. For example, the `NormalizeLayoutModule` uses `init()` to detect Blink browsers and disables itself elsewhere:
 
 ```javascript
-const flow = new FragmentedFlow(content, {
-	styles: [sheet],
-	normalizeLineHeight: true, // enables the NormalizeLayoutModule
-});
+class NormalizeLayoutModule extends LayoutModule {
+	#enabled = false;
+
+	init() {
+		this.#enabled =
+			typeof navigator !== "undefined" && /\bChrome\//.test(navigator.userAgent);
+	}
+}
 ```
 
 ## Built-in Modules

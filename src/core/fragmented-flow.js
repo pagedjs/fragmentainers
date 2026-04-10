@@ -64,8 +64,6 @@ export class FragmentedFlow extends Iterator {
 	#styles;
 	#resolver;
 	#constraintSpace;
-	#normalizeLineHeight;
-
 	// Stepper state (initialized lazily on first next() call)
 	#tree = null;
 	#measurer = null;
@@ -90,7 +88,6 @@ export class FragmentedFlow extends Iterator {
 	 * @param {PageResolver|RegionResolver} [options.resolver] - Pre-configured resolver
 	 * @param {number} [options.width] - Container width in CSS px (column fragmentation)
 	 * @param {number} [options.height] - Container height in CSS px (column fragmentation)
-	 * @param {boolean} [options.normalizeLineHeight] - Set explicit line-height on elements with line-height: normal
 	 */
 	constructor(content, options = {}) {
 		super();
@@ -133,8 +130,6 @@ export class FragmentedFlow extends Iterator {
 			this.#resolver = null;
 		}
 		// Page resolver auto-created in layout() from styles if neither set
-
-		this.#normalizeLineHeight = options.normalizeLineHeight || false;
 	}
 
 	/**
@@ -542,7 +537,6 @@ export class FragmentedFlow extends Iterator {
 			const isPageBased =
 				this.#resolver instanceof PageResolver || (!this.#resolver && !this.#constraintSpace);
 			const layoutStyles = isPageBased ? [UA_DEFAULTS, ...styles] : styles;
-			modules.setOptions({ normalizeLineHeight: this.#normalizeLineHeight });
 			this.#measurer = new Measurer(content, layoutStyles);
 			const contentRoot = this.#measurer.setup();
 
