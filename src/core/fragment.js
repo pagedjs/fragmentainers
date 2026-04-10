@@ -31,6 +31,7 @@ export class Fragment {
 		this.counterState = null;
 		this.afterRender = null;
 		this.isFirst = false;
+		this.blockOffset = 0;
 		this.isLast = false;
 	}
 

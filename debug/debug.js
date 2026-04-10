@@ -180,6 +180,75 @@ export function fragmentainerHeight(fragment, defaultH) {
 	return fragment.constraints ? fragment.constraints.contentArea.blockSize : defaultH;
 }
 
+/**
+ * Build a transparent overlay showing fragment borders for a page.
+ * Each fragment is drawn as a colored outline at its engine-calculated position.
+ *
+ * @param {import('../src/core/fragment.js').Fragment} pageFragment
+ * @param {{ inlineSize: number, blockSize: number }} contentArea
+ * @param {{ top: number, right: number, bottom: number, left: number }} margins
+ * @returns {HTMLElement}
+ */
+export function buildFragmentOverlay(pageFragment, contentArea, margins) {
+	const container = document.createElement("div");
+	container.className = "fragment-overlay";
+
+	const COLORS = [
+		"hsl(200, 80%, 50%)",
+		"hsl(120, 80%, 40%)",
+		"hsl(30, 90%, 50%)",
+		"hsl(280, 70%, 50%)",
+		"hsl(0, 80%, 50%)",
+		"hsl(180, 70%, 40%)",
+	];
+
+	function walk(fragment, parentTop, parentLeft, parentWidth, depth) {
+		for (const child of fragment.childFragments) {
+			if (!child.node) continue;
+
+			const top = parentTop + child.blockOffset;
+			const left = parentLeft;
+			const width = child.inlineSize || parentWidth;
+			const height = child.blockSize;
+
+			if (height <= 0) continue;
+
+			const color = COLORS[depth % COLORS.length];
+			const isIFC = child.node.isInlineFormattingContext;
+
+			const box = document.createElement("div");
+			box.style.cssText = `
+				position: absolute;
+				top: ${top}px;
+				left: ${left}px;
+				width: ${width}px;
+				height: ${height}px;
+				outline: ${isIFC ? "1px dashed" : "2px solid"} ${color};
+				outline-offset: ${isIFC ? "0px" : "-1px"};
+			`;
+
+			const tag = child.node.element?.tagName?.toLowerCase() || "?";
+			const label = document.createElement("span");
+			label.setAttribute("data-frag-label", "");
+			label.textContent = `${tag} ${height.toFixed(1)}`;
+			label.style.cssText = `top: 0; left: 0; color: ${color};`;
+			box.appendChild(label);
+
+			container.appendChild(box);
+
+			// Recurse into block children
+			if (!isIFC && child.childFragments.length > 0) {
+				const childPadTop = (child.node.paddingBlockStart || 0) + (child.node.borderBlockStart || 0);
+				const childPadLeft = (child.node.paddingInlineStart || 0) + (child.node.borderInlineStart || 0);
+				walk(child, top + childPadTop, left + childPadLeft, width, depth + 1);
+			}
+		}
+	}
+
+	walk(pageFragment, margins.top, margins.left, contentArea.inlineSize, 0);
+	return container;
+}
+
 // --- Internal helpers ---
 
 function dumpFragment(frag, parentBT, depth) {

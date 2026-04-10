@@ -80,6 +80,27 @@
 				outline: 2px solid red;
 			}
 
+			/* Fragment borders overlay */
+			.page-row-render {
+				position: relative;
+			}
+			.fragment-overlay {
+				position: absolute;
+				inset: 0;
+				pointer-events: none;
+				display: none;
+			}
+			.fragment-overlay.active {
+				display: block;
+			}
+			.fragment-overlay [data-frag-label] {
+				position: absolute;
+				font: 9px/1 monospace;
+				background: rgba(255,255,255,0.75);
+				padding: 0 2px;
+				white-space: nowrap;
+			}
+
 			@media (max-width: 900px) {
 				.page-row-content {
 					flex-direction: column;
@@ -139,6 +160,7 @@
 				buildDocumentSummary,
 				buildElementSpans,
 				fragmentainerHeight,
+				buildFragmentOverlay,
 			} from "./debug.js";
 
 			const params = new URLSearchParams(location.search);
@@ -210,10 +232,25 @@
 				URL.revokeObjectURL(a.href);
 			});
 
+			const bordersCheck = document.createElement("input");
+			bordersCheck.type = "checkbox";
+			bordersCheck.id = "fragment-borders";
+			bordersCheck.addEventListener("change", () => {
+				for (const el of document.querySelectorAll(".fragment-overlay")) {
+					el.classList.toggle("active", bordersCheck.checked);
+				}
+			});
+			const bordersLabel = document.createElement("label");
+			bordersLabel.htmlFor = "fragment-borders";
+			bordersLabel.textContent = "Fragment borders";
+			bordersLabel.style.cssText = "font: 12px monospace; cursor: pointer; user-select: none;";
+
 			controlsEl.appendChild(urlInput);
 			controlsEl.appendChild(rangeInput);
 			controlsEl.appendChild(renderBtn);
 			controlsEl.appendChild(downloadBtn);
+			controlsEl.appendChild(bordersCheck);
+			controlsEl.appendChild(bordersLabel);
 
 			if (url) {
 				run();
@@ -295,6 +332,17 @@
 
 						const fragEl = flow[i];
 						renderBox.appendChild(fragEl);
+
+						// Fragment borders overlay
+						if (c) {
+							const overlay = buildFragmentOverlay(
+								fragments[i],
+								c.contentArea,
+								c.margins,
+							);
+							renderBox.appendChild(overlay);
+						}
+
 						contentEl.appendChild(renderBox);
 
 						const dataBox = document.createElement("div");

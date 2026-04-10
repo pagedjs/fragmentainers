@@ -341,6 +341,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 			result.fragment.truncateMarginBlockStart = true;
 		}
 
+		result.fragment.blockOffset = blockOffset;
 		childFragments.push(result.fragment);
 		blockOffset += result.fragment.blockSize;
 
