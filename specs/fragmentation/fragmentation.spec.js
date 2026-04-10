@@ -1,3 +1,3 @@
-import { createSpecSuite } from "../helpers/create-spec-suite.js";
+import { createSpecSuite } from "../helpers/specs.js";
 
 createSpecSuite("fragmentation", import.meta.dirname);

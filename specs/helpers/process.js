@@ -6,9 +6,6 @@
  */
 import { paginate } from "/debug/paginate.js";
 import { findMulticolContainers, multicol } from "/debug/multicol.js";
-import { saveRef } from "./build-ref.js";
-
-const SAVE_REF = location.hash === "#ref";
 
 async function process() {
 	try {
@@ -20,14 +17,7 @@ async function process() {
 				await multicol(container);
 			}
 		} else {
-			const flow = await paginate();
-
-			if (SAVE_REF) {
-				saveRef(flow);
-			}
-
-			// Reset body styles to match ref layout
-			document.body.setAttribute("style", "margin: 0; padding: 0; background: none;");
+			await paginate();
 		}
 
 		document.documentElement.dataset.specReady = "true";
