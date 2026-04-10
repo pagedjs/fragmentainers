@@ -1,440 +1,231 @@
-import { findChildBreakToken, isMonolithic, constants } from "../src/index.js";
+import { FragmentedFlow, PageResolver } from "../src/index.js";
+import { ContentParser } from "./content-parser.js";
+import "../src/dom/fragment-container.js";
+import "./page-container.js";
+import { fragmentainerHeight, buildFragmentOverlay } from "./inspect.js";
 
-const { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } = constants;
+const params = new URLSearchParams(location.search);
+const url = params.get("url");
+const range = params.get("range") || "";
 
-/**
- * Debug utility — pretty-print a break token tree.
- */
-export function debugPrintTokenTree(breakToken, indent = 0) {
-	if (!breakToken) return "(null)";
+if (url) params.set("url", url);
+if (!range) params.delete("range");
+history.replaceState(null, "", `?${params}`);
 
-	const pad = "  ".repeat(indent) + "- ";
-	const flags = [];
-	if (breakToken.isBreakBefore) flags.push("break-before");
-	if (breakToken.isForcedBreak) flags.push("forced");
-	if (breakToken.forcedBreakValue) flags.push(`value=${breakToken.forcedBreakValue}`);
-	if (breakToken.isRepeated) flags.push("repeated");
-	if (breakToken.isAtBlockEnd) flags.push("at-block-end");
-	if (breakToken.hasSeenAllChildren) flags.push("seen-all");
+const headerEl = document.getElementById("header");
+const outputEl = document.getElementById("output");
 
-	let line = `${pad}${breakToken.type}`;
-	if (breakToken.node?.debugName) line += ` [${breakToken.node.debugName}]`;
-	if (breakToken.type === BREAK_TOKEN_BLOCK) {
-		line += ` consumed=${breakToken.consumedBlockSize} seq=${breakToken.sequenceNumber}`;
-	}
-	if (breakToken.type === BREAK_TOKEN_INLINE) {
-		line += ` item=${breakToken.itemIndex} offset=${breakToken.textOffset}`;
-	}
-	if (flags.length) line += ` (${flags.join(", ")})`;
+// --- Header ---
 
-	const lines = [line];
-	if (breakToken.childBreakTokens) {
-		for (const child of breakToken.childBreakTokens) {
-			lines.push(debugPrintTokenTree(child, indent + 1));
-		}
-	}
-	return lines.join("\n");
-}
+const dl = document.createElement("dl");
 
-/**
- * Build a text dump for a single page fragment.
- * Returns { text: string, hasIssues: boolean }.
- */
-export function buildPageDump(fragments, i, pageH, elementSpans, fragW, fragH) {
-	const lines = [];
-	const log = (...args) => lines.push(args.join(" "));
+// URL control — always visible
+const urlInput = document.createElement("input");
+urlInput.type = "text";
+urlInput.value = url;
+urlInput.placeholder = "URL to debug";
+urlInput.addEventListener("keydown", (e) => {
+	if (e.key === "Enter") navigate();
+});
 
-	const page = fragments[i];
-	const prevBT = i > 0 ? fragments[i - 1].breakToken : null;
-	const issues = [];
+const rangeInput = document.createElement("input");
+rangeInput.type = "text";
+rangeInput.value = range;
+rangeInput.style.cssText = "width:60px;";
+rangeInput.placeholder = "Pages";
+rangeInput.title = "Page range (e.g. 3, 1-5, or empty for all)";
+rangeInput.addEventListener("keydown", (e) => {
+	if (e.key === "Enter") navigate();
+});
 
-	if (page.blockSize > pageH + 0.01) {
-		issues.push(`OVERFLOW by ${(page.blockSize - pageH).toFixed(2)}px`);
-	}
-
-	const childData = [];
-	let childSum = 0;
-
-	for (const frag of page.childFragments) {
-		if (!frag.node) continue;
-		childSum += frag.blockSize;
-		const info = dumpFragment(frag, prevBT, 0);
-		childData.push(info);
-		if (info.issues.length) issues.push(...info.issues);
-	}
-
-	const lastFrag = page.childFragments[page.childFragments.length - 1];
-	if (lastFrag?.node) {
-		const clip = checkLastLineClip(lastFrag, page.blockSize, pageH);
-		if (clip) issues.push(clip);
-	}
-
-	const remaining = pageH - page.blockSize;
-	const gap = page.blockSize - childSum;
-	const hasIssues = issues.length > 0;
-
-	const btInfo = page.breakToken
-		? `breakToken(consumed=${page.breakToken.consumedBlockSize.toFixed(1)} children=${page.breakToken.childBreakTokens.length})`
-		: "breakToken=null";
-	const csInfo = page.constraints
-		? `constraints={content: ${page.constraints.contentArea.inlineSize}x${page.constraints.contentArea.blockSize}}`
-		: "";
-	const issueTag = hasIssues ? `Issues: ${issues.length}` : "";
-
-	log(`### Page ${i + 1}`);
-	log(`pageSize: ${fragW}x${fragH}`);
-	log(`blockSize: ${page.blockSize.toFixed(2)}`);
-	log(`remaining: ${remaining.toFixed(2)}`);
-	log(`${issueTag}`);
-
-	log("#### Layout:");
-	log(`- ${btInfo}`);
-	log(`- ${csInfo}`);
-
-	const textSegments = collectPageTextSegments(page, prevBT);
-	if (textSegments.length > 0) {
-		log(`- first text: "${truncate(textSegments[0], 80)}"`);
-		if (textSegments.length > 1) {
-			log(`- last text: "${truncateStart(textSegments[textSegments.length - 1], 80)}"`);
-		}
-	}
-
-	log(
-		`- childFragments: ${page.childFragments.filter((f) => f.node).length}  childSum=${childSum.toFixed(2)}  gap=${gap.toFixed(2)}  remaining=${remaining.toFixed(2)}`,
-	);
-
-	for (const info of childData) {
-		printFragmentInfo(info, log, 0);
-	}
-
-	if (elementSpans) {
-		const pageSpanning = [];
-		for (const [name, [first, last]] of elementSpans) {
-			if (last > first && first <= i && last >= i) {
-				pageSpanning.push(`${name} (pages ${first + 1}-${last + 1})`);
-			}
-		}
-		if (pageSpanning.length > 0) {
-			log(`\n#### Spanning elements (${pageSpanning.length}):`);
-			for (const s of pageSpanning) {
-				log(`- ${s}`);
-			}
-		}
-	}
-
-	if (hasIssues) {
-		log("\n#### Issues:");
-		for (const issue of issues) {
-			log(`- ${issue}`);
-		}
-	}
-
-	if (page.breakToken) {
-		log("\n#### BreakTokens:");
-		log(debugPrintTokenTree(page.breakToken, 0));
-	}
-	log("");
-
-	return { text: lines.join("\n"), hasIssues };
-}
-
-/**
- * Build a document-level summary across all fragments.
- */
-export function buildDocumentSummary(fragments) {
-	const lines = [];
-	let totalContentHeight = 0;
-	let overflowPages = 0;
-	let forcedBreaks = 0;
-
-	for (const page of fragments) {
-		const effH = fragmentainerHeight(page);
-		totalContentHeight += page.blockSize;
-		if (page.blockSize > effH + 0.01) overflowPages++;
-		if (page.breakToken) {
-			if (page.breakToken.isForcedBreak) forcedBreaks++;
-			forcedBreaks += countForcedBreaks(page.breakToken);
-		}
-	}
-
-	lines.push("## Document Summary");
-	lines.push(`- totalPages: ${fragments.length}`);
-	lines.push(`- totalContentHeight: ${totalContentHeight.toFixed(1)}px`);
-	lines.push(`- overflowPages: ${overflowPages}`);
-	lines.push(`- forcedBreaks: ${forcedBreaks}`);
-	return lines.join("\n");
-}
-
-export function buildElementSpans(fragments) {
-	const map = new Map();
-	for (let i = 0; i < fragments.length; i++) {
-		trackElementSpans(fragments[i], i, map);
-	}
-	return map;
-}
-
-/**
- * Get the effective fragmentainer height for a page fragment.
- */
-export function fragmentainerHeight(fragment, defaultH) {
-	return fragment.constraints ? fragment.constraints.contentArea.blockSize : defaultH;
-}
-
-/**
- * Build a transparent overlay showing fragment borders for a page.
- * Each fragment is drawn as a colored outline at its engine-calculated position.
- *
- * @param {import('../src/core/fragment.js').Fragment} pageFragment
- * @param {{ inlineSize: number, blockSize: number }} contentArea
- * @param {{ top: number, right: number, bottom: number, left: number }} margins
- * @returns {HTMLElement}
- */
-export function buildFragmentOverlay(pageFragment, contentArea, margins) {
-	const container = document.createElement("div");
-	container.className = "fragment-overlay";
-
-	const COLORS = [
-		"hsl(200, 80%, 50%)",
-		"hsl(120, 80%, 40%)",
-		"hsl(30, 90%, 50%)",
-		"hsl(280, 70%, 50%)",
-		"hsl(0, 80%, 50%)",
-		"hsl(180, 70%, 40%)",
-	];
-
-	function walk(fragment, parentTop, parentLeft, parentWidth, depth) {
-		for (const child of fragment.childFragments) {
-			if (!child.node) continue;
-
-			const top = parentTop + child.blockOffset;
-			const left = parentLeft;
-			const width = child.inlineSize || parentWidth;
-			const height = child.blockSize;
-
-			if (height <= 0) continue;
-
-			const color = COLORS[depth % COLORS.length];
-			const isIFC = child.node.isInlineFormattingContext;
-
-			const box = document.createElement("div");
-			box.style.cssText = `
-				position: absolute;
-				top: ${top}px;
-				left: ${left}px;
-				width: ${width}px;
-				height: ${height}px;
-				outline: ${isIFC ? "1px dashed" : "2px solid"} ${color};
-				outline-offset: ${isIFC ? "0px" : "-1px"};
-			`;
-
-			const tag = child.node.element?.tagName?.toLowerCase() || "?";
-			const label = document.createElement("span");
-			label.setAttribute("data-frag-label", "");
-			label.textContent = `${tag} ${height.toFixed(1)}`;
-			label.style.cssText = `top: 0; left: 0; color: ${color};`;
-			box.appendChild(label);
-
-			container.appendChild(box);
-
-			// Recurse into block children
-			if (!isIFC && child.childFragments.length > 0) {
-				const childPadTop = (child.node.paddingBlockStart || 0) + (child.node.borderBlockStart || 0);
-				const childPadLeft = (child.node.paddingInlineStart || 0) + (child.node.borderInlineStart || 0);
-				walk(child, top + childPadTop, left + childPadLeft, width, depth + 1);
-			}
-		}
-	}
-
-	walk(pageFragment, margins.top, margins.left, contentArea.inlineSize, 0);
-	return container;
-}
-
-// --- Internal helpers ---
-
-function dumpFragment(frag, parentBT, depth) {
-	const node = frag.node;
-	const tag = node.element?.tagName?.toLowerCase() || "?";
-	const name = node.debugName || tag;
-	const isIFC = node.isInlineFormattingContext;
-	const measured = node.blockSize || null;
-
-	const breakProps = {};
-	if (node.breakBefore && node.breakBefore !== "auto") breakProps.before = node.breakBefore;
-	if (node.breakAfter && node.breakAfter !== "auto") breakProps.after = node.breakAfter;
-	if (node.breakInside && node.breakInside !== "auto") breakProps.inside = node.breakInside;
-
-	const issues = [];
-	const info = {
-		name,
-		tag,
-		depth,
-		blockSize: frag.blockSize,
-		measured,
-		margin: [node.marginBlockStart || 0, node.marginBlockEnd || 0],
-		padding: [node.paddingBlockStart || 0, node.paddingBlockEnd || 0],
-		border: [node.borderBlockStart || 0, node.borderBlockEnd || 0],
-		isIFC,
-		isMonolithic: isMonolithic(node),
-		breakProps,
-		hasBreakToken: !!frag.breakToken,
-		breakTokenType: frag.breakToken?.type || null,
-		consumedBlockSize: frag.breakToken?.consumedBlockSize ?? null,
-		issues,
-		children: [],
-	};
-
-	if (isIFC) {
-		const data = node.inlineItemsData;
-		const lh = node.lineHeight;
-		const lineCount = frag.childFragments.length;
-		const computed = lineCount * lh;
-		const inputBT = findChildBreakToken(parentBT, node);
-		const outputBT = frag.breakToken;
-
-		info.ifc = {
-			lineHeight: lh,
-			lineCount,
-			computedHeight: computed,
-			textLength: data?.textContent?.length || 0,
-			itemCount: data?.items?.length || 0,
-			startOffset: inputBT?.textOffset ?? 0,
-			endOffset: outputBT?.textOffset ?? (data?.textContent?.length || 0),
-		};
-
-		// Skip lineHeight checks for table cells (border-collapse makes
-		// effective insets unpredictable) and anonymous blocks (lineHeight
-		// is inherited from the parent element, not the actual content).
-		const skipLineHeightChecks = tag === "td" || tag === "th" || !node.element;
-		if (!skipLineHeightChecks && computed > frag.blockSize + 0.5) {
-			issues.push(
-				`${name}: lines*lineHeight (${computed.toFixed(2)}) > blockSize (${frag.blockSize.toFixed(2)}) by ${(computed - frag.blockSize).toFixed(2)}px`,
-			);
-		}
+function navigate() {
+	params.set("url", urlInput.value);
+	if (rangeInput.value) {
+		params.set("range", rangeInput.value);
 	} else {
-		for (const child of frag.childFragments) {
-			if (!child.node) continue;
-			const childInfo = dumpFragment(child, parentBT, depth + 1);
-			info.children.push(childInfo);
-			issues.push(...childInfo.issues);
-		}
+		params.delete("range");
 	}
-
-	return info;
+	location.search = params.toString();
 }
 
-function printFragmentInfo(info, log, depth) {
-	const indent = "  ".repeat(depth) + "- ";
-
-	const parts = [`${indent}${info.name}  blockSize=${info.blockSize.toFixed(2)}`];
-	if (info.measured !== null) parts.push(`measured=${info.measured.toFixed(2)}`);
-	parts.push(`margin=${info.margin[0].toFixed(1)}/${info.margin[1].toFixed(1)}`);
-	parts.push(`pad=${info.padding[0].toFixed(1)}/${info.padding[1].toFixed(1)}`);
-	if (info.border[0] || info.border[1]) {
-		parts.push(`border=${info.border[0].toFixed(1)}/${info.border[1].toFixed(1)}`);
+function addRow(label, content) {
+	const dt = document.createElement("dt");
+	dt.textContent = `${label}:`;
+	const dd = document.createElement("dd");
+	if (typeof content === "string") {
+		dd.innerHTML = content;
+	} else {
+		dd.append(content);
 	}
-	if (info.hasBreakToken) {
-		const consumed =
-			info.consumedBlockSize !== null ? ` consumed=${info.consumedBlockSize.toFixed(1)}` : "";
-		parts.push(`BT(${info.breakTokenType}${consumed})`);
+	dl.append(dt, dd);
+	return dd;
+}
+
+const urlDd = addRow("url", "");
+urlDd.className = "controls";
+urlDd.append(urlInput, rangeInput);
+
+// Placeholder rows — filled after layout
+const pagesDd = addRow("pages", "—");
+const sizeDd = addRow("size", "—");
+const timeDd = addRow("time", "—");
+
+// Outlines toggle
+const toggle = document.createElement("input");
+toggle.type = "checkbox";
+toggle.id = "fragment-borders";
+toggle.addEventListener("change", () => {
+	for (const el of document.querySelectorAll(".fragment-overlay")) {
+		el.classList.toggle("active", toggle.checked);
 	}
-	if (info.isMonolithic) parts.push("[monolithic]");
+});
+addRow("outlines", toggle);
 
-	const bpParts = [];
-	if (info.breakProps.before) bpParts.push(`break-before:${info.breakProps.before}`);
-	if (info.breakProps.after) bpParts.push(`break-after:${info.breakProps.after}`);
-	if (info.breakProps.inside) bpParts.push(`break-inside:${info.breakProps.inside}`);
-	if (bpParts.length) parts.push(`{${bpParts.join(", ")}}`);
+headerEl.append(dl);
 
-	let line = parts.join("  ");
-
-	if (info.isIFC && info.ifc) {
-		const ifc = info.ifc;
-		const subIndent = "  ".repeat(depth + 1) + "- ";
-		line += `\n${subIndent}IFC: lineHeight=${ifc.lineHeight.toFixed(2)} lines=${ifc.lineCount} computed=${ifc.computedHeight.toFixed(2)} text=[${ifc.startOffset}..${ifc.endOffset}]/${ifc.textLength}`;
-	}
-
-	log(line);
-
-	for (const child of info.children) {
-		printFragmentInfo(child, log, depth + 1);
+function updateHeader(summary, timing) {
+	rangeInput.placeholder = `1–${summary.totalPages}`;
+	pagesDd.textContent = `${summary.totalPages} (${summary.overflowPages} overflow, ${summary.forcedBreaks} forced breaks)`;
+	sizeDd.textContent = `${summary.pageSize.inlineSize} × ${summary.pageSize.blockSize} · ${summary.totalContentHeight.toFixed(0)}px content`;
+	timeDd.textContent = `${timing.total.toFixed(0)}ms (layout ${timing.layout.toFixed(0)}ms, render ${timing.render.toFixed(0)}ms)`;
+	if (summary.issueCount > 0) {
+		addRow("issues", `<span class="issue-count">${summary.issueCount}</span>`);
 	}
 }
 
-function checkLastLineClip(frag, pageBlockSize, pageH) {
-	let current = frag;
-	while (current) {
-		if (current.node?.isInlineFormattingContext) {
-			if (pageBlockSize > pageH + 0.01) {
-				return `Last IFC (${current.node.debugName}): page blockSize ${pageBlockSize.toFixed(2)} > fragmentainer ${pageH} — last line clipped`;
-			}
-			return null;
-		}
-		const blockChildren = current.childFragments.filter((f) => f.node);
-		if (blockChildren.length === 0) return null;
-		current = blockChildren[blockChildren.length - 1];
+// --- Helpers ---
+
+function parseRange(str, total) {
+	if (!str) return [0, total];
+	const match = str.match(/^(\d+)(?:-(\d+))?$/);
+	if (!match) return [0, total];
+	const a = Math.max(1, Math.min(parseInt(match[1]), total));
+	const b = match[2] ? Math.max(a, Math.min(parseInt(match[2]), total)) : a;
+	return [a - 1, b];
+}
+
+function findBaseLineHeight(fragment) {
+	for (const child of fragment.childFragments) {
+		if (!child.node) continue;
+		if (child.node.isInlineFormattingContext) return child.node.lineHeight;
+		const lh = findBaseLineHeight(child);
+		if (lh) return lh;
 	}
 	return null;
 }
 
-function collectPageTextSegments(pageFragment, inputBreakToken) {
-	const segments = [];
-	(function walk(fragment, bt) {
-		for (const child of fragment.childFragments) {
-			if (!child.node) continue;
-			const childBT = findChildBreakToken(bt, child.node);
-			if (child.node.isInlineFormattingContext) {
-				extractInlineText(child, childBT, segments);
-			} else {
-				walk(child, childBT);
+// --- Main ---
+
+if (url) {
+	run();
+}
+
+async function run() {
+	try {
+		const t0 = performance.now();
+
+		const response = await fetch(url);
+		const content = await response.text();
+		const baseURL = url.substring(0, url.lastIndexOf("/") + 1);
+		const parsed = await ContentParser.fromString(content, baseURL);
+
+		const resolver = PageResolver.fromStyleSheets(parsed.styles);
+
+		const layout = new FragmentedFlow(parsed.fragment, {
+			styles: parsed.styles,
+			resolver: resolver.pageRules.length > 0 ? resolver : undefined,
+			normalizeLineHeight: true,
+		});
+
+		await layout.preload();
+
+		const tLayout = performance.now();
+		const flow = layout.flow();
+		const layoutTime = performance.now() - tLayout;
+		const fragments = flow.fragments;
+
+		const [startIdx, endIdx] = parseRange(range, fragments.length);
+		document.adoptedStyleSheets = [...document.adoptedStyleSheets, ...parsed.styles];
+
+		const first = fragments[startIdx].constraints;
+		const fragW = first?.pageBoxSize?.inlineSize ?? 0;
+		document.body.style.setProperty("--page-inline-size", fragW);
+
+		// Snap dot grid to the base line-height
+		const lh = findBaseLineHeight(fragments[0]);
+		if (lh) document.body.style.setProperty("--grid-size", `${lh}px`);
+
+		const tRender = performance.now();
+		let issueCount = 0;
+
+		let slot = 0;
+		for (let i = startIdx; i < endIdx; i++) {
+			const c = fragments[i].constraints;
+			const isBlank = fragments[i].isBlank;
+
+			// Blank pages go on the left (even slot) — pad the previous page if needed
+			if (isBlank && slot % 2 === 1) {
+				const prev = outputEl.lastElementChild;
+				if (prev) prev.classList.add("single");
+				slot++;
 			}
+
+			const renderBox = document.createElement("page-container");
+			renderBox.className = "page-render";
+
+			const fragEl = flow[i];
+			renderBox.appendChild(fragEl);
+
+			if (c) {
+				const overlay = buildFragmentOverlay(fragments[i], c.contentArea, c.margins);
+				renderBox.appendChild(overlay);
+			}
+
+			fragEl.addEventListener("overflow", () => {
+				renderBox.classList.add("has-issues");
+				issueCount++;
+			});
+			fragEl.startObserving();
+
+			outputEl.appendChild(renderBox);
+			slot++;
 		}
-	})(pageFragment, inputBreakToken);
-	return segments;
-}
 
-function extractInlineText(fragment, breakToken, segments) {
-	const data = fragment.node.inlineItemsData;
-	if (!data?.textContent) return;
-	const start = breakToken && breakToken.type === "inline" ? breakToken.textOffset : 0;
-	const end =
-		fragment.breakToken && fragment.breakToken.type === "inline"
-			? fragment.breakToken.textOffset
-			: data.textContent.length;
-	let text = data.textContent.slice(start, end);
-	const ws = fragment.node.whiteSpace || "normal";
-	if (!ws.startsWith("pre")) {
-		text = text.replace(/\s+/g, " ").trim();
-	}
-	if (text) segments.push(text);
-}
-
-function countForcedBreaks(bt) {
-	let count = 0;
-	if (!bt.childBreakTokens) return 0;
-	for (const child of bt.childBreakTokens) {
-		if (child.isForcedBreak) count++;
-		count += countForcedBreaks(child);
-	}
-	return count;
-}
-
-function trackElementSpans(pageFragment, pageIndex, map) {
-	for (const child of pageFragment.childFragments) {
-		if (!child.node) continue;
-		const name = child.node.debugName || child.node.element?.tagName?.toLowerCase() || "?";
-		if (map.has(name)) {
-			map.get(name)[1] = pageIndex;
-		} else {
-			map.set(name, [pageIndex, pageIndex]);
+		// If the last slot is odd (left page only), mark it single
+		const lastRender = outputEl.lastElementChild;
+		if (slot % 2 === 1 && lastRender) {
+			lastRender.classList.add("single");
 		}
-		trackElementSpans(child, pageIndex, map);
+
+		const renderTime = performance.now() - tRender;
+		const totalTime = performance.now() - t0;
+
+		const firstResolved = resolver.resolve(0, null, null);
+		let totalContentHeight = 0;
+		let overflowPages = 0;
+		let forcedBreaks = 0;
+		for (const page of fragments) {
+			totalContentHeight += page.blockSize;
+			if (page.blockSize > fragmentainerHeight(page) + 0.01) overflowPages++;
+			if (page.breakToken?.isForcedBreak) forcedBreaks++;
+		}
+
+		updateHeader(
+			{
+				totalPages: fragments.length,
+				totalContentHeight,
+				overflowPages,
+				forcedBreaks,
+				pageSize: firstResolved.pageBoxSize,
+				issueCount,
+			},
+			{
+				layout: layoutTime,
+				render: renderTime,
+				total: totalTime,
+			},
+		);
+	} catch (err) {
+		outputEl.textContent = `ERROR: ${err.message}\n${err.stack}`;
 	}
-}
-
-function truncate(str, maxLen) {
-	return str.length <= maxLen ? str : str.slice(0, maxLen - 3) + "…";
-}
-
-function truncateStart(str, maxLen) {
-	return str.length <= maxLen ? str : "…" + str.slice(str.length - maxLen + 3);
 }

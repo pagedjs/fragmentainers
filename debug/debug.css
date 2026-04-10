@@ -1,0 +1,134 @@
+body {
+	--grid-size: 16px;
+	--header-height: round(up, 120px, var(--grid-size));
+	margin: 0;
+	background-color: #fafafa;
+		background-image: radial-gradient(circle, #ddd 1px, transparent 1px);
+	background-size: var(--grid-size) var(--grid-size);
+	/* background-position-y: calc(var(--grid-size) / 2) */
+}
+
+#header {
+	font-family: monospace;
+	font-size: 12px;
+	color: #000;
+	padding: 12px;
+	margin: 0 auto;
+}
+#header input,
+#header button {
+	font-family: monospace;
+	font-size: 12px;
+	padding: 2px 4px;
+	margin: 0;
+}
+#header dd.controls {
+	display: flex;
+	gap: 4px;
+	align-items: baseline;
+}
+#header dd.controls input[type="text"]:first-child {
+	flex: 1;
+}
+#header dl {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px 0;
+	margin: 0 auto;
+	min-width: 400px;
+	max-width: 600px;
+	align-items: baseline;
+}
+#header dt {
+	color: #888;
+	width: 60px;
+	text-align: right;
+	margin-right: 12px;
+}
+#header dd {
+	margin: 0;
+	flex: 1;
+	min-width: calc(100% - 72px);
+	min-height: 22px;
+}
+#header .issue-count {
+	color: #c00;
+	font-weight: bold;
+}
+
+/* Page spread grid */
+#output {
+	--page-scale: min(1, 45vw / (var(--page-inline-size) * 1px));
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--grid-size);
+	padding: var(--grid-size);
+	/* background-image: radial-gradient(circle, #ddd 1px, transparent 1px);
+	background-size: var(--grid-size) var(--grid-size);
+	background-position-y: calc(var(--grid-size) / 2) */
+}
+
+.page-render {
+	zoom: var(--page-scale);
+	outline: 1px solid #ddd;
+	background: #fff;
+	position: relative;
+}
+.page-render.has-issues {
+	outline: 2px solid red;
+}
+.page-render.single {
+	margin-right: calc(var(--page-inline-size) * 1px + var(--grid-size));
+}
+
+@media (max-width: 900px) {
+	#output {
+		--page-scale: min(1, 90vw / (var(--page-inline-size) * 1px));
+	}
+	.page-render.single {
+		margin-right: 0;
+	}
+}
+
+/* Fragment borders overlay */
+.fragment-overlay {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	display: none;
+}
+.fragment-overlay.active {
+	display: block;
+}
+.fragment-overlay [data-frag-label] {
+	position: absolute;
+	font: 9px/1 monospace;
+	background: rgba(255, 255, 255, 0.75);
+	padding: 0 2px;
+	white-space: nowrap;
+}
+
+@media print {
+	#header {
+		display: none !important;
+	}
+	body {
+		margin: 0;
+		background: none;
+	}
+	#output {
+		gap: 0;
+		padding: 0;
+	}
+	.page-render {
+		zoom: 1;
+		outline: none;
+	}
+	.page-render.has-issues {
+		outline: none;
+	}
+	@page {
+		margin: 0 !important;
+	}
+}

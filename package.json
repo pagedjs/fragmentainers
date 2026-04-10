@@ -8,12 +8,16 @@
 	],
 	"type": "module",
 	"main": "src/index.js",
+	"bin": {
+		"view": "debug/viewer.js"
+	},
 	"scripts": {
 		"test": "eslint src/ test/ && playwright test --config test/playwright.config.js",
 		"lint": "eslint src/ test/",
 		"lint:fix": "eslint --fix src/ test/",
 		"serve": "serve .",
-		"specs": "playwright test --config specs/playwright.config.js"
+		"specs": "playwright test --config specs/playwright.config.js",
+		"view": "node debug/viewer.js"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.39.4",

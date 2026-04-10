@@ -9,7 +9,6 @@ export default defineConfig({
 	use: {
 		baseURL: "http://localhost:8080",
 		browserName: "chromium",
-		channel: "chrome",
 		deviceScaleFactor: 1,
 		headless: true,
 		launchOptions: {

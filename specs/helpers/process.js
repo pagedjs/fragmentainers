@@ -18,6 +18,11 @@ async function process() {
 			}
 		} else {
 			await paginate();
+
+			// Reset body styles since we aren't really printing.
+			const style = document.createElement("style");
+			style.textContent = "@media screen { body { all: initial !important } }";
+			document.head.appendChild(style);
 		}
 
 		document.documentElement.dataset.specReady = "true";

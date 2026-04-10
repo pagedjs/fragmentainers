@@ -48,13 +48,6 @@ export function createSpecSuite(
 				});
 				await page.waitForSelector("[data-spec-ready]", { timeout: 15000 });
 
-				// Reset body styles to match ref layout for print specs
-				if (type !== "multicol") {
-					await page.addStyleTag({
-						content: "body { margin: 0; padding: 0; background: none; }",
-					});
-				}
-
 				const error = await page.getAttribute("html", "data-spec-error");
 				if (error) {
 					console.warn(`  Processing error in ${name}: ${error}`);
