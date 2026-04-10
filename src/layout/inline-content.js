@@ -164,18 +164,17 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 
 		if (remainingHeight <= availableBlockSpace) {
 			// FAST PATH — all remaining content fits, no expensive measurement needed.
-			// Use the cheap lineHeight estimate for line count, but actual measured
-			// height for the fragment size.
+			// Use lineHeight (which may be DPR-adjusted for normalized output)
+			// as the authoritative per-line height for block size computation.
 			const totalLines = Math.round(totalHeight / lineHeight);
 			consumedLines = Math.round(consumedHeight / lineHeight);
 			remainingLines = totalLines - consumedLines;
 			if (remainingLines < 1) remainingLines = 1;
-			const effectiveLineHeight = remainingHeight / remainingLines;
 
 			for (let i = 0; i < remainingLines; i++) {
-				lineFragments.push(new Fragment(null, effectiveLineHeight));
+				lineFragments.push(new Fragment(null, lineHeight));
 			}
-			blockOffset = remainingLines * effectiveLineHeight;
+			blockOffset = remainingLines * lineHeight;
 
 			// Consume everything
 			itemIndex = inlineItems.items.length;

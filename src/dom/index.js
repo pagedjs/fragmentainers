@@ -14,6 +14,7 @@ export {
 } from "./measure.js";
 export { ContentMeasureElement } from "./content-measure.js";
 export { FragmentContainerElement } from "./fragment-container.js";
+export { getSharedFontMetrics } from "./font-metrics.js";
 
 /**
  * Build a layout tree from a DOM element.

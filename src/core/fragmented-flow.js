@@ -64,6 +64,7 @@ export class FragmentedFlow extends Iterator {
 	#styles;
 	#resolver;
 	#constraintSpace;
+	#normalizeLineHeight;
 
 	// Stepper state (initialized lazily on first next() call)
 	#tree = null;
@@ -89,6 +90,7 @@ export class FragmentedFlow extends Iterator {
 	 * @param {PageResolver|RegionResolver} [options.resolver] - Pre-configured resolver
 	 * @param {number} [options.width] - Container width in CSS px (column fragmentation)
 	 * @param {number} [options.height] - Container height in CSS px (column fragmentation)
+	 * @param {boolean} [options.normalizeLineHeight] - Set explicit line-height on elements with line-height: normal
 	 */
 	constructor(content, options = {}) {
 		super();
@@ -131,6 +133,8 @@ export class FragmentedFlow extends Iterator {
 			this.#resolver = null;
 		}
 		// Page resolver auto-created in layout() from styles if neither set
+
+		this.#normalizeLineHeight = options.normalizeLineHeight || false;
 	}
 
 	/**
@@ -151,7 +155,9 @@ export class FragmentedFlow extends Iterator {
 
 		// Initialize context on first call
 		if (!this.#context) {
-			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles);
+			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles, {
+				adoptedSheets: modules.getAdoptedSheets(),
+			});
 		}
 
 		const fragment = this.#nextFragment();
@@ -248,6 +254,7 @@ export class FragmentedFlow extends Iterator {
 		return new FragmentationContext([...this.#fragments], this.#contentStyles, {
 			start,
 			stop,
+			adoptedSheets: modules.getAdoptedSheets(),
 		});
 	}
 
@@ -308,7 +315,9 @@ export class FragmentedFlow extends Iterator {
 		// Layout is done — release the measurer before composition.
 		this.releaseMeasurer();
 
-		return new FragmentationContext(newFragments, this.#contentStyles);
+		return new FragmentationContext(newFragments, this.#contentStyles, {
+			adoptedSheets: modules.getAdoptedSheets(),
+		});
 	}
 
 	/**
@@ -533,6 +542,7 @@ export class FragmentedFlow extends Iterator {
 			const isPageBased =
 				this.#resolver instanceof PageResolver || (!this.#resolver && !this.#constraintSpace);
 			const layoutStyles = isPageBased ? [UA_DEFAULTS, ...styles] : styles;
+			modules.setOptions({ normalizeLineHeight: this.#normalizeLineHeight });
 			this.#measurer = new Measurer(content, layoutStyles);
 			const contentRoot = this.#measurer.setup();
 

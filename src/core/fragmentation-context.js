@@ -10,6 +10,7 @@ import { DEFAULT_OVERFLOW_THRESHOLD } from "./constants.js";
 export class FragmentationContext extends Array {
 	#fragments;
 	#contentStyles;
+	#adoptedSheets;
 
 	static get [Symbol.species]() {
 		return Array;
@@ -18,12 +19,13 @@ export class FragmentationContext extends Array {
 	/**
 	 * @param {import("./fragment.js").Fragment[]} fragments
 	 * @param {{ sheets: CSSStyleSheet[] }|null} contentStyles
-	 * @param {{ start?: number, stop?: number }} [range]
+	 * @param {{ start?: number, stop?: number, adoptedSheets?: CSSStyleSheet[] }} [range]
 	 */
-	constructor(fragments, contentStyles, { start = 0, stop } = {}) {
+	constructor(fragments, contentStyles, { start = 0, stop, adoptedSheets = [] } = {}) {
 		super();
 		this.#fragments = fragments;
 		this.#contentStyles = contentStyles;
+		this.#adoptedSheets = adoptedSheets;
 		if (contentStyles) {
 			const end = stop ?? fragments.length;
 			for (let i = start; i < end; i++) {
@@ -89,8 +91,32 @@ export class FragmentationContext extends Array {
 			}
 		}
 
+		for (const sheet of this.#adoptedSheets) {
+			el.adoptNthSheet(sheet);
+		}
+
 		el.expectedBlockSize = contentArea.blockSize;
-		el.overflowThreshold = fragment.node?.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
+		el.overflowThreshold = findLastIFCLineHeight(fragment) || DEFAULT_OVERFLOW_THRESHOLD;
 		return el;
 	}
+}
+
+/**
+ * Walk the fragment tree bottom-up to find the last (deepest) IFC's
+ * cached lineHeight. IFC nodes have lineHeight cached during layout,
+ * so this works correctly even after the measurer is released and
+ * elements are detached from the DOM.
+ */
+function findLastIFCLineHeight(fragment) {
+	const children = fragment.childFragments;
+	for (let i = children.length - 1; i >= 0; i--) {
+		const child = children[i];
+		if (!child.node) continue;
+		if (child.node.isInlineFormattingContext) {
+			return child.node.lineHeight;
+		}
+		const result = findLastIFCLineHeight(child);
+		if (result) return result;
+	}
+	return null;
 }

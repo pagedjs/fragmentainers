@@ -4,6 +4,7 @@ import { isForcedBreakValue } from "../core/helpers.js";
 import { INLINE_TEXT } from "../core/constants.js";
 import { modules } from "../modules/registry.js";
 import { buildPseudoStyleSheet, materializePseudoElements } from "./pseudo-elements.js";
+import { getSharedFontMetrics } from "./font-metrics.js";
 import "../dom/content-measure.js";
 
 /**
@@ -167,20 +168,19 @@ export function countLines(element) {
 /**
  * Get the computed line height of an element in pixels.
  *
- * Returns a cheap estimate — no DOM measurement for "normal".
- * The accurate gap-based measurement (measureLines) is deferred to
- * layoutInlineContent's breaking path where it's actually needed.
+ * For "normal" line-height, uses canvas-based font metrics to get an
+ * accurate value estimate.
+ *
+ * @param {Element} element
  */
 export function getLineHeight(element) {
 	const map = computedStyleMap(element);
 	const lh = map.get("line-height");
 
 	// "normal" returns a keyword (no .unit property).
-	// Use fontSize * 1.2 as a cheap estimate. The accurate measurement
-	// happens in layoutInlineContent only when content breaks.
+	// Use canvas font metrics for an accurate value estimate.
 	if (!lh || !lh.unit) {
-		const fs = map.get("font-size");
-		return (fs && fs.unit ? fs.value : 16) * 1.2;
+		return getSharedFontMetrics().getNormalLineHeight(element);
 	}
 
 	// Unitless line-height (e.g. 1.3) — computedStyleMap returns unit "number".
@@ -367,6 +367,7 @@ export class Measurer {
 		// pseudo stylesheet (already adopted) take effect on next reflow.
 		materializePseudoElements(measurer.contentRoot, modules);
 		void measurer.offsetHeight;
+		modules.afterMeasurementSetup(measurer.contentRoot);
 
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
@@ -423,6 +424,7 @@ export class Measurer {
 		// Materialize pseudo elements after browser has computed styles
 		materializePseudoElements(measurer.contentRoot, modules);
 		void measurer.offsetHeight;
+		modules.afterMeasurementSetup(measurer.contentRoot);
 
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
@@ -482,6 +484,7 @@ export class Measurer {
 		// Materialize pseudo elements in the new segment
 		materializePseudoElements(newSlot, modules);
 		void measurer.offsetHeight;
+		modules.afterMeasurementSetup(newSlot);
 
 		this.#measureElement = measurer;
 
@@ -495,10 +498,8 @@ export class Measurer {
 	 * lookahead boundary child from the next segment (if any).
 	 */
 	#buildSegmentChildren(segIndex) {
-		const seg = this.#segments[segIndex];
 		const children = [];
 		const slot = this.#measureElement.contentRoot;
-		const persistentSet = new Set(this.#persistent);
 
 		// Build children from the slot's current DOM order — this includes
 		// persistent elements and the segment's flow elements.

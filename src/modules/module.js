@@ -1,4 +1,7 @@
 export class LayoutModule {
+	/** Options passed from FragmentedFlow via the registry. */
+	options = {};
+
 	claim() {
 		return false;
 	}
@@ -72,6 +75,29 @@ export class LayoutModule {
 	 */
 	claimPseudoRule() {
 		return false;
+	}
+
+	/**
+	 * Called after the measurement container is fully set up (content
+	 * injected, pseudo-elements materialized, styles resolved). The
+	 * live DOM is available for getComputedStyle() queries.
+	 *
+	 * Modules can probe the DOM and build internal state such as
+	 * generated stylesheets. Must not modify the DOM or adopted
+	 * stylesheets (to avoid measurer reflow).
+	 *
+	 * @param {Element} contentRoot — the measurement slot element
+	 */
+	afterMeasurementSetup() {}
+
+	/**
+	 * Return CSSStyleSheets to be adopted on each fragment-container's
+	 * shadow DOM. Called when creating a FragmentationContext.
+	 *
+	 * @returns {CSSStyleSheet[]}
+	 */
+	getAdoptedSheets() {
+		return [];
 	}
 
 	/**

@@ -48,7 +48,7 @@ test.describe("getLineHeight", () => {
 		expect(result).toBe(24);
 	});
 
-	test("returns fontSize * 1.2 when line-height is normal", async ({ page }) => {
+	test("returns accurate font-metric-based value when line-height is normal", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { getLineHeight } = await import("/src/dom/measure.js");
 			const div = document.createElement("div");
@@ -59,7 +59,93 @@ test.describe("getLineHeight", () => {
 			div.remove();
 			return lh;
 		});
-		expect(result).toBe(24);
+		// Canvas fontBoundingBox metrics give the real ratio (not the 1.2 estimate)
+		expect(result).toBeGreaterThan(20);
+		expect(result).toBeLessThan(40);
+	});
+
+	test("returns unitless line-height multiplied by font-size", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getLineHeight } = await import("/src/dom/measure.js");
+			const div = document.createElement("div");
+			div.style.lineHeight = "1.5";
+			div.style.fontSize = "20px";
+			document.body.appendChild(div);
+			const lh = getLineHeight(div);
+			div.remove();
+			return lh;
+		});
+		expect(result).toBe(30);
+	});
+});
+
+test.describe("FontMetrics", () => {
+	test("measure returns a ratio in a sane range", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getSharedFontMetrics } = await import("/src/dom/font-metrics.js");
+			const fm = getSharedFontMetrics();
+			return fm.measure("serif");
+		});
+		expect(result).toBeGreaterThan(1.0);
+		expect(result).toBeLessThan(2.0);
+	});
+
+	test("caches results for repeated calls", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getSharedFontMetrics } = await import("/src/dom/font-metrics.js");
+			const fm = getSharedFontMetrics();
+			const a = fm.measure("monospace", "400", "normal");
+			const b = fm.measure("monospace", "400", "normal");
+			return { a, b };
+		});
+		expect(result.a).toBe(result.b);
+	});
+
+	test("different fonts can produce different ratios", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getSharedFontMetrics } = await import("/src/dom/font-metrics.js");
+			const fm = getSharedFontMetrics();
+			return {
+				serif: fm.measure("serif"),
+				monospace: fm.measure("monospace"),
+			};
+		});
+		// At least confirm both are valid ratios (they may or may not differ
+		// depending on the system, but both should be in range)
+		expect(result.serif).toBeGreaterThan(1.0);
+		expect(result.monospace).toBeGreaterThan(1.0);
+	});
+
+	test("getNormalLineHeight matches the element's actual rendered line height", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getSharedFontMetrics } = await import("/src/dom/font-metrics.js");
+			const fm = getSharedFontMetrics();
+
+			const div = document.createElement("div");
+			div.style.fontSize = "20px";
+			div.style.lineHeight = "normal";
+			div.style.fontFamily = "serif";
+			div.textContent = "Hg";
+			document.body.appendChild(div);
+
+			const metricsLh = fm.getNormalLineHeight(div);
+			const renderedHeight = div.getBoundingClientRect().height;
+
+			div.remove();
+			return { metricsLh, renderedHeight };
+		});
+		// Canvas metrics should closely match what the browser actually renders
+		expect(Math.abs(result.metricsLh - result.renderedHeight)).toBeLessThan(1);
+	});
+
+	test("getSharedFontMetrics returns the same instance", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getSharedFontMetrics } = await import("/src/dom/font-metrics.js");
+			const a = getSharedFontMetrics();
+			const b = getSharedFontMetrics();
+			return a === b;
+		});
+		expect(result).toBe(true);
 	});
 });
 

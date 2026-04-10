@@ -250,6 +250,7 @@
 						resolver: resolver.pageRules.length > 0 ? resolver : undefined,
 						width: resolver.pageRules.length === 0 ? pageW : undefined,
 						height: resolver.pageRules.length === 0 ? pageH : undefined,
+						normalizeLineHeight: true,
 					});
 
 					await layout.preload();

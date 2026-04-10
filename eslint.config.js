@@ -32,6 +32,7 @@ export default [
         CSSFontFaceRule: "readonly",
         FontFace: "readonly",
         Image: "readonly",
+        devicePixelRatio: "readonly",
         // Node.js test globals
         console: "readonly",
         process: "readonly",

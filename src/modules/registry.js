@@ -48,6 +48,16 @@ class ModuleRegistry {
 	}
 
 	/**
+	 * Pass options from FragmentedFlow to all registered modules.
+	 * @param {Object} options
+	 */
+	setOptions(options) {
+		for (const mod of this.#modules) {
+			mod.options = options;
+		}
+	}
+
+	/**
 	 * Walk all CSS rules in the given stylesheets and dispatch each
 	 * leaf style rule to every module's matchRule() callback. Recurses
 	 * into grouping rules (@media, @supports, @layer, etc.) and tracks
@@ -134,6 +144,32 @@ class ModuleRegistry {
 
 	getSource(clone) {
 		return this.#cloneMap.get(clone);
+	}
+
+	/**
+	 * Let modules probe the live measurement DOM after setup.
+	 * Called from the Measurer after pseudo-element materialization
+	 * and reflow, before getContentStyles().
+	 *
+	 * @param {Element} contentRoot — the measurement slot element
+	 */
+	afterMeasurementSetup(contentRoot) {
+		for (const mod of this.#modules) {
+			mod.afterMeasurementSetup(contentRoot);
+		}
+	}
+
+	/**
+	 * Collect CSSStyleSheets from modules for fragment-container adoption.
+	 *
+	 * @returns {CSSStyleSheet[]}
+	 */
+	getAdoptedSheets() {
+		const sheets = [];
+		for (const mod of this.#modules) {
+			sheets.push(...mod.getAdoptedSheets());
+		}
+		return sheets;
 	}
 
 	claimPseudo(element, pseudo, contentValue) {
