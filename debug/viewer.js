@@ -34,10 +34,12 @@ function printUsage() {
 	console.log();
 	console.log("  Options:");
 	console.log("    --type <print|multicol>             Fragmentation mode (default: print)");
-	console.log("    --browser <chromium|firefox|webkit>  Browser engine (default: chromium)");
+	console.log("    --browser [name]                     Browser: chromium (default), firefox, webkit, or chrome (installed)");
 	console.log("    --html [path]                        Extract pages to HTML file (or stdout)");
 	console.log("    --inspect [path]                     Print inspect report (or stdout)");
 	console.log("    --pdf [path]                         Save as PDF (default: output.pdf)");
+	console.log("    --debug                              Show fragment border overlays");
+	console.log("    --ref                                Skip script injection (view page as-is)");
 	console.log();
 	console.log("  Examples:");
 	console.log(dim("    node debug/viewer.js specs/at-page/awesome.html"));
@@ -116,17 +118,23 @@ function findFreePort(start) {
 // --- Browser ---
 
 async function launchBrowser(browserName, { headless = false } = {}) {
-	const engine = BROWSERS[browserName];
+	// "chrome" uses installed Chrome via Playwright's channel option
+	const isChannel = browserName === "chrome";
+	const engine = isChannel ? chromium : BROWSERS[browserName];
 	if (!engine) {
 		console.error(`  Unknown browser: ${browserName}`);
-		console.error(`  Available: ${Object.keys(BROWSERS).join(", ")}`);
+		console.error(`  Available: chrome, ${Object.keys(BROWSERS).join(", ")}`);
 		process.exit(1);
 	}
 
 	const launchOptions = { headless };
 	const contextOptions = { viewport: { width: 1200, height: 1440 } };
 
-	if (browserName === "chromium") {
+	if (isChannel) {
+		launchOptions.channel = "chrome";
+	}
+
+	if (isChannel || browserName === "chromium") {
 		if (!headless) launchOptions.devtools = true;
 		launchOptions.args = [
 			"--font-render-hinting=none",
@@ -141,7 +149,7 @@ async function launchBrowser(browserName, { headless = false } = {}) {
 	return { browser, page };
 }
 
-function setupSpecInjection(page, specType) {
+function setupSpecInjection(page, specType, { overlay = false } = {}) {
 	page.on("console", (msg) => {
 		if (msg.type() === "error") {
 			console.log(`  ${red("error")}  ${msg.text()}`);
@@ -155,10 +163,15 @@ function setupSpecInjection(page, specType) {
 			await page.evaluate((t) => {
 				document.documentElement.dataset.specType = t;
 			}, specType);
-			await page.addScriptTag({ type: "module", url: "/specs/helpers/process.js" });
+			const script = overlay ? "/debug/overlay.js" : "/specs/helpers/process.js";
+			await page.addScriptTag({ type: "module", url: script });
 			await page.waitForSelector("[data-spec-ready]", { timeout: 30000 });
 			await page.addStyleTag({
-				content: `@media screen { page-container { box-shadow: 0 0 0 1px #ddd; } }`,
+				content: [
+					"@media screen { page-container { box-shadow: 0 0 0 1px #ddd; } }",
+					".fragment-overlay { position: absolute; inset: 0; pointer-events: none; }",
+					".fragment-overlay [data-frag-label] { position: absolute; font: 9px/1 monospace; background: rgba(255,255,255,0.75); padding: 0 2px; white-space: nowrap; }",
+				].join("\n"),
 			});
 
 			const ms = Date.now() - t0;
@@ -182,8 +195,8 @@ if (!specPath) {
 const typeIdx = process.argv.indexOf("--type");
 const specType = typeIdx !== -1 ? process.argv[typeIdx + 1] : "print";
 
-const browserIdx = process.argv.indexOf("--browser");
-const browserName = browserIdx !== -1 ? process.argv[browserIdx + 1] : "chromium";
+const browserArg = parseOptionalArg("--browser");
+const browserName = browserArg.enabled ? (browserArg.path || "chrome") : "chromium";
 
 function parseOptionalArg(flag) {
 	const idx = process.argv.indexOf(flag);
@@ -196,12 +209,33 @@ function parseOptionalArg(flag) {
 const html = parseOptionalArg("--html");
 const inspect = parseOptionalArg("--inspect");
 const pdf = parseOptionalArg("--pdf");
+const ref = process.argv.includes("--ref");
+const debug = process.argv.includes("--debug");
 const headless = html.enabled || inspect.enabled || pdf.enabled;
 
 const { port, server, existing } = await ensureServer(3000);
 printConfig(port, existing, specPath, specType, browserName);
 
-if (headless) {
+if (ref && pdf.enabled) {
+	// Ref + PDF: no script injection, just print the page as-is
+	const { browser, page } = await launchBrowser(browserName, { headless: true });
+	await page.goto(`http://localhost:${port}/${specPath}`, { waitUntil: "networkidle" });
+
+	const outPath = resolve(pdf.path || "output.pdf");
+	await page.pdf({
+		path: outPath,
+		margin: { top: "0", right: "0", bottom: "0", left: "0" },
+		printBackground: true,
+	});
+	console.log(`  ${green("saved")}  ${outPath}`);
+	await browser.close();
+} else if (ref) {
+	// Ref: open the page as-is in a headed browser
+	const { browser, page } = await launchBrowser(browserName);
+	await page.goto(`http://localhost:${port}/${specPath}`, { waitUntil: "load" });
+	printFooter();
+	await new Promise((r) => browser.on("disconnected", r));
+} else if (headless) {
 	const { browser, page } = await launchBrowser(browserName, { headless: true });
 	await page.goto(`http://localhost:${port}/${specPath}`, { waitUntil: "load" });
 
@@ -264,7 +298,7 @@ if (headless) {
 } else {
 	// Interactive: headed browser with refresh support
 	const { browser, page } = await launchBrowser(browserName);
-	setupSpecInjection(page, specType);
+	setupSpecInjection(page, specType, { overlay: debug });
 
 	await page.goto(`http://localhost:${port}/${specPath}`, { waitUntil: "load" });
 	printFooter();

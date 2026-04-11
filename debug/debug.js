@@ -134,7 +134,6 @@ async function run() {
 		const layout = new FragmentedFlow(parsed.fragment, {
 			styles: parsed.styles,
 			resolver: resolver.pageRules.length > 0 ? resolver : undefined,
-			normalizeLineHeight: true,
 		});
 
 		await layout.preload();

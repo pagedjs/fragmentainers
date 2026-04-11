@@ -64,9 +64,8 @@ body {
 	justify-content: center;
 	gap: var(--grid-size);
 	padding: var(--grid-size);
-	/* background-image: radial-gradient(circle, #ddd 1px, transparent 1px);
-	background-size: var(--grid-size) var(--grid-size);
-	background-position-y: calc(var(--grid-size) / 2) */
+	max-width: calc(var(--page-inline-size) * 2px + calc(var(--grid-size)));
+	margin: 0 auto;
 }
 
 .page-render {
