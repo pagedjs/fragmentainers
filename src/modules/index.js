@@ -4,14 +4,14 @@ import { RepeatedTableHeader } from "./repeated-header.js";
 import { FixedPosition } from "./fixed-position.js";
 import { Footnote } from "./footnote.js";
 import { NthSelectors } from "./nth-selectors.js";
-import { Normalize } from "./normalize.js";
+import { EmulatePrintPixelRatio } from "./normalize.js";
 
 modules.register(PageFloat);
 modules.register(RepeatedTableHeader);
 modules.register(FixedPosition);
 modules.register(Footnote);
 modules.register(NthSelectors);
-modules.register(Normalize);
+modules.register(EmulatePrintPixelRatio);
 
 export { LayoutModule } from "./module.js";
 export { modules } from "./registry.js";

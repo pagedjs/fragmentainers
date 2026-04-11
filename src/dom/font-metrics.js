@@ -1,21 +1,20 @@
 /**
- * FontMetrics — canvas-based font metric extraction.
+ * FontMetrics — DOM-based font metric extraction.
  *
- * Uses CanvasRenderingContext2D.measureText() to read fontBoundingBox
- * ascent/descent for the line-height ratio. The raw ratio is measured
- * at a large reference size for precision, then rounded to device
- * pixels at the target font size to match browser behavior.
+ * Measures normal line-height by rendering a probe element and
+ * reading the actual line box gap via Range.getClientRects().
+ * This matches browser rendering across engines (Chromium, Firefox,
+ * WebKit) unlike canvas measureText() which returns em-square bounds
+ * in Firefox instead of line-height bounds.
  *
- * Browsers round line-height: normal to the nearest device pixel
- * (integer CSS px at DPR 1, half-pixel at DPR 2). Without this
- * rounding, a 0.4px-per-line overcount at 16px serif accumulates
- * to ~15px of phantom overflow across a full page.
+ * Results are DPR-rounded to the device pixel grid: floored at DPR 1,
+ * rounded at higher DPRs. Without this rounding, sub-pixel overcount
+ * accumulates to phantom overflow across a full page.
  */
 
 const REFERENCE_SIZE = 100;
 
 class FontMetrics {
-	#ctx;
 	#cache = new Map();
 	#dpr;
 
@@ -27,7 +26,6 @@ class FontMetrics {
 	 *   regardless of the screen's actual DPR.
 	 */
 	constructor(options = {}) {
-		this.#ctx = document.createElement("canvas").getContext("2d");
 		this.#dpr = options.dpr ?? (typeof devicePixelRatio !== "undefined" ? devicePixelRatio : 1);
 	}
 
@@ -47,8 +45,8 @@ class FontMetrics {
 	/**
 	 * Measure the normal line-height ratio for a font.
 	 *
-	 * Returns (fontBoundingBoxAscent + fontBoundingBoxDescent) / referenceSize,
-	 * which equals the multiplier browsers use for line-height: normal.
+	 * Creates a probe element, forces multi-line wrapping, and reads
+	 * the actual rendered line box gap via Range.getClientRects().
 	 *
 	 * @param {string} family — CSS font-family value (may be a stack)
 	 * @param {string} [weight="400"]
@@ -59,22 +57,35 @@ class FontMetrics {
 		const key = `${weight}|${style}|${family}`;
 		if (this.#cache.has(key)) return this.#cache.get(key);
 
-		this.#ctx.font = `${style} ${weight} ${REFERENCE_SIZE}px ${family}`;
-		const m = this.#ctx.measureText("x");
+		let ratio = 1.2; // fallback
 
-		let ratio;
-		if (
-			typeof m.fontBoundingBoxAscent === "number" &&
-			typeof m.fontBoundingBoxDescent === "number"
-		) {
-			ratio = (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent) / REFERENCE_SIZE;
-		} else {
-			ratio = 1.2;
+		if (typeof document !== "undefined") {
+			const probe = document.createElement("div");
+			probe.style.cssText = [
+				"position:absolute",
+				"left:-9999px",
+				"top:-9999px",
+				"width:50px",
+				"visibility:hidden",
+				"line-height:normal",
+				`font-family:${family}`,
+				`font-weight:${weight}`,
+				`font-style:${style}`,
+				`font-size:${REFERENCE_SIZE}px`,
+			].join(";");
+			// Enough words to guarantee multiple lines at 50px width
+			probe.textContent = "x x x x x x x x";
+			document.body.appendChild(probe);
+
+			const lineHeight = measureProbeLineHeight(probe);
+			if (lineHeight > 0) {
+				ratio = lineHeight / REFERENCE_SIZE;
+			}
+
+			document.body.removeChild(probe);
 		}
 
-		// Sanity check — if the ratio is wildly out of range, fall back
 		if (ratio <= 0 || ratio > 5) ratio = 1.2;
-
 		this.#cache.set(key, ratio);
 		return ratio;
 	}
@@ -124,6 +135,31 @@ class FontMetrics {
 	round(value) {
 		return this.#dpr === 1 ? Math.floor(value) : Math.round(value * this.#dpr) / this.#dpr;
 	}
+}
+
+/**
+ * Measure the rendered line-height of a probe element using
+ * Range.getClientRects(). Returns the gap between the last two
+ * distinct line-box tops, or 0 if fewer than 2 lines.
+ *
+ * @param {Element} element — must be in the DOM with multiple lines
+ * @returns {number} line-height in pixels, or 0
+ */
+function measureProbeLineHeight(element) {
+	const range = document.createRange();
+	range.selectNodeContents(element);
+	const rects = range.getClientRects();
+	if (rects.length === 0) return 0;
+
+	const tops = [rects[0].top];
+	for (let i = 1; i < rects.length; i++) {
+		if (rects[i].top > tops[tops.length - 1] + 0.5) {
+			tops.push(rects[i].top);
+		}
+	}
+
+	if (tops.length < 2) return 0;
+	return tops[tops.length - 1] - tops[tops.length - 2];
 }
 
 let shared;

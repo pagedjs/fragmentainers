@@ -1,12 +1,7 @@
 import { collectInlineItems } from "./collect-inlines.js";
-import {
-	createRangeMeasurer,
-	createCaretMeasurer,
-	measureElementBlockSize,
-	getLineHeight,
-} from "./measure.js";
+import { measureElementBlockSize } from "./measure.js";
+import { createRangeMeasurer, createCaretMeasurer, getLineHeight } from "./line-box.js";
 import { computedStyleMap } from "./computed-style-map.js";
-import { getSharedFontMetrics } from "./font-metrics.js";
 import { BOX_DECORATION_SLICE } from "../core/constants.js";
 import { buildCumulativeHeights } from "../core/speculative-layout.js";
 
@@ -230,14 +225,12 @@ export class DOMLayoutNode {
 
 	get marginBlockStart() {
 		const v = this.#getStyleMap().get("margin-top");
-		if (!v || !v.unit) return 0;
-		return getSharedFontMetrics().round(v.value);
+		return v && v.unit ? v.value : 0;
 	}
 
 	get marginBlockEnd() {
 		const v = this.#getStyleMap().get("margin-bottom");
-		if (!v || !v.unit) return 0;
-		return getSharedFontMetrics().round(v.value);
+		return v && v.unit ? v.value : 0;
 	}
 
 	/**

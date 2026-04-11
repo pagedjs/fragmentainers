@@ -37,7 +37,7 @@ test.describe("measureElementBlockSize", () => {
 test.describe("getLineHeight", () => {
 	test("returns an explicit pixel line-height", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight } = await import("/src/dom/measure.js");
+			const { getLineHeight } = await import("/src/dom/line-box.js");
 			const div = document.createElement("div");
 			div.style.lineHeight = "24px";
 			document.body.appendChild(div);
@@ -48,25 +48,26 @@ test.describe("getLineHeight", () => {
 		expect(result).toBe(24);
 	});
 
-	test("returns accurate font-metric-based value when line-height is normal", async ({ page }) => {
+	test("returns accurate rendered value when line-height is normal", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight } = await import("/src/dom/measure.js");
+			const { getLineHeight } = await import("/src/dom/line-box.js");
 			const div = document.createElement("div");
 			div.style.lineHeight = "normal";
 			div.style.fontSize = "20px";
+			div.textContent = "Hello world";
 			document.body.appendChild(div);
 			const lh = getLineHeight(div);
 			div.remove();
 			return lh;
 		});
-		// Canvas fontBoundingBox metrics give the real ratio (not the 1.2 estimate)
+		// Measured from actual rendered line box via getClientRects
 		expect(result).toBeGreaterThan(20);
 		expect(result).toBeLessThan(40);
 	});
 
 	test("returns unitless line-height multiplied by font-size", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight } = await import("/src/dom/measure.js");
+			const { getLineHeight } = await import("/src/dom/line-box.js");
 			const div = document.createElement("div");
 			div.style.lineHeight = "1.5";
 			div.style.fontSize = "20px";
@@ -77,75 +78,159 @@ test.describe("getLineHeight", () => {
 		});
 		expect(result).toBe(30);
 	});
+
+	test("floors line-height: normal at DPR 1", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			setTargetDevicePixelRatio(1);
+			const div = document.createElement("div");
+			div.style.cssText = "font-size:20px;line-height:normal;width:50px";
+			div.textContent = "x x x x x x x x x x";
+			document.body.appendChild(div);
+			const lh = getLineHeight(div);
+			div.remove();
+			return lh;
+		});
+		// Floored to integer at DPR 1
+		expect(result).toBe(Math.floor(result));
+		expect(result).toBeGreaterThan(20);
+	});
+
+	test("returns sub-pixel line-height: normal at DPR 2", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			setTargetDevicePixelRatio(2);
+			const div = document.createElement("div");
+			div.style.cssText = "font-size:20px;line-height:normal;width:50px";
+			div.textContent = "x x x x x x x x x x";
+			document.body.appendChild(div);
+			const lh = getLineHeight(div);
+			div.remove();
+			setTargetDevicePixelRatio(1); // restore
+			return lh;
+		});
+		// Raw sub-pixel value at DPR 2 — not necessarily integer
+		expect(result).toBeGreaterThan(20);
+	});
+
+	test("single-line element uses first line box height", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			setTargetDevicePixelRatio(1);
+			const div = document.createElement("div");
+			div.style.cssText = "font-size:16px;line-height:normal";
+			div.textContent = "Hello";
+			document.body.appendChild(div);
+			const lh = getLineHeight(div);
+			div.remove();
+			return lh;
+		});
+		// Should still return a valid floored value even with one line
+		expect(result).toBe(Math.floor(result));
+		expect(result).toBeGreaterThanOrEqual(16);
+	});
 });
 
-test.describe("FontMetrics", () => {
-	test("measure returns a ratio in a sane range", async ({ page }) => {
+test.describe("measureLines", () => {
+	test("counts lines and measures line height for multi-line element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getSharedFontMetrics } = await import("/src/dom/font-metrics.js");
-			const fm = getSharedFontMetrics();
-			return fm.measure("serif");
-		});
-		expect(result).toBeGreaterThan(1.0);
-		expect(result).toBeLessThan(2.0);
-	});
-
-	test("caches results for repeated calls", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { getSharedFontMetrics } = await import("/src/dom/font-metrics.js");
-			const fm = getSharedFontMetrics();
-			const a = fm.measure("monospace", "400", "normal");
-			const b = fm.measure("monospace", "400", "normal");
-			return { a, b };
-		});
-		expect(result.a).toBe(result.b);
-	});
-
-	test("different fonts can produce different ratios", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { getSharedFontMetrics } = await import("/src/dom/font-metrics.js");
-			const fm = getSharedFontMetrics();
-			return {
-				serif: fm.measure("serif"),
-				monospace: fm.measure("monospace"),
-			};
-		});
-		// At least confirm both are valid ratios (they may or may not differ
-		// depending on the system, but both should be in range)
-		expect(result.serif).toBeGreaterThan(1.0);
-		expect(result.monospace).toBeGreaterThan(1.0);
-	});
-
-	test("getNormalLineHeight matches the element's actual rendered line height", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { getSharedFontMetrics } = await import("/src/dom/font-metrics.js");
-			const fm = getSharedFontMetrics();
-
+			const { measureLines } = await import("/src/dom/line-box.js");
 			const div = document.createElement("div");
-			div.style.fontSize = "20px";
-			div.style.lineHeight = "normal";
-			div.style.fontFamily = "serif";
-			div.textContent = "Hg";
+			// Use line-height: normal so the gap between getClientRects tops
+			// equals the font's natural line height (what measureLines reports).
+			div.style.cssText = "font-size:16px;line-height:normal;width:50px";
+			div.textContent = "x x x x x x x x x x";
+			document.body.appendChild(div);
+			const m = measureLines(div);
+			div.remove();
+			return m;
+		});
+		expect(result.count).toBeGreaterThan(1);
+		expect(result.lineHeight).toBeGreaterThan(16);
+		expect(result.lineHeight).toBeLessThan(30);
+		expect(result.firstLineHeight).toBeGreaterThan(0);
+	});
+
+	test("returns zero lineHeight for single-line element", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { measureLines } = await import("/src/dom/line-box.js");
+			const div = document.createElement("div");
+			div.style.cssText = "font-size:16px;line-height:normal";
+			div.textContent = "Hello";
+			document.body.appendChild(div);
+			const m = measureLines(div);
+			div.remove();
+			return m;
+		});
+		expect(result.count).toBe(1);
+		expect(result.lineHeight).toBe(0);
+		expect(result.firstLineHeight).toBeGreaterThan(0);
+	});
+
+	test("returns zero count for empty element", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { measureLines } = await import("/src/dom/line-box.js");
+			const div = document.createElement("div");
+			document.body.appendChild(div);
+			const m = measureLines(div);
+			div.remove();
+			return m;
+		});
+		expect(result.count).toBe(0);
+		expect(result.lineHeight).toBe(0);
+		expect(result.firstLineHeight).toBe(0);
+	});
+
+	test("line height matches getLineHeight for multi-line normal element", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { measureLines, getLineHeight, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			setTargetDevicePixelRatio(2); // raw values, no floor
+			const div = document.createElement("div");
+			div.style.cssText = "font-size:16px;line-height:normal;width:50px";
+			div.textContent = "x x x x x x x x x x";
+			document.body.appendChild(div);
+			const measured = measureLines(div);
+			const lh = getLineHeight(div);
+			div.remove();
+			setTargetDevicePixelRatio(1);
+			return { measuredLh: measured.lineHeight, getLh: lh };
+		});
+		// Both should return the same raw rendered line height
+		expect(result.measuredLh).toBeCloseTo(result.getLh, 1);
+	});
+});
+
+test.describe("setTargetDevicePixelRatio / getTargetDevicePixelRatio", () => {
+	test("defaults to devicePixelRatio", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			return { targetDpr: getTargetDevicePixelRatio(), deviceDpr: devicePixelRatio };
+		});
+		expect(result.targetDpr).toBe(result.deviceDpr);
+	});
+
+	test("setTargetDevicePixelRatio changes the value and affects getLineHeight", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { getLineHeight, setTargetDevicePixelRatio, getTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			const div = document.createElement("div");
+			div.style.cssText = "font-size:16px;line-height:normal;width:50px";
+			div.textContent = "x x x x x x x x x x";
 			document.body.appendChild(div);
 
-			const metricsLh = fm.getNormalLineHeight(div);
-			const renderedHeight = div.getBoundingClientRect().height;
+			setTargetDevicePixelRatio(1);
+			const atDpr1 = getLineHeight(div);
+
+			setTargetDevicePixelRatio(2);
+			const atDpr2 = getLineHeight(div);
 
 			div.remove();
-			return { metricsLh, renderedHeight };
+			setTargetDevicePixelRatio(1); // restore
+			return { atDpr1, atDpr2 };
 		});
-		// Canvas metrics should closely match what the browser actually renders
-		expect(Math.abs(result.metricsLh - result.renderedHeight)).toBeLessThan(1);
-	});
-
-	test("getSharedFontMetrics returns the same instance", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { getSharedFontMetrics } = await import("/src/dom/font-metrics.js");
-			const a = getSharedFontMetrics();
-			const b = getSharedFontMetrics();
-			return a === b;
-		});
-		expect(result).toBe(true);
+		// DPR 1 should be floored integer, DPR 2 raw
+		expect(result.atDpr1).toBe(Math.floor(result.atDpr1));
+		// Raw value should be >= floored value
+		expect(result.atDpr2).toBeGreaterThanOrEqual(result.atDpr1);
 	});
 });
 
@@ -153,7 +238,7 @@ test.describe("createRangeMeasurer", () => {
 	test.describe("charTop", () => {
 		test("returns different top values for characters on different lines", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { createRangeMeasurer } = await import("/src/dom/measure.js");
+				const { createRangeMeasurer } = await import("/src/dom/line-box.js");
 				const div = document.createElement("div");
 				div.style.fontFamily = "monospace";
 				div.style.fontSize = "16px";
@@ -185,7 +270,7 @@ test.describe("createCaretMeasurer", () => {
 	test.describe("charTop", () => {
 		test("returns different top values for characters on different lines", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { createCaretMeasurer } = await import("/src/dom/measure.js");
+				const { createCaretMeasurer } = await import("/src/dom/line-box.js");
 				const div = document.createElement("div");
 				div.style.fontFamily = "monospace";
 				div.style.fontSize = "16px";
@@ -213,7 +298,7 @@ test.describe("createCaretMeasurer", () => {
 	test.describe("offsetAtY", () => {
 		test("returns the flat offset at the start of a given line", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { createCaretMeasurer } = await import("/src/dom/measure.js");
+				const { createCaretMeasurer } = await import("/src/dom/line-box.js");
 				const { INLINE_TEXT } = await import("/src/core/constants.js");
 				const div = document.createElement("div");
 				div.style.fontFamily = "monospace";
@@ -251,7 +336,7 @@ test.describe("createCaretMeasurer", () => {
 
 		test("returns offset consistent with charTop", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { createCaretMeasurer } = await import("/src/dom/measure.js");
+				const { createCaretMeasurer } = await import("/src/dom/line-box.js");
 				const { INLINE_TEXT } = await import("/src/core/constants.js");
 				const div = document.createElement("div");
 				div.style.fontFamily = "monospace";

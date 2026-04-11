@@ -7,7 +7,7 @@ import {
 	INLINE_ATOMIC,
 	DEFAULT_OVERFLOW_THRESHOLD,
 } from "../core/constants.js";
-import { measureLines } from "../dom/measure.js";
+import { measureLines } from "../dom/line-box.js";
 
 /**
  * Given a flat textContent offset, find the kText item that contains it

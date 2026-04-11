@@ -15,6 +15,7 @@ import {
 import "../dom/content-measure.js";
 import "../dom/fragment-container.js";
 import { Measurer } from "../dom/measure.js";
+import { setTargetDevicePixelRatio } from "../dom/line-box.js";
 import { modules } from "../modules/registry.js";
 import { UA_DEFAULTS } from "../styles/ua-defaults.js";
 import "../modules/index.js";
@@ -98,6 +99,11 @@ export class FragmentedFlow extends Iterator {
 	 * @param {PageResolver|RegionResolver} [options.resolver] - Pre-configured resolver
 	 * @param {number} [options.width] - Container width in CSS px (column fragmentation)
 	 * @param {number} [options.height] - Container height in CSS px (column fragmentation)
+	 * @param {number} [options.devicePixelRatio] - Target device pixel ratio for line-height rounding.
+	 *   At 1, line-height: normal is floored to integers (matching print/PDF).
+	 *   Defaults to window.devicePixelRatio.
+	 * @param {boolean} [options.emulatePrintPixelRatio=true] - Whether to normalize
+	 *   line-height for screen rendering to match DPR 1 layout.
 	 */
 	constructor(content, options = {}) {
 		super();
@@ -548,6 +554,11 @@ export class FragmentedFlow extends Iterator {
 			const isPageBased =
 				this.#resolver instanceof PageResolver || (!this.#resolver && !this.#constraintSpace);
 			const layoutStyles = isPageBased ? [UA_DEFAULTS, ...styles] : styles;
+			// Set target devicePixelRatio before modules init and measurement.
+			// Explicit option overrides window.devicePixelRatio.
+			if (this.#options.devicePixelRatio != null) {
+				setTargetDevicePixelRatio(this.#options.devicePixelRatio);
+			}
 			modules.init(this.#options);
 			this.#measurer = new Measurer(content, layoutStyles);
 			const contentRoot = this.#measurer.setup();

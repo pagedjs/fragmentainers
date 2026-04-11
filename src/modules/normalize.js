@@ -1,8 +1,8 @@
 import { LayoutModule } from "./module.js";
-import { getSharedFontMetrics } from "../dom/font-metrics.js";
+import { getLineHeight, setTargetDevicePixelRatio } from "../dom/line-box.js";
 
 /**
- * Normalize — generates a line-height normalization
+ * EmulatePrintPixelRatio — generates a line-height normalization
  * stylesheet for fragment-container rendering.
  *
  * Browsers round `line-height: normal` to device pixels (integers at
@@ -71,17 +71,17 @@ function resolveFontSize(value, defaultSize) {
 	return null;
 }
 
-class Normalize extends LayoutModule {
+class EmulatePrintPixelRatio extends LayoutModule {
 	#collectedRules = [];
 	#defaultFont = { family: "serif", weight: "400", style: "normal", size: 16 };
 	#normSheet = null;
 	#enabled = false;
 
-	init({ normalizeLineHeight = true } = {}) {
+	init({ emulatePrintPixelRatio = true } = {}) {
 		// Only Blink-based browsers need line-height normalization.
 		// All Blink browsers (Chrome, Edge, Opera, etc.) include "Chrome/" in the UA.
 		this.#enabled =
-			normalizeLineHeight &&
+			emulatePrintPixelRatio &&
 			typeof navigator !== "undefined" &&
 			/\bChrome\//.test(navigator.userAgent);
 	}
@@ -132,52 +132,33 @@ class Normalize extends LayoutModule {
 	afterMeasurementSetup(contentRoot) {
 		if (!this.#enabled) return;
 
-		const fm = getSharedFontMetrics();
-		const screenDpr = fm.dpr;
-
 		// At DPR 1 the browser's native rounding matches the layout target,
 		// so the normalization sheet would be a no-op.
-		if (screenDpr === 1) return;
-		// Build the normalization sheet at DPR 1 (floored integers)
-		// for consistent PDF output.
-		fm.dpr = 1;
+		if (devicePixelRatio === 1) return;
+
+		// Set DPR 1 for the entire layout flow — getLineHeight() will
+		// return floored values matching browser DPR 1 behavior.
+		setTargetDevicePixelRatio(1);
 
 		const rules = [];
 		const seen = new Set();
 
-		// Catch-all: default font
-		const defaultLh = fm.computeNormalLineHeight(
-			this.#defaultFont.family,
-			this.#defaultFont.weight,
-			this.#defaultFont.style,
-			this.#defaultFont.size,
-		);
-		rules.push(`:where(slot) { line-height: ${defaultLh}px; }`);
-
-		// UA defaults for inline elements with different font properties
-		const boldLh = fm.computeNormalLineHeight(
-			this.#defaultFont.family,
-			"700",
-			this.#defaultFont.style,
-			this.#defaultFont.size,
-		);
-		const italicLh = fm.computeNormalLineHeight(
-			this.#defaultFont.family,
-			this.#defaultFont.weight,
-			"italic",
-			this.#defaultFont.size,
-		);
-		rules.push(`:where(strong), :where(b) { line-height: ${boldLh}px; }`);
-		rules.push(`:where(em), :where(i), :where(cite), :where(dfn) { line-height: ${italicLh}px; }`);
-
-		// UA heading defaults
-		for (const [tag, multiplier] of Object.entries(UA_HEADING_SIZES)) {
-			const size = this.#defaultFont.size * multiplier;
-			const lh = fm.computeNormalLineHeight(this.#defaultFont.family, "700", "normal", size);
-			rules.push(`:where(${tag}) { line-height: ${lh}px; }`);
+		// Catch-all: the default font's ratio on the slot covers all
+		// elements that inherit line-height: normal without explicit
+		// font-related CSS rules.
+		const defaultEl = contentRoot.querySelector("*");
+		if (defaultEl) {
+			const cs = getComputedStyle(defaultEl);
+			if (cs.lineHeight === "normal") {
+				const flooredLh = getLineHeight(defaultEl);
+				const fontSize = parseFloat(cs.fontSize) || this.#defaultFont.size;
+				const ratio = flooredLh / fontSize;
+				rules.push(`slot { line-height: ${ratio}; }`);
+			}
 		}
 
-		// Rules from collected CSS selectors — probe live DOM for computed fonts
+		// Per-selector rules for elements with explicit font properties
+		// that may differ from the default (e.g. headings with sans-serif).
 		for (const { selector, wrappers } of this.#collectedRules) {
 			if (seen.has(selector)) continue;
 			seen.add(selector);
@@ -193,8 +174,13 @@ class Normalize extends LayoutModule {
 			const cs = getComputedStyle(el);
 			if (cs.lineHeight !== "normal") continue;
 
-			const lh = fm.getNormalLineHeight(el);
-			let rule = `${wrapInWhere(selector)} { line-height: ${lh}px; }`;
+			// DPR-1 floored value (what the engine uses for layout)
+			const flooredLh = getLineHeight(el);
+			const fontSize = parseFloat(cs.fontSize) || 16;
+			// Unitless ratio: fontSize * ratio ≈ flooredLh
+			const ratio = flooredLh / fontSize;
+
+			let rule = `${wrapInWhere(selector)} { line-height: ${ratio}; }`;
 
 			// Wrap in @media/@supports if the original rule was nested
 			for (let i = wrappers.length - 1; i >= 0; i--) {
@@ -202,6 +188,10 @@ class Normalize extends LayoutModule {
 			}
 			rules.push(rule);
 		}
+
+
+
+		if (rules.length === 0) return;
 
 		const cssText = `@media screen {\n${rules.join("\n")}\n}`;
 		this.#normSheet = new CSSStyleSheet();
@@ -214,4 +204,4 @@ class Normalize extends LayoutModule {
 	}
 }
 
-export { Normalize };
+export { EmulatePrintPixelRatio };

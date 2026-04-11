@@ -3,18 +3,18 @@ import { DOMLayoutNode } from "./layout-node.js";
 export { DOMLayoutNode } from "./layout-node.js";
 export { collectInlineItems } from "./collect-inlines.js";
 export { computedStyleMap } from "./computed-style-map.js";
+export { measureElementBlockSize, parseLength } from "./measure.js";
 export {
 	createRangeMeasurer,
 	createCaretMeasurer,
-	measureElementBlockSize,
 	getLineHeight,
-	parseLength,
 	countLines,
 	measureLines,
-} from "./measure.js";
+	setTargetDevicePixelRatio,
+	getTargetDevicePixelRatio,
+} from "./line-box.js";
 export { ContentMeasureElement } from "./content-measure.js";
 export { FragmentContainerElement } from "./fragment-container.js";
-export { getSharedFontMetrics } from "./font-metrics.js";
 
 /**
  * Build a layout tree from a DOM element.
