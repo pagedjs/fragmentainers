@@ -280,6 +280,7 @@ function materializePseudo(el, which, registry) {
 	if (registry.claimPseudo(el, which, content)) return;
 
 	const synthetic = document.createElement("frag-pseudo");
+	synthetic.setAttribute("role", "none");
 	synthetic.dataset.pseudo = which;
 
 	const parsed = parseContentValue(content);

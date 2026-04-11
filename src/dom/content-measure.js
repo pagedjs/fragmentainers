@@ -38,6 +38,7 @@ export class ContentMeasureElement extends HTMLElement {
 	}
 
 	connectedCallback() {
+		this.setAttribute("role", "none");
 		this.#ensureSetup();
 	}
 

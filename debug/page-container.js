@@ -64,6 +64,7 @@ export class PageContainer extends HTMLElement {
 	}
 
 	connectedCallback() {
+		this.setAttribute("role", "none");
 		if (!document.adoptedStyleSheets.includes(OVERRIDES)) {
 			document.adoptedStyleSheets = [...document.adoptedStyleSheets, OVERRIDES];
 		}

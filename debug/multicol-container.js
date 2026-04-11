@@ -33,6 +33,10 @@ export class MulticolContainer extends HTMLElement {
 		shadow.appendChild(slot);
 	}
 
+	connectedCallback() {
+		this.setAttribute("role", "none");
+	}
+
 	/**
 	 * Set column dimensions and gap from numeric values.
 	 *

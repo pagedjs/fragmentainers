@@ -42,6 +42,7 @@ export class FragmentContainerElement extends HTMLElement {
 	}
 
 	connectedCallback() {
+		this.setAttribute("role", "none");
 		this.#ensureSetup();
 	}
 
