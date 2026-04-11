@@ -2,7 +2,7 @@ import { LayoutModule } from "./module.js";
 import { getSharedFontMetrics } from "../dom/font-metrics.js";
 
 /**
- * NormalizeLayoutModule — generates a line-height normalization
+ * Normalize — generates a line-height normalization
  * stylesheet for fragment-container rendering.
  *
  * Browsers round `line-height: normal` to device pixels (integers at
@@ -71,17 +71,19 @@ function resolveFontSize(value, defaultSize) {
 	return null;
 }
 
-export class NormalizeLayoutModule extends LayoutModule {
+class Normalize extends LayoutModule {
 	#collectedRules = [];
 	#defaultFont = { family: "serif", weight: "400", style: "normal", size: 16 };
 	#normSheet = null;
 	#enabled = false;
 
-	init() {
+	init({ normalizeLineHeight = true } = {}) {
 		// Only Blink-based browsers need line-height normalization.
 		// All Blink browsers (Chrome, Edge, Opera, etc.) include "Chrome/" in the UA.
 		this.#enabled =
-			typeof navigator !== "undefined" && /\bChrome\//.test(navigator.userAgent);
+			normalizeLineHeight &&
+			typeof navigator !== "undefined" &&
+			/\bChrome\//.test(navigator.userAgent);
 	}
 
 	resetRules() {
@@ -204,7 +206,6 @@ export class NormalizeLayoutModule extends LayoutModule {
 		const cssText = `@media screen {\n${rules.join("\n")}\n}`;
 		this.#normSheet = new CSSStyleSheet();
 		this.#normSheet.replaceSync(cssText);
-		fm.dpr = screenDpr;
 	}
 
 	getAdoptedSheets() {
@@ -213,4 +214,4 @@ export class NormalizeLayoutModule extends LayoutModule {
 	}
 }
 
-export const Normalize = new NormalizeLayoutModule();
+export { Normalize };

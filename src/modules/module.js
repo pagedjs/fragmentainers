@@ -1,7 +1,10 @@
 export class LayoutModule {
 	/**
-	 * Called once when the module is registered. Modules can run
-	 * feature detection or set internal flags here.
+	 * Called once when the module is registered, and again when
+	 * options change. Modules use this for feature detection
+	 * and reading options that affect their behavior.
+	 *
+	 * @param {Object} [options] - Options from FragmentedFlow
 	 */
 	init() {}
 
@@ -117,4 +120,10 @@ export class LayoutModule {
 	afterContentLayout() {
 		return null;
 	}
+
+	/**
+	 * Clean up any resources held by this module instance.
+	 * Called by the registry before replacing instances on re-init.
+	 */
+	destroy() {}
 }

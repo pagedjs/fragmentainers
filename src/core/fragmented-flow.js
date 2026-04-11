@@ -45,25 +45,35 @@ const MAX_ZERO_PROGRESS = 5;
  */
 export class FragmentedFlow extends Iterator {
 	/**
-	 * Register a layout module globally.
-	 * @param {Object} module
+	 * Register a layout module class globally.
+	 * @param {typeof import('../modules/module.js').LayoutModule} ModuleClass
 	 */
-	static register(module) {
-		modules.register(module);
+	static register(ModuleClass) {
+		modules.register(ModuleClass);
 	}
 
 	/**
-	 * Unregister a layout module.
-	 * @param {Object} module
+	 * Unregister a layout module class.
+	 * @param {typeof import('../modules/module.js').LayoutModule} ModuleClass
 	 */
-	static remove(module) {
-		modules.remove(module);
+	static remove(ModuleClass) {
+		modules.remove(ModuleClass);
+	}
+
+	/**
+	 * Return the current instance of a registered module class.
+	 * @param {typeof import('../modules/module.js').LayoutModule} ModuleClass
+	 * @returns {import('../modules/module.js').LayoutModule|null}
+	 */
+	static getModule(ModuleClass) {
+		return modules.get(ModuleClass);
 	}
 
 	#content;
 	#styles;
 	#resolver;
 	#constraintSpace;
+	#options;
 	// Stepper state (initialized lazily on first next() call)
 	#tree = null;
 	#measurer = null;
@@ -91,6 +101,7 @@ export class FragmentedFlow extends Iterator {
 	 */
 	constructor(content, options = {}) {
 		super();
+		this.#options = options;
 
 		// Normalize Element → DocumentFragment (clone into fragment)
 		if (content.nodeType === 1 /* ELEMENT_NODE */) {
@@ -537,6 +548,7 @@ export class FragmentedFlow extends Iterator {
 			const isPageBased =
 				this.#resolver instanceof PageResolver || (!this.#resolver && !this.#constraintSpace);
 			const layoutStyles = isPageBased ? [UA_DEFAULTS, ...styles] : styles;
+			modules.init(this.#options);
 			this.#measurer = new Measurer(content, layoutStyles);
 			const contentRoot = this.#measurer.setup();
 

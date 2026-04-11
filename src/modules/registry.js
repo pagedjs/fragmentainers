@@ -1,41 +1,81 @@
 import { LayoutModule } from "./module.js";
 
 class ModuleRegistry {
+	#classes = [];
+	#created = [];
 	#modules = [];
 	#cloneMap = new WeakMap();
 
-	register(module) {
-		if (!(module instanceof LayoutModule)) {
-			throw new TypeError("Module must extend the LayoutModule base class");
+	/**
+	 * Register a module class. A fresh instance is created each time
+	 * init() is called (once per FragmentedFlow initialization).
+	 *
+	 * @param {typeof LayoutModule} ModuleClass
+	 */
+	register(ModuleClass) {
+		if (typeof ModuleClass !== "function" || !(ModuleClass.prototype instanceof LayoutModule)) {
+			throw new TypeError("Module must be a class that extends LayoutModule");
 		}
-		if (!this.#modules.includes(module)) {
-			module.init();
-			this.#modules.push(module);
+		if (!this.#classes.includes(ModuleClass)) {
+			this.#classes.push(ModuleClass);
 		}
 	}
 
 	/**
-	 * Pass options to all registered modules by re-calling init().
-	 * @param {Object} options
+	 * Create fresh module instances and initialize them with options.
+	 * Called once per FragmentedFlow initialization. Destroys any
+	 * previous instances before creating new ones.
+	 *
+	 * @param {Object} [options]
 	 */
-	setOptions(options) {
-		for (const mod of this.#modules) {
+	init(options) {
+		for (const mod of this.#created) {
+			mod.destroy();
+		}
+		this.#cloneMap = new WeakMap();
+		this.#created = this.#classes.map((Cls) => {
+			const mod = new Cls();
 			mod.init(options);
+			return mod;
+		});
+		this.#modules = [...this.#created];
+	}
+
+	/**
+	 * Ensure #modules is populated. If init() hasn't been called yet
+	 * (e.g. code using createFragments() directly without FragmentedFlow),
+	 * create instances with default options so delegate methods work.
+	 */
+	#ensureReady() {
+		if (this.#modules.length === 0 && this.#classes.length > 0) {
+			this.init();
 		}
 	}
 
-	remove(module) {
-		const idx = this.#modules.indexOf(module);
-		if (idx !== -1) {
-			this.#modules.splice(idx, 1);
-		}
+	remove(ModuleClass) {
+		const idx = this.#classes.indexOf(ModuleClass);
+		if (idx !== -1) this.#classes.splice(idx, 1);
+	}
+
+	/**
+	 * Return the current instance of a registered module class.
+	 * Returns null if the class isn't registered or init() hasn't
+	 * been called yet.
+	 *
+	 * @param {typeof LayoutModule} ModuleClass
+	 * @returns {LayoutModule|null}
+	 */
+	get(ModuleClass) {
+		return this.#modules.find((m) => m instanceof ModuleClass) ?? null;
 	}
 
 	claim(node) {
+		this.#ensureReady();
 		return this.#modules.some((m) => m.claim(node));
 	}
 
 	layout(rootNode, constraintSpace, breakToken, layoutChild) {
+		this.#ensureReady();
 		let reservedBlockStart = 0;
 		let reservedBlockEnd = 0;
 		const afterRenderCallbacks = [];
@@ -51,6 +91,7 @@ class ModuleRegistry {
 	}
 
 	beforeChildren(node, constraintSpace, breakToken) {
+		this.#ensureReady();
 		for (const mod of this.#modules) {
 			const result = mod.beforeChildren(node, constraintSpace, breakToken);
 			if (result) return result;
@@ -70,6 +111,7 @@ class ModuleRegistry {
 	 * @param {CSSStyleSheet[]} styles — adopted stylesheets (mutated: injected sheets prepended)
 	 */
 	processRules(styles) {
+		this.#ensureReady();
 		const mods = this.#modules;
 
 		// Reset module state and give access to the styles array
@@ -130,15 +172,6 @@ class ModuleRegistry {
 		return elements;
 	}
 
-	/**
-	 * Called after content layout for a fragmentainer. Aggregates
-	 * reservedBlockEnd and afterRender callbacks across all modules.
-	 *
-	 * @param {import('../core/fragment.js').Fragment} fragment
-	 * @param {import('../core/constraint-space.js').ConstraintSpace} constraintSpace
-	 * @param {import('../core/tokens.js').BreakToken|null} inputBreakToken
-	 * @returns {{ reservedBlockEnd: number, afterRenderCallbacks: Function[] }|null}
-	 */
 	trackClone(clone, source) {
 		this.#cloneMap.set(clone, source);
 	}

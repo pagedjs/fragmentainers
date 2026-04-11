@@ -214,7 +214,7 @@ export function buildPerFragmentNthSheet(slot, descriptors) {
 	return sheet;
 }
 
-class NthSelectorsModule extends LayoutModule {
+class NthSelectors extends LayoutModule {
 	#descriptors = [];
 
 	resetRules() {
@@ -252,4 +252,4 @@ class NthSelectorsModule extends LayoutModule {
 	}
 }
 
-export const NthSelectors = new NthSelectorsModule();
+export { NthSelectors };

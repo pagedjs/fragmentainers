@@ -27,7 +27,8 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 			});
 
 			const breakToken = new BlockBreakToken(tableNode);
-			const res = RepeatedTableHeader.beforeChildren(tableNode, cs, breakToken);
+			const mod = new RepeatedTableHeader();
+			const res = mod.beforeChildren(tableNode, cs, breakToken);
 
 			container.remove();
 			return {
@@ -65,7 +66,8 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 				fragmentationType: FRAGMENTATION_PAGE,
 			});
 
-			const res = RepeatedTableHeader.beforeChildren(tableNode, cs, null);
+			const mod = new RepeatedTableHeader();
+			const res = mod.beforeChildren(tableNode, cs, null);
 			container.remove();
 			return { isNull: res === null };
 		});
@@ -96,7 +98,8 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 			});
 
 			const breakToken = new BlockBreakToken(root, 0, 100, []);
-			const res = RepeatedTableHeader.beforeChildren(root, cs, breakToken);
+			const mod = new RepeatedTableHeader();
+			const res = mod.beforeChildren(root, cs, breakToken);
 			container.remove();
 			return { isNull: res === null };
 		});
@@ -129,7 +132,8 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 			});
 
 			const breakToken = new BlockBreakToken(tableNode);
-			const res = RepeatedTableHeader.beforeChildren(tableNode, cs, breakToken);
+			const mod = new RepeatedTableHeader();
+			const res = mod.beforeChildren(tableNode, cs, breakToken);
 			container.remove();
 			return { isNull: res === null };
 		});
@@ -166,7 +170,8 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 			const breakToken = new BlockBreakToken(tableNode);
 			breakToken.childBreakTokens = [theadBT];
 
-			const res = RepeatedTableHeader.beforeChildren(tableNode, cs, breakToken);
+			const mod = new RepeatedTableHeader();
+			const res = mod.beforeChildren(tableNode, cs, breakToken);
 			container.remove();
 			return { isNull: res === null };
 		});
@@ -201,7 +206,8 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 			});
 
 			const breakToken = new BlockBreakToken(tableNode);
-			const res = RepeatedTableHeader.beforeChildren(tableNode, cs, breakToken);
+			const mod = new RepeatedTableHeader();
+			const res = mod.beforeChildren(tableNode, cs, breakToken);
 			container.remove();
 			return { isNull: res === null };
 		});

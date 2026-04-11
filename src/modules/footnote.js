@@ -47,7 +47,7 @@ function getBreakBoundaryElement(breakToken) {
  * space for their bodies. The fragmentainer driver re-runs layout with
  * the updated reservation until it stabilises.
  */
-class FootnoteLayoutModule extends LayoutModule {
+class Footnote extends LayoutModule {
 	/** @type {Map<string, { callElement: Element, bodyElement: Element, blockSize: number }>} */
 	#footnoteMap = new Map();
 
@@ -284,4 +284,4 @@ class FootnoteLayoutModule extends LayoutModule {
 	}
 }
 
-export const Footnote = new FootnoteLayoutModule();
+export { Footnote };

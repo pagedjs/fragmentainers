@@ -16,7 +16,8 @@ test.describe("Footnote.matches", () => {
       </div>`;
 			document.body.appendChild(container);
 			const root = buildLayoutTree(container.firstElementChild);
-			const match = Footnote.claim(root.children[0]);
+			const mod = new Footnote();
+			const match = mod.claim(root.children[0]);
 			container.remove();
 			style.remove();
 			return match;
@@ -36,7 +37,8 @@ test.describe("Footnote.matches", () => {
       </div>`;
 			document.body.appendChild(container);
 			const root = buildLayoutTree(container.firstElementChild);
-			const match = Footnote.claim(root.children[0]);
+			const mod = new Footnote();
+			const match = mod.claim(root.children[0]);
 			container.remove();
 			return match;
 		});
@@ -48,7 +50,8 @@ test.describe("Footnote.layout", () => {
 	test("returns zero reservation by default", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { Footnote } = await import("/src/modules/footnote.js");
-			const res = Footnote.layout();
+			const mod = new Footnote();
+			const res = mod.layout();
 			return {
 				reservedBlockStart: res.reservedBlockStart,
 				reservedBlockEnd: res.reservedBlockEnd,
@@ -66,7 +69,8 @@ test.describe("Footnote.claimPersistent", () => {
 		const result = await page.evaluate(async () => {
 			const { Footnote } = await import("/src/modules/footnote.js");
 			const frag = document.createDocumentFragment();
-			const res = Footnote.claimPersistent(frag, []);
+			const mod = new Footnote();
+			const res = mod.claimPersistent(frag, []);
 			return { length: res.length };
 		});
 		expect(result.length).toBe(0);

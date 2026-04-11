@@ -4,7 +4,7 @@ import { FRAGMENTATION_NONE } from "../core/constants.js";
 
 const VALID_VALUES = new Set(["fill", "contain", "cover"]);
 
-class PageFitLayoutModule extends LayoutModule {
+class PageFit extends LayoutModule {
 	claim(node) {
 		const value = node.getCustomProperty("page-fit");
 		return value !== null && VALID_VALUES.has(value);
@@ -50,4 +50,4 @@ class PageFitLayoutModule extends LayoutModule {
 	}
 }
 
-export const PageFit = new PageFitLayoutModule();
+export { PageFit };

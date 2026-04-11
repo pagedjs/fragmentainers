@@ -8,8 +8,7 @@ test.describe("MutationSync with shared clone map", () => {
 			await import("/src/dom/content-measure.js");
 			await import("/src/dom/fragment-container.js");
 
-			const syncModule = new MutationSync();
-			FragmentedFlow.register(syncModule);
+			FragmentedFlow.register(MutationSync);
 
 			try {
 				const template = document.createElement("template");
@@ -20,6 +19,8 @@ test.describe("MutationSync with shared clone map", () => {
 
 				const layout = new FragmentedFlow(template.content, { width: 400, height: 150 });
 				const flow = layout.flow();
+
+				const syncModule = FragmentedFlow.getModule(MutationSync);
 
 				const fragEl = flow[0];
 				document.body.appendChild(fragEl);
@@ -38,7 +39,7 @@ test.describe("MutationSync with shared clone map", () => {
 				layout?.destroy();
 				return { cloneExists, changed };
 			} finally {
-				FragmentedFlow.remove(syncModule);
+				FragmentedFlow.remove(MutationSync);
 			}
 		});
 

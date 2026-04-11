@@ -85,7 +85,7 @@ After the walk, the registry calls `appendRules(rules)` on each module. Modules 
 
 ## Registration
 
-All modules must extend the `LayoutModule` base class. Modules are registered on a global registry — any part of the engine can access them.
+All modules must extend the `LayoutModule` base class. Register the **class** (not an instance) on the global registry — the engine creates a fresh instance each time a `FragmentedFlow` initializes, so module state never leaks between flows.
 
 ```javascript
 import { LayoutModule, FragmentedFlow } from "fragmentainers";
@@ -96,14 +96,13 @@ class MyModule extends LayoutModule {
 	}
 }
 
-FragmentedFlow.register(new MyModule());
-
-// Or import the registry directly
-import { modules } from "fragmentainers";
-modules.register(new MyModule());
+FragmentedFlow.register(MyModule);
 
 // Unregister
-FragmentedFlow.remove(myModule);
+FragmentedFlow.remove(MyModule);
+
+// Retrieve the current instance (created during flow initialization)
+const instance = FragmentedFlow.getModule(MyModule);
 ```
 
 Built-in modules from `src/modules/index.js` are registered automatically at import time.
@@ -114,13 +113,11 @@ The `PageFit` module removes elements with `--page-fit: fill | contain | cover` 
 The image element is pulled out of normal flow. The engine reserves the full page height for it, pushing surrounding content to other pages.
 
 ```javascript
-const VALID_VALUES = new Set(["fill", "contain", "cover"]);
-
-export const PageFit = {
+class PageFit extends LayoutModule {
 	claim(node) {
 		const value = node.getCustomProperty("page-fit");
 		return value !== null && VALID_VALUES.has(value);
-	},
+	}
 
 	layout(rootNode, constraintSpace, breakToken, layoutChild) {
 		const placed = [];
@@ -146,8 +143,8 @@ export const PageFit = {
 				}
 			},
 		};
-	},
-};
+	}
+}
 ```
 
 ## Writing Your Own Module
@@ -157,18 +154,19 @@ export const PageFit = {
 3. Override `claim()`, `layout()`, and/or `beforeChildren()` as needed.
 4. Use `node.getCustomProperty("my-prop")` to read CSS custom properties (the `--` prefix is added automatically). This uses the cached `getComputedStyle` on `DOMLayoutNode`, so repeated reads are free.
 5. The `layoutChild` callback provided to `layout()` runs a node through the full layout algorithm. Use it to measure elements.
-6. Export a singleton instance and register it via `FragmentedFlow.register()`.
+6. Export the class and register it via `FragmentedFlow.register(MyModule)`. The registry creates a fresh instance per flow.
 
 ### Module Initialization
 
-Modules can override `init()` to run one-time setup when registered — typically feature detection. For example, the `NormalizeLayoutModule` uses `init()` to detect Blink browsers and disables itself elsewhere:
+Modules can override `init(options)` to run setup when a flow initializes — typically feature detection or reading options. Since a fresh instance is created per flow, `init()` is called on a clean object each time. For example, the `Normalize` module uses `init()` to detect Blink browsers and disables itself elsewhere:
 
 ```javascript
-class NormalizeLayoutModule extends LayoutModule {
+class Normalize extends LayoutModule {
 	#enabled = false;
 
-	init() {
+	init({ normalizeLineHeight = true } = {}) {
 		this.#enabled =
+			normalizeLineHeight &&
 			typeof navigator !== "undefined" && /\bChrome\//.test(navigator.userAgent);
 	}
 }

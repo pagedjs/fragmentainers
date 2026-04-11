@@ -60,8 +60,9 @@ for (const el of flow) {
 
 | Method             | Description                                                    |
 | ------------------ | -------------------------------------------------------------- |
-| `register(module)` | Register a layout module globally (must extend `LayoutModule`) |
-| `remove(module)`   | Unregister a previously registered module                      |
+| `register(Module)`    | Register a layout module class (must extend `LayoutModule`)       |
+| `remove(Module)`      | Unregister a previously registered module class                   |
+| `getModule(Module)`   | Return the current instance of a registered module class          |
 
 **Methods:**
 
@@ -169,8 +170,8 @@ class MyModule extends LayoutModule {
 }
 
 // Built-in modules are registered automatically.
-// To add your own:
-FragmentedFlow.register(new MyModule());
+// To add your own, register the class (a fresh instance is created per flow):
+FragmentedFlow.register(MyModule);
 ```
 
 See [Layout Modules](docs/modules.md) for the full module interface and how to write custom modules.
@@ -179,7 +180,7 @@ See [Layout Modules](docs/modules.md) for the full module interface and how to w
 
 Blink-based browsers round `line-height: normal` to the device pixel ratio — integer CSS pixels at DPR 1, half-pixels at DPR 2. This means the same content renders at different line heights screen vs print, causing fragmentation mismatches between layout and rendering.
 
-The `NormalizeLayoutModule` solves this by generating a screen-only stylesheet with explicit `line-height` values derived from canvas font metrics (`fontBoundingBoxAscent + fontBoundingBoxDescent`) when `normal` is used. It is enabled automatically in Blink-based browsers and skipped in Firefox and Safari where it is not needed.
+The `Normalize` module solves this by generating a screen-only stylesheet with explicit `line-height` values derived from canvas font metrics (`fontBoundingBoxAscent + fontBoundingBoxDescent`) when `normal` is used. It is enabled automatically in Blink-based browsers and skipped in Firefox and Safari where it is not needed.
 
 The normalization sheet is **not** used for measurement or printing, it only provides previews of the print output. The layout uses DPR 1 line-heights for block size computation in the inline layout, while the measurer continues to render at the screen's native DPR. The fragment-container rendering matches the layout's DPR 1 values via the adopted stylesheet.
 

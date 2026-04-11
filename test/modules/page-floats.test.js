@@ -13,7 +13,8 @@ test.describe("PageFloat.matches", () => {
       </div>`;
 			document.body.appendChild(container);
 			const root = buildLayoutTree(container.firstElementChild);
-			const match = PageFloat.claim(root.children[0]);
+			const mod = new PageFloat();
+			const match = mod.claim(root.children[0]);
 			container.remove();
 			return match;
 		});
@@ -32,7 +33,8 @@ test.describe("PageFloat.matches", () => {
       </div>`;
 			document.body.appendChild(container);
 			const root = buildLayoutTree(container.firstElementChild);
-			const match = PageFloat.claim(root.children[0]);
+			const mod = new PageFloat();
+			const match = mod.claim(root.children[0]);
 			container.remove();
 			return match;
 		});
@@ -69,7 +71,8 @@ test.describe("PageFloat.layout", () => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 
-			const res = PageFloat.layout(root, cs, null, layoutChildFn);
+			const mod = new PageFloat();
+			const res = mod.layout(root, cs, null, layoutChildFn);
 			container.remove();
 			return {
 				reservedBlockStart: res.reservedBlockStart,
@@ -109,7 +112,8 @@ test.describe("PageFloat.layout", () => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 
-			const res = PageFloat.layout(root, cs, null, layoutChildFn);
+			const mod = new PageFloat();
+			const res = mod.layout(root, cs, null, layoutChildFn);
 			container.remove();
 			return {
 				reservedBlockStart: res.reservedBlockStart,
@@ -148,7 +152,8 @@ test.describe("PageFloat.layout", () => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 
-			const res = PageFloat.layout(root, cs, null, layoutChildFn);
+			const mod = new PageFloat();
+			const res = mod.layout(root, cs, null, layoutChildFn);
 			container.remove();
 			return {
 				reservedBlockStart: res.reservedBlockStart,
@@ -186,7 +191,8 @@ test.describe("PageFloat.layout", () => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 
-			const res = PageFloat.layout(root, cs, null, layoutChildFn);
+			const mod = new PageFloat();
+			const res = mod.layout(root, cs, null, layoutChildFn);
 			container.remove();
 			return {
 				reservedBlockStart: res.reservedBlockStart,
@@ -336,15 +342,15 @@ test.describe("FragmentedFlow.register / .remove", () => {
 			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
 			const { LayoutModule } = await import("/src/modules/module.js");
 
-			const spy = new LayoutModule();
-			FragmentedFlow.register(spy);
-			FragmentedFlow.register(spy);
-			FragmentedFlow.remove(spy);
+			class Spy extends LayoutModule {}
+			FragmentedFlow.register(Spy);
+			FragmentedFlow.register(Spy);
+			FragmentedFlow.remove(Spy);
 
-			// After one register + one register (deduped) + one remove, spy should be fully gone.
+			// After one register + one register (deduped) + one remove, Spy should be fully gone.
 			// Re-register to verify it was removed
-			FragmentedFlow.register(spy);
-			FragmentedFlow.remove(spy);
+			FragmentedFlow.register(Spy);
+			FragmentedFlow.remove(Spy);
 		});
 	});
 });

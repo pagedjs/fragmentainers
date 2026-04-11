@@ -3,7 +3,7 @@ import { ConstraintSpace } from "../core/constraint-space.js";
 import { findChildBreakToken } from "../core/helpers.js";
 import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE } from "../core/constants.js";
 
-class RepeatedTableHeaderLayoutModule extends LayoutModule {
+class RepeatedTableHeader extends LayoutModule {
 	beforeChildren(node, constraintSpace, breakToken) {
 		if (!breakToken || !node.isTable) return null;
 		if (constraintSpace.fragmentationType !== FRAGMENTATION_PAGE) return null;
@@ -24,4 +24,4 @@ class RepeatedTableHeaderLayoutModule extends LayoutModule {
 	}
 }
 
-export const RepeatedTableHeader = new RepeatedTableHeaderLayoutModule();
+export { RepeatedTableHeader };

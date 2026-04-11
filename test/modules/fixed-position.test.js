@@ -13,7 +13,8 @@ test.describe("FixedPosition.matches", () => {
       </div>`;
 			document.body.appendChild(container);
 			const root = buildLayoutTree(container.firstElementChild);
-			const match = FixedPosition.claim(root.children[0]);
+			const mod = new FixedPosition();
+			const match = mod.claim(root.children[0]);
 			container.remove();
 			return match;
 		});
@@ -32,7 +33,8 @@ test.describe("FixedPosition.matches", () => {
       </div>`;
 			document.body.appendChild(container);
 			const root = buildLayoutTree(container.firstElementChild);
-			const match = FixedPosition.claim(root.children[0]);
+			const mod = new FixedPosition();
+			const match = mod.claim(root.children[0]);
 			container.remove();
 			return match;
 		});
@@ -68,7 +70,8 @@ test.describe("FixedPosition.layout", () => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 
-			const res = FixedPosition.layout(root, cs, null, layoutChildFn);
+			const mod = new FixedPosition();
+			const res = mod.layout(root, cs, null, layoutChildFn);
 			container.remove();
 			return {
 				reservedBlockStart: res.reservedBlockStart,
@@ -108,7 +111,8 @@ test.describe("FixedPosition.layout", () => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 
-			const res = FixedPosition.layout(root, cs, null, layoutChildFn);
+			const mod = new FixedPosition();
+			const res = mod.layout(root, cs, null, layoutChildFn);
 			container.remove();
 			return {
 				reservedBlockStart: res.reservedBlockStart,
@@ -147,7 +151,8 @@ test.describe("FixedPosition.layout", () => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 
-			const res = FixedPosition.layout(root, cs, null, layoutChildFn);
+			const mod = new FixedPosition();
+			const res = mod.layout(root, cs, null, layoutChildFn);
 			container.remove();
 			return {
 				reservedBlockStart: res.reservedBlockStart,
@@ -185,7 +190,8 @@ test.describe("FixedPosition.layout", () => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 
-			const res = FixedPosition.layout(root, cs, null, layoutChildFn);
+			const mod = new FixedPosition();
+			const res = mod.layout(root, cs, null, layoutChildFn);
 			container.remove();
 			return {
 				reservedBlockStart: res.reservedBlockStart,
@@ -225,7 +231,8 @@ test.describe("FixedPosition.layout", () => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 
-			const res = FixedPosition.layout(root, cs, null, layoutChildFn);
+			const mod = new FixedPosition();
+			const res = mod.layout(root, cs, null, layoutChildFn);
 			container.remove();
 			return {
 				reservedBlockStart: res.reservedBlockStart,
@@ -265,7 +272,8 @@ test.describe("FixedPosition.layout", () => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 
-			const res = FixedPosition.layout(root, cs, null, layoutChildFn);
+			const mod = new FixedPosition();
+			const res = mod.layout(root, cs, null, layoutChildFn);
 			container.remove();
 			return {
 				reservedBlockStart: res.reservedBlockStart,
@@ -307,7 +315,8 @@ test.describe("FixedPosition.layout", () => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 
-			const res = FixedPosition.layout(root, cs, null, layoutChildFn);
+			const mod = new FixedPosition();
+			const res = mod.layout(root, cs, null, layoutChildFn);
 			container.remove();
 			return { reservedBlockStart: res.reservedBlockStart };
 		});

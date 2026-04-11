@@ -36,7 +36,7 @@ function classifyAnchorEdge(element) {
  * Only active in page fragmentation — fixed elements are viewport-relative
  * in column/region contexts and don't participate in those flows.
  */
-class FixedPositionLayoutModule extends LayoutModule {
+class FixedPosition extends LayoutModule {
 	#fixedSelectors = [];
 
 	resetRules() {
@@ -154,4 +154,4 @@ class FixedPositionLayoutModule extends LayoutModule {
 	}
 }
 
-export const FixedPosition = new FixedPositionLayoutModule();
+export { FixedPosition };
