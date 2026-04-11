@@ -345,7 +345,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 		childFragments.push(result.fragment);
 		blockOffset += result.fragment.blockSize;
 
-		blockOffset -= margins.applyAfterLayout(child, collapsedThrough, !!effectiveChildBreakToken);
+		blockOffset -= margins.applyAfterLayout(child, collapsedThrough, !!effectiveChildBreakToken, !!result.breakToken);
 
 		// Table border-spacing: gap between adjacent rows/sections.
 		if (tableSpacing > 0 && i < children.length - 1) {

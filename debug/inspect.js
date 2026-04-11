@@ -216,6 +216,27 @@ export function buildFragmentOverlay(pageFragment, contentArea, margins) {
 
 			if (height <= 0) continue;
 
+			// Detect through-collapsed margins: margins from the first/last
+			// child that collapse through the parent (no padding/border).
+			let throughTop = 0;
+			let throughBottom = 0;
+			const boxStart = (child.node.paddingBlockStart || 0) + (child.node.borderBlockStart || 0);
+			if (boxStart === 0 && child.childFragments.length > 0) {
+				const first = child.childFragments[0];
+				if (first && first.blockOffset > 0) {
+					throughTop = first.blockOffset;
+				}
+			}
+			// Bottom through-collapse: last child's margin collapses through
+			// when parent has no bottom padding/border and child didn't break.
+			if (!child.breakToken) {
+				const bottomMargin = child.node.collapsedMarginBlockEnd || 0;
+				if (bottomMargin > 0) {
+					throughBottom = bottomMargin;
+				}
+			}
+
+			const visibleHeight = height - throughTop - throughBottom;
 			const color = COLORS[depth % COLORS.length];
 			const isIFC = child.node.isInlineFormattingContext;
 
@@ -225,7 +246,7 @@ export function buildFragmentOverlay(pageFragment, contentArea, margins) {
 				top: ${top}px;
 				left: ${left}px;
 				width: ${width}px;
-				height: ${height}px;
+				height: ${visibleHeight}px;
 				outline: ${isIFC ? "1px dashed" : "2px solid"} ${color};
 				outline-offset: ${isIFC ? "0px" : "-1px"};
 			`;
@@ -233,22 +254,86 @@ export function buildFragmentOverlay(pageFragment, contentArea, margins) {
 			const tag = child.node.element?.tagName?.toLowerCase() || "?";
 			const label = document.createElement("span");
 			label.setAttribute("data-frag-label", "");
-			label.textContent = `${tag} ${height.toFixed(1)}`;
+			label.textContent = `${tag} ${visibleHeight.toFixed(1)}`;
 			label.style.cssText = `top: 0; left: 0; color: ${color};`;
 			box.appendChild(label);
 
 			container.appendChild(box);
 
-			// Recurse into block children
+			// Recurse into block children — subtract throughTop so the
+			// first child (whose blockOffset equals the through-margin)
+			// aligns with the visual box top.
 			if (!isIFC && child.childFragments.length > 0) {
 				const childPadTop = (child.node.paddingBlockStart || 0) + (child.node.borderBlockStart || 0);
 				const childPadLeft = (child.node.paddingInlineStart || 0) + (child.node.borderInlineStart || 0);
-				walk(child, top + childPadTop, left + childPadLeft, width, depth + 1);
+				walk(child, top + childPadTop - throughTop, left + childPadLeft, width, depth + 1);
 			}
 		}
 	}
 
 	walk(pageFragment, margins.top, margins.left, contentArea.inlineSize, 0);
+
+	// Content box overlay: shows the full available block size and
+	// how much the engine consumed vs what remains.
+	const used = pageFragment.blockSize;
+	const available = contentArea.blockSize;
+	const remaining = available - used;
+
+	// Full content area outline
+	const contentBox = document.createElement("div");
+	contentBox.style.cssText = `
+		position: absolute;
+		top: ${margins.top}px;
+		left: ${margins.left}px;
+		width: ${contentArea.inlineSize}px;
+		height: ${available}px;
+		outline: 1px dashed hsl(0, 0%, 60%);
+		outline-offset: -0.5px;
+		pointer-events: none;
+	`;
+	container.appendChild(contentBox);
+
+	// Used block region
+	if (used > 0) {
+		const usedBox = document.createElement("div");
+		usedBox.style.cssText = `
+			position: absolute;
+			top: ${margins.top}px;
+			left: ${margins.left}px;
+			width: ${contentArea.inlineSize}px;
+			height: ${used}px;
+			background: hsla(200, 80%, 50%, 0.04);
+			border-bottom: 1px solid hsl(200, 80%, 50%);
+			pointer-events: none;
+		`;
+		const usedLabel = document.createElement("span");
+		usedLabel.setAttribute("data-frag-label", "");
+		usedLabel.textContent = `used ${used.toFixed(1)}`;
+		usedLabel.style.cssText = `bottom: 2px; right: 2px; top: auto; left: auto; color: hsl(200, 80%, 50%);`;
+		usedBox.appendChild(usedLabel);
+		container.appendChild(usedBox);
+	}
+
+	// Remaining block region
+	if (remaining > 1) {
+		const remBox = document.createElement("div");
+		remBox.style.cssText = `
+			position: absolute;
+			top: ${margins.top + used}px;
+			left: ${margins.left}px;
+			width: ${contentArea.inlineSize}px;
+			height: ${remaining}px;
+			background: hsla(0, 80%, 50%, 0.04);
+			pointer-events: none;
+		`;
+		const remLabel = document.createElement("span");
+		remLabel.setAttribute("data-frag-label", "");
+		remLabel.textContent = `remaining ${remaining.toFixed(1)}`;
+		remLabel.style.cssText = `top: 2px; right: 2px; color: hsl(0, 60%, 45%);`;
+		remBox.appendChild(remLabel);
+		container.appendChild(remBox);
+	}
+
 	return container;
 }
 

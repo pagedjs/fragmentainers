@@ -95,7 +95,7 @@ class FontMetrics {
 		const fontSize = parseFloat(cs.fontSize) || 16;
 
 		const ratio = this.measure(family, weight, style);
-		return this.#roundForDpr(fontSize * ratio);
+		return this.round(fontSize * ratio);
 	}
 
 	/**
@@ -109,13 +109,19 @@ class FontMetrics {
 	 */
 	computeNormalLineHeight(family, weight, style, fontSize) {
 		const ratio = this.measure(family, weight, style);
-		return this.#roundForDpr(fontSize * ratio);
+		return this.round(fontSize * ratio);
 	}
 
 	/**
-	 * Round a line-height value to the device pixel grid.
+	 * Round a value to the device pixel grid.
+	 *
+	 * Used for line-height and margin values that the browser snaps
+	 * to device pixels. Floored at DPR 1, rounded at higher DPRs.
+	 *
+	 * @param {number} value — CSS px value
+	 * @returns {number} device-pixel-aligned value
 	 */
-	#roundForDpr(value) {
+	round(value) {
 		return this.#dpr === 1 ? Math.floor(value) : Math.round(value * this.#dpr) / this.#dpr;
 	}
 }

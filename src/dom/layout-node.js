@@ -6,6 +6,7 @@ import {
 	getLineHeight,
 } from "./measure.js";
 import { computedStyleMap } from "./computed-style-map.js";
+import { getSharedFontMetrics } from "./font-metrics.js";
 import { BOX_DECORATION_SLICE } from "../core/constants.js";
 import { buildCumulativeHeights } from "../core/speculative-layout.js";
 
@@ -140,9 +141,11 @@ export class DOMLayoutNode {
 	 */
 	get borderSpacingBlock() {
 		if (this.#borderSpacingBlock !== undefined) return this.#borderSpacingBlock;
-		const el = this.isTable ? this.element
-			: this.isTableSection ? this.element.closest("table")
-			: null;
+		const el = this.isTable
+			? this.element
+			: this.isTableSection
+				? this.element.closest("table")
+				: null;
 		if (!el) {
 			this.#borderSpacingBlock = 0;
 			return 0;
@@ -227,12 +230,14 @@ export class DOMLayoutNode {
 
 	get marginBlockStart() {
 		const v = this.#getStyleMap().get("margin-top");
-		return v && v.unit ? v.value : 0;
+		if (!v || !v.unit) return 0;
+		return getSharedFontMetrics().round(v.value);
 	}
 
 	get marginBlockEnd() {
 		const v = this.#getStyleMap().get("margin-bottom");
-		return v && v.unit ? v.value : 0;
+		if (!v || !v.unit) return 0;
+		return getSharedFontMetrics().round(v.value);
 	}
 
 	/**

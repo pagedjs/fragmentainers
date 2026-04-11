@@ -14,6 +14,16 @@ class ModuleRegistry {
 		}
 	}
 
+	/**
+	 * Pass options to all registered modules by re-calling init().
+	 * @param {Object} options
+	 */
+	setOptions(options) {
+		for (const mod of this.#modules) {
+			mod.init(options);
+		}
+	}
+
 	remove(module) {
 		const idx = this.#modules.indexOf(module);
 		if (idx !== -1) {

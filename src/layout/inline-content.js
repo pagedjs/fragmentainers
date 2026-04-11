@@ -143,6 +143,12 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 	let consumedLines = 0;
 	let remainingLines = 0;
 
+	// Box insets (padding + border) for IFC elements that have their own
+	// box model — mirrors block-container.js §124-126 handling.
+	const boxStart = (node.paddingBlockStart || 0) + (node.borderBlockStart || 0);
+	const boxEnd = (node.paddingBlockEnd || 0) + (node.borderBlockEnd || 0);
+	const isFirstFragment = !breakToken;
+
 	{
 		// Get the element's rendered height from the browser.
 		// Anonymous blocks (from mixed-content wrapping) have no element;
@@ -166,15 +172,19 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 			// FAST PATH — all remaining content fits, no expensive measurement needed.
 			// Use lineHeight (which may be DPR-adjusted for normalized output)
 			// as the authoritative per-line height for block size computation.
-			const totalLines = Math.round(totalHeight / lineHeight);
-			consumedLines = Math.round(consumedHeight / lineHeight);
+			// Line count is derived from content height (excluding box insets).
+			const contentHeight = totalHeight - boxStart - boxEnd;
+			const totalLines = Math.round(contentHeight / lineHeight);
+			consumedLines = isFirstFragment
+				? 0
+				: Math.round(Math.max(0, consumedHeight - boxStart) / lineHeight);
 			remainingLines = totalLines - consumedLines;
 			if (remainingLines < 1) remainingLines = 1;
 
 			for (let i = 0; i < remainingLines; i++) {
 				lineFragments.push(new Fragment(null, lineHeight));
 			}
-			blockOffset = remainingLines * lineHeight;
+			blockOffset = (isFirstFragment ? boxStart : 0) + remainingLines * lineHeight;
 
 			// Consume everything
 			itemIndex = inlineItems.items.length;
@@ -185,13 +195,18 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 			const measured = element ? measureLines(element) : null;
 			const accurateLineHeight =
 				measured && measured.lineHeight > 0 ? measured.lineHeight : lineHeight;
+			const contentHeight = totalHeight - boxStart - boxEnd;
 			const totalLines = measured && measured.count > 0
 				? measured.count
-				: Math.round(totalHeight / accurateLineHeight);
+				: Math.round(contentHeight / accurateLineHeight);
 
-			consumedLines = Math.round(consumedHeight / accurateLineHeight);
+			consumedLines = isFirstFragment
+				? 0
+				: Math.round(Math.max(0, consumedHeight - boxStart) / accurateLineHeight);
 			remainingLines = totalLines - consumedLines;
-			const fittingLines = Math.floor(availableBlockSpace / accurateLineHeight);
+			const fittingLines = Math.floor(
+				(availableBlockSpace - (isFirstFragment ? boxStart : 0)) / accurateLineHeight,
+			);
 			// Guarantee at least one line for progress when at top of page
 			const minLines =
 				remainingLines > 0 && constraintSpace.blockOffsetInFragmentainer === 0 ? 1 : 0;
@@ -234,15 +249,16 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 			for (let i = 0; i < linesToPlace; i++) {
 				lineFragments.push(new Fragment(null, accurateLineHeight));
 			}
-			blockOffset = linesToPlace * accurateLineHeight;
+			blockOffset = (isFirstFragment ? boxStart : 0) + linesToPlace * accurateLineHeight;
 
 			if (linesToPlace >= remainingLines) {
 				itemIndex = inlineItems.items.length;
 				textOffset = inlineItems.textContent.length;
 			} else {
-				// Find the text offset at the break line
+				// Find the text offset at the break line.
+				// Content starts at boxStart below the element's border-box top.
 				const yCutoff =
-					elementRect.top + (consumedLines + linesToPlace) * accurateLineHeight;
+					elementRect.top + boxStart + (consumedLines + linesToPlace) * accurateLineHeight;
 
 				let breakFlatOffset;
 				if (measurer.offsetAtY) {
@@ -303,6 +319,13 @@ export function* layoutInlineContent(node, constraintSpace, breakToken) {
 			textOffset = inlineItems.textContent.length;
 		}
 	}
+
+	// Add bottom box inset (padding + border) on the last fragment only,
+	// mirroring block-container.js §422-430.
+	if (!contentRemains) {
+		fragment.blockSize += boxEnd;
+	}
+
 	let breakScore = BreakScore.PERFECT;
 
 	if (contentRemains) {

@@ -260,7 +260,7 @@ test.describe("MarginState", () => {
 		expect(result.collapsedThrough).toBe(0);
 	});
 
-	test("truncates first child margin at fragmentainer top", async ({ page }) => {
+	test("preserves first child margin at fragmentainer top on first fragment", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { MarginState } = await import("/src/core/margin-collapsing.js");
 			const margins = new MarginState();
@@ -277,7 +277,9 @@ test.describe("MarginState", () => {
 				atFragmentainerTop: true,
 			});
 		});
-		expect(result.marginDelta).toBe(0);
+		// Browser renders the collapsed margin inside the fragmentainer,
+		// so the engine must account for it on the first fragment.
+		expect(result.marginDelta).toBe(15);
 	});
 
 	test("does not truncate at fragmentainer top when through-collapse is active", async ({ page }) => {
@@ -612,7 +614,7 @@ test.describe("MarginState", () => {
 		expect(result.marginDelta).toBe(8);
 	});
 
-	test("no body margin — truncation at fragmentainer top preserved", async ({ page }) => {
+	test("no body margin — margin at fragmentainer top preserved on first fragment", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { MarginState } = await import("/src/core/margin-collapsing.js");
 			const margins = new MarginState(0);
@@ -629,8 +631,8 @@ test.describe("MarginState", () => {
 				atFragmentainerTop: true,
 			});
 		});
-		// No body margin, at fragmentainer top — truncated
-		expect(result.marginDelta).toBe(0);
+		// Browser renders this margin, so the engine preserves it.
+		expect(result.marginDelta).toBe(15);
 	});
 
 	test("body margin not applied on non-first pages", async ({ page }) => {

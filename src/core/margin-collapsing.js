@@ -164,16 +164,12 @@ export class MarginState {
 		if (isFirstInLoop && isFirstFragment) {
 			// First child on first fragment. The body margin (slot margin from
 			// UA defaults) collapses with the child's margin per CSS2 §8.3.1.
-			// Like through-collapse, a body margin prevents fragmentainer-top
-			// truncation — it's a rendering-level margin, not subject to §5.2.
+			// The child's margin is preserved: in paged/fragmented output the
+			// browser renders the collapsed margin inside the fragmentainer,
+			// so the engine must account for it.
 			const hasBodyMargin = this.#bodyMarginBlockStart > 0;
 			if (hasBodyMargin) strut.append(this.#bodyMarginBlockStart);
-
-			if (atFragmentainerTop && throughMargins.length === 0 && !hasBodyMargin) {
-				// No body margin, no through-collapse — child margin truncated (§5.2)
-			} else {
-				marginDelta = strut.resolve();
-			}
+			marginDelta = strut.resolve();
 		} else if (!isFirstInLoop) {
 			// Adjacent siblings: collapse margins via strut
 			strut.append(this.#prevMarginEnd);
@@ -208,17 +204,32 @@ export class MarginState {
 	 * @param {Object} child - The child layout node
 	 * @param {number} collapsedThrough - from computeMarginBefore result
 	 * @param {boolean} isResumingChild - true if the child had an effective break token
+	 * @param {boolean} [childBroke=false] - true if the child produced a break token
 	 * @returns {number} amount to subtract from blockOffset (through-collapse compensation)
 	 */
-	applyAfterLayout(child, collapsedThrough, isResumingChild) {
-		this.#prevMarginEnd = child.marginBlockEnd || 0;
+	applyAfterLayout(child, collapsedThrough, isResumingChild, childBroke = false) {
+		const ownMarginEnd = child.marginBlockEnd || 0;
+		// CSS2 §8.3.1: last child's margin-end collapses through the parent
+		// when the parent has no block-end border/padding. Only applies when
+		// the child completed (no break token) — broken elements don't emit
+		// trailing margins.
+		const throughMarginEnd = !childBroke ? (child.collapsedMarginBlockEnd || 0) : 0;
+
+		this.#prevMarginEnd = Math.max(ownMarginEnd, throughMarginEnd);
 		this.#lastPlacedMarginEnd = this.#prevMarginEnd;
 
-		// Subtract through-collapse to avoid double-counting
+		let subtract = 0;
+		// Top through-collapse
 		if (collapsedThrough !== 0 && !isResumingChild) {
-			return collapsedThrough;
+			subtract += collapsedThrough;
 		}
-		return 0;
+		// Bottom through-collapse: trailingMargin already added the last
+		// child's margin to blockSize inside the parent. Subtract it here
+		// so it's only counted via prevMarginEnd for the next sibling.
+		if (throughMarginEnd > 0) {
+			subtract += throughMarginEnd;
+		}
+		return subtract;
 	}
 
 	/**
