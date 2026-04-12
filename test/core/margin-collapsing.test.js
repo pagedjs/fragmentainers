@@ -655,4 +655,121 @@ test.describe("MarginState", () => {
 		// Continuation first child — margin stays 0 regardless of body margin
 		expect(result.marginDelta).toBe(0);
 	});
+
+	test("preserves margin after forced break (Class A)", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
+			const margins = new MarginState();
+			const child = {
+				marginBlockStart: 12,
+				marginBlockEnd: 0,
+				paddingBlockStart: 5,
+				borderBlockStart: 0,
+				children: [],
+			};
+			return margins.computeMarginBefore(child, {
+				isFirstInLoop: true,
+				isFirstFragment: false,
+				atFragmentainerTop: true,
+				isForcedBreak: true,
+			});
+		});
+		// CSS Frag L3 §5.2: margins adjoining forced breaks are preserved.
+		expect(result.marginDelta).toBe(12);
+	});
+
+	test("preserves through-collapsed margin after forced break", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
+			const margins = new MarginState();
+			// p.left (margin 12) inside section (margin 0) continuing on a new
+			// page after break-before:page. Section has no border/padding →
+			// p.left's 12px bubbles up through section.
+			const pLeft = {
+				marginBlockStart: 12,
+				paddingBlockStart: 5,
+				borderBlockStart: 0,
+				children: [],
+			};
+			const section = {
+				marginBlockStart: 0,
+				marginBlockEnd: 0,
+				paddingBlockStart: 0,
+				borderBlockStart: 0,
+				children: [pLeft],
+			};
+			return margins.computeMarginBefore(section, {
+				isFirstInLoop: true,
+				isFirstFragment: false,
+				atFragmentainerTop: true,
+				isForcedBreak: true,
+			});
+		});
+		expect(result.marginDelta).toBe(12);
+		expect(result.collapsedThrough).toBe(12);
+	});
+
+	test("still truncates margin after unforced break", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
+			const margins = new MarginState();
+			const child = {
+				marginBlockStart: 12,
+				marginBlockEnd: 0,
+				paddingBlockStart: 5,
+				borderBlockStart: 0,
+				children: [],
+			};
+			return margins.computeMarginBefore(child, {
+				isFirstInLoop: true,
+				isFirstFragment: false,
+				atFragmentainerTop: true,
+				isForcedBreak: false,
+			});
+		});
+		// Class C break → margin truncated
+		expect(result.marginDelta).toBe(0);
+	});
+
+	test("shouldTruncateLastChildMarginEnd skips truncation for forced breaks", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
+			const margins = new MarginState();
+			const child = {
+				marginBlockStart: 0,
+				marginBlockEnd: 15,
+				paddingBlockStart: 5,
+				borderBlockStart: 0,
+				children: [],
+			};
+			margins.applyAfterLayout(child, 0, false);
+			return {
+				unforced: margins.shouldTruncateLastChildMarginEnd(true, false),
+				forced: margins.shouldTruncateLastChildMarginEnd(true, true),
+			};
+		});
+		expect(result.unforced).toBe(true);
+		expect(result.forced).toBe(false);
+	});
+
+	test("trailingMargin preserves margin before forced break", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
+			const margins = new MarginState();
+			const child = {
+				marginBlockStart: 0,
+				marginBlockEnd: 20,
+				paddingBlockStart: 5,
+				borderBlockStart: 0,
+				children: [],
+			};
+			margins.applyAfterLayout(child, 0, false);
+			return {
+				unforced: margins.trailingMargin(true, true, false),
+				forcedPreserved: margins.trailingMargin(true, true, true),
+			};
+		});
+		expect(result.unforced).toBe(0);
+		expect(result.forcedPreserved).toBe(20);
+	});
 });

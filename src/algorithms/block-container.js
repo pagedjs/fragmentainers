@@ -196,6 +196,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 			isFirstInLoop: i === startIndex,
 			isFirstFragment: !breakToken,
 			atFragmentainerTop,
+			isForcedBreak: !!childBreakToken?.isForcedBreak,
 		});
 
 		const blockOffsetBeforeMargin = blockOffset;
@@ -327,7 +328,6 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 			fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
 			blockOffsetInFragmentainer: containerOffsetInFragmentainer + blockOffset - collapseAdj,
 			fragmentationType: constraintSpace.fragmentationType,
-			preserveForcedBreakMargins: constraintSpace.preserveForcedBreakMargins,
 		});
 
 		// Yield layout request — driver runs child generator and returns result
@@ -403,11 +403,24 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 		childBreakTokens.length === 0 ||
 		startIndex + childFragments.length - prependedFragments >= children.length;
 
-	blockOffset += margins.trailingMargin(childBreakTokens.length > 0, childFragments.length > 0);
+	const pendingIsForcedBreak = !!childBreakTokens[childBreakTokens.length - 1]?.isForcedBreak;
+
+	blockOffset += margins.trailingMargin(
+		childBreakTokens.length > 0,
+		childFragments.length > 0,
+		pendingIsForcedBreak,
+	);
 
 	// Mark the last child fragment when its margin-block-end was truncated
-	// at a break boundary (CSS Fragmentation L3 §5.2).
-	if (margins.shouldTruncateLastChildMarginEnd(childBreakTokens.length > 0) && childFragments.length > 0) {
+	// at a break boundary (CSS Fragmentation L3 §5.2). Forced breaks preserve
+	// margins on both sides, so truncation only applies to unforced breaks.
+	if (
+		margins.shouldTruncateLastChildMarginEnd(
+			childBreakTokens.length > 0,
+			pendingIsForcedBreak,
+		) &&
+		childFragments.length > 0
+	) {
 		const lastChildFrag = childFragments[childFragments.length - 1];
 		if (!lastChildFrag.breakToken) {
 			lastChildFrag.truncateMarginBlockEnd = true;

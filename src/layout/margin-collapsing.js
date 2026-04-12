@@ -108,23 +108,31 @@ export class MarginState {
 	 * margins, and the previous sibling's margin-end. Resolves the strut to
 	 * produce the margin delta for blockOffset.
 	 *
-	 * Three cases:
+	 * Cases:
 	 * 1. isFirstInLoop && isFirstFragment → first child on first fragment → add margin
 	 * 2. !isFirstInLoop → sibling → collapse with previous sibling's margin-end
-	 * 3. isFirstInLoop && !isFirstFragment → continuation first child → no margin
-	 *    (margin truncated at break boundary, handled by truncateMarginBlockStart flag)
+	 * 3a. isFirstInLoop && !isFirstFragment && isForcedBreak
+	 *     → continuation after Class A (forced) break → PRESERVE margin (CSS Frag L3 §5.2)
+	 * 3b. isFirstInLoop && !isFirstFragment (otherwise) → continuation after Class C (unforced) break
+	 *     → truncate margin (handled by truncateMarginBlockStart flag on compositor)
 	 *
 	 * @param {Object} child - The child layout node
 	 * @param {Object} params
 	 * @param {boolean} params.isFirstInLoop - First child being laid out this pass (i === startIndex)
 	 * @param {boolean} params.isFirstFragment - No break token on the container
 	 * @param {boolean} params.atFragmentainerTop - blockOffset is at fragmentainer top edge
+	 * @param {boolean} [params.isForcedBreak] - true if the child arrives via a forced (Class A) break token
 	 * @returns {{
 	 *   marginDelta: number,     - amount to add to blockOffset
 	 *   collapsedThrough: number - through-collapse compensation value (for collapseAdj)
 	 * }}
 	 */
-	computeMarginBefore(child, { isFirstInLoop, isFirstFragment, atFragmentainerTop }) {
+	computeMarginBefore(child, {
+		isFirstInLoop,
+		isFirstFragment,
+		atFragmentainerTop,
+		isForcedBreak = false,
+	}) {
 		const throughMargins = collectThroughMargins(child);
 
 		// Build strut with child's own margin + all through-collapsed margins
@@ -159,9 +167,16 @@ export class MarginState {
 			strut.append(this.#prevMarginEnd);
 			marginDelta = strut.resolve();
 			this.#prevMarginEnd = 0; // consumed by collapsing
+		} else if (isForcedBreak) {
+			// Continuation first child after a Class A (forced) break.
+			// Per CSS Frag L3 §5.2 margins adjoining forced breaks are preserved,
+			// so the browser renders the child's margin-block-start at the top of
+			// the new fragmentainer. Reserve it in blockOffset so the engine's
+			// available space matches the DOM.
+			marginDelta = strut.resolve();
 		}
-		// else: isFirstInLoop && !isFirstFragment → continuation first child
-		// → marginDelta stays 0 (margin truncated at break, handled by compositor)
+		// else: continuation after Class C (unforced) break → marginDelta stays 0
+		//       (truncation marked by compositor via truncateMarginBlockStart)
 
 		return { marginDelta, collapsedThrough };
 	}
@@ -219,28 +234,36 @@ export class MarginState {
 	/**
 	 * Compute the trailing margin to add after the loop.
 	 * The last child's margin-end was deferred for collapsing with the
-	 * next sibling. If no break follows, add it now.
+	 * next sibling. Add it when no break follows, or when the break is
+	 * a Class A (forced) break — forced-break margins are preserved per
+	 * CSS Fragmentation L3 §5.2.
 	 *
 	 * @param {boolean} hasBreak - true if a break token was produced
 	 * @param {boolean} hasChildren - true if any child fragments were placed
+	 * @param {boolean} [isForcedBreak] - true if the pending break is forced
 	 * @returns {number} trailing margin to add to blockOffset
 	 */
-	trailingMargin(hasBreak, hasChildren) {
-		if (this.#prevMarginEnd !== 0 && hasChildren && !hasBreak) {
-			return this.#prevMarginEnd;
-		}
+	trailingMargin(hasBreak, hasChildren, isForcedBreak = false) {
+		if (this.#prevMarginEnd === 0 || !hasChildren) return 0;
+		if (!hasBreak) return this.#prevMarginEnd;
+		if (isForcedBreak) return this.#prevMarginEnd;
 		return 0;
 	}
 
 	/**
 	 * Check if the last placed child's margin-end should be truncated
-	 * at a break boundary (CSS Fragmentation L3 §5.2).
+	 * at a break boundary (CSS Fragmentation L3 §5.2). Truncation applies
+	 * only to Class C (unforced) breaks — margins adjoining Class A
+	 * (forced) breaks are preserved.
 	 *
 	 * @param {boolean} hasBreak - true if there are pending break tokens
+	 * @param {boolean} [isForcedBreak] - true if the pending break is forced
 	 * @returns {boolean}
 	 */
-	shouldTruncateLastChildMarginEnd(hasBreak) {
-		return hasBreak && this.#lastPlacedMarginEnd > 0;
+	shouldTruncateLastChildMarginEnd(hasBreak, isForcedBreak = false) {
+		if (!hasBreak || this.#lastPlacedMarginEnd <= 0) return false;
+		if (isForcedBreak) return false;
+		return true;
 	}
 
 	/**

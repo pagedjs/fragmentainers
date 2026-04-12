@@ -214,9 +214,13 @@ test.describe("Margin truncation at break boundaries (CSS Fragmentation L3 §5.2
 				}),
 			);
 
+			const p1FirstChild = pages[1].childFragments[0];
 			const r = {
 				pageCount: pages.length,
-				p1FirstChildTruncated: pages[1].childFragments[0]?.truncateMarginBlockStart ?? false,
+				p1FirstChildTruncated: p1FirstChild?.truncateMarginBlockStart ?? false,
+				// Forced-break margin is preserved per CSS Frag L3 §5.2, so the
+				// child's 20px margin-block-start must be reserved in blockOffset.
+				p1FirstChildBlockOffset: p1FirstChild?.blockOffset ?? null,
 			};
 			container.remove();
 			return r;
@@ -224,6 +228,7 @@ test.describe("Margin truncation at break boundaries (CSS Fragmentation L3 §5.2
 
 		expect(result.pageCount).toBe(2);
 		expect(result.p1FirstChildTruncated).toBe(false);
+		expect(result.p1FirstChildBlockOffset).toBe(20);
 	});
 
 	test("truncateMarginBlockEnd is set on last child before an unforced break", async ({

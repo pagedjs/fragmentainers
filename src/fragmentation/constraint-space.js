@@ -18,7 +18,6 @@ export class ConstraintSpace {
 		isNewFormattingContext = false,
 		reservedBlockStart = 0,
 		reservedBlockEnd = 0,
-		preserveForcedBreakMargins = false,
 		cssInlineSize = null,
 		cssBlockSize = null,
 	} = {}) {
@@ -30,7 +29,6 @@ export class ConstraintSpace {
 		this.isNewFormattingContext = isNewFormattingContext;
 		this.reservedBlockStart = reservedBlockStart;
 		this.reservedBlockEnd = reservedBlockEnd;
-		this.preserveForcedBreakMargins = preserveForcedBreakMargins;
 		/** Body margin-block-start for first-page collapsing (0 on non-first pages). */
 		this.bodyMarginBlockStart = 0;
 		/** Original CSS inline size string (e.g. "65mm") for browser-native unit conversion. */
