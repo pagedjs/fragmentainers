@@ -807,3 +807,4 @@ Parses an HTML document string into a `DocumentFragment` + `CSSStyleSheet[]` wit
 | Inline items        | Flat `InlineItem[]`      | Flat `InlineItem` vector   | `nsTextFrame` per run    | `InlineItem` (LFC) / `LegacyInlineTextBox` |
 | Multicol            | Fragmentainer-per-column | Fragmentainer-per-column   | `nsColumnSetFrame`       | Flow thread + `RenderMultiColumnSet`       |
 | Page coordination   | `FragmentedFlow`         | Embedded in algorithm loop | `nsPageSequenceFrame`    | `RenderView` pagination                    |
+| Output rendering    | DOM clones per fragment  | `BoxFragmentPainter` → display list | Static document clone (`CreateStaticClone`) | Display list from render tree |

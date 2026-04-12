@@ -264,12 +264,12 @@ first ensures correct dispatch.
 
 ### Algorithm summary
 
-| Algorithm                 | Source file                    | Handles                          |
-| ------------------------- | ------------------------------ | -------------------------------- |
+| Algorithm                 | Source file                        | Handles                          |
+| ------------------------- | ---------------------------------- | -------------------------------- |
 | `layoutMulticolContainer` | `algorithms/multicol-container.js` | `column-count` / `column-width`  |
 | `layoutFlexContainer`     | `algorithms/flex-container.js`     | `display: flex` (row and column) |
 | `layoutGridContainer`     | `algorithms/grid-container.js`     | `display: grid`                  |
-| `layoutInlineContent`     | `fragmentation/inline-content.js`     | Line breaking, inline boxes      |
+| `layoutInlineContent`     | `fragmentation/inline-content.js`  | Line breaking, inline boxes      |
 | `layoutTableRow`          | `algorithms/table-row.js`          | `<tr>` with parallel cell flows  |
 | `layoutBlockContainer`    | `algorithms/block-container.js`    | Default block layout             |
 
@@ -648,6 +648,10 @@ The `Fragment` class (`src/fragmentation/fragment.js`) converts the immutable fr
 tree produced by layout into visible DOM that the browser can paint. This is
 analogous to Chromium's `BoxFragmentPainter`, but instead of producing display
 lists we clone DOM elements and let the browser compose them.
+
+The cloned-DOM approach is inspired by Gecko/Firefox, which for print and print
+preview builds a non-destructive static clone of the source document
+(`nsIDocument::CreateStaticClone`) and runs pagination against the clone.
 
 ### Fragment.build()
 
