@@ -158,22 +158,36 @@ class PageFit extends LayoutModule {
 
 ### Module Initialization
 
-Modules can override `init(options)` to run setup when a flow initializes — typically feature detection or reading options. Since a fresh instance is created per flow, `init()` is called on a clean object each time. For example, the `Normalize` module uses `init()` to detect Blink browsers and disables itself elsewhere:
+Modules can override `init(options)` to run setup when a flow initializes — typically feature detection or reading options. Since a fresh instance is created per flow, `init()` is called on a clean object each time. `FragmentedFlow` additionally injects an `isPageBased` flag (`true` when a `PageResolver` is used or when neither `resolver` nor `constraintSpace` is supplied) so modules can no-op for non-page flows.
+
+For example, `EmulatePrintPixelRatio` gates its line-height normalization on both browser family and fragmentation mode:
 
 ```javascript
-class Normalize extends LayoutModule {
+class EmulatePrintPixelRatio extends LayoutModule {
 	#enabled = false;
 
-	init({ normalizeLineHeight = true } = {}) {
+	init({ emulatePrintPixelRatio = true, isPageBased = false } = {}) {
 		this.#enabled =
-			normalizeLineHeight &&
-			typeof navigator !== "undefined" && /\bChrome\//.test(navigator.userAgent);
+			emulatePrintPixelRatio &&
+			isPageBased &&
+			typeof navigator !== "undefined" &&
+			/\bChrome\//.test(navigator.userAgent);
 	}
 }
 ```
 
 ## Built-in Modules
 
-Built-in modules (in `src/modules/`) are registered by default.
+Built-in modules (in `src/modules/`) are registered by default:
 
-To add a built-in module, export it from `src/modules/index.js` -- it will be registered automatically.
+| Module                   | Purpose                                                                   | Page-only? |
+| ------------------------ | ------------------------------------------------------------------------- | :--------: |
+| `PageFloat`              | Page-relative floats (`--float-reference: page`)                          |     —      |
+| `RepeatedTableHeader`    | Repeat `<thead>` on continuation pages                                    |     —      |
+| `FixedPosition`          | Repeat `position: fixed` elements on every page                           |     —      |
+| `Footnote`               | CSS footnotes (`float: footnote`)                                         |     —      |
+| `NthSelectors`           | Per-fragment nth-child/of-type overrides                                  |     —      |
+| `EmulatePrintPixelRatio` | Line-height normalization so screen rendering matches DPR-1 layout        |    yes     |
+| `BodyRewriter`           | Rewrites `body`/`html` selectors to `slot`/`:host` for the shadow DOM     |    yes     |
+
+To add a built-in module, register it from `src/modules/index.js` -- it will be registered automatically at import time.

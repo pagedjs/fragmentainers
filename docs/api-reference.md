@@ -2,6 +2,34 @@
 
 Complete API reference for `fragmentainers`.
 
+## Package Exports
+
+The top-level entry point exposes the main public API:
+
+```js
+import {
+	FragmentedFlow,
+	Fragment,
+	FragmentationContext,
+	ConstraintSpace,
+	PageResolver,
+	modules,
+} from "fragmentainers";
+```
+
+Additional subpath barrels expose the rest of the public surface area:
+
+| Subpath | Exports |
+| --- | --- |
+| `fragmentainers/fragmentation` | `BreakToken`, `BlockBreakToken`, `InlineBreakToken`, `findChildBreakToken`, `Fragment`, `ConstraintSpace`, `EarlyBreak`, `BreakScore`, `layoutInlineContent`, `FragmentedFlow`, `FragmentationContext`, `CounterState`, `parseCounterDirective`, `walkFragmentTree` |
+| `fragmentainers/layout` | `LayoutRequest`, `layoutChild`, `createFragments`, `runLayoutGenerator`, `getLayoutAlgorithm`, `isMonolithic`, `getMonolithicBlockSize`, `buildCumulativeHeights`, `layoutBlockContainer`, `layoutTableRow`, `DOMLayoutNode` |
+| `fragmentainers/resolvers` | `PageResolver`, `RegionResolver`, `RegionConstraints` |
+| `fragmentainers/components` | `ContentMeasureElement`, `FragmentContainerElement` |
+| `fragmentainers/styles` | `computedStyleMap` |
+| `fragmentainers/modules` | `LayoutModule`, `modules`, `PageFloat`, `RepeatedTableHeader`, `FixedPosition`, `Footnote` |
+
+Constants and internal helpers (e.g. `NAMED_SIZES`, `FRAGMENTATION_*`, `BOX_DECORATION_*`, `walkRules`, `parseNumeric`) are imported from the specific file that owns them — see each section below for the exact path.
+
 ---
 
 ## Table of Contents
@@ -66,7 +94,7 @@ new FragmentedFlow(content, options?)
 | Parameter                     | Type                                        | Description                                                                                                                               |
 | ----------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `content`                     | `DocumentFragment \| Element \| LayoutNode` | Content to fragment. Elements are cloned into a DocumentFragment internally. Mock nodes (plain objects) are used directly for unit tests. |
-| `options.styles`              | `CSSStyleSheet[]`                           | Stylesheets applied via `adoptedStyleSheets`.                                                                                             |
+| `options.styles`              | `CSSStyleSheet[]`                           | Stylesheets applied via `adoptedStyleSheets`. Omit to auto-fallback: uses `document.adoptedStyleSheets` when non-empty, else `document.styleSheets`. |
 | `options.constraintSpace`     | `ConstraintSpace`                           | Direct constraint space (bypasses `@page` rules)                                                                                          |
 | `options.resolver`            | `PageResolver \| RegionResolver`            | Pre-configured resolver                                                                                                                   |
 | `options.width`               | `number`                                    | Container width in CSS px (column fragmentation)                                                                                          |
@@ -92,7 +120,7 @@ Options are checked in priority order: `constraintSpace` > `resolver` > `width`/
 
 `import { FragmentationContext } from "fragmentainers"`
 
-**Source:** `src/core/fragmentation-context.js`
+**Source:** `src/fragmentation/fragmentation-context.js`
 
 Result of running fragmentation -- a "fragmented flow" in CSS spec terms.
 Extends `Array`, so flow instances are directly iterable: `flow[0]` gives the
@@ -127,7 +155,7 @@ new FragmentationContext(fragments, contentStyles);
 
 ### PageResolver
 
-`import { PageResolver } from "fragmentainers/src/atpage/page-resolver.js"`
+`import { PageResolver } from "fragmentainers/src/resolvers/page-resolver.js"`
 
 Resolves page dimensions per-page by implementing `@page` rule matching and
 cascade. Implements CSS specificity ordering: universal (0) < pseudo-class (1)
@@ -167,7 +195,7 @@ new PageResolver(pageRules, size);
 
 ### PageRule
 
-`import { PageRule } from "fragmentainers/src/atpage/page-resolver.js"`
+`import { PageRule } from "fragmentainers/src/resolvers/page-resolver.js"`
 
 Parsed representation of a CSS `@page` rule.
 
@@ -189,7 +217,7 @@ new PageRule({ name, pseudoClass, size, margin, pageOrientation });
 
 ### PageConstraints
 
-`import { PageConstraints } from "fragmentainers/src/atpage/page-resolver.js"`
+`import { PageConstraints } from "fragmentainers/src/resolvers/page-resolver.js"`
 
 Resolved page dimensions for one page -- the fragmentainer definition.
 
@@ -220,7 +248,7 @@ new PageConstraints({ pageIndex, namedPage, pageBoxSize, margins, contentArea, i
 
 ### parsePageRulesFromCSS(cssTexts)
 
-`import { parsePageRulesFromCSS } from "fragmentainers/src/atpage/page-resolver.js"`
+`import { parsePageRulesFromCSS } from "fragmentainers/src/resolvers/page-resolver.js"`
 
 Parse `@page` rules from CSS text strings using the browser's CSSOM.
 Recursively descends into grouping rules (`@layer`, `@supports`, `@media`).
@@ -282,18 +310,75 @@ Resolved dimensions for one region element.
 
 ---
 
-### parseCSSLength(str)
+### parseNumeric(str)
 
-`import { parseCSSLength } from "fragmentainers/src/atpage/page-resolver.js"`
+`import { parseNumeric } from "fragmentainers/src/styles/css-values.js"`
 
-Parse a CSS length string to CSS pixels (96 DPI). Supports `px`, `in`, `cm`,
-`mm`, `pt`.
+Parse a CSS numeric/length string into a typed value with `.value`, `.unit`,
+`.to()`, `.add()`, and `.sub()`. Uses native `CSSNumericValue.parse()` when
+available (Chromium) so `calc()` expressions and any supported unit work.
+Falls back to a regex polyfill (physical units only) in other browsers. Bare
+numbers are treated as `px`.
 
-| Parameter | Type     | Description                                          |
-| --------- | -------- | ---------------------------------------------------- |
-| `str`     | `string` | CSS length value (e.g. `"2cm"`, `"72pt"`, `"100px"`) |
+| Parameter | Type     | Description                                                       |
+| --------- | -------- | ----------------------------------------------------------------- |
+| `str`     | `string` | CSS numeric value (e.g. `"2cm"`, `"100px"`, `"calc(1in - 2mm)"`) |
 
-**Returns:** `number | null`
+**Returns:** `CSSNumericValue | UnitValue | null`
+
+Convert to px with `.to("px").value`:
+
+```js
+parseNumeric("2cm").to("px").value; // 75.59...
+parseNumeric("calc(1in + 2mm)").to("px").value; // 103.55...
+```
+
+### cssValue(value, unit)
+
+`import { cssValue } from "fragmentainers/src/styles/css-values.js"`
+
+Construct a CSS numeric value. Returns a native `CSSUnitValue` when available,
+otherwise a `UnitValue` polyfill with the same `.value`, `.unit`, `.to()`,
+`.add()`, `.sub()` shape.
+
+### UnitValue
+
+`import { UnitValue } from "fragmentainers/src/styles/css-values.js"`
+
+Polyfill for `CSSUnitValue` used when native CSS Typed OM is unavailable.
+Provides a subset of the Typed OM arithmetic/conversion interface.
+
+| Method / Property | Returns     | Description                                                |
+| ----------------- | ----------- | ---------------------------------------------------------- |
+| `value`           | `number`    | Numeric component                                          |
+| `unit`            | `string`    | Unit name (e.g. `"px"`, `"mm"`, `"em"`, `"percent"`)       |
+| `to(unit)`        | `UnitValue` | Convert to target unit (physical units; throws otherwise)  |
+| `add(other)`      | `UnitValue` | Add another value; converts to px when units differ        |
+| `sub(other)`      | `UnitValue` | Subtract another value; converts to px when units differ   |
+
+### computedStyleMap(element)
+
+`import { computedStyleMap } from "fragmentainers/src/styles/computed-style-map.js"`
+
+Polyfill for `element.computedStyleMap()` — returns a map whose `.get(property)`
+yields a `UnitValue` (numeric) or `{ value: keyword }` (keyword). Uses native
+Typed OM when available.
+
+### walkRules, walkSheets, insertWrappedRule
+
+`import { walkRules, walkSheets, insertWrappedRule } from "fragmentainers/src/styles/walk-rules.js"`
+
+Shared helpers for walking CSS rule trees used by modules and `@page`
+processing.
+
+- `walkRules(ruleList, visitor, wrappers?)` — recursive descent that calls
+  `visitor(rule, wrappers)` for each leaf rule. Handles grouping rules
+  (`@media`, `@supports`, `@layer`); rules with `selectorText` (including
+  `@page`) are treated as leaves.
+- `walkSheets(sheets, visitor)` — walks multiple stylesheets, silently
+  skipping cross-origin sheets.
+- `insertWrappedRule(target, ruleText, wrappers)` — inserts a rule into
+  `target`, wrapping inside-out in the given grouping rule preambles.
 
 ---
 
@@ -323,7 +408,7 @@ const result = createFragments(tree, resolver, {
 
 | Parameter                   | Type                                                          | Description                                  |
 | --------------------------- | ------------------------------------------------------------- | -------------------------------------------- |
-| `rootNode`                  | `LayoutNode`                                                  | Root layout node (from `buildLayoutTree`)    |
+| `rootNode`                  | `LayoutNode`                                                  | Root layout node (e.g. a `DOMLayoutNode`)    |
 | `constraintSpaceOrResolver` | `ConstraintSpace \| PageResolver`                             | Reused constraint space or per-page resolver |
 | `continuation`              | `{ fragmentainerIndex: number, blockOffset: number } \| null` | Resume state for multi-element flows         |
 
@@ -367,22 +452,20 @@ Dispatch to the correct layout algorithm based on node type. Checked in order:
 
 ---
 
-### buildLayoutTree(rootElement)
+### DOMLayoutNode(element)
 
-`import { buildLayoutTree } from "fragmentainers"`
+`import { DOMLayoutNode } from "fragmentainers"`
 
-Build a layout tree from a DOM element. Returns a `DOMLayoutNode` wrapping the
-root. Properties are resolved lazily during layout traversal.
+Wrap a DOM element as a layout tree root. Properties are resolved lazily from
+`getComputedStyle()` during layout traversal.
 
 ```js
-const tree = buildLayoutTree(document.querySelector(".content"));
+const tree = new DOMLayoutNode(document.querySelector(".content"));
 ```
 
-| Parameter     | Type      | Description         |
-| ------------- | --------- | ------------------- |
-| `rootElement` | `Element` | DOM element to wrap |
-
-**Returns:** `DOMLayoutNode`
+| Parameter | Type      | Description         |
+| --------- | --------- | ------------------- |
+| `element` | `Element` | DOM element to wrap |
 
 ---
 
@@ -433,7 +516,7 @@ new ConstraintSpace({
 
 ### MarginState
 
-`import { MarginState } from "fragmentainers/src/core/margin-collapsing.js"`
+`import { MarginState } from "fragmentainers/src/layout/margin-collapsing.js"`
 
 Stateful tracker for CSS2 §8.3.1 block margin collapsing. Used by
 `layoutBlockContainer` to resolve collapsed margins between siblings, through
@@ -641,7 +724,7 @@ The `Fragment` class converts the immutable fragment tree into visible DOM.
 Analogous to the browser paint stage, but instead of producing display lists it
 clones DOM elements and lets the browser paint.
 
-**Source:** `src/core/fragment.js`
+**Source:** `src/fragmentation/fragment.js`
 
 ### Fragment.build(inputBreakToken)
 
@@ -689,9 +772,13 @@ line fragments). Line fragments have `node === null`.
 
 ## 6. Custom Elements
 
+The two custom elements live under `src/components/`. They are auto-registered on import via `customElements.define()`.
+
 ### ContentMeasureElement (`<content-measure>`)
 
 `import { ContentMeasureElement } from "fragmentainers"`
+
+**Source:** `src/components/content-measure.js`
 
 Off-screen measurement container with Shadow DOM. Injects content and CSS into a
 shadow root so the host page's styles do not affect layout measurements.
@@ -719,6 +806,8 @@ Managed internally by `FragmentedFlow`.
 ### FragmentContainerElement (`<fragment-container>`)
 
 `import { FragmentContainerElement } from "fragmentainers"`
+
+**Source:** `src/components/fragment-container.js`
 
 Visible page container with Shadow DOM. Wraps composed fragment output to
 prevent CSS leakage from the host page. Uses `all: initial` on `:host` and
@@ -842,7 +931,7 @@ Print a human-readable tree of the break token hierarchy. Useful for debugging.
 
 ### isForcedBreakValue(value)
 
-`import { isForcedBreakValue } from "fragmentainers/src/core/helpers.js"`
+`import { isForcedBreakValue } from "fragmentainers/src/fragmentation/tokens.js"`
 
 Check if a CSS `break-before`/`break-after` value is a forced break. Returns
 `true` for `"page"`, `"column"`, `"always"`, `"left"`, `"right"`, `"recto"`, `"verso"`.
@@ -851,7 +940,7 @@ Check if a CSS `break-before`/`break-after` value is a forced break. Returns
 
 ### isSideSpecificBreak(value)
 
-`import { isSideSpecificBreak } from "fragmentainers/src/core/helpers.js"`
+`import { isSideSpecificBreak } from "fragmentainers/src/resolvers/page-resolver.js"`
 
 Check if a CSS break value requires a specific page side. Returns `true` for
 `"left"`, `"right"`, `"recto"`, `"verso"`.
@@ -860,7 +949,7 @@ Check if a CSS break value requires a specific page side. Returns `true` for
 
 ### requiredPageSide(value)
 
-`import { requiredPageSide } from "fragmentainers/src/core/helpers.js"`
+`import { requiredPageSide } from "fragmentainers/src/resolvers/page-resolver.js"`
 
 Return the required page side for a side-specific break value. Normalizes
 `recto` to `"right"` and `verso` to `"left"`.
@@ -869,7 +958,7 @@ Return the required page side for a side-specific break value. Normalizes
 
 ### resolveForcedBreakValue(breakToken)
 
-`import { resolveForcedBreakValue } from "fragmentainers/src/core/helpers.js"`
+`import { resolveForcedBreakValue } from "fragmentainers/src/resolvers/page-resolver.js"`
 
 Walk the break token tree to find the `forcedBreakValue` that triggered the
 break.
@@ -878,7 +967,7 @@ break.
 
 ### resolveNextPageBreakBefore(rootNode, breakToken)
 
-`import { resolveNextPageBreakBefore } from "fragmentainers/src/core/helpers.js"`
+`import { resolveNextPageBreakBefore } from "fragmentainers/src/resolvers/page-resolver.js"`
 
 Resolve the `break-before` CSS value of the first child that will appear on
 the next page. Used to detect side-specific breaks when `blockOffset === 0`
@@ -976,9 +1065,11 @@ non-null) since those were already counted in a previous fragmentainer.
 
 ## 8. Constants
 
-`import { constants } from "fragmentainers"`
+Each constant is exported from the file that manages it — import directly from the source module.
 
 ### Fragmentation Types
+
+`import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE, FRAGMENTATION_COLUMN, FRAGMENTATION_REGION } from "fragmentainers/src/fragmentation/constraint-space.js"`
 
 Used in `ConstraintSpace.fragmentationType`.
 
@@ -990,6 +1081,8 @@ Used in `ConstraintSpace.fragmentationType`.
 | `FRAGMENTATION_REGION` | `"region"` | Region fragmentation     |
 
 ### Inline Item Types
+
+`import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC } from "fragmentainers/src/dom/collect-inlines.js"`
 
 Used in `InlineItemsData.items[].type`.
 
@@ -1003,6 +1096,8 @@ Used in `InlineItemsData.items[].type`.
 
 ### Break Token Types
 
+`import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "fragmentainers/src/fragmentation/tokens.js"`
+
 Used in `BreakToken.type`.
 
 | Constant             | Value      | Description              |
@@ -1011,6 +1106,8 @@ Used in `BreakToken.type`.
 | `BREAK_TOKEN_INLINE` | `"inline"` | Inline-level break token |
 
 ### Box Decoration Break
+
+`import { BOX_DECORATION_SLICE, BOX_DECORATION_CLONE } from "fragmentainers/src/layout/layout-node.js"`
 
 Used in `node.boxDecorationBreak`.
 
@@ -1021,6 +1118,8 @@ Used in `node.boxDecorationBreak`.
 
 ### Early Break Types
 
+`import { EARLY_BREAK_BEFORE, EARLY_BREAK_INSIDE } from "fragmentainers/src/fragmentation/break-scoring.js"`
+
 Used in `EarlyBreak.type`.
 
 | Constant             | Value      | Description                  |
@@ -1030,23 +1129,29 @@ Used in `EarlyBreak.type`.
 
 ### Algorithm Data Types
 
+Each algorithm data type is defined in the file that uses it:
+
+| Constant              | Value            | Import from                            |
+| --------------------- | ---------------- | -------------------------------------- |
+| `ALGORITHM_FLEX`      | `"FlexData"`     | `src/layout/flex-container.js`         |
+| `ALGORITHM_FLEX_LINE` | `"FlexLineData"` | `src/layout/flex-container.js`         |
+| `ALGORITHM_GRID`      | `"GridData"`     | `src/layout/grid-container.js`         |
+| `ALGORITHM_TABLE_ROW` | `"TableRowData"` | `src/layout/table-row.js`              |
+| `ALGORITHM_MULTICOL`  | `"MulticolData"` | `src/layout/multicol-container.js`     |
+
 Used in `breakToken.algorithmData.type`.
 
-| Constant              | Value            | Description                        |
-| --------------------- | ---------------- | ---------------------------------- |
-| `ALGORITHM_FLEX`      | `"FlexData"`     | Flex container algorithm state     |
-| `ALGORITHM_FLEX_LINE` | `"FlexLineData"` | Flex line algorithm state          |
-| `ALGORITHM_GRID`      | `"GridData"`     | Grid container algorithm state     |
-| `ALGORITHM_TABLE_ROW` | `"TableRowData"` | Table row algorithm state          |
-| `ALGORITHM_MULTICOL`  | `"MulticolData"` | Multicol container algorithm state |
-
 ### Overflow Threshold
+
+`import { DEFAULT_OVERFLOW_THRESHOLD } from "fragmentainers/src/fragmentation/fragmentation-context.js"`
 
 | Constant                     | Value               | Description                                                                                                    |
 | ---------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `DEFAULT_OVERFLOW_THRESHOLD` | `19.2` (`16 * 1.2`) | Default overflow threshold matching the browser default line height for `font-size: 16px; line-height: normal` |
 
 ### Named Page Sizes
+
+`import { NAMED_SIZES, NAMED_SIZES_CSS } from "fragmentainers/src/resolvers/page-resolver.js"`
 
 All dimensions are in CSS pixels at 96 DPI.
 
@@ -1062,6 +1167,8 @@ All dimensions are in CSS pixels at 96 DPI.
 | `LEGAL`  | 816        | 1344      |
 | `LEDGER` | 1056       | 1632      |
 
+`NAMED_SIZES_CSS` provides the same set as `[value, unit]` pairs (e.g. `[210, "mm"]`) preserving original CSS units for subpixel-accurate rendering.
+
 ---
 
 ## 9. Layout Algorithms
@@ -1075,7 +1182,7 @@ detailed algorithm descriptions, see [layout-algorithms.md](layout-algorithms.md
 | Algorithm                 | Signature                                                         | Source                             |
 | ------------------------- | ----------------------------------------------------------------- | ---------------------------------- |
 | `layoutBlockContainer`    | `function*(node, constraintSpace, breakToken, earlyBreakTarget?)` | `src/layout/block-container.js`    |
-| `layoutInlineContent`     | `function*(node, constraintSpace, breakToken)`                    | `src/layout/inline-content.js`     |
+| `layoutInlineContent`     | `function*(node, constraintSpace, breakToken)`                    | `src/fragmentation/inline-content.js`     |
 | `layoutTableRow`          | `function*(node, constraintSpace, breakToken)`                    | `src/layout/table-row.js`          |
 | `layoutMulticolContainer` | `function*(node, constraintSpace, breakToken)`                    | `src/layout/multicol-container.js` |
 | `layoutFlexContainer`     | `function*(node, constraintSpace, breakToken)`                    | `src/layout/flex-container.js`     |
@@ -1162,14 +1269,19 @@ at import time.
 
 All built-in modules are registered automatically. They can also be imported directly.
 
-| Module                | Import                                                                         | Description                                                                   |
-| --------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| `PageFloat`           | `import { PageFloat } from "fragmentainers"`                                   | Page-relative floats via `--float-reference: page` and `--float: top\|bottom` |
-| `PageFit`             | `import { PageFit } from "fragmentainers"`                                     | Full-page elements via `--page-fit: contain\|cover\|fill`                     |
-| `RepeatedTableHeader` | `import { RepeatedTableHeader } from "fragmentainers"`                         | Repeat `<thead>` on continuation pages                                        |
-| `FixedPosition`       | `import { FixedPosition } from "fragmentainers/src/modules/fixed-position.js"` | Repeat `position: fixed` elements on every page                               |
-| `Footnote`            | `import { Footnote } from "fragmentainers/src/modules/footnote.js"`            | CSS footnotes (`float: footnote`) with iterative layout                       |
-| `Normalize`           | `import { Normalize } from "fragmentainers/src/modules/normalize.js"`          | Line-height normalization (auto-enabled in Blink browsers)                    |
+| Module                   | Import                                                                                  | Description                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `PageFloat`              | `import { PageFloat } from "fragmentainers"`                                            | Page-relative floats via `--float-reference: page` and `--float: top\|bottom`                   |
+| `PageFit`                | `import { PageFit } from "fragmentainers"`                                              | Full-page elements via `--page-fit: contain\|cover\|fill`                                       |
+| `RepeatedTableHeader`    | `import { RepeatedTableHeader } from "fragmentainers"`                                  | Repeat `<thead>` on continuation pages                                                          |
+| `FixedPosition`          | `import { FixedPosition } from "fragmentainers/src/modules/fixed-position.js"`          | Repeat `position: fixed` elements on every page                                                 |
+| `Footnote`               | `import { Footnote } from "fragmentainers/src/modules/footnote.js"`                     | CSS footnotes (`float: footnote`) with iterative layout                                         |
+| `NthSelectors`           | `import { NthSelectors } from "fragmentainers/src/modules/nth-selectors.js"`            | Per-fragment nth-child/nth-of-type selector overrides                                           |
+| `EmulatePrintPixelRatio` | `import { EmulatePrintPixelRatio } from "fragmentainers/src/modules/normalize.js"`      | Line-height normalization for print-style flows (auto-enabled in Blink browsers; page-based only) |
+| `BodyRewriter`           | `import { BodyRewriter } from "fragmentainers/src/modules/body-rewriter.js"`            | Rewrites `body`/`html` selectors to `slot`/`:host` for shadow DOM (page-based only)             |
+| `MutationSync`           | `import { MutationSync } from "fragmentainers"`                                         | Optional. Syncs mutations from fragment-container clones back to source elements                |
+
+`FragmentedFlow` computes an `isPageBased` flag (`true` when a `PageResolver` is used or when neither `resolver` nor `constraintSpace` is supplied) and passes it to all modules via `init()`. Modules that only apply to print-style fragmentation (`EmulatePrintPixelRatio`, `BodyRewriter`) gate their behavior on this flag and no-op for column/region flows.
 
 ---
 

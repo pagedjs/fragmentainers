@@ -214,7 +214,7 @@ Some tests exercise real DOM APIs:
 ```javascript
 // test/core/flow.test.js
 import { describe, it, expect, afterEach } from "vitest";
-import { FragmentedFlow } from "../../src/core/fragmented-flow.js";
+import { FragmentedFlow } from "../../src/fragmentation/fragmented-flow.js";
 
 describe("flow", () => {
 	let layout;

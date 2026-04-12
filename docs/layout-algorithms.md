@@ -106,7 +106,7 @@ Per CSS Fragmentation: margins adjoining a fragmentainer break are truncated to 
 
 ## Inline Content
 
-**File:** `src/layout/inline-content.js`
+**File:** `src/fragmentation/inline-content.js`
 **Dispatch:** `node.isInlineFormattingContext === true`
 **Generator:** `layoutInlineContent(node, constraintSpace, breakToken)`
 
@@ -339,7 +339,7 @@ export function* layoutMyContainer(node, constraintSpace, breakToken) {
 
 ### 2. Register in Algorithm Dispatch
 
-Add the check in `getLayoutAlgorithm()` in `src/core/layout-request.js`. Order matters — place it before any type it might overlap with:
+Add the check in `getLayoutAlgorithm()` in `src/layout/layout-request.js`. Order matters — place it before any type it might overlap with:
 
 ```javascript
 export function getLayoutAlgorithm(node) {
@@ -352,7 +352,7 @@ export function getLayoutAlgorithm(node) {
 
 ### 3. Define Algorithm Data Constants
 
-Add a constant in `src/core/constants.js`:
+Add the constant at the top of your container's file (e.g. `src/layout/my-container.js`), co-located with the class that uses it:
 
 ```javascript
 export const ALGORITHM_MY_CONTAINER = "MyContainerData";
@@ -360,7 +360,7 @@ export const ALGORITHM_MY_CONTAINER = "MyContainerData";
 
 ### 4. Add LayoutNode Properties
 
-Add detection properties to the `LayoutNode` interface in `src/core/helpers.js` and implement them in `src/dom/layout-node.js`.
+Add detection properties to the `LayoutNode` typedef and implement them in `src/layout/layout-node.js`. Constants used by the layout node (e.g. `BOX_DECORATION_SLICE`) also live there.
 
 ### 5. Write Tests
 

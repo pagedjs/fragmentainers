@@ -20,7 +20,7 @@ This document maps the fragmentainer engine's data structures, algorithms, and m
 
 ## 1. Break Tokens
 
-**Source:** `src/core/tokens.js`
+**Source:** `src/fragmentation/tokens.js`
 
 Break tokens are continuation tokens that capture enough state to resume layout in the next fragmentainer when content overflows. They form a sparse tree mirroring the CSS box tree.
 
@@ -114,7 +114,7 @@ Source: [`Source/WebCore/rendering/RenderBlockFlow.cpp`](https://github.com/WebK
 
 ## 2. PhysicalFragment
 
-**Source:** `src/core/fragment.js`
+**Source:** `src/fragmentation/fragment.js`
 
 The immutable output of a layout algorithm. Represents one positioned portion of a CSS box within exactly one fragmentainer.
 
@@ -174,7 +174,7 @@ Like Gecko, WebKit does not have a separate fragment tree. The **`RenderBox`** i
 
 ## 3. ConstraintSpace
 
-**Source:** `src/core/constraint-space.js`
+**Source:** `src/fragmentation/constraint-space.js`
 
 Carries fragmentainer dimensions and fragmentation context to layout algorithms. Created fresh for each fragmentainer or child layout.
 
@@ -225,7 +225,7 @@ Carries fragmentainer dimensions and fragmentation context to layout algorithms.
 
 ## 4. EarlyBreak / BreakScore
 
-**Source:** `src/core/break-scoring.js`
+**Source:** `src/fragmentation/break-scoring.js`
 
 Implements the two-pass break optimization. Pass 1 discovers the optimal breakpoint (tracking `EarlyBreak` chains); if the actual break is suboptimal, Pass 2 re-runs layout to break at the `EarlyBreak` target.
 
@@ -295,7 +295,7 @@ WebKit also uses a single-pass approach:
 
 ## 5. LayoutRequest
 
-**Source:** `src/core/layout-request.js`
+**Source:** `src/layout/layout-request.js`
 
 Yielded from layout algorithm generators to the driver. Represents a request to lay out a child node. The driver fulfills it by recursively dispatching to the appropriate algorithm.
 
@@ -345,7 +345,7 @@ Yielded from layout algorithm generators to the driver. Represents a request to 
 
 ## 6. LayoutNode / DOMLayoutNode
 
-**Source:** `src/dom/layout-node.js`
+**Source:** `src/layout/layout-node.js`
 
 Read-only wrapper around a DOM `Element`, providing the layout-relevant properties that algorithms consume. Properties are lazily computed from `getComputedStyle()` and cached.
 
@@ -497,7 +497,7 @@ WebKit has both a legacy and modern inline model:
 
 ## 8. PageRule / PageConstraints / PageResolver
 
-**Source:** `src/atpage/page-resolver.js`
+**Source:** `src/resolvers/page-resolver.js`
 
 Implements `@page` rule parsing, matching, cascading, and per-page constraint resolution.
 
@@ -648,7 +648,7 @@ Gecko stores algorithm-specific state on the frame objects and their continuatio
 
 ## 10. FragmentedFlow / FragmentationContext
 
-**Source:** `src/core/fragmented-flow.js`
+**Source:** `src/fragmentation/fragmented-flow.js`
 
 High-level coordinator that encapsulates the full content-to-fragmentation pipeline.
 

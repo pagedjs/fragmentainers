@@ -50,7 +50,7 @@ FragmentedFlow
      │     injectFragment()
      │          |
      │          v
-     ├── buildLayoutTree()
+     ├── new DOMLayoutNode()
      │          |
      │          v
      └── DOMLayoutNode ──> next() / flow()  ────> PhysicalFragment[]
@@ -74,7 +74,7 @@ FragmentedFlow
 iteration produces one `<fragment-container>` element. Call
 `destroy()` to remove the internal measurement container when done.
 
-**Fragmentation phase.** `Fragment.build()` (`src/core/fragment.js`) walks each
+**Fragmentation phase.** `Fragment.build()` (`src/fragmentation/fragment.js`) walks each
 fragment tree and clones DOM elements into visible DOM. For pages,
 this produces `<fragment-container>` custom elements with shadow DOM. For
 regions, the caller composes each fragment into the target region element
@@ -125,7 +125,7 @@ const result = yield layoutChild(child, childConstraintSpace, childBreakToken);
 
 ### The driver: runLayoutGenerator
 
-`runLayoutGenerator` (in `src/core/layout-request.js`) is the recursive driver that
+`runLayoutGenerator` (in `src/layout/layout-request.js`) is the recursive driver that
 runs generators to completion:
 
 ```js
@@ -196,7 +196,7 @@ Each layout algorithm returns an object with:
 
 `FragmentedFlow.next()` lays out one fragmentainer per call. `flow()` is
 sugar that calls `next()` until `breakToken` is null. The lower-level
-`createFragments()` in `src/core/layout-request.js` runs the same loop internally.
+`createFragments()` in `src/layout/layout-request.js` runs the same loop internally.
 
 Each `next()` call:
 
@@ -240,7 +240,7 @@ zero-progress fragmentainers and bails after 5 to prevent infinite loops.
 
 ## 4. Algorithm Dispatch
 
-`getLayoutAlgorithm()` in `src/core/layout-request.js` maps a `LayoutNode` to the
+`getLayoutAlgorithm()` in `src/layout/layout-request.js` maps a `LayoutNode` to the
 correct generator function:
 
 ```js
@@ -269,7 +269,7 @@ first ensures correct dispatch.
 | `layoutMulticolContainer` | `layout/multicol-container.js` | `column-count` / `column-width`  |
 | `layoutFlexContainer`     | `layout/flex-container.js`     | `display: flex` (row and column) |
 | `layoutGridContainer`     | `layout/grid-container.js`     | `display: grid`                  |
-| `layoutInlineContent`     | `layout/inline-content.js`     | Line breaking, inline boxes      |
+| `layoutInlineContent`     | `fragmentation/inline-content.js`     | Line breaking, inline boxes      |
 | `layoutTableRow`          | `layout/table-row.js`          | `<tr>` with parallel cell flows  |
 | `layoutBlockContainer`    | `layout/block-container.js`    | Default block layout             |
 
@@ -280,7 +280,7 @@ It is also the algorithm that multicol delegates to via the flow thread pattern
 ### Margin collapsing
 
 Block margin collapsing (CSS2 §8.3.1) is handled by `MarginState` in
-`src/core/margin-collapsing.js`. It adopts Chromium's LayoutNG `MarginStrut`
+`src/layout/margin-collapsing.js`. It adopts Chromium's LayoutNG `MarginStrut`
 concept for correct handling of positive, negative, and mixed margins.
 
 #### MarginStrut
@@ -367,7 +367,7 @@ BlockBreakToken (root)
 
 ### BlockBreakToken
 
-Defined in `src/core/tokens.js`. Key fields:
+Defined in `src/fragmentation/tokens.js`. Key fields:
 
 - **`consumedBlockSize`** -- cumulative block-axis space consumed by ALL
   previous fragments of this node. For a node with `height: 600px` that has
@@ -427,7 +427,7 @@ All break token types inherit these boolean flags from `BreakToken`:
 - When `isBreakBefore` is set on a child's token, pass `null` as that child's
   break token to the layout algorithm. The child starts fresh in the new
   fragmentainer.
-- `findChildBreakToken(parentBreakToken, childNode)` (in `src/core/helpers.js`)
+- `findChildBreakToken(parentBreakToken, childNode)` (in `src/fragmentation/tokens.js`)
   locates the child's token within the parent's `childBreakTokens` array.
 - When all placed children have completed but unvisited children remain,
   `createBreakBefore(nextChild)` is pushed so the next fragmentainer picks up
@@ -583,7 +583,7 @@ sequential item flow within each fragmentainer.
 
 ## 9. DOM Adapter
 
-`DOMLayoutNode` in `src/dom/layout-node.js` wraps a real DOM `Element` in the
+`DOMLayoutNode` in `src/layout/layout-node.js` wraps a real DOM `Element` in the
 `LayoutNode` interface that layout algorithms expect. It is read-only and never
 mutates the DOM.
 
@@ -634,18 +634,17 @@ This flat representation is what `InlineBreakToken` indexes into with
 `itemIndex` and `textOffset`, and what `Fragment.buildInlineContent()` uses
 to reconstruct DOM from offset ranges.
 
-### buildLayoutTree
+### DOMLayoutNode
 
-`buildLayoutTree(element)` in `src/dom/index.js` is the entry point. It wraps
-the given DOM element in a `DOMLayoutNode` and returns it. The returned node
-is the `rootNode` passed to `createFragments()` or
-`FragmentedFlow.flow()`.
+`new DOMLayoutNode(element)` from `src/layout/layout-node.js` wraps a DOM element
+as a lazy layout tree root. The resulting node is the `rootNode` passed to
+`createFragments()` or `FragmentedFlow.flow()`.
 
 ---
 
 ## 10. Fragmentation
 
-The `Fragment` class (`src/core/fragment.js`) converts the immutable fragment
+The `Fragment` class (`src/fragmentation/fragment.js`) converts the immutable fragment
 tree produced by layout into visible DOM that the browser can paint. This is
 analogous to Chromium's `BoxFragmentPainter`, but instead of producing display
 lists we clone DOM elements and let the browser compose them.
@@ -801,3 +800,36 @@ This avoids tight coupling between `FragmentedFlow` and individual modules.
 
 See [Layout Modules](modules.md) for the full module interface and how to write
 custom modules.
+
+---
+
+## 12. Source Layout
+
+```
+src/
+  fragmentation/    # Fragment, FragmentedFlow, FragmentationContext, BreakToken,
+                    # ConstraintSpace, break scoring, counter state
+  layout/           # Layout algorithms: block, inline, flex, grid, multicol,
+                    # table-row, margin-collapsing, speculative-layout, layout-request
+  dom/              # DOMLayoutNode, Measurer, line-box, pseudo-elements,
+                    # collect-inlines, font-metrics — DOM adapter + measurement
+  components/       # Custom elements: <content-measure>, <fragment-container>
+  styles/           # CSS infrastructure: css-values (CSSNumericValue polyfill),
+                    # computed-style-map polyfill, walk-rules, overrides,
+                    # ua-defaults, style-utils
+  modules/          # LayoutModule base + built-ins: PageFloat, Footnote,
+                    # FixedPosition, NthSelectors, EmulatePrintPixelRatio,
+                    # BodyRewriter, RepeatedTableHeader, PageFit, MutationSync
+  atpage/           # PageResolver, PageRule, PageConstraints, named sizes
+  regions/          # RegionResolver
+```
+
+**Locality conventions.** Constants live next to the class that manages them:
+`BREAK_TOKEN_*` in `tokens.js`, `FRAGMENTATION_*` in `constraint-space.js`,
+`BOX_DECORATION_*` in `layout-node.js`, `ALGORITHM_*` in each container's file,
+`NAMED_SIZES`/`NAMED_SIZES_CSS` in `page-resolver.js`. There is no shared
+`constants.js`.
+
+Similarly, small helpers live with their owning class: `findChildBreakToken`
+and `isForcedBreakValue` live in `tokens.js`; `isMonolithic` and
+`getMonolithicBlockSize` live in `layout-node.js`.
