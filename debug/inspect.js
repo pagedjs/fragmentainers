@@ -1,6 +1,6 @@
-import { findChildBreakToken, isMonolithic, constants } from "../src/index.js";
-
-const { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } = constants;
+import { findChildBreakToken } from "../src/fragmentation/index.js";
+import { isMonolithic } from "../src/layout/index.js";
+import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "../src/fragmentation/tokens.js";
 
 /**
  * Debug utility — pretty-print a break token tree.
@@ -187,7 +187,7 @@ export function fragmentainerHeight(fragment, defaultH) {
  * Build a transparent overlay showing fragment borders for a page.
  * Each fragment is drawn as a colored outline at its engine-calculated position.
  *
- * @param {import('../src/core/fragment.js').Fragment} pageFragment
+ * @param {import('../src/fragmentation/fragment.js').Fragment} pageFragment
  * @param {{ inlineSize: number, blockSize: number }} contentArea
  * @param {{ top: number, right: number, bottom: number, left: number }} margins
  * @returns {HTMLElement}
@@ -337,7 +337,7 @@ export function buildFragmentOverlay(pageFragment, contentArea, margins) {
 	return container;
 }
 
-// --- Internal helpers ---
+// Internal helpers
 
 function dumpFragment(frag, parentBT, depth) {
 	const node = frag.node;

@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("measureElementBlockSize", () => {
 	test("returns the height of an element with explicit height", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { measureElementBlockSize } = await import("/src/dom/measure.js");
+			const { measureElementBlockSize } = await import("/src/measurement/measure.js");
 			const div = document.createElement("div");
 			div.style.height = "80px";
 			document.body.appendChild(div);
@@ -16,7 +16,7 @@ test.describe("measureElementBlockSize", () => {
 
 	test("includes padding and border in the measurement", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { measureElementBlockSize } = await import("/src/dom/measure.js");
+			const { measureElementBlockSize } = await import("/src/measurement/measure.js");
 			const div = document.createElement("div");
 			div.style.height = "50px";
 			div.style.paddingTop = "10px";
@@ -37,7 +37,7 @@ test.describe("measureElementBlockSize", () => {
 test.describe("getLineHeight", () => {
 	test("returns an explicit pixel line-height", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight } = await import("/src/dom/line-box.js");
+			const { getLineHeight } = await import("/src/measurement/line-box.js");
 			const div = document.createElement("div");
 			div.style.lineHeight = "24px";
 			document.body.appendChild(div);
@@ -50,7 +50,7 @@ test.describe("getLineHeight", () => {
 
 	test("returns accurate rendered value when line-height is normal", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight } = await import("/src/dom/line-box.js");
+			const { getLineHeight } = await import("/src/measurement/line-box.js");
 			const div = document.createElement("div");
 			div.style.lineHeight = "normal";
 			div.style.fontSize = "20px";
@@ -67,7 +67,7 @@ test.describe("getLineHeight", () => {
 
 	test("returns unitless line-height multiplied by font-size", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight } = await import("/src/dom/line-box.js");
+			const { getLineHeight } = await import("/src/measurement/line-box.js");
 			const div = document.createElement("div");
 			div.style.lineHeight = "1.5";
 			div.style.fontSize = "20px";
@@ -81,7 +81,7 @@ test.describe("getLineHeight", () => {
 
 	test("floors line-height: normal at DPR 1", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
 			setTargetDevicePixelRatio(1);
 			const div = document.createElement("div");
 			div.style.cssText = "font-size:20px;line-height:normal;width:50px";
@@ -98,7 +98,7 @@ test.describe("getLineHeight", () => {
 
 	test("returns sub-pixel line-height: normal at DPR 2", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
 			setTargetDevicePixelRatio(2);
 			const div = document.createElement("div");
 			div.style.cssText = "font-size:20px;line-height:normal;width:50px";
@@ -115,7 +115,7 @@ test.describe("getLineHeight", () => {
 
 	test("single-line element uses first line box height", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
 			setTargetDevicePixelRatio(1);
 			const div = document.createElement("div");
 			div.style.cssText = "font-size:16px;line-height:normal";
@@ -134,7 +134,7 @@ test.describe("getLineHeight", () => {
 test.describe("measureLines", () => {
 	test("counts lines and measures line height for multi-line element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { measureLines } = await import("/src/dom/line-box.js");
+			const { measureLines } = await import("/src/measurement/line-box.js");
 			const div = document.createElement("div");
 			// Use line-height: normal so the gap between getClientRects tops
 			// equals the font's natural line height (what measureLines reports).
@@ -153,7 +153,7 @@ test.describe("measureLines", () => {
 
 	test("returns zero lineHeight for single-line element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { measureLines } = await import("/src/dom/line-box.js");
+			const { measureLines } = await import("/src/measurement/line-box.js");
 			const div = document.createElement("div");
 			div.style.cssText = "font-size:16px;line-height:normal";
 			div.textContent = "Hello";
@@ -169,7 +169,7 @@ test.describe("measureLines", () => {
 
 	test("returns zero count for empty element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { measureLines } = await import("/src/dom/line-box.js");
+			const { measureLines } = await import("/src/measurement/line-box.js");
 			const div = document.createElement("div");
 			document.body.appendChild(div);
 			const m = measureLines(div);
@@ -183,7 +183,7 @@ test.describe("measureLines", () => {
 
 	test("line height matches getLineHeight for multi-line normal element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { measureLines, getLineHeight, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			const { measureLines, getLineHeight, setTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
 			setTargetDevicePixelRatio(2); // raw values, no floor
 			const div = document.createElement("div");
 			div.style.cssText = "font-size:16px;line-height:normal;width:50px";
@@ -203,7 +203,7 @@ test.describe("measureLines", () => {
 test.describe("setTargetDevicePixelRatio / getTargetDevicePixelRatio", () => {
 	test("defaults to devicePixelRatio", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			const { getTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
 			return { targetDpr: getTargetDevicePixelRatio(), deviceDpr: devicePixelRatio };
 		});
 		expect(result.targetDpr).toBe(result.deviceDpr);
@@ -211,7 +211,7 @@ test.describe("setTargetDevicePixelRatio / getTargetDevicePixelRatio", () => {
 
 	test("setTargetDevicePixelRatio changes the value and affects getLineHeight", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight, setTargetDevicePixelRatio, getTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			const { getLineHeight, setTargetDevicePixelRatio, getTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
 			const div = document.createElement("div");
 			div.style.cssText = "font-size:16px;line-height:normal;width:50px";
 			div.textContent = "x x x x x x x x x x";
@@ -238,7 +238,7 @@ test.describe("createRangeMeasurer", () => {
 	test.describe("charTop", () => {
 		test("returns different top values for characters on different lines", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { createRangeMeasurer } = await import("/src/dom/line-box.js");
+				const { createRangeMeasurer } = await import("/src/measurement/line-box.js");
 				const div = document.createElement("div");
 				div.style.fontFamily = "monospace";
 				div.style.fontSize = "16px";
@@ -270,7 +270,7 @@ test.describe("createCaretMeasurer", () => {
 	test.describe("charTop", () => {
 		test("returns different top values for characters on different lines", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { createCaretMeasurer } = await import("/src/dom/line-box.js");
+				const { createCaretMeasurer } = await import("/src/measurement/line-box.js");
 				const div = document.createElement("div");
 				div.style.fontFamily = "monospace";
 				div.style.fontSize = "16px";
@@ -298,8 +298,8 @@ test.describe("createCaretMeasurer", () => {
 	test.describe("offsetAtY", () => {
 		test("returns the flat offset at the start of a given line", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { createCaretMeasurer } = await import("/src/dom/line-box.js");
-				const { INLINE_TEXT } = await import("/src/core/constants.js");
+				const { createCaretMeasurer } = await import("/src/measurement/line-box.js");
+				const { INLINE_TEXT } = await import("/src/measurement/collect-inlines.js");
 				const div = document.createElement("div");
 				div.style.fontFamily = "monospace";
 				div.style.fontSize = "16px";
@@ -336,8 +336,8 @@ test.describe("createCaretMeasurer", () => {
 
 		test("returns offset consistent with charTop", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { createCaretMeasurer } = await import("/src/dom/line-box.js");
-				const { INLINE_TEXT } = await import("/src/core/constants.js");
+				const { createCaretMeasurer } = await import("/src/measurement/line-box.js");
+				const { INLINE_TEXT } = await import("/src/measurement/collect-inlines.js");
 				const div = document.createElement("div");
 				div.style.fontFamily = "monospace";
 				div.style.fontSize = "16px";
@@ -388,74 +388,3 @@ test.describe("createCaretMeasurer", () => {
 	});
 });
 
-test.describe("parseLength", () => {
-	test("parses px values", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { parseLength } = await import("/src/dom/measure.js");
-			return parseLength("42px", 0, 0);
-		});
-		expect(result).toBe(42);
-	});
-
-	test("parses percentage values relative to parentSize", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { parseLength } = await import("/src/dom/measure.js");
-			return parseLength("50%", 200, 0);
-		});
-		expect(result).toBe(100);
-	});
-
-	test("parses em values relative to fontSize", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { parseLength } = await import("/src/dom/measure.js");
-			return parseLength("2em", 0, 16);
-		});
-		expect(result).toBe(32);
-	});
-
-	test("parses rem values using the document root font size", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { parseLength } = await import("/src/dom/measure.js");
-			const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
-			return { value: parseLength("2rem", 0, 0), rootFontSize };
-		});
-		expect(result.rootFontSize).toBeGreaterThan(0);
-		expect(result.value).toBe(2 * result.rootFontSize);
-	});
-
-	test("returns null for auto", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { parseLength } = await import("/src/dom/measure.js");
-			return parseLength("auto", 0, 0);
-		});
-		expect(result).toBeNull();
-	});
-
-	test("returns null for none", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { parseLength } = await import("/src/dom/measure.js");
-			return parseLength("none", 0, 0);
-		});
-		expect(result).toBeNull();
-	});
-
-	test("returns null for empty string", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { parseLength } = await import("/src/dom/measure.js");
-			return parseLength("", 0, 0);
-		});
-		expect(result).toBeNull();
-	});
-
-	test("returns null for null/undefined input", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { parseLength } = await import("/src/dom/measure.js");
-			return {
-				nullResult: parseLength(null, 0, 0),
-				undefinedResult: parseLength(undefined, 0, 0),
-			};
-		});
-		expect(result.nullResult).toBeNull();
-		expect(result.undefinedResult).toBeNull();
-	});
-});

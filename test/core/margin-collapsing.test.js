@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("MarginStrut", () => {
 	test("resolves all-positive margins to max", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginStrut } = await import("/src/core/margin-collapsing.js");
+			const { MarginStrut } = await import("/src/layout/margin-collapsing.js");
 			const s = new MarginStrut();
 			s.append(10);
 			s.append(20);
@@ -15,7 +15,7 @@ test.describe("MarginStrut", () => {
 
 	test("resolves all-negative margins to min (most negative)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginStrut } = await import("/src/core/margin-collapsing.js");
+			const { MarginStrut } = await import("/src/layout/margin-collapsing.js");
 			const s = new MarginStrut();
 			s.append(-5);
 			s.append(-10);
@@ -27,7 +27,7 @@ test.describe("MarginStrut", () => {
 
 	test("resolves mixed margins to max(positive) + min(negative)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginStrut } = await import("/src/core/margin-collapsing.js");
+			const { MarginStrut } = await import("/src/layout/margin-collapsing.js");
 			const s = new MarginStrut();
 			s.append(15);
 			s.append(-3);
@@ -40,7 +40,7 @@ test.describe("MarginStrut", () => {
 
 	test("resolves to 0 when no margins appended", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginStrut } = await import("/src/core/margin-collapsing.js");
+			const { MarginStrut } = await import("/src/layout/margin-collapsing.js");
 			return new MarginStrut().resolve();
 		});
 		expect(result).toBe(0);
@@ -48,7 +48,7 @@ test.describe("MarginStrut", () => {
 
 	test("ignores zero margins", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginStrut } = await import("/src/core/margin-collapsing.js");
+			const { MarginStrut } = await import("/src/layout/margin-collapsing.js");
 			const s = new MarginStrut();
 			s.append(0);
 			s.append(10);
@@ -62,7 +62,7 @@ test.describe("MarginStrut", () => {
 test.describe("collapseMargins", () => {
 	test("returns max for positive pair", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collapseMargins } = await import("/src/core/margin-collapsing.js");
+			const { collapseMargins } = await import("/src/layout/margin-collapsing.js");
 			return collapseMargins(10, 20);
 		});
 		expect(result).toBe(20);
@@ -70,7 +70,7 @@ test.describe("collapseMargins", () => {
 
 	test("returns min for negative pair", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collapseMargins } = await import("/src/core/margin-collapsing.js");
+			const { collapseMargins } = await import("/src/layout/margin-collapsing.js");
 			return collapseMargins(-5, -10);
 		});
 		expect(result).toBe(-10);
@@ -78,7 +78,7 @@ test.describe("collapseMargins", () => {
 
 	test("returns sum for mixed pair", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collapseMargins } = await import("/src/core/margin-collapsing.js");
+			const { collapseMargins } = await import("/src/layout/margin-collapsing.js");
 			return collapseMargins(10, -5);
 		});
 		expect(result).toBe(5);
@@ -86,7 +86,7 @@ test.describe("collapseMargins", () => {
 
 	test("handles zero with positive", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collapseMargins } = await import("/src/core/margin-collapsing.js");
+			const { collapseMargins } = await import("/src/layout/margin-collapsing.js");
 			return collapseMargins(0, 15);
 		});
 		expect(result).toBe(15);
@@ -94,7 +94,7 @@ test.describe("collapseMargins", () => {
 
 	test("handles zero with negative", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collapseMargins } = await import("/src/core/margin-collapsing.js");
+			const { collapseMargins } = await import("/src/layout/margin-collapsing.js");
 			return collapseMargins(0, -8);
 		});
 		expect(result).toBe(-8);
@@ -102,7 +102,7 @@ test.describe("collapseMargins", () => {
 
 	test("handles both zero", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collapseMargins } = await import("/src/core/margin-collapsing.js");
+			const { collapseMargins } = await import("/src/layout/margin-collapsing.js");
 			return collapseMargins(0, 0);
 		});
 		expect(result).toBe(0);
@@ -112,7 +112,7 @@ test.describe("collapseMargins", () => {
 test.describe("collectThroughMargins", () => {
 	test("returns empty when child has border-block-start", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectThroughMargins } = await import("/src/core/margin-collapsing.js");
+			const { collectThroughMargins } = await import("/src/layout/margin-collapsing.js");
 			const child = {
 				paddingBlockStart: 0,
 				borderBlockStart: 5,
@@ -125,7 +125,7 @@ test.describe("collectThroughMargins", () => {
 
 	test("returns empty when child has padding-block-start", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectThroughMargins } = await import("/src/core/margin-collapsing.js");
+			const { collectThroughMargins } = await import("/src/layout/margin-collapsing.js");
 			const child = {
 				paddingBlockStart: 10,
 				borderBlockStart: 0,
@@ -138,7 +138,7 @@ test.describe("collectThroughMargins", () => {
 
 	test("returns empty when child has no children", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectThroughMargins } = await import("/src/core/margin-collapsing.js");
+			const { collectThroughMargins } = await import("/src/layout/margin-collapsing.js");
 			const child = {
 				paddingBlockStart: 0,
 				borderBlockStart: 0,
@@ -151,7 +151,7 @@ test.describe("collectThroughMargins", () => {
 
 	test("collects 1-level through-collapse", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectThroughMargins } = await import("/src/core/margin-collapsing.js");
+			const { collectThroughMargins } = await import("/src/layout/margin-collapsing.js");
 			const grandchild = {
 				marginBlockStart: 30,
 				paddingBlockStart: 5, // has padding — stops walk
@@ -170,7 +170,7 @@ test.describe("collectThroughMargins", () => {
 
 	test("collects multi-level through-collapse", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectThroughMargins } = await import("/src/core/margin-collapsing.js");
+			const { collectThroughMargins } = await import("/src/layout/margin-collapsing.js");
 			const greatGrandchild = {
 				marginBlockStart: 30,
 				paddingBlockStart: 1, // stops walk
@@ -195,7 +195,7 @@ test.describe("collectThroughMargins", () => {
 
 	test("skips zero margins in chain", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectThroughMargins } = await import("/src/core/margin-collapsing.js");
+			const { collectThroughMargins } = await import("/src/layout/margin-collapsing.js");
 			const greatGrandchild = {
 				marginBlockStart: 25,
 				paddingBlockStart: 1,
@@ -220,7 +220,7 @@ test.describe("collectThroughMargins", () => {
 
 	test("collects negative through-margins", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectThroughMargins } = await import("/src/core/margin-collapsing.js");
+			const { collectThroughMargins } = await import("/src/layout/margin-collapsing.js");
 			const grandchild = {
 				marginBlockStart: -10,
 				paddingBlockStart: 1,
@@ -241,7 +241,7 @@ test.describe("collectThroughMargins", () => {
 test.describe("MarginState", () => {
 	test("first child margin on first fragment", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			const child = {
 				marginBlockStart: 15,
@@ -262,7 +262,7 @@ test.describe("MarginState", () => {
 
 	test("preserves first child margin at fragmentainer top on first fragment", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			const child = {
 				marginBlockStart: 15,
@@ -284,7 +284,7 @@ test.describe("MarginState", () => {
 
 	test("does not truncate at fragmentainer top when through-collapse is active", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			const grandchild = {
 				marginBlockStart: 20,
@@ -312,7 +312,7 @@ test.describe("MarginState", () => {
 
 	test("sibling collapse uses strut resolution", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			// First child — sets prevMarginEnd
 			const child1 = {
@@ -348,7 +348,7 @@ test.describe("MarginState", () => {
 
 	test("sibling collapse with negative margins", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			const child1 = {
 				marginBlockStart: 10,
@@ -383,7 +383,7 @@ test.describe("MarginState", () => {
 
 	test("multi-level through-collapse returns correct collapsedThrough", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			const greatGrandchild = {
 				marginBlockStart: 30,
@@ -418,7 +418,7 @@ test.describe("MarginState", () => {
 
 	test("multi-level through-collapse with negative margins", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			const greatGrandchild = {
 				marginBlockStart: 25,
@@ -453,7 +453,7 @@ test.describe("MarginState", () => {
 
 	test("collapseAdjustment returns collapsedThrough when not resuming", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			return {
 				withThrough: margins.collapseAdjustment(30, false),
@@ -468,7 +468,7 @@ test.describe("MarginState", () => {
 
 	test("applyAfterLayout returns subtraction and updates state", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			const child = { marginBlockStart: 10, marginBlockEnd: 20, paddingBlockStart: 5, borderBlockStart: 0, children: [] };
 
@@ -483,7 +483,7 @@ test.describe("MarginState", () => {
 
 	test("applyAfterLayout returns 0 when resuming", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			const child = { marginBlockStart: 10, marginBlockEnd: 20, paddingBlockStart: 5, borderBlockStart: 0, children: [] };
 			return margins.applyAfterLayout(child, 15, true);
@@ -493,7 +493,7 @@ test.describe("MarginState", () => {
 
 	test("trailingMargin returns 0 when break follows", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			const child = { marginBlockStart: 0, marginBlockEnd: 20, paddingBlockStart: 5, borderBlockStart: 0, children: [] };
 			margins.applyAfterLayout(child, 0, false);
@@ -504,7 +504,7 @@ test.describe("MarginState", () => {
 
 	test("shouldTruncateChildMarginStart", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			return {
 				// Truncate: first child, has break token, positive margin, not forced
@@ -538,7 +538,7 @@ test.describe("MarginState", () => {
 
 	test("shouldTruncateLastChildMarginEnd", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState();
 			const child = { marginBlockStart: 0, marginBlockEnd: 15, paddingBlockStart: 5, borderBlockStart: 0, children: [] };
 			margins.applyAfterLayout(child, 0, false);
@@ -553,7 +553,7 @@ test.describe("MarginState", () => {
 
 	test("body margin collapses with first child — child margin larger", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState(8); // body margin 8px
 			const child = {
 				marginBlockStart: 16,
@@ -574,7 +574,7 @@ test.describe("MarginState", () => {
 
 	test("body margin collapses with first child — body margin larger", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState(8);
 			const child = {
 				marginBlockStart: 0,
@@ -595,7 +595,7 @@ test.describe("MarginState", () => {
 
 	test("body margin prevents truncation at fragmentainer top", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState(8);
 			const child = {
 				marginBlockStart: 5,
@@ -616,7 +616,7 @@ test.describe("MarginState", () => {
 
 	test("no body margin — margin at fragmentainer top preserved on first fragment", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState(0);
 			const child = {
 				marginBlockStart: 15,
@@ -637,7 +637,7 @@ test.describe("MarginState", () => {
 
 	test("body margin not applied on non-first pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MarginState } = await import("/src/core/margin-collapsing.js");
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
 			const margins = new MarginState(8);
 			const child = {
 				marginBlockStart: 0,

@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("BlockBreakToken", () => {
 	test("createBreakBefore sets correct flags", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 			const node = blockNode({ debugName: "pushed" });
 			const token = BlockBreakToken.createBreakBefore(node, false);
@@ -20,7 +20,7 @@ test.describe("BlockBreakToken", () => {
 
 	test("createBreakBefore with forced break", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 			const token = BlockBreakToken.createBreakBefore(blockNode(), true);
 			return { isBreakBefore: token.isBreakBefore, isForcedBreak: token.isForcedBreak };
@@ -31,7 +31,7 @@ test.describe("BlockBreakToken", () => {
 
 	test("createRepeated sets correct flags", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 			const token = BlockBreakToken.createRepeated(blockNode({ debugName: "thead" }), 3);
 			return {
@@ -47,7 +47,7 @@ test.describe("BlockBreakToken", () => {
 
 	test("createForBreakInRepeatedFragment sets all fields", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 			const token = BlockBreakToken.createForBreakInRepeatedFragment(blockNode(), 2, 150);
 			return {
@@ -65,7 +65,7 @@ test.describe("BlockBreakToken", () => {
 test.describe("Break token tree", () => {
 	test("builds a sparse tree mirroring the box tree", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const child2 = blockNode({ debugName: "child2" });
@@ -96,7 +96,7 @@ test.describe("Break token tree", () => {
 
 	test("contains inline break token as leaf", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { BlockBreakToken, InlineBreakToken } = await import("/src/core/tokens.js");
+			const { BlockBreakToken, InlineBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const paragraph = blockNode({ debugName: "p" });
@@ -122,7 +122,7 @@ test.describe("Break token tree", () => {
 test.describe("findChildBreakToken", () => {
 	test("returns null when parent is null", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { findChildBreakToken } = await import("/src/core/helpers.js");
+			const { findChildBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 			return findChildBreakToken(null, blockNode());
 		});
@@ -131,8 +131,8 @@ test.describe("findChildBreakToken", () => {
 
 	test("returns null when child has no token", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { findChildBreakToken } = await import("/src/core/helpers.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { findChildBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 			const parent = new BlockBreakToken(blockNode());
 			return findChildBreakToken(parent, blockNode());
@@ -142,8 +142,8 @@ test.describe("findChildBreakToken", () => {
 
 	test("finds the correct child token", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { findChildBreakToken } = await import("/src/core/helpers.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { findChildBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const childA = blockNode({ debugName: "A" });
@@ -166,7 +166,7 @@ test.describe("findChildBreakToken", () => {
 test.describe("isMonolithic", () => {
 	test("replaced elements are monolithic", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { isMonolithic } = await import("/src/core/helpers.js");
+			const { isMonolithic } = await import("/src/layout/layout-helpers.js");
 			const { replacedNode } = await import("/test/fixtures/nodes.js");
 			return isMonolithic(replacedNode());
 		});
@@ -175,7 +175,7 @@ test.describe("isMonolithic", () => {
 
 	test("scrollable elements are monolithic", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { isMonolithic } = await import("/src/core/helpers.js");
+			const { isMonolithic } = await import("/src/layout/layout-helpers.js");
 			const { scrollableNode } = await import("/test/fixtures/nodes.js");
 			return isMonolithic(scrollableNode());
 		});
@@ -184,7 +184,7 @@ test.describe("isMonolithic", () => {
 
 	test("overflow:hidden with explicit height is monolithic", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { isMonolithic } = await import("/src/core/helpers.js");
+			const { isMonolithic } = await import("/src/layout/layout-helpers.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 			return isMonolithic(blockNode({ hasOverflowHidden: true, hasExplicitBlockSize: true }));
 		});
@@ -193,7 +193,7 @@ test.describe("isMonolithic", () => {
 
 	test("overflow:hidden without explicit height is not monolithic", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { isMonolithic } = await import("/src/core/helpers.js");
+			const { isMonolithic } = await import("/src/layout/layout-helpers.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 			return isMonolithic(blockNode({ hasOverflowHidden: true, hasExplicitBlockSize: false }));
 		});
@@ -202,7 +202,7 @@ test.describe("isMonolithic", () => {
 
 	test("normal block is not monolithic", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { isMonolithic } = await import("/src/core/helpers.js");
+			const { isMonolithic } = await import("/src/layout/layout-helpers.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 			return isMonolithic(blockNode());
 		});

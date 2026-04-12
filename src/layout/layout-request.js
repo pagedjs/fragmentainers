@@ -1,18 +1,18 @@
-import { ConstraintSpace } from "./constraint-space.js";
-import { Fragment } from "./fragment.js";
-import { CounterState, walkFragmentTree } from "./counter-state.js";
+import { ConstraintSpace } from "../fragmentation/constraint-space.js";
+import { Fragment } from "../fragmentation/fragment.js";
+import { CounterState, walkFragmentTree } from "../fragmentation/counter-state.js";
 import {
 	resolveForcedBreakValue,
 	resolveNextPageBreakBefore,
 	requiredPageSide,
 	isSideSpecificBreak,
-} from "../atpage/page-resolver.js";
-import { layoutBlockContainer } from "../layout/block-container.js";
-import { layoutFlexContainer } from "../layout/flex-container.js";
-import { layoutGridContainer } from "../layout/grid-container.js";
-import { layoutInlineContent } from "../layout/inline-content.js";
-import { layoutMulticolContainer } from "../layout/multicol-container.js";
-import { layoutTableRow } from "../layout/table-row.js";
+} from "../resolvers/page-resolver.js";
+import { layoutBlockContainer } from "./block-container.js";
+import { layoutFlexContainer } from "./flex-container.js";
+import { layoutGridContainer } from "./grid-container.js";
+import { layoutInlineContent } from "../fragmentation/inline-content.js";
+import { layoutMulticolContainer } from "./multicol-container.js";
+import { layoutTableRow } from "./table-row.js";
 
 /**
  * Yielded from layout generators to the driver.

@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("FixedPosition.matches", () => {
 	test("returns true for a position: fixed node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { FixedPosition } = await import("/src/modules/fixed-position.js");
 
 			const container = document.createElement("div");
@@ -12,7 +12,7 @@ test.describe("FixedPosition.matches", () => {
         <div style="position:fixed;top:0;height:100px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const mod = new FixedPosition();
 			const match = mod.claim(root.children[0]);
 			container.remove();
@@ -23,7 +23,7 @@ test.describe("FixedPosition.matches", () => {
 
 	test("returns false for a regular block node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { FixedPosition } = await import("/src/modules/fixed-position.js");
 
 			const container = document.createElement("div");
@@ -32,7 +32,7 @@ test.describe("FixedPosition.matches", () => {
         <div style="height:100px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const mod = new FixedPosition();
 			const match = mod.claim(root.children[0]);
 			container.remove();
@@ -45,9 +45,9 @@ test.describe("FixedPosition.matches", () => {
 test.describe("FixedPosition.layout", () => {
 	test("reserves block-start space for a top-anchored fixed element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { FixedPosition } = await import("/src/modules/fixed-position.js");
 
 			const container = document.createElement("div");
@@ -57,7 +57,7 @@ test.describe("FixedPosition.layout", () => {
         <div style="height:300px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -86,9 +86,9 @@ test.describe("FixedPosition.layout", () => {
 
 	test("reserves block-end space for a bottom-anchored fixed element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { FixedPosition } = await import("/src/modules/fixed-position.js");
 
 			const container = document.createElement("div");
@@ -98,7 +98,7 @@ test.describe("FixedPosition.layout", () => {
         <div style="height:300px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -125,9 +125,9 @@ test.describe("FixedPosition.layout", () => {
 
 	test("reserves space for both top and bottom fixed elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { FixedPosition } = await import("/src/modules/fixed-position.js");
 
 			const container = document.createElement("div");
@@ -138,7 +138,7 @@ test.describe("FixedPosition.layout", () => {
         <div style="height:300px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -165,9 +165,9 @@ test.describe("FixedPosition.layout", () => {
 
 	test("does not reserve space for overlay fixed elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { FixedPosition } = await import("/src/modules/fixed-position.js");
 
 			const container = document.createElement("div");
@@ -177,7 +177,7 @@ test.describe("FixedPosition.layout", () => {
         <div style="height:300px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -206,9 +206,9 @@ test.describe("FixedPosition.layout", () => {
 
 	test("returns zero reservations in column fragmentation", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_COLUMN } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_COLUMN } = await import("/src/fragmentation/constraint-space.js");
 			const { FixedPosition } = await import("/src/modules/fixed-position.js");
 
 			const container = document.createElement("div");
@@ -218,7 +218,7 @@ test.describe("FixedPosition.layout", () => {
         <div style="height:300px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -247,9 +247,9 @@ test.describe("FixedPosition.layout", () => {
 
 	test("returns zero reservations when no fixed elements present", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { FixedPosition } = await import("/src/modules/fixed-position.js");
 
 			const container = document.createElement("div");
@@ -259,7 +259,7 @@ test.describe("FixedPosition.layout", () => {
         <div style="height:200px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -288,9 +288,9 @@ test.describe("FixedPosition.layout", () => {
 
 	test("finds fixed elements nested inside non-fixed containers", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { FixedPosition } = await import("/src/modules/fixed-position.js");
 
 			const container = document.createElement("div");
@@ -302,7 +302,7 @@ test.describe("FixedPosition.layout", () => {
         </div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -327,10 +327,10 @@ test.describe("FixedPosition.layout", () => {
 test.describe("fixed position integration with createFragments", () => {
 	test("fixed header reduces available space for content", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -339,7 +339,7 @@ test.describe("fixed position integration with createFragments", () => {
         <div style="height:700px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -358,10 +358,10 @@ test.describe("fixed position integration with createFragments", () => {
 
 	test("fixed header causes content to overflow into second page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -370,7 +370,7 @@ test.describe("fixed position integration with createFragments", () => {
         <div style="height:700px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -390,9 +390,9 @@ test.describe("fixed position integration with createFragments", () => {
 test.describe("position: fixed in paged media (browser)", () => {
 	test("fixed header reduces available page space", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `
@@ -420,9 +420,9 @@ test.describe("position: fixed in paged media (browser)", () => {
 
 	test("fixed header repeats in rendered output on every page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `
@@ -463,9 +463,9 @@ test.describe("position: fixed in paged media (browser)", () => {
 
 	test("fixed footer positioned at bottom of each page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `
@@ -510,9 +510,9 @@ test.describe("position: fixed in paged media (browser)", () => {
 
 	test("header and footer both repeat on every page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `
@@ -557,9 +557,9 @@ test.describe("position: fixed in paged media (browser)", () => {
 
 	test("content fits on one page when fixed elements leave enough room", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `

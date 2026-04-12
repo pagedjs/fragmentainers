@@ -1,29 +1,14 @@
-import { DOMLayoutNode } from "./layout-node.js";
-import { isForcedBreakValue } from "../core/helpers.js";
+import { DOMLayoutNode } from "../layout/layout-node.js";
+import { isForcedBreakValue } from "../fragmentation/tokens.js";
 import { modules } from "../modules/registry.js";
 import { buildPseudoStyleSheet, materializePseudoElements } from "./pseudo-elements.js";
-import "../dom/content-measure.js";
+import "../components/content-measure.js";
 
 /**
  * Measure the rendered block size (height) of a DOM element.
  */
 export function measureElementBlockSize(element) {
 	return element.getBoundingClientRect().height;
-}
-
-/**
- * Parse a CSS length value to pixels.
- */
-export function parseLength(value, parentSize, fontSize) {
-	if (!value || value === "auto" || value === "none") return null;
-	if (value.endsWith("px")) return parseFloat(value);
-	if (value.endsWith("%")) return (parseFloat(value) / 100) * parentSize;
-	if (value.endsWith("rem")) {
-		const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
-		return parseFloat(value) * rootFontSize;
-	}
-	if (value.endsWith("em")) return parseFloat(value) * fontSize;
-	return parseFloat(value) || null;
 }
 
 /**
@@ -178,17 +163,18 @@ export class Measurer {
 		const measurer = this.#createMeasurer();
 		measurer.injectFragment(this.#content, this.#styles);
 		document.body.appendChild(measurer);
-		void measurer.offsetHeight;
 
 		// Materialize pseudo elements after browser has computed styles.
 		// Sets data-frag-resolved-* attributes; suppression rules in the
 		// pseudo stylesheet (already adopted) take effect on next reflow.
 		materializePseudoElements(measurer.contentRoot, modules);
 		void measurer.offsetHeight;
-		modules.afterMeasurementSetup(measurer.contentRoot);
 
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
+
+		modules.afterMeasurementSetup(measurer.contentRoot);
+
 		return measurer.contentRoot;
 	}
 
@@ -237,16 +223,16 @@ export class Measurer {
 		measurer.injectFragment(this.#content, this.#styles);
 
 		document.body.appendChild(measurer);
-		void measurer.offsetHeight;
 
 		// Materialize pseudo elements after browser has computed styles
 		materializePseudoElements(measurer.contentRoot, modules);
 		void measurer.offsetHeight;
-		modules.afterMeasurementSetup(measurer.contentRoot);
 
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
 		this.#currentSegment = 0;
+
+		modules.afterMeasurementSetup(measurer.contentRoot);
 
 		return measurer.contentRoot;
 	}
@@ -256,7 +242,7 @@ export class Measurer {
 	 * break token indicates we've reached the segment boundary and
 	 * swaps to the next segment's measurer.
 	 *
-	 * @param {import('../core/tokens.js').BlockBreakToken|null} breakToken
+	 * @param {import('../fragmentation/tokens.js').BlockBreakToken|null} breakToken
 	 * @param {DOMLayoutNode} tree — root layout node
 	 */
 	advance(breakToken, tree) {
@@ -297,14 +283,14 @@ export class Measurer {
 		newSlot.appendChild(frag);
 
 		document.body.appendChild(measurer);
-		void measurer.offsetHeight;
 
 		// Materialize pseudo elements in the new segment
 		materializePseudoElements(newSlot, modules);
 		void measurer.offsetHeight;
-		modules.afterMeasurementSetup(newSlot);
 
 		this.#measureElement = measurer;
+
+		modules.afterMeasurementSetup(newSlot);
 
 		// Rebuild root's children from the nodeMap
 		tree.setChildren(this.#buildSegmentChildren(this.#currentSegment));

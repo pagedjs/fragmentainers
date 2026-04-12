@@ -5,7 +5,7 @@ test.describe("EmulatePrintPixelRatio line-height ratio computation", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
 
 			const div = document.createElement("div");
 			div.style.cssText = "font-size:16px;line-height:normal;width:50px";
@@ -32,7 +32,7 @@ test.describe("EmulatePrintPixelRatio line-height ratio computation", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight, measureLines, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			const { getLineHeight, measureLines, setTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
 
 			const div = document.createElement("div");
 			div.style.cssText = "font-size:16px;line-height:normal;width:50px";
@@ -64,7 +64,7 @@ test.describe("EmulatePrintPixelRatio line-height ratio computation", () => {
 
 	test("different fonts produce different ratios", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
 			setTargetDevicePixelRatio(1);
 
 			function measureRatio(fontFamily) {
@@ -93,7 +93,7 @@ test.describe("EmulatePrintPixelRatio line-height ratio computation", () => {
 
 	test("ratio is consistent across font sizes for the same font family", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/dom/line-box.js");
+			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
 			setTargetDevicePixelRatio(1);
 
 			function measureRatio(fontSize) {

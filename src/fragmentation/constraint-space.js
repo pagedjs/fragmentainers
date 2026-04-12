@@ -1,4 +1,7 @@
-import { FRAGMENTATION_NONE } from "./constants.js";
+export const FRAGMENTATION_NONE = "none";
+export const FRAGMENTATION_PAGE = "page";
+export const FRAGMENTATION_COLUMN = "column";
+export const FRAGMENTATION_REGION = "region";
 
 /**
  * Constraint space for a fragmentainer.

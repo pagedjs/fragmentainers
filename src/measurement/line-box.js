@@ -16,12 +16,10 @@
  * @module
  */
 
-import { computedStyleMap } from "./computed-style-map.js";
-import { INLINE_TEXT } from "../core/constants.js";
+import { computedStyleMap } from "../styles/computed-style-map.js";
+import { INLINE_TEXT } from "./collect-inlines.js";
 
-// ---------------------------------------------------------------------------
 // Target device pixel ratio
-// ---------------------------------------------------------------------------
 
 let targetDevicePixelRatio = typeof devicePixelRatio !== "undefined" ? devicePixelRatio : 1;
 
@@ -44,9 +42,7 @@ export function getTargetDevicePixelRatio() {
 	return targetDevicePixelRatio;
 }
 
-// ---------------------------------------------------------------------------
 // Line measurement
-// ---------------------------------------------------------------------------
 
 /**
  * Measure rendered line boxes in an element using getClientRects().
@@ -110,7 +106,7 @@ export function getLineHeight(element) {
 		const measured = measureLines(element);
 		const raw = measured.lineHeight > 0
 			? measured.lineHeight
-			: measured.firstLineHeight || parseFloat(getComputedStyle(element).fontSize) || 16;
+			: measured.firstLineHeight || map.get("font-size")?.value || 16;
 		return targetDevicePixelRatio === 1 ? Math.floor(raw) : raw;
 	}
 
@@ -124,9 +120,7 @@ export function getLineHeight(element) {
 	return lh.value;
 }
 
-// ---------------------------------------------------------------------------
 // Text measurers — charTop / offsetAtY
-// ---------------------------------------------------------------------------
 
 /**
  * Shared charTop implementation for both Range and Caret measurers.
@@ -152,6 +146,25 @@ export function createRangeMeasurer() {
 	return {
 		charTop: (textNode, offset) => charTop(range, textNode, offset),
 	};
+}
+
+// Lazy-initialized process-wide measurer shared by layout nodes.
+let sharedMeasurer = null;
+
+/**
+ * Get the shared text measurer for layout. Lazily constructs a caret-based
+ * measurer when the browser supports `caretPositionFromPoint()`, otherwise
+ * a Range-based one. All layout nodes use the same instance to amortize
+ * the cost of the backing Range.
+ */
+export function getSharedMeasurer() {
+	if (!sharedMeasurer) {
+		sharedMeasurer =
+			typeof document.caretPositionFromPoint === "function"
+				? createCaretMeasurer()
+				: createRangeMeasurer();
+	}
+	return sharedMeasurer;
 }
 
 /**

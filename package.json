@@ -8,6 +8,15 @@
 	],
 	"type": "module",
 	"main": "src/index.js",
+	"exports": {
+		".": "./src/index.js",
+		"./fragmentation": "./src/fragmentation/index.js",
+		"./layout": "./src/layout/index.js",
+		"./styles": "./src/styles/index.js",
+		"./components": "./src/components/index.js",
+		"./resolvers": "./src/resolvers/index.js",
+		"./modules": "./src/modules/index.js"
+	},
 	"bin": {
 		"view": "debug/viewer.js"
 	},

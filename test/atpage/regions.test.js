@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("RegionResolver", () => {
 	test("resolves dimensions from region elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { RegionResolver } = await import("/src/regions/region-resolver.js");
+			const { RegionResolver } = await import("/src/resolvers/region-resolver.js");
 
 			const container = document.createElement("div");
 			document.body.appendChild(container);
@@ -40,7 +40,7 @@ test.describe("RegionResolver", () => {
 
 	test("toConstraintSpace produces region fragmentation type", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { RegionResolver } = await import("/src/regions/region-resolver.js");
+			const { RegionResolver } = await import("/src/resolvers/region-resolver.js");
 
 			const container = document.createElement("div");
 			document.body.appendChild(container);
@@ -67,8 +67,8 @@ test.describe("RegionResolver", () => {
 test.describe("FragmentedFlow with regions", () => {
 	test("flows content across region elements via iterator", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			const { RegionResolver } = await import("/src/regions/region-resolver.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { RegionResolver } = await import("/src/resolvers/region-resolver.js");
 
 			const container = document.createElement("div");
 			document.body.appendChild(container);
@@ -102,8 +102,8 @@ test.describe("FragmentedFlow with regions", () => {
 
 	test("stops when regions run out with content remaining", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			const { RegionResolver } = await import("/src/regions/region-resolver.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { RegionResolver } = await import("/src/resolvers/region-resolver.js");
 
 			const container = document.createElement("div");
 			document.body.appendChild(container);
@@ -133,8 +133,8 @@ test.describe("FragmentedFlow with regions", () => {
 
 	test("content fits in a single region", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			const { RegionResolver } = await import("/src/regions/region-resolver.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { RegionResolver } = await import("/src/resolvers/region-resolver.js");
 
 			const container = document.createElement("div");
 			document.body.appendChild(container);
@@ -168,8 +168,8 @@ test.describe("FragmentedFlow with regions", () => {
 
 	test("supports variable-sized regions", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			const { RegionResolver } = await import("/src/regions/region-resolver.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { RegionResolver } = await import("/src/resolvers/region-resolver.js");
 
 			const container = document.createElement("div");
 			document.body.appendChild(container);

@@ -3,17 +3,17 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("Phase 2: Block layout (single fragmentainer)", () => {
 	test("lays out a single leaf node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { runLayoutGenerator } = await import("/src/core/layout-request.js");
+			const { runLayoutGenerator } = await import("/src/layout/layout-request.js");
 			const { layoutBlockContainer } = await import("/src/layout/block-container.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
 			container.innerHTML = '<div style="height:50px;margin:0;padding:0"></div>';
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const space = new ConstraintSpace({
 				availableInlineSize: 600,
 				availableBlockSize: 800,
@@ -37,9 +37,9 @@ test.describe("Phase 2: Block layout (single fragmentainer)", () => {
 
 	test("lays out a root with block children that all fit", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -52,7 +52,7 @@ test.describe("Phase 2: Block layout (single fragmentainer)", () => {
       `;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const pages = createFragments(
 				root,
 				new ConstraintSpace({
@@ -82,9 +82,9 @@ test.describe("Phase 2: Block layout (single fragmentainer)", () => {
 
 	test("lays out nested block containers", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -99,7 +99,7 @@ test.describe("Phase 2: Block layout (single fragmentainer)", () => {
       `;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const pages = createFragments(
 				root,
 				new ConstraintSpace({
@@ -131,9 +131,9 @@ test.describe("Phase 2: Block layout (single fragmentainer)", () => {
 
 	test("sets inlineSize on fragments", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -144,7 +144,7 @@ test.describe("Phase 2: Block layout (single fragmentainer)", () => {
       `;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const pages = createFragments(
 				root,
 				new ConstraintSpace({
@@ -168,9 +168,9 @@ test.describe("Phase 2: Block layout (single fragmentainer)", () => {
 test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
 	test("splits content across 2 pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -183,7 +183,7 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
       `;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const pages = createFragments(
 				root,
 				new ConstraintSpace({
@@ -219,9 +219,9 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
 
 	test("splits content across 3 pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -232,7 +232,7 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
 			container.innerHTML = `<div style="margin:0;padding:0">${children}</div>`;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const pages = createFragments(
 				root,
 				new ConstraintSpace({
@@ -262,9 +262,9 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
 
 	test("break token has correct consumedBlockSize and sequenceNumber", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -277,7 +277,7 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
       `;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const pages = createFragments(
 				root,
 				new ConstraintSpace({
@@ -304,9 +304,9 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
 
 	test("handles nested container breaking mid-child", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -321,7 +321,7 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
       `;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const pages = createFragments(
 				root,
 				new ConstraintSpace({
@@ -350,9 +350,9 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
 
 	test("handles the exact-fill edge case (createBreakBefore)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -365,7 +365,7 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
       `;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const pages = createFragments(
 				root,
 				new ConstraintSpace({
@@ -400,9 +400,9 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
 
 	test("uses varying fragmentainer sizes", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -415,7 +415,7 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
       `;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const sizes = [
 				{ inlineSize: 600, blockSize: 150 },
@@ -454,9 +454,9 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
 
 	test("last fragmentainer size is reused for subsequent pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -467,7 +467,7 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
 			container.innerHTML = `<div style="margin:0;padding:0">${children}</div>`;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const pages = createFragments(
 				root,
 				new ConstraintSpace({
@@ -491,9 +491,9 @@ test.describe("Phase 3: Block fragmentation across fragmentainers", () => {
 test.describe("box-decoration-break: clone layout", () => {
 	test("includes containerBoxStart in continuation fragment blockOffset", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -504,7 +504,7 @@ test.describe("box-decoration-break: clone layout", () => {
       `;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const fragments = createFragments(
 				root,
 				new ConstraintSpace({
@@ -530,9 +530,9 @@ test.describe("box-decoration-break: clone layout", () => {
 
 	test("includes containerBoxEnd on non-final fragments with clone", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -543,7 +543,7 @@ test.describe("box-decoration-break: clone layout", () => {
       `;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const fragments = createFragments(
 				root,
 				new ConstraintSpace({
@@ -569,9 +569,9 @@ test.describe("box-decoration-break: clone layout", () => {
 
 	test("slice mode does NOT include containerBoxStart on continuation", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -582,7 +582,7 @@ test.describe("box-decoration-break: clone layout", () => {
       `;
 			document.body.appendChild(container);
 
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 			const fragments = createFragments(
 				root,
 				new ConstraintSpace({

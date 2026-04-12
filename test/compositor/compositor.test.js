@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("hasBlockChildren", () => {
 	test("returns false for empty childFragments", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const fragment = new Fragment(blockNode(), 100, []);
@@ -14,7 +14,7 @@ test.describe("hasBlockChildren", () => {
 
 	test("returns false when all children have null nodes (line fragments)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const lineFragment = new Fragment(null, 20);
@@ -26,7 +26,7 @@ test.describe("hasBlockChildren", () => {
 
 	test("returns true when at least one child has a node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const lineFragment = new Fragment(null, 20);
@@ -39,7 +39,7 @@ test.describe("hasBlockChildren", () => {
 
 	test("returns true when all children have nodes", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const child1 = new Fragment(blockNode({ debugName: "a" }), 50);
@@ -54,8 +54,8 @@ test.describe("hasBlockChildren", () => {
 test.describe("empty container shell detection", () => {
 	test("detects an empty container with pushed children", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const child = blockNode({ debugName: "child" });
@@ -75,8 +75,8 @@ test.describe("empty container shell detection", () => {
 
 	test("does not flag a leaf node being sliced", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const leaf = blockNode({ debugName: "leaf" });
@@ -95,8 +95,8 @@ test.describe("empty container shell detection", () => {
 
 	test("does not flag a container with placed children", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const child = blockNode({ debugName: "child" });
@@ -116,7 +116,7 @@ test.describe("empty container shell detection", () => {
 
 	test("does not flag a completed container (no break token)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const child = blockNode({ debugName: "child" });
@@ -138,7 +138,7 @@ test.describe("inline items data for compositor", () => {
 	test("textToInlineItems creates kText items with correct offsets", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { textToInlineItems } = await import("/test/fixtures/nodes.js");
-			const { INLINE_TEXT } = await import("/src/core/constants.js");
+			const { INLINE_TEXT } = await import("/src/measurement/collect-inlines.js");
 
 			const data = textToInlineItems("Hello world");
 			return {
@@ -160,7 +160,7 @@ test.describe("inline items data for compositor", () => {
 	test("textToInlineItems splits on newlines with kControl", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { textToInlineItems } = await import("/test/fixtures/nodes.js");
-			const { INLINE_TEXT, INLINE_CONTROL } = await import("/src/core/constants.js");
+			const { INLINE_TEXT, INLINE_CONTROL } = await import("/src/measurement/collect-inlines.js");
 
 			const data = textToInlineItems("Line one\nLine two");
 			return {
@@ -198,8 +198,8 @@ test.describe("inline items data for compositor", () => {
 test.describe("buildInlineContent", () => {
 	test("composes simple text into a container", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { INLINE_TEXT } = await import("/src/core/constants.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { INLINE_TEXT } = await import("/src/measurement/collect-inlines.js");
 
 			const items = [{ type: INLINE_TEXT, startOffset: 0, endOffset: 11 }];
 			const textContent = "Hello world";
@@ -212,8 +212,8 @@ test.describe("buildInlineContent", () => {
 
 	test("composes a sliced range from the middle of text", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { INLINE_TEXT } = await import("/src/core/constants.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { INLINE_TEXT } = await import("/src/measurement/collect-inlines.js");
 
 			const textContent = "Hello world test content";
 			const items = [{ type: INLINE_TEXT, startOffset: 0, endOffset: textContent.length }];
@@ -226,9 +226,9 @@ test.describe("buildInlineContent", () => {
 
 	test("composes inline elements using open/close tag items", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } =
-				await import("/src/core/constants.js");
+				await import("/src/measurement/collect-inlines.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";
@@ -266,9 +266,9 @@ test.describe("buildInlineContent", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } =
-				await import("/src/core/constants.js");
+				await import("/src/measurement/collect-inlines.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";
@@ -303,9 +303,9 @@ test.describe("buildInlineContent", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } =
-				await import("/src/core/constants.js");
+				await import("/src/measurement/collect-inlines.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";
@@ -338,8 +338,8 @@ test.describe("buildInlineContent", () => {
 
 	test("composes a break element for INLINE_CONTROL items", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { INLINE_TEXT, INLINE_CONTROL } = await import("/src/core/constants.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { INLINE_TEXT, INLINE_CONTROL } = await import("/src/measurement/collect-inlines.js");
 
 			const textContent = "line one\nline two";
 			const items = [
@@ -362,8 +362,8 @@ test.describe("buildInlineContent", () => {
 test.describe("Fragment.build", () => {
 	test("builds child fragments as cloned elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";
@@ -406,8 +406,8 @@ test.describe("Fragment.build", () => {
 
 	test("skips null-node children (line fragments)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";
@@ -443,9 +443,9 @@ test.describe("Fragment.build", () => {
 
 	test("sets data-split-to when fragment has a break token", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";
@@ -479,9 +479,9 @@ test.describe("Fragment.build", () => {
 
 	test("sets data-justify-last on split fragments with text-align: justify", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";
@@ -517,9 +517,9 @@ test.describe("Fragment.build", () => {
 
 	test("does not set data-justify-last when text-align is not justify", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";
@@ -555,9 +555,9 @@ test.describe("Fragment.build", () => {
 
 	test("sets data-justify-last after element is detached from DOM", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";
@@ -600,8 +600,8 @@ test.describe("Fragment.build", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";
@@ -637,8 +637,8 @@ test.describe("Fragment.build", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";
@@ -672,8 +672,8 @@ test.describe("Fragment.build", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px";

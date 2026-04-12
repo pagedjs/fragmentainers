@@ -1,5 +1,5 @@
-import { ConstraintSpace } from "../core/constraint-space.js";
-import { FRAGMENTATION_REGION } from "../core/constants.js";
+import { ConstraintSpace } from "../fragmentation/constraint-space.js";
+import { FRAGMENTATION_REGION } from "../fragmentation/constraint-space.js";
 
 /**
  * Resolved region dimensions for one region element.

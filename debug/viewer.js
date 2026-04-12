@@ -19,7 +19,7 @@ import { extractPages, buildHtml, extractInspect } from "./extract.js";
 
 const BROWSERS = { chromium, firefox, webkit };
 
-// --- Logging ---
+// Logging
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
@@ -77,7 +77,7 @@ function printFooter() {
 	console.log(dim("  Refresh the browser to re-run. Close to exit."));
 }
 
-// --- Server ---
+// Server
 
 async function ensureServer(defaultPort) {
 	if (await isPortListening(defaultPort)) {
@@ -115,7 +115,7 @@ function findFreePort(start) {
 	});
 }
 
-// --- Browser ---
+// Browser
 
 async function launchBrowser(browserName, { headless = false } = {}) {
 	// "chrome" uses installed Chrome via Playwright's channel option
@@ -184,7 +184,7 @@ function setupSpecInjection(page, specType, { overlay = false } = {}) {
 	});
 }
 
-// --- Main ---
+// Main
 
 const specPath = process.argv[2];
 if (!specPath) {

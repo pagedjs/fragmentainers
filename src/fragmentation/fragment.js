@@ -1,14 +1,13 @@
-import { findChildBreakToken } from "./helpers.js";
+import { findChildBreakToken, BREAK_TOKEN_INLINE } from "./tokens.js";
 import {
 	INLINE_TEXT,
 	INLINE_CONTROL,
 	INLINE_OPEN_TAG,
 	INLINE_CLOSE_TAG,
 	INLINE_ATOMIC,
-	BREAK_TOKEN_INLINE,
-} from "./constants.js";
+} from "../measurement/collect-inlines.js";
 import { modules } from "../modules/registry.js";
-import { isPseudoElement } from "../dom/pseudo-elements.js";
+import { isPseudoElement } from "../measurement/pseudo-elements.js";
 
 /**
  * The output of a layout algorithm — a positioned fragment.

@@ -1,6 +1,6 @@
 import { LayoutModule } from "./module.js";
-import { ConstraintSpace } from "../core/constraint-space.js";
-import { FRAGMENTATION_NONE } from "../core/constants.js";
+import { ConstraintSpace } from "../fragmentation/constraint-space.js";
+import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 
 const VALID_VALUES = new Set(["fill", "contain", "cover"]);
 

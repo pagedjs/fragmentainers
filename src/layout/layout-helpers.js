@@ -1,18 +1,45 @@
 /**
- * Speculative layout utilities — prefix sums and break estimation.
+ * Layout helpers — small stateless utilities used across layout algorithms.
  *
- * After MeasurementBatch caches block sizes for every node, these
- * functions compute cumulative heights and estimate fragmentainer
- * (page/column) break points in O(log N) per query.
+ * - isMonolithic / getMonolithicBlockSize: classify nodes that can't be
+ *   fragmented (replaced elements, scroll containers, fixed-height
+ *   overflow:hidden) and get their size without a full layout pass.
  *
- * The estimates are approximate: they account for collapsed margins
- * between siblings but not forced breaks, named page changes, or
- * break-inside/break-before/break-after rules. The block container
- * layout algorithm uses them as a fast-path hint, never as a
- * substitute for the full per-child loop.
+ * - buildCumulativeHeights / estimateBreakPoints: prefix-sum based
+ *   speculative break estimation. After block sizes are cached, these
+ *   compute cumulative heights and estimate fragmentainer break points
+ *   in O(log N) per query. The estimates are approximate: they account
+ *   for collapsed sibling margins but not forced breaks, named page
+ *   changes, or break-inside/before/after rules. The block container
+ *   algorithm uses them as a fast-path hint, never as a substitute for
+ *   the full per-child loop.
  */
 
 import { collapseMargins } from "./margin-collapsing.js";
+
+/**
+ * Check if a node is monolithic (cannot be fragmented).
+ * Monolithic content contains no possible break points.
+ * @param {import("./layout-node.js").LayoutNode} node
+ * @returns {boolean}
+ */
+export function isMonolithic(node) {
+	return (
+		node.isReplacedElement ||
+		node.isScrollable ||
+		(node.hasOverflowHidden && node.hasExplicitBlockSize)
+	);
+}
+
+/**
+ * Get the block size of a monolithic element without full layout.
+ * @param {import("./layout-node.js").LayoutNode} node
+ * @param {import("../fragmentation/constraint-space.js").ConstraintSpace} constraintSpace
+ * @returns {number}
+ */
+export function getMonolithicBlockSize(node, constraintSpace) {
+	return node.computedBlockSize(constraintSpace.availableInlineSize);
+}
 
 /**
  * Build a prefix sum of block sizes for a node's children.
@@ -24,7 +51,7 @@ import { collapseMargins } from "./margin-collapsing.js";
  * max(prevChild.marginBlockEnd, child.marginBlockStart).
  * The first child's full marginBlockStart is included.
  *
- * @param {import('../dom/layout-node.js').DOMLayoutNode} node
+ * @param {import('./layout-node.js').DOMLayoutNode} node
  * @returns {Float64Array} Length = children.length + 1
  */
 export function buildCumulativeHeights(node) {

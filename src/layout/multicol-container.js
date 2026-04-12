@@ -1,8 +1,10 @@
-import { BlockBreakToken } from "../core/tokens.js";
-import { ConstraintSpace } from "../core/constraint-space.js";
-import { Fragment } from "../core/fragment.js";
-import { layoutChild } from "../core/layout-request.js";
-import { FRAGMENTATION_COLUMN, FRAGMENTATION_NONE, ALGORITHM_MULTICOL } from "../core/constants.js";
+import { BlockBreakToken } from "../fragmentation/tokens.js";
+import { ConstraintSpace } from "../fragmentation/constraint-space.js";
+import { Fragment } from "../fragmentation/fragment.js";
+import { layoutChild } from "./layout-request.js";
+import { FRAGMENTATION_COLUMN, FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
+
+export const ALGORITHM_MULTICOL = "MulticolData";
 
 /**
  * CSS Multicol §3 pseudo-algorithm.

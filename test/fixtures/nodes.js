@@ -3,7 +3,7 @@
  * These return plain objects matching the LayoutNode interface
  * expected by the layout algorithms.
  */
-import { INLINE_TEXT, INLINE_CONTROL } from "../../src/core/constants.js";
+import { INLINE_TEXT, INLINE_CONTROL } from "../../src/measurement/collect-inlines.js";
 
 const DEFAULTS = {
 	children: [],

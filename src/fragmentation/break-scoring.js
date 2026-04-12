@@ -1,3 +1,6 @@
+export const EARLY_BREAK_BEFORE = "before";
+export const EARLY_BREAK_INSIDE = "inside";
+
 /**
  * Break scores ordered from best to worst.
  */

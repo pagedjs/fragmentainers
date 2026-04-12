@@ -1,7 +1,7 @@
 import { LayoutModule } from "./module.js";
-import { ConstraintSpace } from "../core/constraint-space.js";
-import { findChildBreakToken } from "../core/helpers.js";
-import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE } from "../core/constants.js";
+import { ConstraintSpace } from "../fragmentation/constraint-space.js";
+import { findChildBreakToken } from "../fragmentation/tokens.js";
+import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE } from "../fragmentation/constraint-space.js";
 
 class RepeatedTableHeader extends LayoutModule {
 	beforeChildren(node, constraintSpace, breakToken) {

@@ -3,10 +3,10 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("RepeatedTableHeader.beforeChildren", () => {
 	test("returns layout request for thead on table continuation", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
 			const container = document.createElement("div");
@@ -17,7 +17,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
           <tbody><tr><td style="height:100px;margin:0;padding:0">Row</td></tr></tbody>
         </table>`;
 			document.body.appendChild(container);
-			const tableNode = buildLayoutTree(container.firstElementChild);
+			const tableNode = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -44,9 +44,9 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 
 	test("returns null when there is no break token", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
 			const container = document.createElement("div");
@@ -57,7 +57,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
           <tbody><tr><td style="height:100px;margin:0;padding:0">Row</td></tr></tbody>
         </table>`;
 			document.body.appendChild(container);
-			const tableNode = buildLayoutTree(container.firstElementChild);
+			const tableNode = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -76,10 +76,10 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 
 	test("returns null for non-table nodes", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
 			const container = document.createElement("div");
@@ -88,7 +88,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
         <div style="height:100px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
-			const root = buildLayoutTree(container.firstElementChild);
+			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -108,10 +108,10 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 
 	test("returns null in column fragmentation mode", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { FRAGMENTATION_COLUMN } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { FRAGMENTATION_COLUMN } = await import("/src/fragmentation/constraint-space.js");
 			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
 			const container = document.createElement("div");
@@ -122,7 +122,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
           <tbody><tr><td style="height:100px;margin:0;padding:0">Row</td></tr></tbody>
         </table>`;
 			document.body.appendChild(container);
-			const tableNode = buildLayoutTree(container.firstElementChild);
+			const tableNode = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -142,10 +142,10 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 
 	test("returns null when thead has an active break token", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
 			const container = document.createElement("div");
@@ -156,7 +156,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
           <tbody><tr><td style="height:100px;margin:0;padding:0">Row</td></tr></tbody>
         </table>`;
 			document.body.appendChild(container);
-			const tableNode = buildLayoutTree(container.firstElementChild);
+			const tableNode = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
@@ -180,10 +180,10 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 
 	test("returns null when table has no thead", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
-			const { FRAGMENTATION_PAGE } = await import("/src/core/constants.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
 
 			const container = document.createElement("div");
@@ -196,7 +196,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
           </tbody>
         </table>`;
 			document.body.appendChild(container);
-			const tableNode = buildLayoutTree(container.firstElementChild);
+			const tableNode = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,

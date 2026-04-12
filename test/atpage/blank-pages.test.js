@@ -1,11 +1,11 @@
 import { test, expect } from "../browser-fixture.js";
 
-// --- Helper function tests ---
+// Helper function tests
 
 test.describe("isSideSpecificBreak", () => {
 	test("returns true for left, right, recto, verso", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { isSideSpecificBreak } = await import("/src/atpage/page-resolver.js");
+			const { isSideSpecificBreak } = await import("/src/resolvers/page-resolver.js");
 			return {
 				left: isSideSpecificBreak("left"),
 				right: isSideSpecificBreak("right"),
@@ -21,7 +21,7 @@ test.describe("isSideSpecificBreak", () => {
 
 	test("returns false for page, column, always, auto, avoid", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { isSideSpecificBreak } = await import("/src/atpage/page-resolver.js");
+			const { isSideSpecificBreak } = await import("/src/resolvers/page-resolver.js");
 			return {
 				page: isSideSpecificBreak("page"),
 				column: isSideSpecificBreak("column"),
@@ -45,7 +45,7 @@ test.describe("isSideSpecificBreak", () => {
 test.describe("requiredPageSide", () => {
 	test("normalizes right and recto to 'right'", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { requiredPageSide } = await import("/src/atpage/page-resolver.js");
+			const { requiredPageSide } = await import("/src/resolvers/page-resolver.js");
 			return { right: requiredPageSide("right"), recto: requiredPageSide("recto") };
 		});
 		expect(result.right).toBe("right");
@@ -54,7 +54,7 @@ test.describe("requiredPageSide", () => {
 
 	test("normalizes left and verso to 'left'", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { requiredPageSide } = await import("/src/atpage/page-resolver.js");
+			const { requiredPageSide } = await import("/src/resolvers/page-resolver.js");
 			return { left: requiredPageSide("left"), verso: requiredPageSide("verso") };
 		});
 		expect(result.left).toBe("left");
@@ -63,7 +63,7 @@ test.describe("requiredPageSide", () => {
 
 	test("returns null for non-side-specific values", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { requiredPageSide } = await import("/src/atpage/page-resolver.js");
+			const { requiredPageSide } = await import("/src/resolvers/page-resolver.js");
 			return {
 				page: requiredPageSide("page"),
 				auto: requiredPageSide("auto"),
@@ -79,7 +79,7 @@ test.describe("requiredPageSide", () => {
 test.describe("resolveForcedBreakValue", () => {
 	test("returns null for null break token", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { resolveForcedBreakValue } = await import("/src/atpage/page-resolver.js");
+			const { resolveForcedBreakValue } = await import("/src/resolvers/page-resolver.js");
 			return resolveForcedBreakValue(null);
 		});
 		expect(result).toBeNull();
@@ -87,8 +87,8 @@ test.describe("resolveForcedBreakValue", () => {
 
 	test("returns forcedBreakValue from a direct token", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { resolveForcedBreakValue } = await import("/src/atpage/page-resolver.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { resolveForcedBreakValue } = await import("/src/resolvers/page-resolver.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const node = blockNode({ debugName: "A" });
@@ -102,8 +102,8 @@ test.describe("resolveForcedBreakValue", () => {
 
 	test("returns null when no forced break value", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { resolveForcedBreakValue } = await import("/src/atpage/page-resolver.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { resolveForcedBreakValue } = await import("/src/resolvers/page-resolver.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const node = blockNode({ debugName: "A" });
@@ -119,7 +119,7 @@ test.describe("resolveForcedBreakValue", () => {
 test.describe("resolveNextPageBreakBefore", () => {
 	test("returns first child breakBefore when no break token", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { resolveNextPageBreakBefore } = await import("/src/atpage/page-resolver.js");
+			const { resolveNextPageBreakBefore } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -135,8 +135,8 @@ test.describe("resolveNextPageBreakBefore", () => {
 
 	test("returns breakBefore from isBreakBefore token node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { resolveNextPageBreakBefore } = await import("/src/atpage/page-resolver.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { resolveNextPageBreakBefore } = await import("/src/resolvers/page-resolver.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const childA = blockNode({ debugName: "A", blockSize: 50 });
@@ -152,7 +152,7 @@ test.describe("resolveNextPageBreakBefore", () => {
 
 	test("returns auto when first child has no break-before", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { resolveNextPageBreakBefore } = await import("/src/atpage/page-resolver.js");
+			const { resolveNextPageBreakBefore } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -164,12 +164,12 @@ test.describe("resolveNextPageBreakBefore", () => {
 	});
 });
 
-// --- forcedBreakValue on tokens ---
+// forcedBreakValue on tokens
 
 test.describe("forcedBreakValue on tokens", () => {
 	test("createBreakBefore stores forcedBreakValue", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const node = blockNode({ debugName: "A" });
@@ -182,7 +182,7 @@ test.describe("forcedBreakValue on tokens", () => {
 
 	test("createBreakBefore defaults forcedBreakValue to null", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const node = blockNode({ debugName: "A" });
@@ -194,8 +194,8 @@ test.describe("forcedBreakValue on tokens", () => {
 
 	test("break-before: right stores value through layout", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -220,8 +220,8 @@ test.describe("forcedBreakValue on tokens", () => {
 
 	test("break-after: left stores value through layout", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -245,15 +245,15 @@ test.describe("forcedBreakValue on tokens", () => {
 	});
 });
 
-// --- Blank page insertion ---
+// Blank page insertion
 
 test.describe("Blank page insertion", () => {
 	test("break-before: left inserts a blank page when content is on a right page", async ({
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const SIZE = { inlineSize: 600, blockSize: 1000 };
@@ -281,8 +281,8 @@ test.describe("Blank page insertion", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const SIZE = { inlineSize: 600, blockSize: 1000 };
@@ -310,8 +310,8 @@ test.describe("Blank page insertion", () => {
 
 	test("break-before: recto works like right", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const SIZE = { inlineSize: 600, blockSize: 1000 };
@@ -332,8 +332,8 @@ test.describe("Blank page insertion", () => {
 
 	test("break-before: verso works like left", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const SIZE = { inlineSize: 600, blockSize: 1000 };
@@ -359,8 +359,8 @@ test.describe("Blank page insertion", () => {
 
 	test("no blank page when already on correct side", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const SIZE = { inlineSize: 600, blockSize: 1000 };
@@ -385,8 +385,8 @@ test.describe("Blank page insertion", () => {
 
 	test("break-after: right inserts a blank page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const SIZE = { inlineSize: 600, blockSize: 1000 };
@@ -407,8 +407,8 @@ test.describe("Blank page insertion", () => {
 
 	test("blank pages are counted in the page sequence", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const SIZE = { inlineSize: 600, blockSize: 1000 };
@@ -437,8 +437,8 @@ test.describe("Blank page insertion", () => {
 
 	test("blank page has constraints from resolver", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const SIZE = { inlineSize: 600, blockSize: 1000 };
@@ -469,8 +469,8 @@ test.describe("Blank page insertion", () => {
 
 	test("break-before: page does NOT insert blank pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const SIZE = { inlineSize: 600, blockSize: 1000 };
@@ -493,12 +493,12 @@ test.describe("Blank page insertion", () => {
 	});
 });
 
-// --- :blank pseudo-class matching ---
+// :blank pseudo-class matching
 
 test.describe(":blank pseudo-class matching", () => {
 	test("@page :blank rule matches blank pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 
 			const resolver = new PageResolver(
 				[new PageRule({ pseudoClass: "blank", margin: { top: 100 } })],
@@ -520,7 +520,7 @@ test.describe(":blank pseudo-class matching", () => {
 
 	test("@page :blank does not match non-blank pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 
 			const resolver = new PageResolver(
 				[new PageRule({ pseudoClass: "blank", size: [400, 400] })],
@@ -538,15 +538,15 @@ test.describe(":blank pseudo-class matching", () => {
 	});
 });
 
-// --- First page edge case ---
+// First page edge case
 
 test.describe("First page blank page edge case", () => {
 	test("first child with break-before: left inserts blank page 0 (page 0 is right)", async ({
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const SIZE = { inlineSize: 600, blockSize: 1000 };
@@ -574,8 +574,8 @@ test.describe("First page blank page edge case", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const SIZE = { inlineSize: 600, blockSize: 1000 };

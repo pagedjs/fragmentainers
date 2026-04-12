@@ -4,7 +4,7 @@ test.describe("DOMLayoutNode", () => {
 	test.describe("debugName", () => {
 		test("formats tag#id.class1.class2", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -21,7 +21,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("formats tag only when no id or class", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const p = document.createElement("p");
@@ -38,7 +38,7 @@ test.describe("DOMLayoutNode", () => {
 	test.describe("classification", () => {
 		test("img is a replaced element", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const img = document.createElement("img");
@@ -53,7 +53,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("div is not a replaced element", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -68,7 +68,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("overflow-y: scroll is scrollable", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -84,7 +84,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("explicit height means hasExplicitBlockSize", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -100,7 +100,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("auto height means no explicit block size", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -115,7 +115,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("display: flex is a flex container", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -131,7 +131,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("display: grid is a grid container", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -147,7 +147,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("column-count: 3 is a multicol container", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -163,7 +163,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("overflow: hidden sets hasOverflowHidden", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -181,7 +181,7 @@ test.describe("DOMLayoutNode", () => {
 	test.describe("box model", () => {
 		test("returns margin, padding, and border block-start values", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -203,7 +203,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("returns margin, padding, and border block-end values", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -227,7 +227,7 @@ test.describe("DOMLayoutNode", () => {
 	test.describe("children", () => {
 		test("returns DOMLayoutNode children for block children", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const parent = document.createElement("div");
@@ -247,7 +247,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("skips display:none children", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const parent = document.createElement("div");
@@ -263,7 +263,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("skips script tags", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const parent = document.createElement("div");
@@ -279,7 +279,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("skips style tags", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const parent = document.createElement("div");
@@ -295,7 +295,8 @@ test.describe("DOMLayoutNode", () => {
 
 		test("wraps mixed inline/block content with AnonymousBlockNode", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode, AnonymousBlockNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+				const { AnonymousBlockNode } = await import("/src/layout/anonymous-block-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const parent = document.createElement("div");
@@ -324,7 +325,7 @@ test.describe("DOMLayoutNode", () => {
 	test.describe("blockSize", () => {
 		test("returns the height of an element", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -342,7 +343,7 @@ test.describe("DOMLayoutNode", () => {
 	test.describe("isInlineFormattingContext", () => {
 		test("is true for a paragraph with text", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const p = document.createElement("p");
@@ -358,7 +359,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("is false for a div with block children", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -374,7 +375,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("is false for a replaced element", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const img = document.createElement("img");
@@ -391,9 +392,9 @@ test.describe("DOMLayoutNode", () => {
 	test.describe("inlineItemsData", () => {
 		test("collects items with correct types for mixed inline content", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } =
-					await import("/src/core/constants.js");
+					await import("/src/measurement/collect-inlines.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const p = document.createElement("p");
@@ -419,7 +420,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("returns null for non-IFC elements", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -437,7 +438,7 @@ test.describe("DOMLayoutNode", () => {
 	test.describe("fragmentation properties", () => {
 		test("reads break-before", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -453,7 +454,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("reads break-after", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -469,7 +470,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("reads break-inside", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -485,7 +486,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("reads orphans", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -501,7 +502,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("reads widows", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -517,7 +518,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("defaults orphans to 2", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -532,7 +533,7 @@ test.describe("DOMLayoutNode", () => {
 
 		test("defaults breakBefore to auto", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { DOMLayoutNode } = await import("/src/dom/layout-node.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 				const container = document.createElement("div");
 				document.body.appendChild(container);
 				const div = document.createElement("div");
@@ -550,7 +551,7 @@ test.describe("DOMLayoutNode", () => {
 test.describe("AnonymousBlockNode", () => {
 	test("has debugName [anon]", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { AnonymousBlockNode } = await import("/src/dom/layout-node.js");
+			const { AnonymousBlockNode } = await import("/src/layout/anonymous-block-node.js");
 			const container = document.createElement("div");
 			document.body.appendChild(container);
 			const parent = document.createElement("div");
@@ -567,7 +568,7 @@ test.describe("AnonymousBlockNode", () => {
 
 	test("is an inline formatting context", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { AnonymousBlockNode } = await import("/src/dom/layout-node.js");
+			const { AnonymousBlockNode } = await import("/src/layout/anonymous-block-node.js");
 			const container = document.createElement("div");
 			document.body.appendChild(container);
 			const parent = document.createElement("div");
@@ -584,7 +585,7 @@ test.describe("AnonymousBlockNode", () => {
 
 	test("has neutral box model values", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { AnonymousBlockNode } = await import("/src/dom/layout-node.js");
+			const { AnonymousBlockNode } = await import("/src/layout/anonymous-block-node.js");
 			const anon = new AnonymousBlockNode(document.createElement("div"), []);
 			return {
 				marginBlockStart: anon.marginBlockStart,
@@ -605,7 +606,7 @@ test.describe("AnonymousBlockNode", () => {
 
 	test("has no element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { AnonymousBlockNode } = await import("/src/dom/layout-node.js");
+			const { AnonymousBlockNode } = await import("/src/layout/anonymous-block-node.js");
 			const anon = new AnonymousBlockNode(document.createElement("div"), []);
 			return { elementIsNull: anon.element === null };
 		});
@@ -614,7 +615,7 @@ test.describe("AnonymousBlockNode", () => {
 
 	test("collects inlineItemsData from child nodes", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { AnonymousBlockNode } = await import("/src/dom/layout-node.js");
+			const { AnonymousBlockNode } = await import("/src/layout/anonymous-block-node.js");
 			const container = document.createElement("div");
 			document.body.appendChild(container);
 			const parent = document.createElement("div");

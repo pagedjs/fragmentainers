@@ -1,23 +1,24 @@
-import { BlockBreakToken } from "../core/tokens.js";
-import { ConstraintSpace } from "../core/constraint-space.js";
-import { Fragment } from "../core/fragment.js";
-import { layoutChild } from "../core/layout-request.js";
-import { findChildBreakToken, isMonolithic, getMonolithicBlockSize } from "../core/helpers.js";
+import { BlockBreakToken } from "../fragmentation/tokens.js";
+import { ConstraintSpace } from "../fragmentation/constraint-space.js";
+import { Fragment } from "../fragmentation/fragment.js";
+import { layoutChild } from "./layout-request.js";
+import { findChildBreakToken } from "../fragmentation/tokens.js";
+import { isMonolithic, getMonolithicBlockSize } from "./layout-helpers.js";
 import {
 	EarlyBreak,
 	BreakScore,
 	scoreClassABreak,
 	isBetterBreak,
 	applyBreakInsideAvoid,
-} from "../core/break-scoring.js";
+	EARLY_BREAK_BEFORE,
+	EARLY_BREAK_INSIDE,
+} from "../fragmentation/break-scoring.js";
 import {
 	FRAGMENTATION_NONE,
 	FRAGMENTATION_PAGE,
-	BOX_DECORATION_CLONE,
-	EARLY_BREAK_BEFORE,
-	EARLY_BREAK_INSIDE,
-} from "../core/constants.js";
-import { MarginState } from "../core/margin-collapsing.js";
+} from "../fragmentation/constraint-space.js";
+import { BOX_DECORATION_CLONE } from "./layout-node.js";
+import { MarginState } from "./margin-collapsing.js";
 import { modules } from "../modules/index.js";
 
 // Skip break scoring when cumulative child content fills less than

@@ -8,10 +8,6 @@
  * layout and call its methods at the documented points in the child loop.
  */
 
-// ---------------------------------------------------------------------------
-// MarginStrut — accumulator for a set of adjoining margins
-// ---------------------------------------------------------------------------
-
 /**
  * Tracks the largest positive and most-negative margins in a collapsing set.
  * Adopted from LayoutNG's margin strut pattern.
@@ -38,10 +34,6 @@ export class MarginStrut {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// collapseMargins — pairwise convenience
-// ---------------------------------------------------------------------------
-
 /**
  * Collapse two margins per CSS2 §8.3.1.
  * Convenience wrapper for the common two-margin case (e.g. speculative layout).
@@ -55,10 +47,6 @@ export function collapseMargins(a, b) {
 	if (a <= 0 && b <= 0) return Math.min(a, b);
 	return a + b;
 }
-
-// ---------------------------------------------------------------------------
-// collectThroughMargins — multi-level through-collapse chain walking
-// ---------------------------------------------------------------------------
 
 /**
  * Walk the through-collapse chain starting from `node`, collecting margins
@@ -87,10 +75,6 @@ export function collectThroughMargins(node) {
 	}
 	return margins;
 }
-
-// ---------------------------------------------------------------------------
-// MarginState — stateful tracker for block container layout
-// ---------------------------------------------------------------------------
 
 /**
  * Tracks margin collapsing state during a single block container layout pass.

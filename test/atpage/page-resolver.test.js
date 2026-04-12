@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("PageResolver", () => {
 	test("returns default size when no rules", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };
 			const resolver = new PageResolver([], DEFAULT_SIZE);
 			const c = resolver.resolve(0, null, null);
@@ -18,7 +18,7 @@ test.describe("PageResolver", () => {
 
 	test("defaults to US Letter when no size given", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver([]);
 			const c = resolver.resolve(0, null, null);
 			return c.contentArea;
@@ -28,7 +28,7 @@ test.describe("PageResolver", () => {
 
 	test("universal @page with explicit size", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
 			const resolver = new PageResolver([new PageRule({ size: [600, 800], margin: M0 })], {
 				inlineSize: 816,
@@ -43,7 +43,7 @@ test.describe("PageResolver", () => {
 
 	test("universal @page with named size (a4)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver([new PageRule({ size: "a4" })], {
 				inlineSize: 816,
 				blockSize: 1056,
@@ -57,7 +57,7 @@ test.describe("PageResolver", () => {
 
 	test("named size with landscape orientation", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver([new PageRule({ size: "letter landscape" })], {
 				inlineSize: 816,
 				blockSize: 1056,
@@ -71,7 +71,7 @@ test.describe("PageResolver", () => {
 
 	test("bare landscape rotates default", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };
 			const resolver = new PageResolver([new PageRule({ size: "landscape" })], DEFAULT_SIZE);
 			const c = resolver.resolve(0, null, null);
@@ -83,7 +83,7 @@ test.describe("PageResolver", () => {
 
 	test("applies margins and computes content area", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver(
 				[new PageRule({ size: [800, 1000], margin: { top: 50, right: 40, bottom: 50, left: 40 } })],
 				{ inlineSize: 816, blockSize: 1056 },
@@ -97,7 +97,7 @@ test.describe("PageResolver", () => {
 
 	test(":first pseudo-class matches only page 0", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
 			const resolver = new PageResolver(
 				[
@@ -117,7 +117,7 @@ test.describe("PageResolver", () => {
 
 	test(":left/:right alternate by page index", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver(
 				[
 					new PageRule({ size: [600, 800] }),
@@ -147,7 +147,7 @@ test.describe("PageResolver", () => {
 
 	test("named page rule matches only its named page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -172,7 +172,7 @@ test.describe("PageResolver", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -195,7 +195,7 @@ test.describe("PageResolver", () => {
 
 	test("cascade: margins merge from multiple rules", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const resolver = new PageResolver(
@@ -217,7 +217,7 @@ test.describe("PageResolver", () => {
 
 	test("page-orientation: rotate-left swaps dimensions", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver(
 				[new PageRule({ size: [600, 800], pageOrientation: "rotate-left" })],
 				{ inlineSize: 816, blockSize: 1056 },
@@ -231,7 +231,7 @@ test.describe("PageResolver", () => {
 
 	test("toConstraintSpace() produces correct values", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver(
 				[new PageRule({ size: [600, 800], margin: { top: 20, right: 20, bottom: 20, left: 20 } })],
 				{ inlineSize: 816, blockSize: 1056 },
@@ -256,7 +256,7 @@ test.describe("PageResolver", () => {
 
 	test("isFirstPage and isLeftPage flags", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };
 			const resolver = new PageResolver([], DEFAULT_SIZE);
 
@@ -276,59 +276,67 @@ test.describe("PageResolver", () => {
 	});
 });
 
-test.describe("parseCSSLength", () => {
+test.describe("parseNumeric", () => {
 	test("parses px", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCSSLength } = await import("/src/atpage/page-resolver.js");
-			return parseCSSLength("100px");
+			const { parseNumeric } = await import("/src/styles/css-values.js");
+			return parseNumeric("100px").to("px").value;
 		});
 		expect(result).toBe(100);
 	});
 
 	test("parses in", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCSSLength } = await import("/src/atpage/page-resolver.js");
-			return parseCSSLength("1in");
+			const { parseNumeric } = await import("/src/styles/css-values.js");
+			return parseNumeric("1in").to("px").value;
 		});
 		expect(result).toBe(96);
 	});
 
 	test("parses cm", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCSSLength } = await import("/src/atpage/page-resolver.js");
-			return parseCSSLength("2.54cm");
+			const { parseNumeric } = await import("/src/styles/css-values.js");
+			return parseNumeric("2.54cm").to("px").value;
 		});
 		expect(Math.abs(result - 96) < 0.01).toBeTruthy();
 	});
 
 	test("parses mm", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCSSLength } = await import("/src/atpage/page-resolver.js");
-			return parseCSSLength("25.4mm");
+			const { parseNumeric } = await import("/src/styles/css-values.js");
+			return parseNumeric("25.4mm").to("px").value;
 		});
 		expect(Math.abs(result - 96) < 0.01).toBeTruthy();
 	});
 
 	test("parses pt", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCSSLength } = await import("/src/atpage/page-resolver.js");
-			return parseCSSLength("72pt");
+			const { parseNumeric } = await import("/src/styles/css-values.js");
+			return parseNumeric("72pt").to("px").value;
 		});
 		expect(result).toBe(96);
 	});
 
 	test("parses bare number as px", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCSSLength } = await import("/src/atpage/page-resolver.js");
-			return parseCSSLength("50");
+			const { parseNumeric } = await import("/src/styles/css-values.js");
+			return parseNumeric("50").to("px").value;
 		});
 		expect(result).toBe(50);
 	});
 
+	test("parses calc expressions", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { parseNumeric } = await import("/src/styles/css-values.js");
+			return parseNumeric("calc(1in + 2mm)").to("px").value;
+		});
+		expect(Math.abs(result - (96 + (2 * 96) / 25.4)) < 0.01).toBeTruthy();
+	});
+
 	test("returns null for invalid", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCSSLength } = await import("/src/atpage/page-resolver.js");
-			return parseCSSLength("abc");
+			const { parseNumeric } = await import("/src/styles/css-values.js");
+			return parseNumeric("abc");
 		});
 		expect(result).toBe(null);
 	});
@@ -337,7 +345,7 @@ test.describe("parseCSSLength", () => {
 test.describe("getNamedPage", () => {
 	test("returns page property from node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getNamedPage } = await import("/src/atpage/page-resolver.js");
+			const { getNamedPage } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 			return getNamedPage(blockNode({ page: "cover" }));
 		});
@@ -346,7 +354,7 @@ test.describe("getNamedPage", () => {
 
 	test("returns null for node with no page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getNamedPage } = await import("/src/atpage/page-resolver.js");
+			const { getNamedPage } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 			return getNamedPage(blockNode());
 		});
@@ -355,7 +363,7 @@ test.describe("getNamedPage", () => {
 
 	test("returns null for null node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getNamedPage } = await import("/src/atpage/page-resolver.js");
+			const { getNamedPage } = await import("/src/resolvers/page-resolver.js");
 			return getNamedPage(null);
 		});
 		expect(result).toBe(null);
@@ -365,7 +373,7 @@ test.describe("getNamedPage", () => {
 test.describe("resolveNamedPageForBreakToken", () => {
 	test("returns first child page when no break token", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { resolveNamedPageForBreakToken } = await import("/src/atpage/page-resolver.js");
+			const { resolveNamedPageForBreakToken } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -378,7 +386,7 @@ test.describe("resolveNamedPageForBreakToken", () => {
 
 	test("returns null when first child has no page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { resolveNamedPageForBreakToken } = await import("/src/atpage/page-resolver.js");
+			const { resolveNamedPageForBreakToken } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -391,8 +399,8 @@ test.describe("resolveNamedPageForBreakToken", () => {
 
 	test("returns page of isBreakBefore child", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { resolveNamedPageForBreakToken } = await import("/src/atpage/page-resolver.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { resolveNamedPageForBreakToken } = await import("/src/resolvers/page-resolver.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const childB = blockNode({ debugName: "B", page: "chapter" });
@@ -411,8 +419,8 @@ test.describe("resolveNamedPageForBreakToken", () => {
 
 	test("returns page of next sibling when break inside a child", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { resolveNamedPageForBreakToken } = await import("/src/atpage/page-resolver.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { resolveNamedPageForBreakToken } = await import("/src/resolvers/page-resolver.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const childA = blockNode({ debugName: "A", blockSize: 200 });
@@ -435,8 +443,8 @@ test.describe("resolveNamedPageForBreakToken", () => {
 test.describe("Named page forced breaks", () => {
 	test("forces break when page property changes between siblings", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -469,8 +477,8 @@ test.describe("Named page forced breaks", () => {
 
 	test("forces break when changing from named to null", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -496,8 +504,8 @@ test.describe("Named page forced breaks", () => {
 
 	test("forces break when changing from null to named", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -523,8 +531,8 @@ test.describe("Named page forced breaks", () => {
 
 	test("no break when both siblings have same page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -550,8 +558,8 @@ test.describe("Named page forced breaks", () => {
 
 	test("no break when both siblings have null page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -577,8 +585,8 @@ test.describe("Named page forced breaks", () => {
 
 	test("forced break token has isForcedBreak = true", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({
@@ -606,8 +614,8 @@ test.describe("Named page forced breaks", () => {
 test.describe("createFragments with PageResolver", () => {
 	test("resolves page sizes dynamically", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const DEFAULT_SIZE = { inlineSize: 600, blockSize: 1000 };
@@ -632,8 +640,8 @@ test.describe("createFragments with PageResolver", () => {
 
 	test("uses named page sizes for different pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { PageRule, PageResolver } = await import("/src/atpage/page-resolver.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -665,8 +673,8 @@ test.describe("createFragments with PageResolver", () => {
 
 	test("accepts a plain ConstraintSpace (no resolver)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const root = blockNode({

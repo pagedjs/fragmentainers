@@ -1,28 +1,24 @@
-import { DOMLayoutNode } from "../dom/layout-node.js";
-import { runLayoutGenerator, getLayoutAlgorithm } from "./layout-request.js";
+import { DOMLayoutNode } from "../layout/layout-node.js";
+import { runLayoutGenerator, getLayoutAlgorithm } from "../layout/layout-request.js";
 import { FragmentationContext } from "./fragmentation-context.js";
-import { PageResolver } from "../atpage/page-resolver.js";
+import { PageResolver } from "../resolvers/page-resolver.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace } from "./constraint-space.js";
 import { Fragment } from "./fragment.js";
-import { FRAGMENTATION_COLUMN } from "./constants.js";
+import { FRAGMENTATION_COLUMN } from "./constraint-space.js";
 import {
 	resolveForcedBreakValue,
 	resolveNextPageBreakBefore,
 	requiredPageSide,
 	isSideSpecificBreak,
-} from "../atpage/page-resolver.js";
-import "../dom/content-measure.js";
-import "../dom/fragment-container.js";
-import { Measurer } from "../dom/measure.js";
-import { setTargetDevicePixelRatio } from "../dom/line-box.js";
+} from "../resolvers/page-resolver.js";
+import "../components/content-measure.js";
+import "../components/fragment-container.js";
+import { Measurer } from "../measurement/measure.js";
+import { setTargetDevicePixelRatio } from "../measurement/line-box.js";
 import { modules } from "../modules/registry.js";
 import { UA_DEFAULTS } from "../styles/ua-defaults.js";
 import "../modules/index.js";
-
-function buildLayoutTree(rootElement) {
-	return new DOMLayoutNode(rootElement);
-}
 
 const MAX_ZERO_PROGRESS = 5;
 
@@ -94,7 +90,8 @@ export class FragmentedFlow extends Iterator {
 	/**
 	 * @param {DocumentFragment|Element|object} content - Content to fragment
 	 * @param {object} [options]
-	 * @param {CSSStyleSheet[]} [options.styles] - Stylesheets (copies document.styleSheets if omitted)
+	 * @param {CSSStyleSheet[]} [options.styles] - Stylesheets. If omitted,
+	 *   uses document.adoptedStyleSheets when non-empty, else document.styleSheets.
 	 * @param {ConstraintSpace} [options.constraintSpace] - Direct constraint space (bypasses @page rules)
 	 * @param {PageResolver|RegionResolver} [options.resolver] - Pre-configured resolver
 	 * @param {number} [options.width] - Container width in CSS px (column fragmentation)
@@ -126,8 +123,10 @@ export class FragmentedFlow extends Iterator {
 
 		if (options.styles) {
 			this.#styles = Array.isArray(options.styles) ? options.styles : [options.styles];
-		} else {
+		} else if (document.adoptedStyleSheets.length > 0) {
 			this.#styles = [...document.adoptedStyleSheets];
+		} else {
+			this.#styles = [...document.styleSheets];
 		}
 
 		if (options.constraintSpace) {
@@ -538,14 +537,14 @@ export class FragmentedFlow extends Iterator {
 			this.#measureElement = measurer;
 			this.#contentStyles = measurer.getContentStyles();
 			if (forceUpdate) {
-				this.#tree = buildLayoutTree(measurer.contentRoot);
+				this.#tree = new DOMLayoutNode(measurer.contentRoot);
 			}
 			return;
 		}
 
 		if (this.#measureElement) {
 			// Rebuild layout tree from existing measurer (content already injected)
-			this.#tree = buildLayoutTree(this.#measureElement.contentRoot);
+			this.#tree = new DOMLayoutNode(this.#measureElement.contentRoot);
 		} else if (typeof DocumentFragment !== "undefined" && content instanceof DocumentFragment) {
 			// Delegate to the Measurer class, which handles segmented
 			// measurement when top-level children have forced breaks.
@@ -559,11 +558,11 @@ export class FragmentedFlow extends Iterator {
 			if (this.#options.devicePixelRatio != null) {
 				setTargetDevicePixelRatio(this.#options.devicePixelRatio);
 			}
-			modules.init(this.#options);
+			modules.init({ ...this.#options, isPageBased });
 			this.#measurer = new Measurer(content, layoutStyles);
 			const contentRoot = this.#measurer.setup();
 
-			this.#tree = buildLayoutTree(contentRoot);
+			this.#tree = new DOMLayoutNode(contentRoot);
 			this.#measureElement = { applyConstraintSpace: () => {} };
 			this.#contentStyles = this.#measurer.getContentStyles();
 

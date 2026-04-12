@@ -8,8 +8,8 @@
  *
  * This stylesheet restores those defaults on the slot. It is placed
  * first in the adopted stylesheet list so any author body rules
- * (rewritten to slot rules by body-selectors.js) override it by
- * source order.
+ * (rewritten to slot rules by the BodyRewriter module) override it
+ * by source order.
  */
 
 const UA_DEFAULTS = new CSSStyleSheet();

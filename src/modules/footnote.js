@@ -22,7 +22,7 @@ const FOOTNOTE_STYLES = `
  * Walk a break token chain to find the deepest element at the break
  * boundary. This is the DOM element where content was split or pushed.
  *
- * @param {import('../core/tokens.js').BreakToken|null} breakToken
+ * @param {import('../fragmentation/tokens.js').BreakToken|null} breakToken
  * @returns {Element|null}
  */
 function getBreakBoundaryElement(breakToken) {

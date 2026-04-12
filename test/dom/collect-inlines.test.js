@@ -3,8 +3,8 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("collectInlineItems", () => {
 	test("collects plain text as a single INLINE_TEXT item", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
-			const { INLINE_TEXT } = await import("/src/core/constants.js");
+			const { collectInlineItems } = await import("/src/measurement/collect-inlines.js");
+			const { INLINE_TEXT } = await import("/src/measurement/collect-inlines.js");
 			const container = document.createElement("div");
 			document.body.appendChild(container);
 			container.innerHTML = "<p>Hello world</p>";
@@ -30,9 +30,9 @@ test.describe("collectInlineItems", () => {
 
 	test("collects mixed inline elements with open/close tags", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
+			const { collectInlineItems } = await import("/src/measurement/collect-inlines.js");
 			const { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } =
-				await import("/src/core/constants.js");
+				await import("/src/measurement/collect-inlines.js");
 			const container = document.createElement("div");
 			document.body.appendChild(container);
 			container.innerHTML = "<p>Hello <em>world</em></p>";
@@ -61,8 +61,8 @@ test.describe("collectInlineItems", () => {
 
 	test("collects <br> as INLINE_CONTROL", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
-			const { INLINE_TEXT, INLINE_CONTROL } = await import("/src/core/constants.js");
+			const { collectInlineItems } = await import("/src/measurement/collect-inlines.js");
+			const { INLINE_TEXT, INLINE_CONTROL } = await import("/src/measurement/collect-inlines.js");
 			const container = document.createElement("div");
 			document.body.appendChild(container);
 			container.innerHTML = "<p>Line one<br>Line two</p>";
@@ -89,8 +89,8 @@ test.describe("collectInlineItems", () => {
 
 	test("skips display:none elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
-			const { INLINE_TEXT } = await import("/src/core/constants.js");
+			const { collectInlineItems } = await import("/src/measurement/collect-inlines.js");
+			const { INLINE_TEXT } = await import("/src/measurement/collect-inlines.js");
 			const container = document.createElement("div");
 			document.body.appendChild(container);
 			container.innerHTML = '<p>visible<span style="display:none">hidden</span></p>';
@@ -112,8 +112,8 @@ test.describe("collectInlineItems", () => {
 
 	test("collects inline-block as INLINE_ATOMIC", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
-			const { INLINE_TEXT, INLINE_ATOMIC } = await import("/src/core/constants.js");
+			const { collectInlineItems } = await import("/src/measurement/collect-inlines.js");
+			const { INLINE_TEXT, INLINE_ATOMIC } = await import("/src/measurement/collect-inlines.js");
 			const container = document.createElement("div");
 			document.body.appendChild(container);
 			container.innerHTML = '<p>text<span style="display:inline-block">box</span></p>';
@@ -137,8 +137,8 @@ test.describe("collectInlineItems", () => {
 
 	test("includes whitespace-only text nodes", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
-			const { INLINE_TEXT } = await import("/src/core/constants.js");
+			const { collectInlineItems } = await import("/src/measurement/collect-inlines.js");
+			const { INLINE_TEXT } = await import("/src/measurement/collect-inlines.js");
 			const container = document.createElement("div");
 			document.body.appendChild(container);
 			container.innerHTML = "<p><em>a</em> <em>b</em></p>";
@@ -159,9 +159,9 @@ test.describe("collectInlineItems", () => {
 
 	test("collects items from an array of nodes", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { collectInlineItems } = await import("/src/dom/collect-inlines.js");
+			const { collectInlineItems } = await import("/src/measurement/collect-inlines.js");
 			const { INLINE_TEXT, INLINE_OPEN_TAG, INLINE_CLOSE_TAG } =
-				await import("/src/core/constants.js");
+				await import("/src/measurement/collect-inlines.js");
 			const container = document.createElement("div");
 			document.body.appendChild(container);
 			container.innerHTML = "hello<span>world</span>!";

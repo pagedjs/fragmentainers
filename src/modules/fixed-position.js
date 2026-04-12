@@ -1,6 +1,6 @@
 import { LayoutModule } from "./module.js";
-import { ConstraintSpace } from "../core/constraint-space.js";
-import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE } from "../core/constants.js";
+import { ConstraintSpace } from "../fragmentation/constraint-space.js";
+import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE } from "../fragmentation/constraint-space.js";
 
 const ANCHOR_BLOCK_START = "block-start";
 const ANCHOR_BLOCK_END = "block-end";

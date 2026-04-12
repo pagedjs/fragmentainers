@@ -1,13 +1,13 @@
-import { InlineBreakToken } from "../core/tokens.js";
-import { Fragment } from "../core/fragment.js";
-import { BreakScore } from "../core/break-scoring.js";
+import { InlineBreakToken } from "./tokens.js";
+import { Fragment } from "./fragment.js";
+import { BreakScore } from "./break-scoring.js";
 import {
 	INLINE_TEXT,
 	INLINE_CONTROL,
 	INLINE_ATOMIC,
-	DEFAULT_OVERFLOW_THRESHOLD,
-} from "../core/constants.js";
-import { measureLines } from "../dom/line-box.js";
+} from "../measurement/collect-inlines.js";
+import { DEFAULT_OVERFLOW_THRESHOLD } from "./fragmentation-context.js";
+import { measureLines } from "../measurement/line-box.js";
 
 /**
  * Given a flat textContent offset, find the kText item that contains it

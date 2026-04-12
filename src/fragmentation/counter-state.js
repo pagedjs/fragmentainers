@@ -1,4 +1,4 @@
-import { findChildBreakToken } from "./helpers.js";
+import { findChildBreakToken } from "./tokens.js";
 
 /**
  * Parse a CSS counter directive string (from getComputedStyle) into

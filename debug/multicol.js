@@ -2,15 +2,11 @@
  * Multicol processor — replaces CSS column layout with
  * the library's fragmentation engine output.
  */
-import {
-	ConstraintSpace,
-	buildLayoutTree,
-	createFragments,
-	constants,
-} from "../src/index.js";
+import { ConstraintSpace } from "../src/index.js";
+import { createFragments } from "../src/layout/index.js";
+import { DOMLayoutNode } from "../src/layout/layout-node.js";
+import { FRAGMENTATION_COLUMN } from "../src/fragmentation/constraint-space.js";
 import "./multicol-container.js";
-
-const { FRAGMENTATION_COLUMN } = constants;
 
 /**
  * Find all elements in the subtree that use CSS columns.
@@ -59,7 +55,7 @@ export async function multicol(container) {
 
 	container.appendChild(wrapper);
 
-	const tree = buildLayoutTree(wrapper);
+	const tree = new DOMLayoutNode(wrapper);
 	const fragments = createFragments(
 		tree,
 		new ConstraintSpace({

@@ -1,4 +1,5 @@
-import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "./constants.js";
+export const BREAK_TOKEN_BLOCK = "block";
+export const BREAK_TOKEN_INLINE = "inline";
 
 /**
  * Base break token — continuation token for layout.
@@ -89,4 +90,21 @@ export class InlineBreakToken extends BreakToken {
 		this.flags = 0; // inline-specific state bits
 		this.isHyphenated = false; // true when break follows a soft hyphen (U+00AD)
 	}
+}
+
+/**
+ * Find a child's break token within a parent's break token.
+ */
+export function findChildBreakToken(parentBreakToken, childNode) {
+	if (!parentBreakToken) return null;
+	return parentBreakToken.childBreakTokens.find((t) => t.node === childNode) || null;
+}
+
+/**
+ * Check if a CSS break-before/break-after value is a forced break.
+ * Values like "page", "column", "always", "left", "right" force a
+ * break; "auto" and "avoid" do not.
+ */
+export function isForcedBreakValue(value) {
+	return value && value !== "auto" && value !== "avoid";
 }

@@ -3,9 +3,9 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("Inline content layout (browser)", () => {
 	test("lays out inline content that fits on one page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position: absolute; left: -9999px; top: 0;";
@@ -14,7 +14,7 @@ test.describe("Inline content layout (browser)", () => {
 			container.innerHTML =
 				'<p style="width: 400px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;">Hello world</p>';
 			const p = container.querySelector("p");
-			const root = buildLayoutTree(p);
+			const root = new DOMLayoutNode(p);
 
 			const pages = createFragments(
 				root,
@@ -40,9 +40,9 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("breaks text across multiple lines", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position: absolute; left: -9999px; top: 0;";
@@ -51,7 +51,7 @@ test.describe("Inline content layout (browser)", () => {
 			const text = Array.from({ length: 20 }, () => "word").join(" ");
 			container.innerHTML = `<p style="width: 100px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;">${text}</p>`;
 			const p = container.querySelector("p");
-			const root = buildLayoutTree(p);
+			const root = new DOMLayoutNode(p);
 
 			const pages = createFragments(
 				root,
@@ -77,9 +77,9 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("fragments inline content across pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position: absolute; left: -9999px; top: 0;";
@@ -88,7 +88,7 @@ test.describe("Inline content layout (browser)", () => {
 			const text = Array.from({ length: 80 }, () => "word").join(" ");
 			container.innerHTML = `<p style="width: 200px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;">${text}</p>`;
 			const p = container.querySelector("p");
-			const root = buildLayoutTree(p);
+			const root = new DOMLayoutNode(p);
 
 			const pages = createFragments(
 				root,
@@ -116,10 +116,10 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("InlineBreakToken has content-addressed position", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
-			const { BREAK_TOKEN_INLINE } = await import("/src/core/constants.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const { BREAK_TOKEN_INLINE } = await import("/src/fragmentation/tokens.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position: absolute; left: -9999px; top: 0;";
@@ -128,7 +128,7 @@ test.describe("Inline content layout (browser)", () => {
 			const text = Array.from({ length: 80 }, () => "test").join(" ");
 			container.innerHTML = `<p style="width: 200px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;">${text}</p>`;
 			const p = container.querySelector("p");
-			const root = buildLayoutTree(p);
+			const root = new DOMLayoutNode(p);
 
 			const pages = createFragments(
 				root,
@@ -160,9 +160,9 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("handles forced line break with <br>", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position: absolute; left: -9999px; top: 0;";
@@ -171,7 +171,7 @@ test.describe("Inline content layout (browser)", () => {
 			container.innerHTML =
 				'<p style="width: 400px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;">Line one<br>Line two<br>Line three</p>';
 			const p = container.querySelector("p");
-			const root = buildLayoutTree(p);
+			const root = new DOMLayoutNode(p);
 
 			const pages = createFragments(
 				root,
@@ -197,9 +197,9 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("varying inline size between pages changes line breaks", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/core/layout-request.js");
-			const { ConstraintSpace } = await import("/src/core/constraint-space.js");
-			const { buildLayoutTree } = await import("/src/dom/index.js");
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position: absolute; left: -9999px; top: 0;";
@@ -208,7 +208,7 @@ test.describe("Inline content layout (browser)", () => {
 			const text = Array.from({ length: 40 }, () => "word").join(" ");
 			container.innerHTML = `<p style="width: 100px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;">${text}</p>`;
 			const p = container.querySelector("p");
-			const root = buildLayoutTree(p);
+			const root = new DOMLayoutNode(p);
 
 			const pages = createFragments(root, {
 				resolve: (index) => {

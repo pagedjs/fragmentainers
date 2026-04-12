@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("parseCounterDirective", () => {
 	test("returns [] for null", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCounterDirective } = await import("/src/core/counter-state.js");
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
 			return parseCounterDirective(null);
 		});
 		expect(result).toEqual([]);
@@ -11,7 +11,7 @@ test.describe("parseCounterDirective", () => {
 
 	test("returns [] for 'none'", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCounterDirective } = await import("/src/core/counter-state.js");
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
 			return parseCounterDirective("none");
 		});
 		expect(result).toEqual([]);
@@ -19,7 +19,7 @@ test.describe("parseCounterDirective", () => {
 
 	test("returns [] for empty string", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCounterDirective } = await import("/src/core/counter-state.js");
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
 			return parseCounterDirective("");
 		});
 		expect(result).toEqual([]);
@@ -27,7 +27,7 @@ test.describe("parseCounterDirective", () => {
 
 	test("parses a single counter with value", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCounterDirective } = await import("/src/core/counter-state.js");
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
 			return parseCounterDirective("paragraph 0");
 		});
 		expect(result).toEqual([{ name: "paragraph", value: 0 }]);
@@ -35,7 +35,7 @@ test.describe("parseCounterDirective", () => {
 
 	test("parses a single counter with non-zero value", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCounterDirective } = await import("/src/core/counter-state.js");
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
 			return parseCounterDirective("paragraph 3");
 		});
 		expect(result).toEqual([{ name: "paragraph", value: 3 }]);
@@ -43,7 +43,7 @@ test.describe("parseCounterDirective", () => {
 
 	test("parses multiple counters", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCounterDirective } = await import("/src/core/counter-state.js");
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
 			return parseCounterDirective("paragraph 0 section 0");
 		});
 		expect(result).toEqual([
@@ -54,7 +54,7 @@ test.describe("parseCounterDirective", () => {
 
 	test("parses counter name without explicit value as 0", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCounterDirective } = await import("/src/core/counter-state.js");
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
 			return parseCounterDirective("paragraph");
 		});
 		expect(result).toEqual([{ name: "paragraph", value: 0 }]);
@@ -62,7 +62,7 @@ test.describe("parseCounterDirective", () => {
 
 	test("filters out list-item counter", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCounterDirective } = await import("/src/core/counter-state.js");
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
 			return parseCounterDirective("list-item 0 paragraph 0");
 		});
 		expect(result).toEqual([{ name: "paragraph", value: 0 }]);
@@ -70,7 +70,7 @@ test.describe("parseCounterDirective", () => {
 
 	test("returns [] when only list-item", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCounterDirective } = await import("/src/core/counter-state.js");
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
 			return parseCounterDirective("list-item 0");
 		});
 		expect(result).toEqual([]);
@@ -78,7 +78,7 @@ test.describe("parseCounterDirective", () => {
 
 	test("parses negative values", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseCounterDirective } = await import("/src/core/counter-state.js");
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
 			return parseCounterDirective("paragraph -1");
 		});
 		expect(result).toEqual([{ name: "paragraph", value: -1 }]);
@@ -88,7 +88,7 @@ test.describe("parseCounterDirective", () => {
 test.describe("CounterState", () => {
 	test("starts empty", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			return { isEmpty: state.isEmpty(), snapshot: state.snapshot() };
 		});
@@ -98,7 +98,7 @@ test.describe("CounterState", () => {
 
 	test("applyReset sets counter value", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyReset([{ name: "p", value: 0 }]);
 			return { isEmpty: state.isEmpty(), snapshot: state.snapshot() };
@@ -109,7 +109,7 @@ test.describe("CounterState", () => {
 
 	test("applyIncrement on empty state starts from 0", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyIncrement([{ name: "p", value: 1 }]);
 			return state.snapshot();
@@ -119,7 +119,7 @@ test.describe("CounterState", () => {
 
 	test("accumulates increments", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyReset([{ name: "p", value: 0 }]);
 			state.applyIncrement([{ name: "p", value: 1 }]);
@@ -131,7 +131,7 @@ test.describe("CounterState", () => {
 
 	test("handles multiple counters", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyReset([
 				{ name: "p", value: 0 },
@@ -145,7 +145,7 @@ test.describe("CounterState", () => {
 
 	test("handles increment by non-1 value", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyIncrement([{ name: "p", value: 5 }]);
 			return state.snapshot();
@@ -155,7 +155,7 @@ test.describe("CounterState", () => {
 
 	test("reset overwrites previous value", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyIncrement([{ name: "p", value: 10 }]);
 			state.applyReset([{ name: "p", value: 0 }]);
@@ -166,7 +166,7 @@ test.describe("CounterState", () => {
 
 	test("snapshot returns a frozen copy", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyReset([{ name: "p", value: 0 }]);
 			const snap = state.snapshot();
@@ -180,7 +180,7 @@ test.describe("CounterState", () => {
 
 	test("restore() populates counters from a snapshot", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.restore({ p: 5, s: 2 });
 			return state.snapshot();
@@ -190,7 +190,7 @@ test.describe("CounterState", () => {
 
 	test("restore() clears existing state", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyReset([{ name: "old", value: 99 }]);
 			state.restore({ p: 1 });
@@ -201,7 +201,7 @@ test.describe("CounterState", () => {
 
 	test("restore(null) clears all counters", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyReset([{ name: "p", value: 5 }]);
 			state.restore(null);
@@ -212,7 +212,7 @@ test.describe("CounterState", () => {
 
 	test("accumulates after restore", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState } = await import("/src/core/counter-state.js");
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.restore({ p: 3 });
 			state.applyIncrement([{ name: "p", value: 1 }]);
@@ -225,8 +225,8 @@ test.describe("CounterState", () => {
 test.describe("walkFragmentTree", () => {
 	test("applies counter-reset and counter-increment for fresh elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
-			const { Fragment } = await import("/src/core/fragment.js");
+			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			function frag(node, children = [], bt = null) {
@@ -249,9 +249,9 @@ test.describe("walkFragmentTree", () => {
 
 	test("skips counter operations on continuations", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			function frag(node, children = [], bt = null) {
@@ -274,9 +274,9 @@ test.describe("walkFragmentTree", () => {
 
 	test("skips both parent and child when both are continuations", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			function frag(node, children = [], bt = null) {
@@ -302,8 +302,8 @@ test.describe("walkFragmentTree", () => {
 
 	test("skips fragments with null node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
-			const { Fragment } = await import("/src/core/fragment.js");
+			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			function frag(node, children = [], bt = null) {
@@ -326,9 +326,9 @@ test.describe("walkFragmentTree", () => {
 
 	test("accumulates across multiple calls (simulating fragmentainers)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState, walkFragmentTree } = await import("/src/core/counter-state.js");
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			function frag(node, children = [], bt = null) {

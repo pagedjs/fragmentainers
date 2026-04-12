@@ -1,10 +1,9 @@
-import {
-	INLINE_TEXT,
-	INLINE_CONTROL,
-	INLINE_OPEN_TAG,
-	INLINE_CLOSE_TAG,
-	INLINE_ATOMIC,
-} from "../core/constants.js";
+// Inline item types (InlineItemsData.items[].type)
+export const INLINE_TEXT = "Text";
+export const INLINE_CONTROL = "Control";
+export const INLINE_OPEN_TAG = "OpenTag";
+export const INLINE_CLOSE_TAG = "CloseTag";
+export const INLINE_ATOMIC = "AtomicInline";
 
 /**
  * Walk DOM inline content and build a flat InlineItemsData structure.

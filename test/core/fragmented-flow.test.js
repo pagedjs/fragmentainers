@@ -3,9 +3,9 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("FragmentationContext", () => {
 	test("exposes fragments array", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { FragmentationContext } = await import("/src/fragmentation/fragmentation-context.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 
 			function makeFragments(count) {
 				const fragments = [];
@@ -36,9 +36,9 @@ test.describe("FragmentationContext", () => {
 
 	test("reports correct fragmentainerCount", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { FragmentationContext } = await import("/src/fragmentation/fragmentation-context.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 
 			function makeFragments(count) {
 				const fragments = [];
@@ -67,7 +67,7 @@ test.describe("FragmentationContext", () => {
 
 	test("reports zero fragmentainerCount for empty array", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
+			const { FragmentationContext } = await import("/src/fragmentation/fragmentation-context.js");
 			const flow = new FragmentationContext([], null);
 			return flow.fragmentainerCount;
 		});
@@ -77,9 +77,9 @@ test.describe("FragmentationContext", () => {
 
 	test("skips element creation when contentStyles is null", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { FragmentationContext } = await import("/src/fragmentation/fragmentation-context.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 
 			function makeFragments(count) {
 				const fragments = [];
@@ -114,9 +114,9 @@ test.describe("FragmentationContext", () => {
 
 	test("Symbol.species returns Array", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
-			const { Fragment } = await import("/src/core/fragment.js");
-			const { BlockBreakToken } = await import("/src/core/tokens.js");
+			const { FragmentationContext } = await import("/src/fragmentation/fragmentation-context.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 
 			function makeFragments(count) {
 				const fragments = [];
@@ -151,8 +151,8 @@ test.describe("FragmentationContext", () => {
 test.describe("FragmentedFlow iterator", () => {
 	test("iterates fragments when content overflows", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0;padding:0">
@@ -180,8 +180,8 @@ test.describe("FragmentedFlow iterator", () => {
 
 	test("last fragment has null breakToken", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0;padding:0">
@@ -203,8 +203,8 @@ test.describe("FragmentedFlow iterator", () => {
 
 	test("for-of loop collects all elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0;padding:0">
@@ -227,8 +227,8 @@ test.describe("FragmentedFlow iterator", () => {
 
 	test("next() returns done:true after exhaustion", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0;padding:0">
@@ -256,8 +256,8 @@ test.describe("FragmentedFlow iterator", () => {
 
 	test("stopping early via break leaves content unfinished", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0;padding:0">
@@ -279,9 +279,9 @@ test.describe("FragmentedFlow iterator", () => {
 test.describe("FragmentedFlow.flow() (browser)", () => {
 	test("fragments simple content across multiple fragmentainers", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { FragmentationContext } = await import("/src/fragmentation/fragmentation-context.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML =
@@ -307,8 +307,8 @@ test.describe("FragmentedFlow.flow() (browser)", () => {
 
 	test("flow() with start/stop creates a subset of elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML =
@@ -336,8 +336,8 @@ test.describe("FragmentedFlow.flow() (browser)", () => {
 
 	test("is directly iterable as an array of elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML =
@@ -363,8 +363,8 @@ test.describe("FragmentedFlow.flow() (browser)", () => {
 
 	test("supports index access", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML =
@@ -388,8 +388,8 @@ test.describe("FragmentedFlow.flow() (browser)", () => {
 
 	test("produces a single fragmentainer when content fits", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML =
@@ -409,8 +409,8 @@ test.describe("FragmentedFlow.flow() (browser)", () => {
 
 	test("fragments text content across multiple pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="width: 200px; font: 16px monospace; line-height: 20px; margin: 0; padding: 0;">${"word ".repeat(100)}</div>`;
@@ -429,8 +429,8 @@ test.describe("FragmentedFlow.flow() (browser)", () => {
 
 	test("produces fragments with correct structure", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML =
@@ -464,8 +464,8 @@ test.describe("FragmentedFlow.flow() (browser)", () => {
 
 	test("adds loading=lazy to images with width and height", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">
@@ -490,8 +490,8 @@ test.describe("FragmentedFlow.flow() (browser)", () => {
 
 	test("does not add loading=lazy to images missing width or height", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">
@@ -517,8 +517,8 @@ test.describe("FragmentedFlow.flow() (browser)", () => {
 
 	test("does not wait for lazy-loaded images during setup", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">
@@ -540,8 +540,8 @@ test.describe("FragmentedFlow.flow() (browser)", () => {
 
 	test("accepts an Element and clones it into a DocumentFragment", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
 
 			const container = document.createElement("div");
 			container.innerHTML =
@@ -570,7 +570,7 @@ test.describe("FragmentedFlow.flow() (browser)", () => {
 test.describe("namedPage property", () => {
 	test("fragment-container has a namedPage property", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			await import("/src/dom/fragment-container.js");
+			await import("/src/components/fragment-container.js");
 
 			const el = document.createElement("fragment-container");
 			const initialNull = el.namedPage === null;
@@ -588,9 +588,9 @@ test.describe("namedPage property", () => {
 
 	test("sets namedPage property from fragment constraints", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentationContext } = await import("/src/core/fragmentation-context.js");
-			const { Fragment } = await import("/src/core/fragment.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentationContext } = await import("/src/fragmentation/fragmentation-context.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			await import("/src/components/fragment-container.js");
 
 			const size = { inlineSize: 400, blockSize: 800 };
 			const contentStyles = {

@@ -3,10 +3,10 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("MutationSync with shared clone map", () => {
 	test("populates the clone map via onClone during composition", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
 			const { MutationSync } = await import("/src/modules/mutation-sync.js");
-			await import("/src/dom/content-measure.js");
-			await import("/src/dom/fragment-container.js");
+			await import("/src/components/content-measure.js");
+			await import("/src/components/fragment-container.js");
 
 			FragmentedFlow.register(MutationSync);
 
@@ -282,9 +282,9 @@ test.describe("MutationSync element addition", () => {
 test.describe("FragmentContainerElement.takeMutationRecords()", () => {
 	test("returns buffered mutations and clears the buffer", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/content-measure.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/content-measure.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">
@@ -329,9 +329,9 @@ test.describe("FragmentContainerElement.takeMutationRecords()", () => {
 test.describe("reflow with rebuild", () => {
 	test("reflow(0, { rebuild: true }) picks up structural changes", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/core/fragmented-flow.js");
-			await import("/src/dom/content-measure.js");
-			await import("/src/dom/fragment-container.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/content-measure.js");
+			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">

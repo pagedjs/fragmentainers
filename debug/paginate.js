@@ -6,7 +6,7 @@
  */
 import { FragmentedFlow, PageResolver } from "../src/index.js";
 import { ContentParser } from "./content-parser.js";
-import "../src/dom/fragment-container.js";
+import "../src/components/fragment-container.js";
 import "./page-container.js";
 
 export async function paginate() {

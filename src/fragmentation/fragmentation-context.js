@@ -1,4 +1,6 @@
-import { DEFAULT_OVERFLOW_THRESHOLD } from "./constants.js";
+// Default overflow threshold: browser default line height (16px * 1.2).
+// Used when the fragment's root node has no computed lineHeight.
+export const DEFAULT_OVERFLOW_THRESHOLD = 16 * 1.2;
 
 /**
  * The result of running fragmentation — a "fragmented flow" in CSS spec terms.

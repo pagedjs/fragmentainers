@@ -1,9 +1,13 @@
-import { collectInlineItems } from "./collect-inlines.js";
-import { measureElementBlockSize } from "./measure.js";
-import { createRangeMeasurer, createCaretMeasurer, getLineHeight } from "./line-box.js";
-import { computedStyleMap } from "./computed-style-map.js";
-import { BOX_DECORATION_SLICE } from "../core/constants.js";
-import { buildCumulativeHeights } from "../core/speculative-layout.js";
+import { collectInlineItems } from "../measurement/collect-inlines.js";
+import { measureElementBlockSize } from "../measurement/measure.js";
+import { getLineHeight, getSharedMeasurer } from "../measurement/line-box.js";
+import { computedStyleMap } from "../styles/computed-style-map.js";
+import { buildCumulativeHeights } from "./layout-helpers.js";
+import { AnonymousBlockNode } from "./anonymous-block-node.js";
+
+// Box decoration break (node.boxDecorationBreak)
+export const BOX_DECORATION_SLICE = "slice";
+export const BOX_DECORATION_CLONE = "clone";
 
 const REPLACED_ELEMENTS = new Set(["img", "video", "canvas", "iframe", "embed", "object", "svg"]);
 
@@ -15,8 +19,37 @@ const INLINE_DISPLAYS = new Set([
 	"inline-grid",
 ]);
 
-// Shared Range-based text measurer instance
-let sharedRangeMeasurer = null;
+/**
+ * @typedef {Object} LayoutNode
+ * @property {LayoutNode[]} children
+ * @property {number} [blockSize] - Intrinsic block size for leaf nodes
+ * @property {boolean} isInlineFormattingContext
+ * @property {boolean} isReplacedElement
+ * @property {boolean} isScrollable
+ * @property {boolean} hasOverflowHidden
+ * @property {boolean} hasExplicitBlockSize
+ * @property {boolean} isTable
+ * @property {boolean} isTableRow
+ * @property {boolean} isFlexContainer
+ * @property {boolean} isGridContainer
+ * @property {Object|null} inlineItemsData
+ * @property {Function} computedBlockSize - (availableInlineSize) => number
+ * @property {string} flexDirection
+ * @property {string} flexWrap
+ * @property {number|null} gridRowStart
+ * @property {number|null} gridRowEnd
+ * @property {boolean} isMulticolContainer
+ * @property {number|null} columnCount
+ * @property {number|null} columnWidth
+ * @property {number|null} columnGap
+ * @property {string} columnFill
+ * @property {string|null} page - CSS page property value, or null for auto
+ * @property {string} breakBefore - CSS break-before value
+ * @property {string} breakAfter - CSS break-after value
+ * @property {string} breakInside - CSS break-inside value
+ * @property {number} orphans
+ * @property {number} widows
+ */
 
 /**
  * Lazy wrapper around a DOM Element that implements the LayoutNode interface.
@@ -484,13 +517,7 @@ export class DOMLayoutNode {
 	}
 
 	get measurer() {
-		if (!sharedRangeMeasurer) {
-			sharedRangeMeasurer =
-				typeof document.caretPositionFromPoint === "function"
-					? createCaretMeasurer()
-					: createRangeMeasurer();
-		}
-		return sharedRangeMeasurer;
+		return getSharedMeasurer();
 	}
 
 	//Table row support
@@ -546,189 +573,3 @@ function isSignificantInlineNode(node) {
 	return false;
 }
 
-/**
- * Anonymous block box wrapping consecutive inline content in a mixed-content
- * block container (CSS 2.1 §9.2.1.1). Implements the LayoutNode interface
- * with neutral defaults.
- */
-export class AnonymousBlockNode {
-	#parentElement;
-	#childNodes;
-	#inlineItemsData = null;
-
-	constructor(parentElement, childNodes) {
-		this.#parentElement = parentElement;
-		this.#childNodes = childNodes;
-	}
-
-	get debugName() {
-		return "[anon]";
-	}
-	get element() {
-		return null;
-	}
-	get isInlineFormattingContext() {
-		return true;
-	}
-	get children() {
-		return [];
-	}
-
-	get inlineItemsData() {
-		if (!this.#inlineItemsData) {
-			this.#inlineItemsData = collectInlineItems(this.#childNodes);
-		}
-		return this.#inlineItemsData;
-	}
-
-	get lineHeight() {
-		return getLineHeight(this.#parentElement);
-	}
-
-	get measurer() {
-		if (!sharedRangeMeasurer) {
-			sharedRangeMeasurer =
-				typeof document.caretPositionFromPoint === "function"
-					? createCaretMeasurer()
-					: createRangeMeasurer();
-		}
-		return sharedRangeMeasurer;
-	}
-
-	/**
-	 * Bounding rect of the anonymous block's inline content,
-	 * measured via a Range across the child nodes.
-	 */
-	get contentRect() {
-		const nodes = this.#childNodes;
-		if (nodes.length === 0) return { top: 0, height: 0 };
-		const range = document.createRange();
-		range.setStartBefore(nodes[0]);
-		range.setEndAfter(nodes[nodes.length - 1]);
-		return range.getBoundingClientRect();
-	}
-
-	get blockSize() {
-		return 0;
-	}
-	computedBlockSize() {
-		return null;
-	}
-
-	// Neutral box model
-	get marginBlockStart() {
-		return 0;
-	}
-	get marginBlockEnd() {
-		return 0;
-	}
-	get paddingBlockStart() {
-		return 0;
-	}
-	get paddingBlockEnd() {
-		return 0;
-	}
-	get borderBlockStart() {
-		return 0;
-	}
-	get borderBlockEnd() {
-		return 0;
-	}
-
-	getCustomProperty() {
-		return null;
-	}
-
-	// No fragmentation properties
-	get page() {
-		return null;
-	}
-	get breakBefore() {
-		return "auto";
-	}
-	get breakAfter() {
-		return "auto";
-	}
-	get breakInside() {
-		return "auto";
-	}
-	get boxDecorationBreak() {
-		return BOX_DECORATION_SLICE;
-	}
-	get orphans() {
-		return 2;
-	}
-	get widows() {
-		return 2;
-	}
-
-	// Classification
-	get position() {
-		return "static";
-	}
-	get isReplacedElement() {
-		return false;
-	}
-	get isScrollable() {
-		return false;
-	}
-	get hasOverflowHidden() {
-		return false;
-	}
-	get hasExplicitBlockSize() {
-		return false;
-	}
-	get isTable() {
-		return false;
-	}
-	get isTableRow() {
-		return false;
-	}
-	get isTableHeaderGroup() {
-		return false;
-	}
-	get isFlexContainer() {
-		return false;
-	}
-	get isGridContainer() {
-		return false;
-	}
-	get isMulticolContainer() {
-		return false;
-	}
-	get flexDirection() {
-		return "row";
-	}
-	get flexWrap() {
-		return "nowrap";
-	}
-	get gridRowStart() {
-		return null;
-	}
-	get gridRowEnd() {
-		return null;
-	}
-	get columnCount() {
-		return null;
-	}
-	get columnWidth() {
-		return null;
-	}
-	get columnGap() {
-		return null;
-	}
-	get columnFill() {
-		return "balance";
-	}
-	get cells() {
-		return [];
-	}
-
-	// Counters
-	get counterReset() {
-		return "none";
-	}
-	get counterIncrement() {
-		return "none";
-	}
-}
