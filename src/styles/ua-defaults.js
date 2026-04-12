@@ -7,9 +7,10 @@
  * into a shadow DOM slot, the body's UA margin is lost.
  *
  * This stylesheet restores those defaults on the slot. It is placed
- * first in the adopted stylesheet list so any author body rules
- * (rewritten to slot rules by the BodyRewriter module) override it
- * by source order.
+ * first in the adopted stylesheet list so author body rules
+ * (rewritten to slot rules by the BodyRewriter module and appended
+ * to the stylesheet list after processRules) override it by source
+ * order.
  */
 
 const UA_DEFAULTS = new CSSStyleSheet();

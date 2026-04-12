@@ -106,10 +106,10 @@ class ModuleRegistry {
 	 * into grouping rules (@media, @supports, @layer, etc.) and tracks
 	 * wrapper preambles for modules that need them (e.g. nth-selectors).
 	 *
-	 * After the walk, collects injected sheets from modules and prepends
-	 * them to the styles array.
+	 * After the walk, collects injected sheets from modules and appends
+	 * them to the styles array so they cascade after UA and author rules.
 	 *
-	 * @param {CSSStyleSheet[]} styles — adopted stylesheets (mutated: injected sheets prepended)
+	 * @param {CSSStyleSheet[]} styles — adopted stylesheets (mutated: injected sheet appended)
 	 */
 	processRules(styles) {
 		this.#ensureReady();
@@ -139,7 +139,7 @@ class ModuleRegistry {
 			for (const rule of rules) {
 				sheet.insertRule(rule, sheet.cssRules.length);
 			}
-			styles.unshift(sheet);
+			styles.push(sheet);
 		}
 	}
 
