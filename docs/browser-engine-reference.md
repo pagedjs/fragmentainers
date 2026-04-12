@@ -584,7 +584,7 @@ Algorithm-specific state attached to break tokens for resuming container-specifi
 | `columnWidth` | `number`         | Resolved column width |
 | `columnGap`   | `number`         | Column gap in px      |
 
-**Source:** `src/layout/multicol-container.js`
+**Source:** `src/algorithms/multicol-container.js`
 
 ### Flex Data (`ALGORITHM_FLEX`)
 
@@ -593,7 +593,7 @@ Algorithm-specific state attached to break tokens for resuming container-specifi
 | `type`          | `"FlexData"` | Discriminator                      |
 | `flexLineIndex` | `number`     | Which flex line was being laid out |
 
-**Source:** `src/layout/flex-container.js`
+**Source:** `src/algorithms/flex-container.js`
 
 ### Grid Data (`ALGORITHM_GRID`)
 
@@ -602,7 +602,7 @@ Algorithm-specific state attached to break tokens for resuming container-specifi
 | `type`     | `"GridData"` | Discriminator                     |
 | `rowIndex` | `number`     | Which grid row was being laid out |
 
-**Source:** `src/layout/grid-container.js`
+**Source:** `src/algorithms/grid-container.js`
 
 ### Table Row Data (`ALGORITHM_TABLE_ROW`)
 
@@ -612,7 +612,7 @@ Algorithm-specific state attached to break tokens for resuming container-specifi
 
 Token's `childBreakTokens` carries per-cell tokens. All cells get tokens if any cell breaks (parallel flow rule).
 
-**Source:** `src/layout/table-row.js`
+**Source:** `src/algorithms/table-row.js`
 
 ### Blink Equivalent
 

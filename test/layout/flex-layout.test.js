@@ -4,7 +4,7 @@ test.describe("layoutFlexContainer", () => {
 	test("dispatches flex nodes to the flex algorithm", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { getLayoutAlgorithm } = await import("/src/layout/layout-request.js");
-			const { layoutFlexContainer } = await import("/src/layout/flex-container.js");
+			const { layoutFlexContainer } = await import("/src/algorithms/flex-container.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");

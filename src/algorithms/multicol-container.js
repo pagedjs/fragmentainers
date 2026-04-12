@@ -1,7 +1,7 @@
 import { BlockBreakToken } from "../fragmentation/tokens.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
-import { layoutChild } from "./layout-request.js";
+import { layoutChild } from "../layout/layout-request.js";
 import { FRAGMENTATION_COLUMN, FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 
 export const ALGORITHM_MULTICOL = "MulticolData";

@@ -10,6 +10,6 @@ export {
 	getMonolithicBlockSize,
 	buildCumulativeHeights,
 } from "./layout-helpers.js";
-export { layoutBlockContainer } from "./block-container.js";
-export { layoutTableRow } from "./table-row.js";
+export { layoutBlockContainer } from "../algorithms/block-container.js";
+export { layoutTableRow } from "../algorithms/table-row.js";
 export { DOMLayoutNode } from "./layout-node.js";

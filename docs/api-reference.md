@@ -23,6 +23,7 @@ Additional subpath barrels expose the rest of the public surface area:
 | --- | --- |
 | `fragmentainers/fragmentation` | `BreakToken`, `BlockBreakToken`, `InlineBreakToken`, `findChildBreakToken`, `Fragment`, `ConstraintSpace`, `EarlyBreak`, `BreakScore`, `layoutInlineContent`, `FragmentedFlow`, `FragmentationContext`, `CounterState`, `parseCounterDirective`, `walkFragmentTree` |
 | `fragmentainers/layout` | `LayoutRequest`, `layoutChild`, `createFragments`, `runLayoutGenerator`, `getLayoutAlgorithm`, `isMonolithic`, `getMonolithicBlockSize`, `buildCumulativeHeights`, `layoutBlockContainer`, `layoutTableRow`, `DOMLayoutNode` |
+| `fragmentainers/algorithms` | `layoutBlockContainer`, `layoutFlexContainer`, `layoutGridContainer`, `layoutMulticolContainer`, `layoutTableRow`, `resolveColumnDimensions` |
 | `fragmentainers/resolvers` | `PageResolver`, `RegionResolver`, `RegionConstraints` |
 | `fragmentainers/components` | `ContentMeasureElement`, `FragmentContainerElement` |
 | `fragmentainers/styles` | `computedStyleMap` |
@@ -977,7 +978,7 @@ prevented the forced break from firing in `layoutBlockContainer`.
 
 ### resolveColumnDimensions(U, specifiedWidth, specifiedCount, gap)
 
-`import { resolveColumnDimensions } from "fragmentainers/src/layout/multicol-container.js"`
+`import { resolveColumnDimensions } from "fragmentainers/src/algorithms/multicol-container.js"`
 
 CSS Multicol section 3 pseudo-algorithm. Resolves used column count and width from CSS
 properties and container width.
@@ -1133,11 +1134,11 @@ Each algorithm data type is defined in the file that uses it:
 
 | Constant              | Value            | Import from                            |
 | --------------------- | ---------------- | -------------------------------------- |
-| `ALGORITHM_FLEX`      | `"FlexData"`     | `src/layout/flex-container.js`         |
-| `ALGORITHM_FLEX_LINE` | `"FlexLineData"` | `src/layout/flex-container.js`         |
-| `ALGORITHM_GRID`      | `"GridData"`     | `src/layout/grid-container.js`         |
-| `ALGORITHM_TABLE_ROW` | `"TableRowData"` | `src/layout/table-row.js`              |
-| `ALGORITHM_MULTICOL`  | `"MulticolData"` | `src/layout/multicol-container.js`     |
+| `ALGORITHM_FLEX`      | `"FlexData"`     | `src/algorithms/flex-container.js`         |
+| `ALGORITHM_FLEX_LINE` | `"FlexLineData"` | `src/algorithms/flex-container.js`         |
+| `ALGORITHM_GRID`      | `"GridData"`     | `src/algorithms/grid-container.js`         |
+| `ALGORITHM_TABLE_ROW` | `"TableRowData"` | `src/algorithms/table-row.js`              |
+| `ALGORITHM_MULTICOL`  | `"MulticolData"` | `src/algorithms/multicol-container.js`     |
 
 Used in `breakToken.algorithmData.type`.
 
@@ -1181,12 +1182,12 @@ detailed algorithm descriptions, see [layout-algorithms.md](layout-algorithms.md
 
 | Algorithm                 | Signature                                                         | Source                             |
 | ------------------------- | ----------------------------------------------------------------- | ---------------------------------- |
-| `layoutBlockContainer`    | `function*(node, constraintSpace, breakToken, earlyBreakTarget?)` | `src/layout/block-container.js`    |
+| `layoutBlockContainer`    | `function*(node, constraintSpace, breakToken, earlyBreakTarget?)` | `src/algorithms/block-container.js`    |
 | `layoutInlineContent`     | `function*(node, constraintSpace, breakToken)`                    | `src/fragmentation/inline-content.js`     |
-| `layoutTableRow`          | `function*(node, constraintSpace, breakToken)`                    | `src/layout/table-row.js`          |
-| `layoutMulticolContainer` | `function*(node, constraintSpace, breakToken)`                    | `src/layout/multicol-container.js` |
-| `layoutFlexContainer`     | `function*(node, constraintSpace, breakToken)`                    | `src/layout/flex-container.js`     |
-| `layoutGridContainer`     | `function*(node, constraintSpace, breakToken)`                    | `src/layout/grid-container.js`     |
+| `layoutTableRow`          | `function*(node, constraintSpace, breakToken)`                    | `src/algorithms/table-row.js`          |
+| `layoutMulticolContainer` | `function*(node, constraintSpace, breakToken)`                    | `src/algorithms/multicol-container.js` |
+| `layoutFlexContainer`     | `function*(node, constraintSpace, breakToken)`                    | `src/algorithms/flex-container.js`     |
+| `layoutGridContainer`     | `function*(node, constraintSpace, breakToken)`                    | `src/algorithms/grid-container.js`     |
 
 All generators return `{ fragment: PhysicalFragment, breakToken: BreakToken | null, earlyBreak?: EarlyBreak }` via their final `return` value. Only `layoutBlockContainer` accepts the `earlyBreakTarget` parameter for two-pass break optimization.
 

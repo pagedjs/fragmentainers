@@ -4,7 +4,7 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 	test("lays out a table row where all cells fit", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator } = await import("/src/layout/layout-request.js");
-			const { layoutTableRow } = await import("/src/layout/table-row.js");
+			const { layoutTableRow } = await import("/src/algorithms/table-row.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -52,7 +52,7 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 	test("all cells get break tokens when any cell overflows", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator } = await import("/src/layout/layout-request.js");
-			const { layoutTableRow } = await import("/src/layout/table-row.js");
+			const { layoutTableRow } = await import("/src/algorithms/table-row.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -164,7 +164,7 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 	test("row height is driven by tallest cell", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator } = await import("/src/layout/layout-request.js");
-			const { layoutTableRow } = await import("/src/layout/table-row.js");
+			const { layoutTableRow } = await import("/src/algorithms/table-row.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 

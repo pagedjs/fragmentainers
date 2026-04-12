@@ -4,7 +4,7 @@ test.describe("layoutGridContainer", () => {
 	test("dispatches grid nodes to the grid algorithm", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { getLayoutAlgorithm } = await import("/src/layout/layout-request.js");
-			const { layoutGridContainer } = await import("/src/layout/grid-container.js");
+			const { layoutGridContainer } = await import("/src/algorithms/grid-container.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");

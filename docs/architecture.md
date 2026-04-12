@@ -266,12 +266,12 @@ first ensures correct dispatch.
 
 | Algorithm                 | Source file                    | Handles                          |
 | ------------------------- | ------------------------------ | -------------------------------- |
-| `layoutMulticolContainer` | `layout/multicol-container.js` | `column-count` / `column-width`  |
-| `layoutFlexContainer`     | `layout/flex-container.js`     | `display: flex` (row and column) |
-| `layoutGridContainer`     | `layout/grid-container.js`     | `display: grid`                  |
+| `layoutMulticolContainer` | `algorithms/multicol-container.js` | `column-count` / `column-width`  |
+| `layoutFlexContainer`     | `algorithms/flex-container.js`     | `display: flex` (row and column) |
+| `layoutGridContainer`     | `algorithms/grid-container.js`     | `display: grid`                  |
 | `layoutInlineContent`     | `fragmentation/inline-content.js`     | Line breaking, inline boxes      |
-| `layoutTableRow`          | `layout/table-row.js`          | `<tr>` with parallel cell flows  |
-| `layoutBlockContainer`    | `layout/block-container.js`    | Default block layout             |
+| `layoutTableRow`          | `algorithms/table-row.js`          | `<tr>` with parallel cell flows  |
+| `layoutBlockContainer`    | `algorithms/block-container.js`    | Default block layout             |
 
 `layoutBlockContainer` is the fallback and handles the majority of elements.
 It is also the algorithm that multicol delegates to via the flow thread pattern
@@ -518,7 +518,7 @@ Without it, the algorithm would lose track of item positions within the row.
 
 ### Table rows
 
-`layoutTableRow` (in `src/layout/table-row.js`) implements this pattern. Each
+`layoutTableRow` (in `src/algorithms/table-row.js`) implements this pattern. Each
 `<td>` / `<th>` is dispatched via `yield layoutChild(cell, ...)`. After all
 cells return, the row determines the break point. If any cell broke, every cell
 gets a break token. The `algorithmData` on the row's `BlockBreakToken` stores
@@ -808,11 +808,13 @@ custom modules.
 ```
 src/
   fragmentation/    # Fragment, FragmentedFlow, FragmentationContext, BreakToken,
-                    # ConstraintSpace, break scoring, counter state
-  layout/           # Layout algorithms: block, inline, flex, grid, multicol,
-                    # table-row, margin-collapsing, speculative-layout, layout-request
-  dom/              # DOMLayoutNode, Measurer, line-box, pseudo-elements,
-                    # collect-inlines, font-metrics — DOM adapter + measurement
+                    # ConstraintSpace, break scoring, counter state, inline-content
+  algorithms/       # Layout-algorithm generators: block, flex, grid, multicol,
+                    # table-row
+  layout/           # Layout plumbing: DOMLayoutNode, AnonymousBlockNode,
+                    # layout-request, margin-collapsing, layout-helpers
+  measurement/      # Measurer, line-box, pseudo-elements, collect-inlines,
+                    # font-metrics — DOM-side measurement probes
   components/       # Custom elements: <content-measure>, <fragment-container>
   styles/           # CSS infrastructure: css-values (CSSNumericValue polyfill),
                     # computed-style-map polyfill, walk-rules, overrides,
@@ -820,16 +822,15 @@ src/
   modules/          # LayoutModule base + built-ins: PageFloat, Footnote,
                     # FixedPosition, NthSelectors, EmulatePrintPixelRatio,
                     # BodyRewriter, RepeatedTableHeader, PageFit, MutationSync
-  atpage/           # PageResolver, PageRule, PageConstraints, named sizes
-  regions/          # RegionResolver
+  resolvers/        # PageResolver, RegionResolver (fragmentainer dimensions)
 ```
 
 **Locality conventions.** Constants live next to the class that manages them:
 `BREAK_TOKEN_*` in `tokens.js`, `FRAGMENTATION_*` in `constraint-space.js`,
-`BOX_DECORATION_*` in `layout-node.js`, `ALGORITHM_*` in each container's file,
-`NAMED_SIZES`/`NAMED_SIZES_CSS` in `page-resolver.js`. There is no shared
-`constants.js`.
+`BOX_DECORATION_*` in `layout-node.js`, `ALGORITHM_*` in each algorithm's
+file, `NAMED_SIZES`/`NAMED_SIZES_CSS` in `page-resolver.js`. There is no
+shared `constants.js`.
 
 Similarly, small helpers live with their owning class: `findChildBreakToken`
 and `isForcedBreakValue` live in `tokens.js`; `isMonolithic` and
-`getMonolithicBlockSize` live in `layout-node.js`.
+`getMonolithicBlockSize` live in `layout-helpers.js`.

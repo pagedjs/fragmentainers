@@ -1,9 +1,9 @@
 import { BlockBreakToken } from "../fragmentation/tokens.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
-import { layoutChild } from "./layout-request.js";
+import { layoutChild } from "../layout/layout-request.js";
 import { findChildBreakToken } from "../fragmentation/tokens.js";
-import { isMonolithic, getMonolithicBlockSize } from "./layout-helpers.js";
+import { isMonolithic, getMonolithicBlockSize } from "../layout/layout-helpers.js";
 import {
 	EarlyBreak,
 	BreakScore,
@@ -17,8 +17,8 @@ import {
 	FRAGMENTATION_NONE,
 	FRAGMENTATION_PAGE,
 } from "../fragmentation/constraint-space.js";
-import { BOX_DECORATION_CLONE } from "./layout-node.js";
-import { MarginState } from "./margin-collapsing.js";
+import { BOX_DECORATION_CLONE } from "../layout/layout-node.js";
+import { MarginState } from "../layout/margin-collapsing.js";
 import { modules } from "../modules/index.js";
 
 // Skip break scoring when cumulative child content fills less than

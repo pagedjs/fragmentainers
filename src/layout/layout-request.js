@@ -7,12 +7,12 @@ import {
 	requiredPageSide,
 	isSideSpecificBreak,
 } from "../resolvers/page-resolver.js";
-import { layoutBlockContainer } from "./block-container.js";
-import { layoutFlexContainer } from "./flex-container.js";
-import { layoutGridContainer } from "./grid-container.js";
+import { layoutBlockContainer } from "../algorithms/block-container.js";
+import { layoutFlexContainer } from "../algorithms/flex-container.js";
+import { layoutGridContainer } from "../algorithms/grid-container.js";
 import { layoutInlineContent } from "../fragmentation/inline-content.js";
-import { layoutMulticolContainer } from "./multicol-container.js";
-import { layoutTableRow } from "./table-row.js";
+import { layoutMulticolContainer } from "../algorithms/multicol-container.js";
+import { layoutTableRow } from "../algorithms/table-row.js";
 
 /**
  * Yielded from layout generators to the driver.

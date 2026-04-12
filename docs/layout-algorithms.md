@@ -44,7 +44,7 @@ function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBreakTarg
 
 ## Block Container
 
-**File:** `src/layout/block-container.js`
+**File:** `src/algorithms/block-container.js`
 **Dispatch:** Default algorithm when no other type matches
 **Generator:** `layoutBlockContainer(node, constraintSpace, breakToken, earlyBreakTarget)`
 
@@ -160,7 +160,7 @@ When the break falls mid-word (non-whitespace characters on both sides), `isHyph
 
 ## Table Row
 
-**File:** `src/layout/table-row.js`
+**File:** `src/algorithms/table-row.js`
 **Dispatch:** `node.isTableRow === true`
 **Generator:** `layoutTableRow(node, constraintSpace, breakToken)`
 
@@ -193,7 +193,7 @@ The row's break token carries `algorithmData: { type: ALGORITHM_TABLE_ROW }` to 
 
 ## Multicol Container
 
-**File:** `src/layout/multicol-container.js`
+**File:** `src/algorithms/multicol-container.js`
 **Dispatch:** `node.isMulticolContainer === true` (checked first in dispatch chain)
 **Generator:** `layoutMulticolContainer(node, constraintSpace, breakToken)`
 
@@ -248,7 +248,7 @@ The fragment carries `multicolData: { columnWidth, columnGap, columnCount }` so 
 
 ## Flex Container
 
-**File:** `src/layout/flex-container.js`
+**File:** `src/algorithms/flex-container.js`
 **Dispatch:** `node.isFlexContainer === true`
 **Generator:** `layoutFlexContainer(node, constraintSpace, breakToken)`
 
@@ -291,7 +291,7 @@ function* layoutFlexColumn(node, constraintSpace, breakToken) {
 
 ## Grid Container
 
-**File:** `src/layout/grid-container.js`
+**File:** `src/algorithms/grid-container.js`
 **Dispatch:** `node.isGridContainer === true`
 **Generator:** `layoutGridContainer(node, constraintSpace, breakToken)`
 

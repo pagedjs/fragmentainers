@@ -1,7 +1,7 @@
 import { BlockBreakToken } from "../fragmentation/tokens.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
-import { layoutChild } from "./layout-request.js";
+import { layoutChild } from "../layout/layout-request.js";
 import { findChildBreakToken } from "../fragmentation/tokens.js";
 import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 

@@ -4,7 +4,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("dispatches multicol nodes to the multicol algorithm", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { getLayoutAlgorithm } = await import("/src/layout/layout-request.js");
-			const { layoutMulticolContainer } = await import("/src/layout/multicol-container.js");
+			const { layoutMulticolContainer } = await import("/src/algorithms/multicol-container.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
@@ -25,7 +25,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("does not dispatch non-multicol nodes to multicol", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { getLayoutAlgorithm } = await import("/src/layout/layout-request.js");
-			const { layoutMulticolContainer } = await import("/src/layout/multicol-container.js");
+			const { layoutMulticolContainer } = await import("/src/algorithms/multicol-container.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
@@ -298,7 +298,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("emits break token with kMulticolData when nested in outer context", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator } = await import("/src/layout/layout-request.js");
-			const { layoutMulticolContainer } = await import("/src/layout/multicol-container.js");
+			const { layoutMulticolContainer } = await import("/src/algorithms/multicol-container.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
