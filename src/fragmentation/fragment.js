@@ -7,7 +7,7 @@ import {
 	INLINE_ATOMIC,
 } from "../measurement/collect-inlines.js";
 import { modules } from "../modules/registry.js";
-import { isPseudoElement } from "../measurement/pseudo-elements.js";
+import { isPseudoElement } from "../modules/pseudo-elements.js";
 
 /**
  * The output of a layout algorithm — a positioned fragment.

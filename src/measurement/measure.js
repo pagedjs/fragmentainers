@@ -1,7 +1,6 @@
 import { DOMLayoutNode } from "../layout/layout-node.js";
 import { isForcedBreakValue } from "../fragmentation/tokens.js";
 import { modules } from "../modules/registry.js";
-import { buildPseudoStyleSheet, materializePseudoElements } from "./pseudo-elements.js";
 import "../components/content-measure.js";
 
 /**
@@ -132,16 +131,10 @@ export class Measurer {
 	 * @returns {Element} the content root (slot element)
 	 */
 	setup() {
-		// Walk CSS rules and let modules accumulate state, then claim elements
+		// Walk CSS rules and let modules accumulate state, then claim elements.
+		// The PseudoElements module contributes ::before/::after companion,
+		// relocation, and suppression rules via matchRule/appendRules.
 		modules.processRules(this.#styles);
-
-		// Build pseudo element stylesheet (rewrites ::before/::after rules
-		// to target <frag-pseudo> synthetic elements). Must run after
-		// processRules so modules can opt out via claimPseudoRule.
-		const pseudoSheet = buildPseudoStyleSheet(this.#styles, modules);
-		if (pseudoSheet.cssRules.length > 0) {
-			this.#styles = [pseudoSheet, ...this.#styles];
-		}
 
 		this.#persistent = modules.claimPersistent(this.#content);
 		const persistentSet = new Set(this.#persistent);
@@ -164,10 +157,9 @@ export class Measurer {
 		measurer.injectFragment(this.#content, this.#styles);
 		document.body.appendChild(measurer);
 
-		// Materialize pseudo elements after browser has computed styles.
-		// Sets data-frag-resolved-* attributes; suppression rules in the
-		// pseudo stylesheet (already adopted) take effect on next reflow.
-		materializePseudoElements(measurer.contentRoot, modules);
+		// Let modules mutate the DOM (pseudo-element materialization
+		// happens here). Reflow so the changes are reflected in styles.
+		modules.beforeMeasurement(measurer.contentRoot);
 		void measurer.offsetHeight;
 
 		this.#measureElement = measurer;
@@ -224,8 +216,7 @@ export class Measurer {
 
 		document.body.appendChild(measurer);
 
-		// Materialize pseudo elements after browser has computed styles
-		materializePseudoElements(measurer.contentRoot, modules);
+		modules.beforeMeasurement(measurer.contentRoot);
 		void measurer.offsetHeight;
 
 		this.#measureElement = measurer;
@@ -284,8 +275,7 @@ export class Measurer {
 
 		document.body.appendChild(measurer);
 
-		// Materialize pseudo elements in the new segment
-		materializePseudoElements(newSlot, modules);
+		modules.beforeMeasurement(newSlot);
 		void measurer.offsetHeight;
 
 		this.#measureElement = measurer;

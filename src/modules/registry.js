@@ -168,6 +168,20 @@ class ModuleRegistry {
 	}
 
 	/**
+	 * Let modules mutate the measurement DOM after content injection
+	 * but before measurement. Pseudo-element materialization happens
+	 * here. The caller should trigger a reflow afterwards.
+	 *
+	 * @param {Element} contentRoot — the measurement slot element
+	 */
+	beforeMeasurement(contentRoot) {
+		this.#ensureReady();
+		for (const mod of this.#modules) {
+			mod.beforeMeasurement(contentRoot);
+		}
+	}
+
+	/**
 	 * Let modules probe the live measurement DOM after setup.
 	 * Called from the Measurer after pseudo-element materialization
 	 * and reflow, before getContentStyles().

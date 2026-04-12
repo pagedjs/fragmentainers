@@ -84,6 +84,17 @@ export class LayoutModule {
 	}
 
 	/**
+	 * Called after content has been injected into the measurement container
+	 * and the browser has computed styles, but before measurement begins.
+	 * Modules can mutate the DOM here (e.g. materialize synthetic elements).
+	 * A reflow is triggered after this hook, so changes are reflected in
+	 * getContentStyles().
+	 *
+	 * @param {Element} contentRoot — the measurement slot element
+	 */
+	beforeMeasurement() {}
+
+	/**
 	 * Called after the measurement container is fully set up (content
 	 * injected, pseudo-elements materialized, styles resolved). The
 	 * live DOM is available for getComputedStyle() queries.
