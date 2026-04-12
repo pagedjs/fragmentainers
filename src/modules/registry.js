@@ -1,4 +1,5 @@
 import { LayoutModule } from "./module.js";
+import { walkSheets } from "../styles/walk-rules.js";
 
 class ModuleRegistry {
 	#classes = [];
@@ -120,27 +121,13 @@ class ModuleRegistry {
 			mod.resetRules();
 		}
 
-		const walk = (ruleList, wrappers) => {
-			for (const rule of ruleList) {
-				if (rule.selectorText !== undefined) {
-					const ctx = { wrappers };
-					for (const mod of mods) {
-						mod.matchRule(rule, ctx);
-					}
-				} else if (rule.cssRules) {
-					const preamble = rule.cssText.substring(0, rule.cssText.indexOf("{")).trim();
-					walk(rule.cssRules, [...wrappers, preamble]);
-				}
+		walkSheets(styles, (rule, wrappers) => {
+			if (rule.selectorText === undefined) return;
+			const ctx = { wrappers };
+			for (const mod of mods) {
+				mod.matchRule(rule, ctx);
 			}
-		};
-
-		for (const sheet of styles) {
-			try {
-				walk(sheet.cssRules, []);
-			} catch {
-				continue;
-			}
-		}
+		});
 
 		// Collect rules from modules into a shared sheet
 		const rules = [];

@@ -1,60 +1,33 @@
-import { ConstraintSpace } from "../core/constraint-space.js";
-import {
-	FRAGMENTATION_PAGE,
-	NAMED_SIZES,
-	NAMED_SIZES_CSS,
-	BREAK_TOKEN_INLINE,
-} from "../core/constants.js";
+import { ConstraintSpace, FRAGMENTATION_PAGE } from "../fragmentation/constraint-space.js";
+import { BREAK_TOKEN_INLINE } from "../fragmentation/tokens.js";
+import { cssValue, parseNumeric } from "../styles/css-values.js";
+import { walkRules } from "../styles/walk-rules.js";
 
-const HAS_CSS_UNIT_VALUE = typeof CSSUnitValue !== "undefined";
+// Named page sizes (CSS pixels at 96 DPI, floor-rounded to match resolveSize)
+export const NAMED_SIZES = {
+	A6: { inlineSize: 396, blockSize: 559 },
+	A5: { inlineSize: 559, blockSize: 793 },
+	A4: { inlineSize: 793, blockSize: 1122 },
+	A3: { inlineSize: 1122, blockSize: 1587 },
+	B5: { inlineSize: 665, blockSize: 944 },
+	B4: { inlineSize: 944, blockSize: 1334 },
+	LETTER: { inlineSize: 816, blockSize: 1056 },
+	LEGAL: { inlineSize: 816, blockSize: 1344 },
+	LEDGER: { inlineSize: 1056, blockSize: 1632 },
+};
 
-/**
- * Parse a CSS length string into a CSSUnitValue.
- * Returns null when the browser lacks CSS Typed OM or the value is unparseable.
- * @param {string} str - e.g. "105mm", "20px", "1in"
- * @returns {CSSUnitValue|null}
- */
-export function parseCSSUnitValue(str) {
-	if (!HAS_CSS_UNIT_VALUE) return null;
-	const match = str.trim().match(/^([\d.]+)(px|in|cm|mm|pt)?$/);
-	if (!match) return null;
-	const value = parseFloat(match[1]);
-	const unit = match[2] || "px";
-	return new CSSUnitValue(value, unit);
-}
-
-/**
- * Parse a CSS length string to CSS pixels (96 DPI).
- * @param {string} str
- * @returns {number|null}
- */
-export function parseCSSLength(str) {
-	const match = str.trim().match(/^([\d.]+)(px|in|cm|mm|pt)?$/);
-	if (!match) return null;
-	const value = parseFloat(match[1]);
-	const unit = match[2] || "px";
-	let px;
-	switch (unit) {
-		case "px":
-			px = value;
-			break;
-		case "in":
-			px = value * 96;
-			break;
-		case "cm":
-			px = (value * 96) / 2.54;
-			break;
-		case "mm":
-			px = (value * 96) / 25.4;
-			break;
-		case "pt":
-			px = (value * 96) / 72;
-			break;
-		default:
-			px = value;
-	}
-	return px;
-}
+// Named page sizes in original CSS units (for subpixel-accurate rendering)
+export const NAMED_SIZES_CSS = {
+	A6: { inline: [105, "mm"], block: [148, "mm"] },
+	A5: { inline: [148, "mm"], block: [210, "mm"] },
+	A4: { inline: [210, "mm"], block: [297, "mm"] },
+	A3: { inline: [297, "mm"], block: [420, "mm"] },
+	B5: { inline: [176, "mm"], block: [250, "mm"] },
+	B4: { inline: [250, "mm"], block: [353, "mm"] },
+	LETTER: { inline: [8.5, "in"], block: [11, "in"] },
+	LEGAL: { inline: [8.5, "in"], block: [14, "in"] },
+	LEDGER: { inline: [11, "in"], block: [17, "in"] },
+};
 
 /**
  * Parsed representation of a CSS `@page` rule.
@@ -301,9 +274,11 @@ export class PageResolver {
 			} else if (sizeValue === "portrait") {
 				({ inlineSize, blockSize } = this.size);
 			} else {
-				const lengths = parts.map(parseCSSLength).filter((v) => v !== null);
-				inlineSize = lengths[0] ?? this.size.inlineSize;
-				blockSize = lengths[1] ?? lengths[0] ?? this.size.blockSize;
+				const size = parts
+					.map((s) => parseNumeric(s)?.to("px").value ?? null)
+					.filter((v) => v !== null);
+				inlineSize = size[0] ?? this.size.inlineSize;
+				blockSize = size[1] ?? size[0] ?? this.size.blockSize;
 			}
 		} else if (Array.isArray(sizeValue)) {
 			inlineSize = sizeValue[0];
@@ -364,13 +339,9 @@ export function parsePageRulesFromCSS(cssTexts) {
  * @returns {PageRule[]}
  */
 export function collectPageRules(cssRules, out = []) {
-	for (const rule of cssRules) {
-		if (rule instanceof CSSPageRule) {
-			out.push(parseOnePageRule(rule));
-		} else if (rule.cssRules) {
-			collectPageRules(rule.cssRules, out);
-		}
-	}
+	walkRules(cssRules, (rule) => {
+		if (rule instanceof CSSPageRule) out.push(parseOnePageRule(rule));
+	});
 	return out;
 }
 
@@ -420,9 +391,11 @@ function parsePageSize(style) {
 		return sizeStr.toLowerCase();
 	}
 
-	const lengths = parts.map(parseCSSLength).filter((v) => v !== null);
-	if (lengths.length === 1) return [lengths[0], lengths[0]];
-	if (lengths.length >= 2) return [lengths[0], lengths[1]];
+	const size = parts
+		.map((s) => parseNumeric(s)?.to("px").value ?? null)
+		.filter((v) => v !== null);
+	if (size.length === 1) return [size[0], size[0]];
+	if (size.length >= 2) return [size[0], size[1]];
 
 	return null;
 }
@@ -440,8 +413,8 @@ function parsePageMargins(style) {
 	for (const side of SIDES) {
 		const raw = style.getPropertyValue(`margin-${side}`).trim();
 		if (raw) {
-			const val = parseCSSLength(raw);
-			if (val !== null) {
+			const val = parseNumeric(raw)?.to("px").value;
+			if (val != null) {
 				if (!margin) margin = { top: 0, right: 0, bottom: 0, left: 0 };
 				margin[side] = val;
 			}
@@ -455,7 +428,7 @@ function parsePageMargins(style) {
 		if (shorthand) {
 			const parts = shorthand
 				.split(/\s+/)
-				.map(parseCSSLength)
+				.map((s) => parseNumeric(s)?.to("px").value ?? null)
 				.filter((v) => v !== null);
 			if (parts.length === 1) {
 				margin = { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] };
@@ -473,13 +446,12 @@ function parsePageMargins(style) {
 }
 
 /**
- * Extract the `size` descriptor as CSSUnitValue pair [inline, block].
- * Returns null for named sizes, orientation-only, or unparseable values.
+ * Extract the `size` descriptor as a typed [inline, block] pair
+ * preserving original CSS units for cssText generation.
+ * Returns null for unparseable values.
  * @param {CSSStyleDeclaration} style
- * @returns {CSSUnitValue[]|null}
  */
 function parseRawPageSize(style) {
-	if (!HAS_CSS_UNIT_VALUE) return null;
 	const sizeStr = style.getPropertyValue("size").trim();
 	if (!sizeStr) return null;
 
@@ -490,36 +462,34 @@ function parseRawPageSize(style) {
 	if (namePart) {
 		const css = NAMED_SIZES_CSS[namePart.toUpperCase()];
 		const orientation = parts.find((p) => p === "landscape" || p === "portrait");
-		let inlineVal = new CSSUnitValue(css.inline[0], css.inline[1]);
-		let blockVal = new CSSUnitValue(css.block[0], css.block[1]);
+		let inlineVal = cssValue(css.inline[0], css.inline[1]);
+		let blockVal = cssValue(css.block[0], css.block[1]);
 		if (orientation === "landscape") {
 			[inlineVal, blockVal] = [blockVal, inlineVal];
 		}
 		return [inlineVal, blockVal];
 	}
 
-	const values = parts.map(parseCSSUnitValue).filter((v) => v !== null);
+	const values = parts.map(parseNumeric).filter((v) => v !== null);
 	if (values.length === 1) return [values[0], values[0]];
 	if (values.length >= 2) return [values[0], values[1]];
 	return null;
 }
 
 /**
- * Extract margin longhands as CSSUnitValue objects.
+ * Extract margin longhands as typed values preserving original units.
  * Returns null if no margins are specified.
  * @param {CSSStyleDeclaration} style
- * @returns {{ top: CSSUnitValue, right: CSSUnitValue, bottom: CSSUnitValue, left: CSSUnitValue }|null}
  */
 function parseRawPageMargins(style) {
-	if (!HAS_CSS_UNIT_VALUE) return null;
 	const SIDES = ["top", "right", "bottom", "left"];
 	let rawMargin = null;
-	const zero = new CSSUnitValue(0, "px");
+	const zero = cssValue(0, "px");
 
 	for (const side of SIDES) {
 		const raw = style.getPropertyValue(`margin-${side}`).trim();
 		if (raw) {
-			const val = parseCSSUnitValue(raw);
+			const val = parseNumeric(raw);
 			if (val !== null) {
 				if (!rawMargin) rawMargin = { top: zero, right: zero, bottom: zero, left: zero };
 				rawMargin[side] = val;
@@ -533,7 +503,7 @@ function parseRawPageMargins(style) {
 		if (shorthand) {
 			const parts = shorthand
 				.split(/\s+/)
-				.map(parseCSSUnitValue)
+				.map(parseNumeric)
 				.filter((v) => v !== null);
 			if (parts.length === 1) {
 				rawMargin = { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] };
@@ -624,7 +594,7 @@ export function requiredPageSide(value) {
 /**
  * Walk the break token tree to find the forcedBreakValue that triggered the break.
  * Follows the last child at each level (the active break path).
- * @param {import("../core/tokens.js").BlockBreakToken|null} breakToken
+ * @param {import("../fragmentation/tokens.js").BlockBreakToken|null} breakToken
  * @returns {string|null}
  */
 export function resolveForcedBreakValue(breakToken) {
@@ -646,8 +616,8 @@ export function resolveForcedBreakValue(breakToken) {
  * on the next page. Used to detect side-specific breaks when blockOffset === 0
  * prevented the forced break from firing in layoutBlockContainer.
  *
- * @param {import("../core/helpers.js").LayoutNode} rootNode
- * @param {import("../core/tokens.js").BlockBreakToken|null} breakToken
+ * @param {import("../layout/layout-node.js").LayoutNode} rootNode
+ * @param {import("../fragmentation/tokens.js").BlockBreakToken|null} breakToken
  * @returns {string|null}
  */
 export function resolveNextPageBreakBefore(rootNode, breakToken) {
@@ -670,7 +640,7 @@ export function resolveNextPageBreakBefore(rootNode, breakToken) {
 
 /**
  * Read the CSS `page` property from a node.
- * @param {import("../core/helpers.js").LayoutNode} node
+ * @param {import("../layout/layout-node.js").LayoutNode} node
  * @returns {string|null}
  */
 export function getNamedPage(node) {
@@ -684,8 +654,8 @@ export function getNamedPage(node) {
  * Determines which element will be first on the next page and reads its
  * CSS `page` property to drive @page rule resolution.
  *
- * @param {import("../core/helpers.js").LayoutNode} rootNode
- * @param {import("../core/tokens.js").BlockBreakToken|null} breakToken
+ * @param {import("../layout/layout-node.js").LayoutNode} rootNode
+ * @param {import("../fragmentation/tokens.js").BlockBreakToken|null} breakToken
  * @returns {string|null}
  */
 export function resolveNamedPageForBreakToken(rootNode, breakToken) {
@@ -714,9 +684,9 @@ export function resolveNamedPageForBreakToken(rootNode, breakToken) {
  * Find the next child that hasn't been fully laid out, given a break token.
  * Walks from the deepest break token child up to find a next sibling.
  *
- * @param {import("../core/helpers.js").LayoutNode} rootNode
- * @param {import("../core/tokens.js").BlockBreakToken} breakToken
- * @returns {import("../core/helpers.js").LayoutNode|null}
+ * @param {import("../layout/layout-node.js").LayoutNode} rootNode
+ * @param {import("../fragmentation/tokens.js").BlockBreakToken} breakToken
+ * @returns {import("../layout/layout-node.js").LayoutNode|null}
  */
 function findNextUnvisitedChild(rootNode, breakToken) {
 	const path = [];

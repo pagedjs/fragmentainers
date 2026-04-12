@@ -16,6 +16,8 @@
  *    (applied AFTER materialization to hide the original pseudos)
  */
 
+import { walkSheets, insertWrappedRule } from "../styles/walk-rules.js";
+
 const PSEUDO_TAG = "FRAG-PSEUDO";
 
 /**
@@ -71,7 +73,7 @@ export function isPseudoElement(element) {
 	return element.tagName === PSEUDO_TAG;
 }
 
-// ——— CSS rule rewriting ———
+// CSS rule rewriting
 
 /**
  * Detect the pseudo type ("before" or "after") from a single CSS selector.
@@ -105,15 +107,10 @@ function extractPseudo(selector) {
 export function buildPseudoStyleSheet(styles, registry) {
 	const sheet = new CSSStyleSheet();
 
-	for (const srcSheet of styles) {
-		let rules;
-		try {
-			rules = srcSheet.cssRules;
-		} catch {
-			continue;
-		}
-		collectPseudoRules(rules, sheet, registry);
-	}
+	walkSheets(styles, (rule, wrappers) => {
+		if (rule.selectorText === undefined) return;
+		rewritePseudoRule(rule, sheet, registry, wrappers);
+	});
 
 	// Append global suppression rules. These use data-frag-resolved-*
 	// attribute selectors that only match after materializePseudoElements
@@ -143,37 +140,10 @@ export function buildPseudoStyleSheet(styles, registry) {
 }
 
 /**
- * Recursively walk CSS rules, handling grouping rules (@media, @supports, etc.)
- * Same pattern as body-selectors.js collectBodyOverrides.
- */
-function collectPseudoRules(ruleList, target, registry) {
-	for (const rule of ruleList) {
-		if (rule.selectorText !== undefined) {
-			rewritePseudoRule(rule, target, registry);
-		} else if (rule.cssRules) {
-			const preamble = rule.cssText.substring(0, rule.cssText.indexOf("{")).trim();
-			const inner = new CSSStyleSheet();
-			collectPseudoRules(rule.cssRules, inner, registry);
-			if (inner.cssRules.length > 0) {
-				let innerCSS = "";
-				for (const r of inner.cssRules) {
-					innerCSS += r.cssText + "\n";
-				}
-				try {
-					target.insertRule(`${preamble} { ${innerCSS} }`, target.cssRules.length);
-				} catch {
-					/* invalid grouping rule */
-				}
-			}
-		}
-	}
-}
-
-/**
  * Rewrite a single CSS style rule that targets ::before/::after.
  * Generates companion and relocation rules only (no suppression).
  */
-function rewritePseudoRule(rule, target, registry) {
+function rewritePseudoRule(rule, target, registry, wrappers) {
 	const selectors = rule.selectorText.split(",").map((s) => s.trim());
 
 	const styleSelectors = [];
@@ -217,30 +187,24 @@ function rewritePseudoRule(rule, target, registry) {
 		styleDecls.push(`${prop}: ${val}${priority ? " !" + priority : ""}`);
 	}
 	if (styleDecls.length > 0) {
-		try {
-			target.insertRule(
-				`${styleSelectors.join(", ")} { ${styleDecls.join("; ")}; }`,
-				target.cssRules.length,
-			);
-		} catch {
-			/* invalid rule */
-		}
+		insertWrappedRule(
+			target,
+			`${styleSelectors.join(", ")} { ${styleDecls.join("; ")}; }`,
+			wrappers,
+		);
 	}
 
 	// 2. Relocation rule (counter/attr/mixed content → synthetic element's own pseudo)
 	if (relocateSelectors.length > 0) {
-		try {
-			target.insertRule(
-				`${relocateSelectors.join(", ")} { content: ${content}; }`,
-				target.cssRules.length,
-			);
-		} catch {
-			/* invalid rule */
-		}
+		insertWrappedRule(
+			target,
+			`${relocateSelectors.join(", ")} { content: ${content}; }`,
+			wrappers,
+		);
 	}
 }
 
-// ——— DOM materialization ———
+// DOM materialization
 
 /**
  * Walk all elements under root and materialize detected ::before/::after

@@ -29,6 +29,7 @@ export default [
         setTimeout: "readonly",
         CSSRule: "readonly",
         CSSUnitValue: "readonly",
+        CSSNumericValue: "readonly",
         CSSFontFaceRule: "readonly",
         FontFace: "readonly",
         Image: "readonly",

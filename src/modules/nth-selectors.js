@@ -1,5 +1,6 @@
 import { LayoutModule } from "./module.js";
 import { modules } from "./registry.js";
+import { walkRules } from "../styles/walk-rules.js";
 
 /**
  * Layout module for nth-child/nth-of-type selector rewriting.
@@ -121,26 +122,22 @@ function matchesAllParts(pos, nthParts) {
 }
 
 function extractFromRuleList(ruleList, descriptors, wrappers) {
-	for (const rule of ruleList) {
-		if (rule.selectorText !== undefined) {
-			const parts = [];
-			const baseSelector = rule.selectorText.replace(NTH_PSEUDO_RE, (match, pseudo, args) => {
-				parts.push(...parseNthParts(pseudo, args));
-				return "";
+	walkRules(ruleList, (rule, ruleWrappers) => {
+		if (rule.selectorText === undefined) return;
+		const parts = [];
+		const baseSelector = rule.selectorText.replace(NTH_PSEUDO_RE, (match, pseudo, args) => {
+			parts.push(...parseNthParts(pseudo, args));
+			return "";
+		});
+		if (parts.length > 0) {
+			descriptors.push({
+				baseSelector: baseSelector.trim() || "*",
+				nthParts: parts,
+				cssText: rule.style.cssText,
+				wrappers: [...ruleWrappers],
 			});
-			if (parts.length > 0) {
-				descriptors.push({
-					baseSelector: baseSelector.trim() || "*",
-					nthParts: parts,
-					cssText: rule.style.cssText,
-					wrappers: [...wrappers],
-				});
-			}
-		} else if (rule.cssRules) {
-			const preamble = rule.cssText.substring(0, rule.cssText.indexOf("{")).trim();
-			extractFromRuleList(rule.cssRules, descriptors, [...wrappers, preamble]);
 		}
-	}
+	}, wrappers);
 }
 
 /**
