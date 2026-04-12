@@ -1,6 +1,6 @@
 import { FragmentedFlow, PageResolver } from "../src/index.js";
 import { ContentParser } from "./content-parser.js";
-import "../src/dom/fragment-container.js";
+import "../src/components/fragment-container.js";
 import "./page-container.js";
 import { fragmentainerHeight, buildFragmentOverlay } from "./inspect.js";
 
@@ -15,7 +15,7 @@ history.replaceState(null, "", `?${params}`);
 const headerEl = document.getElementById("header");
 const outputEl = document.getElementById("output");
 
-// --- Header ---
+// Header
 
 const dl = document.createElement("dl");
 
@@ -93,7 +93,7 @@ function updateHeader(summary, timing) {
 	}
 }
 
-// --- Helpers ---
+// Helpers
 
 function parseRange(str, total) {
 	if (!str) return [0, total];
@@ -114,7 +114,7 @@ function findBaseLineHeight(fragment) {
 	return null;
 }
 
-// --- Main ---
+// Main
 
 if (url) {
 	run();
@@ -144,7 +144,6 @@ async function run() {
 		const fragments = flow.fragments;
 
 		const [startIdx, endIdx] = parseRange(range, fragments.length);
-		document.adoptedStyleSheets = [...document.adoptedStyleSheets, ...parsed.styles];
 
 		const first = fragments[startIdx].constraints;
 		const fragW = first?.pageBoxSize?.inlineSize ?? 0;
