@@ -23,6 +23,9 @@ function wrap(ruleText, wrappers) {
 	return css;
 }
 
+const SLOT_SELECTOR = ":host(fragment-container) > slot, :host(content-measure) > slot";
+const HOST_SELECTOR = ":host(fragment-container), :host(content-measure)";
+
 /**
  * BodyRewriter — rewrites `body` and `html` selectors as `slot` and
  * `:host` equivalents for shadow DOM rendering.
@@ -31,6 +34,9 @@ function wrap(ruleText, wrappers) {
  * `body` and `html` selectors don't match. The `<slot>` stands in
  * for body and `:host` stands in for html. Background properties on
  * body propagate to the canvas, so they target `:host`.
+ *
+ * Selectors are scoped to `fragment-container` and `content-measure`
+ * hosts so the generated rules only apply inside those elements.
  *
  * Only runs for page-based flows. On-screen column/region
  * fragmentation doesn't use shadow DOM slot/host substitution.
@@ -65,13 +71,13 @@ export class BodyRewriter extends LayoutModule {
 		if (!this.#enabled) return;
 		for (const { rule, matchesBody, matchesHtml, wrappers } of this.#matches) {
 			if (matchesBody) {
-				const slotRule = buildRule("slot", rule.style, (p) => !BACKGROUND_PROPS.has(p));
-				const hostBgRule = buildRule(":host", rule.style, (p) => BACKGROUND_PROPS.has(p));
+				const slotRule = buildRule(SLOT_SELECTOR, rule.style, (p) => !BACKGROUND_PROPS.has(p));
+				const hostBgRule = buildRule(HOST_SELECTOR, rule.style, (p) => BACKGROUND_PROPS.has(p));
 				if (slotRule) rules.push(wrap(slotRule, wrappers));
 				if (hostBgRule) rules.push(wrap(hostBgRule, wrappers));
 			}
 			if (matchesHtml && !matchesBody) {
-				rules.push(wrap(`:host { ${rule.style.cssText} }`, wrappers));
+				rules.push(wrap(`${HOST_SELECTOR} { ${rule.style.cssText} }`, wrappers));
 			}
 		}
 	}
