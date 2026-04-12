@@ -1,5 +1,6 @@
 import { LayoutModule } from "./module.js";
-import { getLineHeight, setTargetDevicePixelRatio } from "../dom/line-box.js";
+import { getLineHeight, setTargetDevicePixelRatio } from "../measurement/line-box.js";
+import { parseNumeric } from "../styles/css-values.js";
 
 /**
  * EmulatePrintPixelRatio — generates a line-height normalization
@@ -47,15 +48,11 @@ function wrapInWhere(selectorText) {
 
 /**
  * Resolve a CSS font-size value to pixels.
- * Handles px, em, rem, %, and named sizes.
+ * Handles px, em, rem, %, named sizes, calc expressions, and any
+ * absolute unit convertible to px via CSS Typed OM.
  */
 function resolveFontSize(value, defaultSize) {
 	if (!value) return null;
-	if (value.endsWith("px")) return parseFloat(value);
-	if (value.endsWith("em")) return parseFloat(value) * defaultSize;
-	if (value.endsWith("rem")) return parseFloat(value) * defaultSize;
-	if (value.endsWith("%")) return (parseFloat(value) / 100) * defaultSize;
-	// Named sizes — approximate px equivalents at 16px base
 	const named = {
 		"xx-small": 9,
 		"x-small": 10,
@@ -68,7 +65,16 @@ function resolveFontSize(value, defaultSize) {
 		larger: defaultSize * 1.2,
 	};
 	if (named[value] !== undefined) return named[value];
-	return null;
+
+	const v = parseNumeric(value);
+	if (!v) return null;
+	if (v.unit === "em" || v.unit === "rem") return v.value * defaultSize;
+	if (v.unit === "percent") return (v.value / 100) * defaultSize;
+	try {
+		return v.to("px").value;
+	} catch {
+		return null;
+	}
 }
 
 class EmulatePrintPixelRatio extends LayoutModule {
@@ -77,11 +83,14 @@ class EmulatePrintPixelRatio extends LayoutModule {
 	#normSheet = null;
 	#enabled = false;
 
-	init({ emulatePrintPixelRatio = true } = {}) {
+	init({ emulatePrintPixelRatio = true, isPageBased = false } = {}) {
+		// Only relevant for print-style (page-based) flows. On-screen
+		// column/region fragmentation uses native browser rendering.
 		// Only Blink-based browsers need line-height normalization.
 		// All Blink browsers (Chrome, Edge, Opera, etc.) include "Chrome/" in the UA.
 		this.#enabled =
 			emulatePrintPixelRatio &&
+			isPageBased &&
 			typeof navigator !== "undefined" &&
 			/\bChrome\//.test(navigator.userAgent);
 	}

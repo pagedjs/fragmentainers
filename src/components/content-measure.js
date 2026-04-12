@@ -11,8 +11,6 @@
  * keeping it inside the shadow DOM where only adopted stylesheets apply.
  */
 
-import { buildBodyOverrideSheet } from "../styles/body-selectors.js";
-
 const MEASURE_HOST_STYLES = `
   :host {
     all: initial;
@@ -29,7 +27,6 @@ const MEASURE_HOST_STYLES = `
 export class ContentMeasureElement extends HTMLElement {
 	#shadow;
 	#slot = null;
-	#bodyOverrideSheet = null;
 	#currentInlineSize = undefined;
 
 	constructor() {
@@ -79,7 +76,7 @@ export class ContentMeasureElement extends HTMLElement {
 	 *
 	 * @param {DocumentFragment} fragment — content to inject
 	 * @param {CSSStyleSheet[]} [styles] — sheets to adopt for measurement
-	 * @returns {Element} the slot element (contentRoot) for buildLayoutTree
+	 * @returns {Element} the slot element (contentRoot) to wrap with a DOMLayoutNode
 	 */
 	injectFragment(fragment, styles = []) {
 		this.setupEmpty(styles);
@@ -96,20 +93,13 @@ export class ContentMeasureElement extends HTMLElement {
 	setupEmpty(styles = []) {
 		this.#ensureSetup();
 		this.#slot.innerHTML = "";
-
-		const body = buildBodyOverrideSheet(styles, document.body, document.documentElement);
-		this.#bodyOverrideSheet = body.sheet;
-		this.#shadow.adoptedStyleSheets =
-			this.#bodyOverrideSheet.cssRules.length > 0
-				? [...styles, this.#bodyOverrideSheet]
-				: [...styles];
-
+		this.#shadow.adoptedStyleSheets = [...styles];
 		return this.#slot;
 	}
 
 	/**
 	 * The slot element inside the shadow root — content container.
-	 * Pass this to buildLayoutTree().
+	 * Wrap with `new DOMLayoutNode()` to build a layout tree.
 	 */
 	get contentRoot() {
 		return this.#slot;
