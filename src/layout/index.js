@@ -1,6 +1,5 @@
 export {
 	LayoutRequest,
-	layoutChild,
 	createFragments,
 	runLayoutGenerator,
 	getLayoutAlgorithm,

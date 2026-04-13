@@ -2,7 +2,7 @@ import { BlockBreakToken } from "../fragmentation/tokens.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
 import { FlowThreadNode } from "../layout/flow-thread-node.js";
-import { layoutChild } from "../layout/layout-request.js";
+import { LayoutRequest } from "../layout/layout-request.js";
 import { FRAGMENTATION_COLUMN, FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 
 export const ALGORITHM_MULTICOL = "MulticolData";
@@ -88,7 +88,7 @@ export function* layoutMulticolContainer(node, constraintSpace, breakToken) {
 	const columnFragments = [];
 
 	do {
-		const result = yield layoutChild(flowThread, columnCS, contentToken);
+		const result = yield new LayoutRequest(flowThread, columnCS, contentToken);
 
 		columnFragments.push(result.fragment);
 		contentToken = result.breakToken;

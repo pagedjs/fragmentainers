@@ -2,7 +2,7 @@ import { BlockBreakToken } from "../fragmentation/tokens.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
 import { FlowThreadNode } from "../layout/flow-thread-node.js";
-import { layoutChild } from "../layout/layout-request.js";
+import { LayoutRequest } from "../layout/layout-request.js";
 import { findChildBreakToken } from "../fragmentation/tokens.js";
 import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 
@@ -132,7 +132,7 @@ function* layoutFlexLine(node, lineItems, constraintSpace, blockOffset, parentBr
 			fragmentationType: constraintSpace.fragmentationType,
 		});
 
-		const result = yield layoutChild(item, itemConstraint, effectiveItemBreakToken);
+		const result = yield new LayoutRequest(item, itemConstraint, effectiveItemBreakToken);
 
 		itemFragments.push(result.fragment);
 		maxItemBlockSize = Math.max(maxItemBlockSize, result.fragment.blockSize);
@@ -179,7 +179,7 @@ function* layoutFlexColumn(node, constraintSpace, breakToken) {
 	const flowThread = new FlowThreadNode(node);
 
 	const contentToken = breakToken?.childBreakTokens?.[0] ?? null;
-	const result = yield layoutChild(flowThread, constraintSpace, contentToken);
+	const result = yield new LayoutRequest(flowThread, constraintSpace, contentToken);
 
 	const fragment = new Fragment(
 		node,

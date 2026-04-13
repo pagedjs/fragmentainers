@@ -1,7 +1,7 @@
 import { BlockBreakToken } from "../fragmentation/tokens.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
-import { layoutChild } from "../layout/layout-request.js";
+import { LayoutRequest } from "../layout/layout-request.js";
 import { findChildBreakToken } from "../fragmentation/tokens.js";
 export const ALGORITHM_TABLE_ROW = "TableRowData";
 
@@ -38,7 +38,7 @@ export function* layoutTableRow(node, constraintSpace, breakToken) {
 			fragmentationType: constraintSpace.fragmentationType,
 		});
 
-		const result = yield layoutChild(cell, cellConstraint, effectiveCellBreakToken);
+		const result = yield new LayoutRequest(cell, cellConstraint, effectiveCellBreakToken);
 
 		cellFragments.push(result.fragment);
 

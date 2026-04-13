@@ -27,13 +27,6 @@ export class LayoutRequest {
 }
 
 /**
- * Helper to create a LayoutRequest — used inside layout generators.
- */
-export function layoutChild(node, constraintSpace, breakToken = null) {
-	return new LayoutRequest(node, constraintSpace, breakToken);
-}
-
-/**
  * Runs a layout generator to completion, recursively fulfilling
  * any child LayoutRequests it yields.
  *

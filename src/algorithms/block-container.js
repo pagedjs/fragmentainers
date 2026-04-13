@@ -1,7 +1,7 @@
 import { BlockBreakToken } from "../fragmentation/tokens.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
-import { layoutChild } from "../layout/layout-request.js";
+import { LayoutRequest } from "../layout/layout-request.js";
 import { findChildBreakToken } from "../fragmentation/tokens.js";
 import { isMonolithic, getMonolithicBlockSize } from "../layout/layout-helpers.js";
 import {
@@ -161,7 +161,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 	let prependedFragments = 0;
 	const beforeResult = modules.beforeChildren(node, constraintSpace, breakToken);
 	if (beforeResult) {
-		const result = yield layoutChild(beforeResult.node, beforeResult.constraintSpace, null);
+		const result = yield new LayoutRequest(beforeResult.node, beforeResult.constraintSpace, null);
 		if (beforeResult.isRepeated) result.fragment.isRepeated = true;
 		if (beforeResult.node.blockSize > result.fragment.blockSize) {
 			result.fragment.blockSize = beforeResult.node.blockSize;
@@ -331,7 +331,7 @@ export function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBr
 		});
 
 		// Yield layout request — driver runs child generator and returns result
-		const result = yield layoutChild(child, childConstraint, effectiveChildBreakToken);
+		const result = yield new LayoutRequest(child, childConstraint, effectiveChildBreakToken);
 
 		if (margins.shouldTruncateChildMarginStart({
 			isFirstChild: i === startIndex,
