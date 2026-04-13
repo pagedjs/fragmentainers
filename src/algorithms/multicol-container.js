@@ -1,6 +1,7 @@
 import { BlockBreakToken } from "../fragmentation/tokens.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
+import { FlowThreadNode } from "../layout/flow-thread-node.js";
 import { layoutChild } from "../layout/layout-request.js";
 import { FRAGMENTATION_COLUMN, FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 
@@ -42,53 +43,6 @@ export function resolveColumnDimensions(U, specifiedWidth, specifiedCount, gap) 
 }
 
 /**
- * Create an anonymous flow thread node (Chromium pattern).
- *
- * The flow thread wraps the multicol container's children so that
- * `getLayoutAlgorithm(flowThread)` dispatches to `layoutBlockContainer`
- * instead of recursing into `layoutMulticolContainer`.
- *
- * @param {import('../helpers.js').LayoutNode} multicolNode
- * @returns {import('../helpers.js').LayoutNode}
- */
-function createFlowThread(multicolNode) {
-	return {
-		children: multicolNode.children,
-		element: null,
-		debugName: `[flow-thread:${multicolNode.debugName}]`,
-		blockSize: 0,
-		isInlineFormattingContext: false,
-		isReplacedElement: false,
-		isScrollable: false,
-		hasOverflowHidden: false,
-		hasExplicitBlockSize: false,
-		isTable: false,
-		isTableRow: false,
-		isFlexContainer: false,
-		isGridContainer: false,
-		isMulticolContainer: false,
-		columnCount: null,
-		columnWidth: null,
-		columnGap: null,
-		columnFill: "balance",
-		inlineItemsData: null,
-		page: null,
-		breakBefore: "auto",
-		breakAfter: "auto",
-		breakInside: "auto",
-		orphans: 2,
-		widows: 2,
-		marginBlockStart: 0,
-		marginBlockEnd: 0,
-		paddingBlockStart: 0,
-		paddingBlockEnd: 0,
-		borderBlockStart: 0,
-		borderBlockEnd: 0,
-		computedBlockSize: () => 0,
-	};
-}
-
-/**
  * Multicol container layout algorithm (generator).
  *
  * Resolves column dimensions, creates an anonymous flow thread,
@@ -125,7 +79,7 @@ export function* layoutMulticolContainer(node, constraintSpace, breakToken) {
 	});
 
 	// Create anonymous flow thread (Chromium pattern — avoids recursion)
-	const flowThread = createFlowThread(node);
+	const flowThread = new FlowThreadNode(node);
 
 	// Resume content token from previous outer fragmentainer
 	let contentToken = breakToken?.childBreakTokens?.[0] ?? null;

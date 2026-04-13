@@ -1,6 +1,7 @@
 import { BlockBreakToken } from "../fragmentation/tokens.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
+import { FlowThreadNode } from "../layout/flow-thread-node.js";
 import { layoutChild } from "../layout/layout-request.js";
 import { findChildBreakToken } from "../fragmentation/tokens.js";
 import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
@@ -175,44 +176,7 @@ function* layoutFlexLine(node, lineItems, constraintSpace, blockOffset, parentBr
  * Uses a flow thread so dispatch routes to layoutBlockContainer.
  */
 function* layoutFlexColumn(node, constraintSpace, breakToken) {
-	const flowThread = {
-		children: node.children,
-		element: null,
-		debugName: `[flex-column-flow:${node.debugName}]`,
-		blockSize: 0,
-		isInlineFormattingContext: false,
-		isReplacedElement: false,
-		isScrollable: false,
-		hasOverflowHidden: false,
-		hasExplicitBlockSize: false,
-		isTable: false,
-		isTableRow: false,
-		isFlexContainer: false,
-		isGridContainer: false,
-		isMulticolContainer: false,
-		columnCount: null,
-		columnWidth: null,
-		columnGap: null,
-		columnFill: "balance",
-		flexDirection: "row",
-		flexWrap: "nowrap",
-		gridRowStart: null,
-		gridRowEnd: null,
-		inlineItemsData: null,
-		page: null,
-		breakBefore: "auto",
-		breakAfter: "auto",
-		breakInside: "auto",
-		orphans: 2,
-		widows: 2,
-		marginBlockStart: 0,
-		marginBlockEnd: 0,
-		paddingBlockStart: 0,
-		paddingBlockEnd: 0,
-		borderBlockStart: 0,
-		borderBlockEnd: 0,
-		computedBlockSize: () => 0,
-	};
+	const flowThread = new FlowThreadNode(node);
 
 	const contentToken = breakToken?.childBreakTokens?.[0] ?? null;
 	const result = yield layoutChild(flowThread, constraintSpace, contentToken);
