@@ -1,6 +1,7 @@
 import { DOMLayoutNode } from "../layout/layout-node.js";
 import { isForcedBreakValue } from "../fragmentation/tokens.js";
 import { modules } from "../modules/registry.js";
+import { walkSheets } from "../styles/walk-rules.js";
 import "../components/content-measure.js";
 
 /**
@@ -60,6 +61,32 @@ function resolveBreakProperties(elements, styles) {
 		}
 		if (page === "auto") page = null;
 		return { breakBefore, breakAfter, page };
+	});
+}
+
+/**
+ * Resolve effective `display` for elements in a DocumentFragment.
+ * getComputedStyle is unreliable off-document, so match rules manually.
+ */
+function resolveDisplayValues(elements, styles) {
+	const displayRules = [];
+	walkSheets(styles, (rule) => {
+		if (!rule.style) return;
+		const d = rule.style.getPropertyValue("display").trim();
+		if (d) displayRules.push({ selector: rule.selectorText, display: d });
+	});
+
+	return elements.map((el) => {
+		let display = el.style.display || null;
+		for (const rule of displayRules) {
+			try {
+				if (!el.matches(rule.selector)) continue;
+			} catch {
+				continue;
+			}
+			display = rule.display;
+		}
+		return display;
 	});
 }
 
@@ -142,7 +169,10 @@ export class Measurer {
 		// Resolve break properties only for non-persistent elements
 		const elements = Array.from(this.#content.children);
 		this.#allElements = elements;
-		const flowElements = elements.filter((el) => !persistentSet.has(el));
+		const displays = resolveDisplayValues(elements, this.#styles);
+		const flowElements = elements.filter(
+			(el, i) => !persistentSet.has(el) && displays[i] !== "none",
+		);
 		this.#breakProps = resolveBreakProperties(flowElements, this.#styles);
 		const boundaries = findSegmentBoundaries(this.#breakProps);
 

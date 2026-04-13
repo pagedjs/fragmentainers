@@ -183,6 +183,11 @@ function setupSpecInjection(page, specType, { overlay = false } = {}) {
 
 // Main
 
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+	printUsage();
+	process.exit(0);
+}
+
 const specPath = process.argv[2];
 if (!specPath) {
 	printUsage();
