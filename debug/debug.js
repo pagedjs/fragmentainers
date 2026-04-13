@@ -147,11 +147,13 @@ async function run() {
 
 		const first = fragments[startIdx].constraints;
 		const fragW = first?.pageBoxSize?.inlineSize ?? 0;
-		document.body.style.setProperty("--page-inline-size", fragW);
+		const fragH = first?.pageBoxSize?.blockSize ?? 0;
+		document.documentElement.style.setProperty("--page-inline-size", `${fragW}px`);
+		document.documentElement.style.setProperty("--page-block-size", `${fragH}px`);
 
 		// Snap dot grid to the base line-height
 		const lh = findBaseLineHeight(fragments[0]);
-		if (lh) document.body.style.setProperty("--grid-size", `${lh}px`);
+		if (lh) document.documentElement.style.setProperty("--grid-size", `${lh}px`);
 
 		const tRender = performance.now();
 		let issueCount = 0;
