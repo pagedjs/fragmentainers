@@ -5,8 +5,7 @@ export {
 	getMonolithicBlockSize,
 	buildCumulativeHeights,
 } from "./layout-helpers.js";
-export { BlockContainerAlgorithm } from "../algorithms/block-container.js";
-export { TableRowAlgorithm } from "../algorithms/table-row.js";
-export { DOMLayoutNode } from "./layout-node.js";
 export { LayoutNode } from "./layout-node-base.js";
+export { DOMLayoutNode } from "./layout-node.js";
+export { AnonymousBlockNode } from "./anonymous-block-node.js";
 export { FlowThreadNode } from "./flow-thread-node.js";
