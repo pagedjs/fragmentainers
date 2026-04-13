@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("layoutGridContainer", () => {
 	test("dispatches grid nodes to the grid algorithm", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLayoutAlgorithm } = await import("/src/layout/layout-request.js");
+			const { getLayoutAlgorithm } = await import("/src/layout/layout-driver.js");
 			const { GridAlgorithm } = await import("/src/algorithms/grid-container.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -25,7 +25,7 @@ test.describe("layoutGridContainer", () => {
 	test("lays out single-row grid items as parallel flows", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -66,7 +66,7 @@ test.describe("layoutGridContainer", () => {
 	test("multi-row grid stacks rows", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -105,7 +105,7 @@ test.describe("layoutGridContainer", () => {
 	test("items in the same row fragment independently (parallel flows)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -138,7 +138,7 @@ test.describe("layoutGridContainer", () => {
 	test("completed items get isAtBlockEnd tokens", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -171,7 +171,7 @@ test.describe("layoutGridContainer", () => {
 	test("break token has GridData with rowIndex", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -211,7 +211,7 @@ test.describe("layoutGridContainer", () => {
 	test("empty grid container produces zero-height fragment", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -247,7 +247,7 @@ test.describe("layoutGridContainer", () => {
 	test("auto-placed items (no gridRowStart) each get their own row", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 

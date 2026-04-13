@@ -1,5 +1,5 @@
 import { DOMLayoutNode } from "../layout/layout-node.js";
-import { runLayoutGenerator, getLayoutAlgorithm } from "../layout/layout-request.js";
+import { runLayoutGenerator, getLayoutAlgorithm } from "../layout/layout-driver.js";
 import { FragmentationContext } from "./fragmentation-context.js";
 import { PageResolver } from "../resolvers/page-resolver.js";
 import { CounterState, walkFragmentTree } from "./counter-state.js";

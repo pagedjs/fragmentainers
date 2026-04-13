@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("Phase 2: Block layout (single fragmentainer)", () => {
 	test("lays out a single leaf node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { runLayoutGenerator } = await import("/src/layout/layout-request.js");
+			const { runLayoutGenerator } = await import("/src/layout/layout-driver.js");
 			const { BlockContainerAlgorithm } = await import("/src/algorithms/block-container.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");

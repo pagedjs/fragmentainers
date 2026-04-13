@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("layoutFlexContainer", () => {
 	test("dispatches flex nodes to the flex algorithm", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLayoutAlgorithm } = await import("/src/layout/layout-request.js");
+			const { getLayoutAlgorithm } = await import("/src/layout/layout-driver.js");
 			const { FlexAlgorithm } = await import("/src/algorithms/flex-container.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -25,7 +25,7 @@ test.describe("layoutFlexContainer", () => {
 	test("lays out single-line row flex items as parallel flows", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -68,7 +68,7 @@ test.describe("layoutFlexContainer", () => {
 	test("items fragment independently (parallel flows)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -108,7 +108,7 @@ test.describe("layoutFlexContainer", () => {
 	test("completed items get isAtBlockEnd tokens", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -152,7 +152,7 @@ test.describe("layoutFlexContainer", () => {
 	test("break token has kFlexData", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -190,7 +190,7 @@ test.describe("layoutFlexContainer", () => {
 	test("column flex uses flow thread (sequential fragmentation)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -229,7 +229,7 @@ test.describe("layoutFlexContainer", () => {
 	test("column flex fragments across pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -268,7 +268,7 @@ test.describe("layoutFlexContainer", () => {
 	test("empty flex container produces zero-height fragment", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -304,7 +304,7 @@ test.describe("layoutFlexContainer", () => {
 	test("does not infinitely recurse (flow thread pattern for column)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 

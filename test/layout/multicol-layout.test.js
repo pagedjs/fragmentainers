@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("layoutMulticolContainer", () => {
 	test("dispatches multicol nodes to the multicol algorithm", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLayoutAlgorithm } = await import("/src/layout/layout-request.js");
+			const { getLayoutAlgorithm } = await import("/src/layout/layout-driver.js");
 			const { MulticolAlgorithm } = await import("/src/algorithms/multicol-container.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -24,7 +24,7 @@ test.describe("layoutMulticolContainer", () => {
 
 	test("does not dispatch non-multicol nodes to multicol", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLayoutAlgorithm } = await import("/src/layout/layout-request.js");
+			const { getLayoutAlgorithm } = await import("/src/layout/layout-driver.js");
 			const { MulticolAlgorithm } = await import("/src/algorithms/multicol-container.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -46,7 +46,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("lays out content across 2 columns", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -87,7 +87,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("all content fits in one column when column height is large", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -120,7 +120,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("content flows across 3 columns", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -154,7 +154,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("respects column-fill: auto - stops at column count", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -194,7 +194,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("resolves column width correctly with gap", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -232,7 +232,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("sets multicolData on the fragment", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -272,7 +272,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("break-before: column forces a column break", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -304,7 +304,7 @@ test.describe("layoutMulticolContainer", () => {
 
 	test("emits break token with kMulticolData when nested in outer context", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { runLayoutGenerator } = await import("/src/layout/layout-request.js");
+			const { runLayoutGenerator } = await import("/src/layout/layout-driver.js");
 			const { MulticolAlgorithm } = await import("/src/algorithms/multicol-container.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
@@ -348,7 +348,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("does not infinitely recurse (flow thread pattern)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -386,7 +386,7 @@ test.describe("layoutMulticolContainer", () => {
 	test("fragment inlineSize matches container", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =
-				await import("/src/layout/layout-request.js");
+				await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 

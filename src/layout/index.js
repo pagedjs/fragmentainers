@@ -1,9 +1,5 @@
-export {
-	LayoutRequest,
-	createFragments,
-	runLayoutGenerator,
-	getLayoutAlgorithm,
-} from "./layout-request.js";
+export { LayoutRequest, createFragments } from "./layout-request.js";
+export { LayoutDriver, runLayoutGenerator, getLayoutAlgorithm } from "./layout-driver.js";
 export {
 	isMonolithic,
 	getMonolithicBlockSize,
