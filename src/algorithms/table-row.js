@@ -66,11 +66,17 @@ export class TableRowAlgorithm {
 
 			this.#cellFragments.push(result.fragment);
 
-			// Use DOM-measured height as a floor for fresh, non-fragmenting cells
-			// (continuation or fragmented cells must use the layout-computed size).
+			// Use the cell's intrinsic content height as a floor for fresh,
+			// non-fragmenting cells — not blockSize, because browsers stretch
+			// sibling cells to the tallest one in a row. Continuation or
+			// fragmented cells must use the layout-computed size.
 			let cellBlockSize = result.fragment.blockSize;
-			if (!effectiveCellBreakToken && !result.breakToken && cell.blockSize > cellBlockSize) {
-				cellBlockSize = cell.blockSize;
+			if (
+				!effectiveCellBreakToken &&
+				!result.breakToken &&
+				cell.intrinsicBlockSize > cellBlockSize
+			) {
+				cellBlockSize = cell.intrinsicBlockSize;
 				result.fragment.blockSize = cellBlockSize;
 			}
 			this.#maxCellBlockSize = Math.max(this.#maxCellBlockSize, cellBlockSize);

@@ -141,15 +141,24 @@ class EmulatePrintPixelRatio extends LayoutHandler {
 		// Catch-all: the default font's ratio on the slot covers all
 		// elements that inherit line-height: normal without explicit
 		// font-related CSS rules.
-		const defaultEl = contentRoot.querySelector("*");
+		// "Normal" line-height is not a fixed ratio — it varies by font-size
+		// due to font metrics. Find an existing descendant rendered at the
+		// slot's font-size with line-height: normal so the measured ratio
+		// matches what inheritance will produce (an <h1> would yield a
+		// ratio that inflates smaller text).
+		const slotFontSize = parseFloat(getComputedStyle(contentRoot).fontSize) || 0;
+		let defaultEl = null;
+		for (const el of contentRoot.querySelectorAll("*")) {
+			const cs = getComputedStyle(el);
+			if (cs.lineHeight !== "normal") continue;
+			if (parseFloat(cs.fontSize) !== slotFontSize) continue;
+			defaultEl = el;
+			break;
+		}
 		if (defaultEl) {
-			const cs = getComputedStyle(defaultEl);
-			if (cs.lineHeight === "normal") {
-				const flooredLh = getLineHeight(defaultEl);
-				const fontSize = parseFloat(cs.fontSize) || this.#defaultFont.size;
-				const ratio = flooredLh / fontSize;
-				rules.push(`slot { line-height: ${ratio}; }`);
-			}
+			const flooredLh = getLineHeight(defaultEl);
+			const ratio = flooredLh / slotFontSize;
+			rules.push(`slot { line-height: ${ratio}; }`);
 		}
 
 		// Per-selector rules for elements with explicit font properties

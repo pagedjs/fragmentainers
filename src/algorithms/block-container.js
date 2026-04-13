@@ -101,7 +101,7 @@ export class BlockContainerAlgorithm {
 		const constraintSpace = this.#constraintSpace;
 		const breakToken = this.#breakToken;
 
-		const intrinsicBlockSize = node.blockSize || 0;
+		const intrinsicBlockSize = (node.isTableCell ? node.intrinsicBlockSize : node.blockSize) || 0;
 		const consumed = breakToken?.consumedBlockSize || 0;
 		const remaining = intrinsicBlockSize - consumed;
 
@@ -224,7 +224,7 @@ export class BlockContainerAlgorithm {
 				: 0;
 		const contentHeight = this.#blockOffset - boxStartIncluded - boxEndIncluded;
 		if (contentHeight === 0 && this.#childFragments.length > 0 && node.element) {
-			const measuredHeight = node.blockSize;
+			const measuredHeight = node.isTableCell ? node.intrinsicBlockSize : node.blockSize;
 			if (measuredHeight > this.#blockOffset) {
 				this.#blockOffset = measuredHeight;
 			}

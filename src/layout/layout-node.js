@@ -1,5 +1,5 @@
 import { collectInlineItems } from "../measurement/collect-inlines.js";
-import { measureElementBlockSize } from "../measurement/measure.js";
+import { measureElementBlockSize, measureCellIntrinsicBlockSize } from "../measurement/measure.js";
 import { getLineHeight, getSharedMeasurer } from "../measurement/line-box.js";
 import { computedStyleMap } from "../styles/computed-style-map.js";
 import { buildCumulativeHeights } from "./layout-helpers.js";
@@ -34,6 +34,7 @@ export class DOMLayoutNode extends LayoutNode {
 	#inlineItemsData = null;
 	#isInlineFormattingContext = null;
 	#blockSizeCache = null;
+	#intrinsicBlockSizeCache = null;
 	#cumulativeHeights = null;
 	#display = null;
 	#textAlign = null;
@@ -135,6 +136,10 @@ export class DOMLayoutNode extends LayoutNode {
 	get isTableSection() {
 		const d = this.display;
 		return d === "table-row-group" || d === "table-header-group" || d === "table-footer-group";
+	}
+
+	get isTableCell() {
+		return this.display === "table-cell";
 	}
 
 	/**
@@ -408,6 +413,19 @@ export class DOMLayoutNode extends LayoutNode {
 
 	setBlockSizeCache(value) {
 		this.#blockSizeCache = value;
+	}
+
+	/**
+	 * Intrinsic content-based block size — unaffected by table-row stretching.
+	 * For non-cells, equivalent to blockSize (the browser-measured rect).
+	 * For table cells, measures actual content since getBoundingClientRect()
+	 * reports the row-stretched height rather than intrinsic content.
+	 */
+	get intrinsicBlockSize() {
+		if (!this.isTableCell) return this.blockSize;
+		if (this.#intrinsicBlockSizeCache !== null) return this.#intrinsicBlockSizeCache;
+		this.#intrinsicBlockSizeCache = measureCellIntrinsicBlockSize(this.element);
+		return this.#intrinsicBlockSizeCache;
 	}
 
 	/** @type {Float64Array|null} Prefix sum of child block sizes (lazy, >= 20 children) */

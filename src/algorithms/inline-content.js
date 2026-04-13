@@ -149,9 +149,12 @@ export class InlineContentAlgorithm {
 	}
 
 	#buildMonolithicFragment() {
-		const measuredHeight = this.#node.element
-			? this.#node.element.getBoundingClientRect().height
-			: 0;
+		let measuredHeight = 0;
+		if (this.#node.element) {
+			measuredHeight = this.#node.isTableCell
+				? this.#node.intrinsicBlockSize
+				: this.#node.element.getBoundingClientRect().height;
+		}
 		const fragment = new Fragment(this.#node, measuredHeight);
 		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
 		return { fragment, breakToken: null };
@@ -220,8 +223,13 @@ export class InlineContentAlgorithm {
 			// Use lineHeight (which may be DPR-adjusted for normalized output)
 			// as the authoritative per-line height for block size computation.
 			// Line count is derived from content height (excluding box insets).
+			// Table cells are stretched to the row's tallest cell by the browser,
+			// so deriving line count from content height over-counts. Use actual
+			// line-box enumeration instead.
 			const contentHeight = totalHeight - boxStart - boxEnd;
-			const totalLines = Math.round(contentHeight / lineHeight);
+			const totalLines = this.#node.isTableCell && element
+				? measureLines(element).count
+				: Math.round(contentHeight / lineHeight);
 			this.#consumedLines = isFirstFragment
 				? 0
 				: Math.round(Math.max(0, consumedHeight - boxStart) / lineHeight);
