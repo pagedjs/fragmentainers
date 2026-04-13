@@ -11,13 +11,6 @@ export default defineConfig({
 		browserName: "chromium",
 		deviceScaleFactor: 1,
 		headless: true,
-		launchOptions: {
-			args: [
-				"--font-render-hinting=none",
-				"--disable-font-subpixel-positioning",
-				"--disable-lcd-text",
-			],
-		},
 	},
 	projects: [
 		{

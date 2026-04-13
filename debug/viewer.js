@@ -34,7 +34,9 @@ function printUsage() {
 	console.log();
 	console.log("  Options:");
 	console.log("    --type <print|multicol>             Fragmentation mode (default: print)");
-	console.log("    --browser [name]                     Browser: chromium (default), firefox, webkit, or chrome (installed)");
+	console.log(
+		"    --browser [name]                     Browser: chromium (default), firefox, webkit, or chrome (installed)",
+	);
 	console.log("    --html [path]                        Extract pages to HTML file (or stdout)");
 	console.log("    --inspect [path]                     Print inspect report (or stdout)");
 	console.log("    --pdf [path]                         Save as PDF (default: output.pdf)");
@@ -136,11 +138,6 @@ async function launchBrowser(browserName, { headless = false } = {}) {
 
 	if (isChannel || browserName === "chromium") {
 		if (!headless) launchOptions.devtools = true;
-		launchOptions.args = [
-			"--font-render-hinting=none",
-			"--disable-font-subpixel-positioning",
-			"--disable-lcd-text",
-		];
 		if (!headless) contextOptions.deviceScaleFactor = 2;
 	}
 
@@ -196,7 +193,7 @@ const typeIdx = process.argv.indexOf("--type");
 const specType = typeIdx !== -1 ? process.argv[typeIdx + 1] : "print";
 
 const browserArg = parseOptionalArg("--browser");
-const browserName = browserArg.enabled ? (browserArg.path || "chrome") : "chromium";
+const browserName = browserArg.enabled ? browserArg.path || "chrome" : "chromium";
 
 function parseOptionalArg(flag) {
 	const idx = process.argv.indexOf(flag);

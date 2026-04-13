@@ -19,9 +19,6 @@ at-page:
     type: print
   - name: column-overflow
     type: print
-  - name: copy-column-widths
-    type: print
-    skip: "unhandled"
   - name: exceeding-rowspan-table
     type: print
   - name: infinite-loop
@@ -36,7 +33,6 @@ at-page:
     type: print
   - name: pre
     type: print
-    skip: true
   - name: rebuild
     type: print
     skip: true
