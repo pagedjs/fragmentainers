@@ -4,6 +4,7 @@ import { getLineHeight, getSharedMeasurer } from "../measurement/line-box.js";
 import { computedStyleMap } from "../styles/computed-style-map.js";
 import { buildCumulativeHeights } from "./layout-helpers.js";
 import { AnonymousBlockNode } from "./anonymous-block-node.js";
+import { LayoutNode } from "./layout-node-base.js";
 
 // Box decoration break (node.boxDecorationBreak)
 export const BOX_DECORATION_SLICE = "slice";
@@ -20,44 +21,13 @@ const INLINE_DISPLAYS = new Set([
 ]);
 
 /**
- * @typedef {Object} LayoutNode
- * @property {LayoutNode[]} children
- * @property {number} [blockSize] - Intrinsic block size for leaf nodes
- * @property {boolean} isInlineFormattingContext
- * @property {boolean} isReplacedElement
- * @property {boolean} isScrollable
- * @property {boolean} hasOverflowHidden
- * @property {boolean} hasExplicitBlockSize
- * @property {boolean} isTable
- * @property {boolean} isTableRow
- * @property {boolean} isFlexContainer
- * @property {boolean} isGridContainer
- * @property {Object|null} inlineItemsData
- * @property {Function} computedBlockSize - (availableInlineSize) => number
- * @property {string} flexDirection
- * @property {string} flexWrap
- * @property {number|null} gridRowStart
- * @property {number|null} gridRowEnd
- * @property {boolean} isMulticolContainer
- * @property {number|null} columnCount
- * @property {number|null} columnWidth
- * @property {number|null} columnGap
- * @property {string} columnFill
- * @property {string|null} page - CSS page property value, or null for auto
- * @property {string} breakBefore - CSS break-before value
- * @property {string} breakAfter - CSS break-after value
- * @property {string} breakInside - CSS break-inside value
- * @property {number} orphans
- * @property {number} widows
- */
-
-/**
  * Lazy wrapper around a DOM Element that implements the LayoutNode interface.
  *
  * Properties are computed on-demand from getComputedStyle() and cached.
  * Does NOT mutate the DOM — read-only measurement only.
  */
-export class DOMLayoutNode {
+export class DOMLayoutNode extends LayoutNode {
+	#element;
 	#style = null;
 	#styleMap = null;
 	#children = null;
@@ -74,7 +44,12 @@ export class DOMLayoutNode {
 	#pageOverride = undefined;
 
 	constructor(element) {
-		this.element = element;
+		super();
+		this.#element = element;
+	}
+
+	get element() {
+		return this.#element;
 	}
 
 	get debugName() {

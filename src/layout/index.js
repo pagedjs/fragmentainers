@@ -13,3 +13,4 @@ export {
 export { layoutBlockContainer } from "../algorithms/block-container.js";
 export { layoutTableRow } from "../algorithms/table-row.js";
 export { DOMLayoutNode } from "./layout-node.js";
+export { LayoutNode } from "./layout-node-base.js";
