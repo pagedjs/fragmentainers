@@ -37,7 +37,7 @@ class PageFloat extends LayoutHandler {
 		return {
 			reservedBlockStart,
 			reservedBlockEnd,
-			afterRender(fragment, contentStyles) {
+			afterRender(fragment) {
 				if (placed.length === 0) return;
 				fragment.style.setProperty("position", "relative");
 				for (const pf of placed) {

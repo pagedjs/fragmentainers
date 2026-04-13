@@ -46,7 +46,6 @@ test.describe("PageFloat.layout", () => {
 	test("reserves block-start space for a top float", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { createFragments } = await import("/src/layout/layout-request.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { PageFloat } = await import("/src/handlers/page-float.js");
@@ -67,7 +66,7 @@ test.describe("PageFloat.layout", () => {
 				fragmentationType: FRAGMENTATION_PAGE,
 			});
 
-			const layoutChildFn = (child, childCs) => {
+			const layoutChildFn = (child) => {
 				return { fragment: { blockSize: child.blockSize, childFragments: [] } };
 			};
 

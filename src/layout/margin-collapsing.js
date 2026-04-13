@@ -120,7 +120,6 @@ export class MarginState {
 	 * @param {Object} params
 	 * @param {boolean} params.isFirstInLoop - First child being laid out this pass (i === startIndex)
 	 * @param {boolean} params.isFirstFragment - No break token on the container
-	 * @param {boolean} params.atFragmentainerTop - blockOffset is at fragmentainer top edge
 	 * @param {boolean} [params.isForcedBreak] - true if the child arrives via a forced (Class A) break token
 	 * @returns {{
 	 *   marginDelta: number,     - amount to add to blockOffset
@@ -130,7 +129,6 @@ export class MarginState {
 	computeMarginBefore(child, {
 		isFirstInLoop,
 		isFirstFragment,
-		atFragmentainerTop,
 		isForcedBreak = false,
 	}) {
 		const throughMargins = collectThroughMargins(child);

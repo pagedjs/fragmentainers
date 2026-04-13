@@ -20,21 +20,7 @@ import { parseNumeric } from "../styles/css-values.js";
  *   getAdoptedSheets()       — provide sheet for fragment-containers
  */
 
-const FONT_PROPS = new Set(["font-family", "font-weight", "font-style", "font-size"]);
 const BODY_HTML_RE = /^(body|html)\b/i;
-
-/**
- * Default UA font-size multipliers for heading elements.
- * Relative to the inherited (body) font-size.
- */
-const UA_HEADING_SIZES = {
-	h1: 2,
-	h2: 1.5,
-	h3: 1.17,
-	h4: 1,
-	h5: 0.83,
-	h6: 0.67,
-};
 
 /**
  * Wrap each comma-separated selector part in :where() for zero specificity.

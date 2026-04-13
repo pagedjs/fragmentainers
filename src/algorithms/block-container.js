@@ -500,16 +500,11 @@ export class BlockContainerAlgorithm {
 			// isBreakBefore means "pushed to this fragmentainer, lay out fresh"
 			const effectiveChildBreakToken = childBreakToken?.isBreakBefore ? null : childBreakToken;
 
-			// Margin collapsing: sibling collapse, through-collapse, and
-			// fragmentainer-top truncation — delegated to MarginState.
-			const atFragmentainerTop =
-				this.#constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
-				this.#containerOffsetInFragmentainer + this.#blockOffset === 0;
-
+			// Margin collapsing: sibling collapse and through-collapse —
+			// delegated to MarginState.
 			const { marginDelta, collapsedThrough } = this.#margins.computeMarginBefore(child, {
 				isFirstInLoop: i === this.#startIndex,
 				isFirstFragment: !breakToken,
-				atFragmentainerTop,
 				isForcedBreak: !!childBreakToken?.isForcedBreak,
 			});
 

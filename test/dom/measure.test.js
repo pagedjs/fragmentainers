@@ -211,7 +211,7 @@ test.describe("setTargetDevicePixelRatio / getTargetDevicePixelRatio", () => {
 
 	test("setTargetDevicePixelRatio changes the value and affects getLineHeight", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { getLineHeight, setTargetDevicePixelRatio, getTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
+			const { getLineHeight, setTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");
 			const div = document.createElement("div");
 			div.style.cssText = "font-size:16px;line-height:normal;width:50px";
 			div.textContent = "x x x x x x x x x x";

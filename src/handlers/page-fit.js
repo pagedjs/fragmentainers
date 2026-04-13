@@ -33,7 +33,7 @@ class PageFit extends LayoutHandler {
 		return {
 			reservedBlockStart,
 			reservedBlockEnd: 0,
-			afterRender(fragment, contentStyles) {
+			afterRender(fragment) {
 				if (placed.length === 0) return;
 				fragment.style.setProperty("position", "relative");
 				for (const pf of placed) {

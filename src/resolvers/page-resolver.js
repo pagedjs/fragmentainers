@@ -179,10 +179,6 @@ export class PageResolver {
 			blockSize: orientedSize.blockSize - margins.top - margins.bottom,
 		};
 
-		// Build cssText with original CSS units using CSSUnitValue arithmetic.
-		// Falls back to null when raw values are unavailable or units are mixed.
-		const cssText = buildCSSText(resolved.rawSize, resolved.rawMargin, resolved.pageOrientation);
-
 		return new PageConstraints({
 			pageIndex,
 			namedPage,
@@ -518,55 +514,6 @@ function parseRawPageMargins(style) {
 	}
 
 	return rawMargin;
-}
-
-/**
- * Build a cssText object with original CSS unit values for rendering.
- * Uses CSSUnitValue arithmetic to compute the content area in original units.
- * Returns null when raw values are unavailable.
- *
- * @param {CSSUnitValue[]|null} rawSize - [inline, block] from cascaded rules
- * @param {object|null} rawMargin - { top, right, bottom, left } CSSUnitValues
- * @param {string|null} pageOrientation - 'rotate-left', 'rotate-right', or null
- * @returns {object|null}
- */
-function buildCSSText(rawSize, rawMargin, pageOrientation) {
-	if (!rawSize) return null;
-
-	let [inlineSize, blockSize] = rawSize;
-
-	// Apply orientation by swapping dimensions
-	if (pageOrientation === "rotate-left" || pageOrientation === "rotate-right") {
-		[inlineSize, blockSize] = [blockSize, inlineSize];
-	}
-
-	const margin = rawMargin || {
-		top: new CSSUnitValue(0, "px"),
-		right: new CSSUnitValue(0, "px"),
-		bottom: new CSSUnitValue(0, "px"),
-		left: new CSSUnitValue(0, "px"),
-	};
-
-	// Compute content area using CSSUnitValue arithmetic.
-	// sub() works when units are the same (e.g. mm - mm).
-	// For mixed units, fall back to null.
-	let contentInline, contentBlock;
-	try {
-		contentInline = inlineSize.sub(margin.left).sub(margin.right);
-		contentBlock = blockSize.sub(margin.top).sub(margin.bottom);
-	} catch {
-		return {
-			pageBoxSize: { inline: inlineSize, block: blockSize },
-			margin,
-			contentArea: null,
-		};
-	}
-
-	return {
-		pageBoxSize: { inline: inlineSize, block: blockSize },
-		contentArea: { inline: contentInline, block: contentBlock },
-		margin,
-	};
 }
 
 /**
