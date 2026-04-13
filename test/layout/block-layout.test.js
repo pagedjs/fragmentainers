@@ -21,12 +21,7 @@ test.describe("Phase 2: Block layout (single fragmentainer)", () => {
 				fragmentationType: "page",
 			});
 
-			const result = runLayoutGenerator(
-				new BlockContainerAlgorithm(root, space, null),
-				root,
-				space,
-				null,
-			);
+			const result = runLayoutGenerator(new BlockContainerAlgorithm(root, space, null));
 			const out = {
 				blockSize: result.fragment.blockSize,
 				breakToken: result.breakToken,

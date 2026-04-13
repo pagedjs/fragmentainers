@@ -30,42 +30,25 @@ export class LayoutRequest {
  * Runs a layout algorithm to completion, recursively fulfilling
  * any child LayoutRequests it yields.
  *
- * The `node`, `constraintSpace`, and `breakToken` parameters duplicate
- * what's already stored on the algorithm instance — kept for legacy
- * call-site signature compatibility. Stage 5's `LayoutDriver` extraction
- * will simplify this.
- *
  * @param {Object} algorithm - Algorithm instance with a *layout() generator method
  */
-// eslint-disable-next-line no-unused-vars
-export function runLayoutGenerator(algorithm, node, constraintSpace, breakToken) {
+export function runLayoutGenerator(algorithm) {
 	const gen = algorithm.layout();
 	let genResult = gen.next();
 
 	while (!genResult.done) {
 		const request = genResult.value;
 
-		// Determine which layout algorithm class to use for the child
 		const ChildAlgoClass = getLayoutAlgorithm(request.node);
 		const childAlgo = new ChildAlgoClass(
 			request.node,
 			request.constraintSpace,
 			request.breakToken,
 		);
+		const childResult = runLayoutGenerator(childAlgo);
 
-		// Recursively run the child's layout generator
-		const childResult = runLayoutGenerator(
-			childAlgo,
-			request.node,
-			request.constraintSpace,
-			request.breakToken,
-		);
-
-		// If child returned an earlyBreak, propagate it up
-		if (childResult.earlyBreak) {
-			// Return to parent immediately so the earlyBreak reaches the driver
-			return childResult;
-		}
+		// Propagate earlyBreak signal up to the driver immediately
+		if (childResult.earlyBreak) return childResult;
 
 		// Send the child's result back into the parent generator
 		genResult = gen.next(childResult);
@@ -184,18 +167,12 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
 
 		let result = runLayoutGenerator(
 			new RootAlgoClass(rootNode, constraintSpace, breakToken),
-			rootNode,
-			constraintSpace,
-			breakToken,
 		);
 
 		// Two-pass: if layout returned an earlyBreak, re-run with it as target
 		if (result.earlyBreak) {
 			result = runLayoutGenerator(
 				new RootAlgoClass(rootNode, constraintSpace, breakToken, result.earlyBreak),
-				rootNode,
-				constraintSpace,
-				breakToken,
 			);
 		}
 

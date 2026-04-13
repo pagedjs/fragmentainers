@@ -21,22 +21,18 @@ export class TableRowAlgorithm {
 	#node;
 	#constraintSpace;
 	#breakToken;
-	// earlyBreakTarget is part of the algorithm constructor protocol but
-	// table rows have no Class A breakpoints to score — accepted and stored
-	// for parity with other algorithms.
-	// eslint-disable-next-line no-unused-private-class-members
-	#earlyBreakTarget;
 
 	#cellFragments = [];
 	#cellBreakTokens = [];
 	#maxCellBlockSize = 0;
 	#anyChildBroke = false;
 
-	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
+	// Class A break scoring (earlyBreakTarget) is only implemented by
+	// BlockContainerAlgorithm — table rows have no Class A breakpoints.
+	constructor(node, constraintSpace, breakToken) {
 		this.#node = node;
 		this.#constraintSpace = constraintSpace;
 		this.#breakToken = breakToken;
-		this.#earlyBreakTarget = earlyBreakTarget;
 	}
 
 	*layout() {
@@ -77,7 +73,7 @@ export class TableRowAlgorithm {
 				cellBlockSize = cell.blockSize;
 				result.fragment.blockSize = cellBlockSize;
 			}
-			if (cellBlockSize > this.#maxCellBlockSize) this.#maxCellBlockSize = cellBlockSize;
+			this.#maxCellBlockSize = Math.max(this.#maxCellBlockSize, cellBlockSize);
 
 			if (result.breakToken) {
 				this.#cellBreakTokens.push(result.breakToken);

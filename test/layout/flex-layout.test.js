@@ -46,7 +46,7 @@ test.describe("layoutFlexContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const out = {
 				childCount: result.fragment.childFragments.length,
@@ -89,7 +89,7 @@ test.describe("layoutFlexContainer", () => {
 				fragmentationType: "page",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const line = result.fragment.childFragments[0];
 			const out = {
@@ -129,7 +129,7 @@ test.describe("layoutFlexContainer", () => {
 				fragmentationType: "page",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const lineToken = result.breakToken.childBreakTokens[0];
 			const itemTokens = lineToken.childBreakTokens;
@@ -172,7 +172,7 @@ test.describe("layoutFlexContainer", () => {
 				fragmentationType: "page",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const out = {
 				hasBreakToken: !!result.breakToken,
@@ -211,7 +211,7 @@ test.describe("layoutFlexContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const out = {
 				blockSize: result.fragment.blockSize,
@@ -250,7 +250,7 @@ test.describe("layoutFlexContainer", () => {
 				fragmentationType: "page",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const out = {
 				hasBreakToken: !!result.breakToken,
@@ -286,7 +286,7 @@ test.describe("layoutFlexContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const out = {
 				blockSize: result.fragment.blockSize,
@@ -324,7 +324,7 @@ test.describe("layoutFlexContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			container.remove();
 			return { hasFragment: !!result.fragment };

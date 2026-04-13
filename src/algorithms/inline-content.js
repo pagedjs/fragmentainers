@@ -103,10 +103,6 @@ export class InlineContentAlgorithm {
 	#node;
 	#constraintSpace;
 	#breakToken;
-	// earlyBreakTarget is part of the algorithm constructor protocol but
-	// inline content emits its own breakScore — accepted for parity.
-	// eslint-disable-next-line no-unused-private-class-members
-	#earlyBreakTarget;
 
 	// Cross-phase state (set during layout, consumed by #buildOutput)
 	#lineFragments = [];
@@ -116,11 +112,12 @@ export class InlineContentAlgorithm {
 	#consumedLines = 0;
 	#remainingLines = 0;
 
-	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
+	// Class A break scoring (earlyBreakTarget) is only implemented by
+	// BlockContainerAlgorithm — inline content emits its own breakScore.
+	constructor(node, constraintSpace, breakToken) {
 		this.#node = node;
 		this.#constraintSpace = constraintSpace;
 		this.#breakToken = breakToken;
-		this.#earlyBreakTarget = earlyBreakTarget;
 		this.#itemIndex = breakToken?.itemIndex ?? 0;
 		this.#textOffset = breakToken?.textOffset ?? 0;
 	}
@@ -138,9 +135,11 @@ export class InlineContentAlgorithm {
 		// Guard: insufficient space for even one line → zero-height continuation
 		if (this.#insufficientSpace()) return this.#buildInsufficientSpaceFragment();
 
-		const result = this.#layoutLines();
-		if (result.earlyReturn) return result.earlyReturn;
-		return this.#buildOutput(result.contentRemains, result.boxEnd);
+		const contentRemains = this.#layoutLines();
+		// Slow path may signal "no lines fit at this point in the fragmentainer" by
+		// returning null — produce the same zero-height continuation as the guard above.
+		if (contentRemains === null) return this.#buildInsufficientSpaceFragment();
+		return this.#buildOutput(contentRemains);
 	}
 
 	#buildEmptyFragment() {
@@ -237,7 +236,7 @@ export class InlineContentAlgorithm {
 			// Consume everything
 			this.#itemIndex = inlineItems.items.length;
 			this.#textOffset = inlineItems.textContent.length;
-			return { contentRemains: false, boxEnd };
+			return false;
 		}
 
 		// SLOW PATH — content breaks. Use accurate gap-based line height
@@ -288,8 +287,9 @@ export class InlineContentAlgorithm {
 		}
 
 		if (linesToPlace <= 0 && this.#constraintSpace.blockOffsetInFragmentainer > 0) {
-			// Short-circuit: zero-height continuation fragment.
-			return { earlyReturn: this.#buildInsufficientSpaceFragment() };
+			// Signal to *layout(): no lines fit at this point in the fragmentainer
+			// → caller should produce a zero-height continuation fragment.
+			return null;
 		}
 
 		for (let i = 0; i < linesToPlace; i++) {
@@ -300,7 +300,7 @@ export class InlineContentAlgorithm {
 		if (linesToPlace >= this.#remainingLines) {
 			this.#itemIndex = inlineItems.items.length;
 			this.#textOffset = inlineItems.textContent.length;
-			return { contentRemains: false, boxEnd };
+			return false;
 		}
 		// Find the text offset at the break line.
 		// Content starts at boxStart below the element's border-box top.
@@ -330,11 +330,12 @@ export class InlineContentAlgorithm {
 		);
 		this.#itemIndex = pos.itemIndex;
 		this.#textOffset = pos.textOffset;
-		return { contentRemains: true, boxEnd };
+		return true;
 	}
 
-	#buildOutput(contentRemains, boxEnd) {
+	#buildOutput(contentRemains) {
 		const inlineItems = this.#node.inlineItemsData;
+		const boxEnd = (this.#node.paddingBlockEnd || 0) + (this.#node.borderBlockEnd || 0);
 		const fragment = new Fragment(this.#node, this.#blockOffset, this.#lineFragments);
 		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
 		fragment.lineCount = this.#lineFragments.length;

@@ -53,10 +53,6 @@ export class MulticolAlgorithm {
 	#node;
 	#constraintSpace;
 	#breakToken;
-	// earlyBreakTarget is part of the algorithm constructor protocol but
-	// multicol doesn't run Class A break scoring — accepted for parity.
-	// eslint-disable-next-line no-unused-private-class-members
-	#earlyBreakTarget;
 
 	// Resolved during #setup, consumed in layoutColumnLoop and #buildOutput
 	#count;
@@ -70,11 +66,12 @@ export class MulticolAlgorithm {
 	#columnFragments = [];
 	#contentToken;
 
-	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
+	// Class A break scoring (earlyBreakTarget) is only implemented by
+	// BlockContainerAlgorithm — multicol fragments at column boundaries only.
+	constructor(node, constraintSpace, breakToken) {
 		this.#node = node;
 		this.#constraintSpace = constraintSpace;
 		this.#breakToken = breakToken;
-		this.#earlyBreakTarget = earlyBreakTarget;
 	}
 
 	*layout() {

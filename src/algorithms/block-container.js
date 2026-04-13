@@ -75,6 +75,18 @@ export class BlockContainerAlgorithm {
 		this.#earlyBreakTarget = earlyBreakTarget;
 	}
 
+	*layout() {
+		if (this.#node.children.length === 0) return this.#layoutLeaf();
+		this.#setup();
+		yield* this.runBeforeChildren();
+		// `yield*` evaluates to the inner generator's return value. `layoutChildren`
+		// may return an earlyBreak signal ({ earlyBreak, fragment: null, breakToken: null })
+		// that must propagate to the driver — otherwise the two-pass retry never fires.
+		const earlyBreakSignal = yield* this.layoutChildren();
+		if (earlyBreakSignal) return earlyBreakSignal;
+		return this.#finalize();
+	}
+
 	#availableBlockSpace() {
 		// Use availableBlockSize (set by parent), which accounts for ancestor
 		// padding/border reservations. Fall back to fragmentainer math if not set.
@@ -622,17 +634,5 @@ export class BlockContainerAlgorithm {
 				break;
 			}
 		}
-	}
-
-	*layout() {
-		if (this.#node.children.length === 0) return this.#layoutLeaf();
-		this.#setup();
-		yield* this.runBeforeChildren();
-		// `yield*` evaluates to the inner generator's return value. `layoutChildren`
-		// may return an earlyBreak signal ({ earlyBreak, fragment: null, breakToken: null })
-		// that must propagate to the driver — otherwise the two-pass retry never fires.
-		const earlyBreakSignal = yield* this.layoutChildren();
-		if (earlyBreakSignal) return earlyBreakSignal;
-		return this.#finalize();
 	}
 }

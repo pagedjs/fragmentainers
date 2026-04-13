@@ -346,7 +346,7 @@ export class FragmentedFlow extends Iterator {
 
 		const layoutChildFn = (child, cs) => {
 			const ChildAlgoClass = getLayoutAlgorithm(child);
-			return runLayoutGenerator(new ChildAlgoClass(child, cs, null), child, cs, null);
+			return runLayoutGenerator(new ChildAlgoClass(child, cs, null));
 		};
 		const { reservedBlockStart, reservedBlockEnd, afterRenderCallbacks } = modules.layout(
 			rootNode,
@@ -375,18 +375,10 @@ export class FragmentedFlow extends Iterator {
 				});
 			}
 
-			result = runLayoutGenerator(
-				new RootAlgoClass(rootNode, adjustedSpace, breakToken),
-				rootNode,
-				adjustedSpace,
-				breakToken,
-			);
+			result = runLayoutGenerator(new RootAlgoClass(rootNode, adjustedSpace, breakToken));
 			if (result.earlyBreak) {
 				result = runLayoutGenerator(
 					new RootAlgoClass(rootNode, adjustedSpace, breakToken, result.earlyBreak),
-					rootNode,
-					adjustedSpace,
-					breakToken,
 				);
 			}
 

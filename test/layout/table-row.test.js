@@ -32,12 +32,7 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 				fragmentainerBlockSize: 800,
 				fragmentationType: "page",
 			});
-			const result = runLayoutGenerator(
-				new TableRowAlgorithm(rowNode, space, null),
-				rowNode,
-				space,
-				null,
-			);
+			const result = runLayoutGenerator(new TableRowAlgorithm(rowNode, space, null));
 
 			const out = {
 				blockSize: result.fragment.blockSize,
@@ -84,12 +79,7 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 				fragmentainerBlockSize: 200,
 				fragmentationType: "page",
 			});
-			const result = runLayoutGenerator(
-				new TableRowAlgorithm(rowNode, space, null),
-				rowNode,
-				space,
-				null,
-			);
+			const result = runLayoutGenerator(new TableRowAlgorithm(rowNode, space, null));
 
 			const tokenA = result.breakToken.childBreakTokens[0];
 			const tokenB = result.breakToken.childBreakTokens[1];
@@ -200,12 +190,7 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 				fragmentainerBlockSize: 800,
 				fragmentationType: "page",
 			});
-			const result = runLayoutGenerator(
-				new TableRowAlgorithm(rowNode, space, null),
-				rowNode,
-				space,
-				null,
-			);
+			const result = runLayoutGenerator(new TableRowAlgorithm(rowNode, space, null));
 
 			container.remove();
 			return { blockSize: result.fragment.blockSize };

@@ -67,7 +67,7 @@ test.describe("layoutMulticolContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const out = {
 				columnCount: result.fragment.childFragments.length,
@@ -108,7 +108,7 @@ test.describe("layoutMulticolContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			container.remove();
 			return { columnCount: result.fragment.childFragments.length };
@@ -142,7 +142,7 @@ test.describe("layoutMulticolContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			container.remove();
 			return { columnCount: result.fragment.childFragments.length };
@@ -176,7 +176,7 @@ test.describe("layoutMulticolContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const out = {
 				columnCount: result.fragment.childFragments.length,
@@ -214,7 +214,7 @@ test.describe("layoutMulticolContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const out = {
 				columnWidth: result.fragment.multicolData.columnWidth,
@@ -252,7 +252,7 @@ test.describe("layoutMulticolContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const out = {
 				hasMulticolData: !!result.fragment.multicolData,
@@ -293,7 +293,7 @@ test.describe("layoutMulticolContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			container.remove();
 			return { columnCount: result.fragment.childFragments.length };
@@ -326,12 +326,7 @@ test.describe("layoutMulticolContainer", () => {
 				blockOffsetInFragmentainer: 0,
 				fragmentationType: "page",
 			});
-			const result = runLayoutGenerator(
-				new MulticolAlgorithm(root, cs, null),
-				root,
-				cs,
-				null,
-			);
+			const result = runLayoutGenerator(new MulticolAlgorithm(root, cs, null));
 
 			const out = {
 				hasBreakToken: !!result.breakToken,
@@ -373,7 +368,7 @@ test.describe("layoutMulticolContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			const out = {
 				hasFragment: !!result.fragment,
@@ -411,7 +406,7 @@ test.describe("layoutMulticolContainer", () => {
 				fragmentationType: "none",
 			});
 			const AlgoClass = getLayoutAlgorithm(root);
-			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
 
 			container.remove();
 			return { inlineSize: result.fragment.inlineSize };

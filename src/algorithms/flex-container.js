@@ -23,10 +23,6 @@ export class FlexAlgorithm {
 	#node;
 	#constraintSpace;
 	#breakToken;
-	// earlyBreakTarget is part of the algorithm constructor protocol but
-	// flex doesn't run Class A break scoring — accepted for parity.
-	// eslint-disable-next-line no-unused-private-class-members
-	#earlyBreakTarget;
 
 	// Row-direction cross-iteration state
 	#lineFragments = [];
@@ -34,11 +30,12 @@ export class FlexAlgorithm {
 	#startLine = 0;
 	#containerBreakToken = null;
 
-	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
+	// Class A break scoring (earlyBreakTarget) is only implemented by
+	// BlockContainerAlgorithm — flex breaks at flex-line boundaries only.
+	constructor(node, constraintSpace, breakToken) {
 		this.#node = node;
 		this.#constraintSpace = constraintSpace;
 		this.#breakToken = breakToken;
-		this.#earlyBreakTarget = earlyBreakTarget;
 		if (breakToken?.algorithmData?.type === ALGORITHM_FLEX) {
 			this.#startLine = breakToken.algorithmData.flexLineIndex;
 		}
@@ -123,9 +120,7 @@ export class FlexAlgorithm {
 			const result = yield new LayoutRequest(item, itemConstraint, effectiveItemBreakToken);
 
 			itemFragments.push(result.fragment);
-			if (result.fragment.blockSize > maxItemBlockSize) {
-				maxItemBlockSize = result.fragment.blockSize;
-			}
+			maxItemBlockSize = Math.max(maxItemBlockSize, result.fragment.blockSize);
 
 			if (result.breakToken) {
 				itemBreakTokens.push(result.breakToken);
