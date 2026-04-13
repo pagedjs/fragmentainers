@@ -41,12 +41,12 @@ export class TableRowAlgorithm {
 
 	*layout() {
 		const cells = this.#node.cells || this.#node.children;
-		yield* this.#layoutCells(cells);
+		yield* this.layoutCells(cells);
 		if (this.#anyChildBroke) this.#fillCompletedCellTokens(cells);
 		return this.#buildOutput();
 	}
 
-	*#layoutCells(cells) {
+	*layoutCells(cells) {
 		const cellCount = cells.length;
 		for (let i = 0; i < cellCount; i++) {
 			const cell = cells[i];

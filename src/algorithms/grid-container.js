@@ -46,7 +46,7 @@ export class GridAlgorithm {
 		const children = this.#node.children;
 		if (children.length === 0) return this.#emptyOutput();
 		const gridRows = groupGridRows(children);
-		yield* this.#layoutRows(gridRows);
+		yield* this.layoutRows(gridRows);
 		return this.#buildOutput();
 	}
 
@@ -56,12 +56,12 @@ export class GridAlgorithm {
 		return { fragment, breakToken: null };
 	}
 
-	*#layoutRows(gridRows) {
+	*layoutRows(gridRows) {
 		for (let rowIdx = this.#startRow; rowIdx < gridRows.length; rowIdx++) {
 			const rowItems = gridRows[rowIdx];
 
 			// Lay out this grid row as parallel flows (table-row pattern)
-			const rowResult = yield* this.#layoutGridRow(rowItems, this.#blockOffset);
+			const rowResult = yield* this.layoutGridRow(rowItems, this.#blockOffset);
 
 			this.#rowFragments.push(rowResult.fragment);
 			this.#blockOffset += rowResult.fragment.blockSize;
@@ -85,7 +85,7 @@ export class GridAlgorithm {
 		}
 	}
 
-	*#layoutGridRow(rowItems, blockOffset) {
+	*layoutGridRow(rowItems, blockOffset) {
 		const itemFragments = [];
 		const itemBreakTokens = [];
 		let maxItemBlockSize = 0;

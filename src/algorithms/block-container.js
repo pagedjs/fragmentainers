@@ -50,7 +50,7 @@ export class BlockContainerAlgorithm {
 	#breakToken;
 	#earlyBreakTarget;
 
-	// Cross-phase state (persist across #setup → #layoutChildren → #finalize)
+	// Cross-phase state (persist across #setup → layoutChildren → #finalize)
 	#childFragments = [];
 	#childBreakTokens = [];
 	#blockOffset = 0;
@@ -61,7 +61,7 @@ export class BlockContainerAlgorithm {
 	#prependedFragments = 0;
 	#hasSeenAllChildren = false;
 
-	// Derived from #node/#constraintSpace during #setup, used in #layoutChildren + #finalize
+	// Derived from #node/#constraintSpace during #setup, used in layoutChildren + #finalize
 	#containerBoxStart = 0;
 	#containerBoxEnd = 0;
 	#isClone = false;
@@ -302,7 +302,7 @@ export class BlockContainerAlgorithm {
 		}
 	}
 
-	*#runBeforeChildren() {
+	*runBeforeChildren() {
 		const beforeResult = modules.beforeChildren(
 			this.#node,
 			this.#constraintSpace,
@@ -468,7 +468,7 @@ export class BlockContainerAlgorithm {
 		this.#childBreakTokens.push(result.breakToken);
 	}
 
-	*#layoutChildren() {
+	*layoutChildren() {
 		const node = this.#node;
 		const breakToken = this.#breakToken;
 		const children = node.children;
@@ -627,11 +627,11 @@ export class BlockContainerAlgorithm {
 	*layout() {
 		if (this.#node.children.length === 0) return this.#layoutLeaf();
 		this.#setup();
-		yield* this.#runBeforeChildren();
-		// `yield*` evaluates to the inner generator's return value. `#layoutChildren`
+		yield* this.runBeforeChildren();
+		// `yield*` evaluates to the inner generator's return value. `layoutChildren`
 		// may return an earlyBreak signal ({ earlyBreak, fragment: null, breakToken: null })
 		// that must propagate to the driver — otherwise the two-pass retry never fires.
-		const earlyBreakSignal = yield* this.#layoutChildren();
+		const earlyBreakSignal = yield* this.layoutChildren();
 		if (earlyBreakSignal) return earlyBreakSignal;
 		return this.#finalize();
 	}

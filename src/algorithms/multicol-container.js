@@ -58,7 +58,7 @@ export class MulticolAlgorithm {
 	// eslint-disable-next-line no-unused-private-class-members
 	#earlyBreakTarget;
 
-	// Resolved during #setup, consumed in #layoutColumnLoop and #buildOutput
+	// Resolved during #setup, consumed in layoutColumnLoop and #buildOutput
 	#count;
 	#width;
 	#gap;
@@ -79,7 +79,7 @@ export class MulticolAlgorithm {
 
 	*layout() {
 		this.#setup();
-		yield* this.#layoutColumnLoop();
+		yield* this.layoutColumnLoop();
 		return this.#buildOutput();
 	}
 
@@ -117,7 +117,7 @@ export class MulticolAlgorithm {
 		this.#contentToken = this.#breakToken?.childBreakTokens?.[0] ?? null;
 	}
 
-	*#layoutColumnLoop() {
+	*layoutColumnLoop() {
 		do {
 			const result = yield new LayoutRequest(
 				this.#flowThread,

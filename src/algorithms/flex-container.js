@@ -47,7 +47,7 @@ export class FlexAlgorithm {
 	*layout() {
 		const isRowDirection =
 			this.#node.flexDirection === "row" || this.#node.flexDirection === "row-reverse";
-		if (!isRowDirection) return yield* this.#layoutColumnFlow();
+		if (!isRowDirection) return yield* this.layoutColumnFlow();
 		if (this.#node.children.length === 0) return this.#emptyOutput();
 
 		const flexLines = groupFlexLines(
@@ -55,7 +55,7 @@ export class FlexAlgorithm {
 			this.#node.flexWrap,
 			this.#constraintSpace,
 		);
-		yield* this.#layoutRowLines(flexLines);
+		yield* this.layoutRowLines(flexLines);
 		return this.#buildOutput();
 	}
 
@@ -65,12 +65,12 @@ export class FlexAlgorithm {
 		return { fragment, breakToken: null };
 	}
 
-	*#layoutRowLines(flexLines) {
+	*layoutRowLines(flexLines) {
 		for (let lineIdx = this.#startLine; lineIdx < flexLines.length; lineIdx++) {
 			const lineItems = flexLines[lineIdx];
 
 			// Lay out this flex line as parallel flows (table-row pattern)
-			const lineResult = yield* this.#layoutFlexLine(lineItems, this.#blockOffset);
+			const lineResult = yield* this.layoutFlexLine(lineItems, this.#blockOffset);
 
 			this.#lineFragments.push(lineResult.fragment);
 			this.#blockOffset += lineResult.fragment.blockSize;
@@ -97,7 +97,7 @@ export class FlexAlgorithm {
 		}
 	}
 
-	*#layoutFlexLine(lineItems, blockOffset) {
+	*layoutFlexLine(lineItems, blockOffset) {
 		const itemFragments = [];
 		const itemBreakTokens = [];
 		let maxItemBlockSize = 0;
@@ -161,7 +161,7 @@ export class FlexAlgorithm {
 		return { fragment: lineFragment, breakToken: lineToken, anyBroke };
 	}
 
-	*#layoutColumnFlow() {
+	*layoutColumnFlow() {
 		const flowThread = new FlowThreadNode(this.#node);
 
 		const contentToken = this.#breakToken?.childBreakTokens?.[0] ?? null;
