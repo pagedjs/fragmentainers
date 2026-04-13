@@ -4,7 +4,7 @@ test.describe("layoutGridContainer", () => {
 	test("dispatches grid nodes to the grid algorithm", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { getLayoutAlgorithm } = await import("/src/layout/layout-request.js");
-			const { layoutGridContainer } = await import("/src/algorithms/grid-container.js");
+			const { GridAlgorithm } = await import("/src/algorithms/grid-container.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
@@ -16,7 +16,7 @@ test.describe("layoutGridContainer", () => {
 			const algoName = getLayoutAlgorithm(node).name;
 
 			container.remove();
-			return { algoName, expectedName: layoutGridContainer.name };
+			return { algoName, expectedName: GridAlgorithm.name };
 		});
 
 		expect(result.algoName).toBe(result.expectedName);
@@ -45,7 +45,8 @@ test.describe("layoutGridContainer", () => {
 				blockOffsetInFragmentainer: 0,
 				fragmentationType: "none",
 			});
-			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const AlgoClass = getLayoutAlgorithm(root);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
 
 			const out = {
 				rowCount: result.fragment.childFragments.length,
@@ -85,7 +86,8 @@ test.describe("layoutGridContainer", () => {
 				blockOffsetInFragmentainer: 0,
 				fragmentationType: "none",
 			});
-			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const AlgoClass = getLayoutAlgorithm(root);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
 
 			const out = {
 				rowCount: result.fragment.childFragments.length,
@@ -123,7 +125,8 @@ test.describe("layoutGridContainer", () => {
 				blockOffsetInFragmentainer: 0,
 				fragmentationType: "page",
 			});
-			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const AlgoClass = getLayoutAlgorithm(root);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
 
 			container.remove();
 			return { hasBreakToken: !!result.breakToken };
@@ -155,7 +158,8 @@ test.describe("layoutGridContainer", () => {
 				blockOffsetInFragmentainer: 0,
 				fragmentationType: "page",
 			});
-			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const AlgoClass = getLayoutAlgorithm(root);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
 
 			container.remove();
 			return { hasBreakToken: !!result.breakToken };
@@ -186,7 +190,8 @@ test.describe("layoutGridContainer", () => {
 				blockOffsetInFragmentainer: 0,
 				fragmentationType: "page",
 			});
-			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const AlgoClass = getLayoutAlgorithm(root);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
 
 			const out = {
 				hasBreakToken: !!result.breakToken,
@@ -223,7 +228,8 @@ test.describe("layoutGridContainer", () => {
 				blockOffsetInFragmentainer: 0,
 				fragmentationType: "none",
 			});
-			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const AlgoClass = getLayoutAlgorithm(root);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
 
 			const out = {
 				blockSize: result.fragment.blockSize,
@@ -261,7 +267,8 @@ test.describe("layoutGridContainer", () => {
 				blockOffsetInFragmentainer: 0,
 				fragmentationType: "none",
 			});
-			const result = runLayoutGenerator(getLayoutAlgorithm(root), root, cs, null);
+			const AlgoClass = getLayoutAlgorithm(root);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null), root, cs, null);
 
 			const out = {
 				rowCount: result.fragment.childFragments.length,

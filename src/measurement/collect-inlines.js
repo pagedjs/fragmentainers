@@ -9,7 +9,7 @@ export const INLINE_ATOMIC = "AtomicInline";
  * Walk DOM inline content and build a flat InlineItemsData structure.
  *
  * Collects text nodes, inline elements, and <br> elements into
- * the format expected by layoutInlineContent.
+ * the format expected by InlineContentAlgorithm.
  *
  * @param {Node[]|NodeList} nodes
  * @returns {{ items: Object[], textContent: string }}

@@ -8,7 +8,7 @@ import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 export const ALGORITHM_GRID = "GridData";
 
 /**
- * Grid container layout algorithm (generator).
+ * Grid container layout algorithm.
  *
  * Grid items sharing the same row are parallel flows (same pattern
  * as table-row). Rows are stacked in the block direction with
@@ -18,134 +18,154 @@ export const ALGORITHM_GRID = "GridData";
  * property. Items are assumed to span exactly one row (spanning
  * grid items are stubbed).
  */
-export function* layoutGridContainer(node, constraintSpace, breakToken) {
-	const children = node.children;
-	if (children.length === 0) {
-		const fragment = new Fragment(node, 0);
-		fragment.inlineSize = constraintSpace.availableInlineSize;
+export class GridAlgorithm {
+	#node;
+	#constraintSpace;
+	#breakToken;
+	// earlyBreakTarget is part of the algorithm constructor protocol but
+	// the grid layout doesn't run Class A break scoring — accepted for parity.
+	// eslint-disable-next-line no-unused-private-class-members
+	#earlyBreakTarget;
+
+	#rowFragments = [];
+	#blockOffset = 0;
+	#startRow = 0;
+	#containerBreakToken = null;
+
+	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
+		this.#node = node;
+		this.#constraintSpace = constraintSpace;
+		this.#breakToken = breakToken;
+		this.#earlyBreakTarget = earlyBreakTarget;
+		if (breakToken?.algorithmData?.type === ALGORITHM_GRID) {
+			this.#startRow = breakToken.algorithmData.rowIndex;
+		}
+	}
+
+	*layout() {
+		const children = this.#node.children;
+		if (children.length === 0) return this.#emptyOutput();
+		const gridRows = groupGridRows(children);
+		yield* this.#layoutRows(gridRows);
+		return this.#buildOutput();
+	}
+
+	#emptyOutput() {
+		const fragment = new Fragment(this.#node, 0);
+		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
 		return { fragment, breakToken: null };
 	}
 
-	// Group children by grid row
-	const gridRows = groupGridRows(children);
+	*#layoutRows(gridRows) {
+		for (let rowIdx = this.#startRow; rowIdx < gridRows.length; rowIdx++) {
+			const rowItems = gridRows[rowIdx];
 
-	const rowFragments = [];
-	let blockOffset = 0;
-	let startRow = 0;
-	let containerBreakToken = null;
+			// Lay out this grid row as parallel flows (table-row pattern)
+			const rowResult = yield* this.#layoutGridRow(rowItems, this.#blockOffset);
 
-	// Resume from break token
-	if (breakToken?.algorithmData?.type === ALGORITHM_GRID) {
-		startRow = breakToken.algorithmData.rowIndex;
-	}
+			this.#rowFragments.push(rowResult.fragment);
+			this.#blockOffset += rowResult.fragment.blockSize;
 
-	for (let rowIdx = startRow; rowIdx < gridRows.length; rowIdx++) {
-		const rowItems = gridRows[rowIdx];
+			if (rowResult.anyBroke) {
+				this.#buildContainerBreakToken(rowIdx);
+				break;
+			}
 
-		// Lay out this grid row as parallel flows (table-row pattern)
-		const rowResult = yield* layoutGridRow(
-			node,
-			rowItems,
-			constraintSpace,
-			blockOffset,
-			breakToken,
-		);
-
-		rowFragments.push(rowResult.fragment);
-		blockOffset += rowResult.fragment.blockSize;
-
-		if (rowResult.anyBroke) {
-			containerBreakToken = buildGridBreakToken(node, breakToken, blockOffset, rowIdx, gridRows);
-			break;
-		}
-
-		// Check if next row fits (Class A break between grid rows)
-		if (
-			constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
-			rowIdx + 1 < gridRows.length &&
-			blockOffset >=
-				constraintSpace.fragmentainerBlockSize - constraintSpace.blockOffsetInFragmentainer
-		) {
-			containerBreakToken = buildGridBreakToken(
-				node,
-				breakToken,
-				blockOffset,
-				rowIdx + 1,
-				gridRows,
-			);
-			break;
-		}
-	}
-
-	const fragment = new Fragment(node, blockOffset, rowFragments);
-	fragment.inlineSize = constraintSpace.availableInlineSize;
-	if (containerBreakToken) fragment.breakToken = containerBreakToken;
-
-	return { fragment, breakToken: fragment.breakToken || null };
-}
-
-/**
- * Layout a single grid row's items as parallel flows.
- * Follows the exact same pattern as layoutTableRow.
- */
-function* layoutGridRow(node, rowItems, constraintSpace, blockOffset, parentBreakToken) {
-	const itemFragments = [];
-	const itemBreakTokens = [];
-	let maxItemBlockSize = 0;
-	let anyBroke = false;
-
-	const itemCount = rowItems.length;
-	const itemInlineSize = constraintSpace.availableInlineSize / itemCount;
-
-	for (let i = 0; i < itemCount; i++) {
-		const item = rowItems[i];
-		const itemBreakToken = findChildBreakToken(parentBreakToken, item);
-		const effectiveItemBreakToken = itemBreakToken?.isBreakBefore ? null : itemBreakToken;
-
-		const itemConstraint = new ConstraintSpace({
-			availableInlineSize: item.itemInlineSize || itemInlineSize,
-			availableBlockSize: constraintSpace.availableBlockSize - blockOffset,
-			fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
-			blockOffsetInFragmentainer: constraintSpace.blockOffsetInFragmentainer + blockOffset,
-			fragmentationType: constraintSpace.fragmentationType,
-		});
-
-		const result = yield new LayoutRequest(item, itemConstraint, effectiveItemBreakToken);
-
-		itemFragments.push(result.fragment);
-		maxItemBlockSize = Math.max(maxItemBlockSize, result.fragment.blockSize);
-
-		if (result.breakToken) {
-			itemBreakTokens.push(result.breakToken);
-			anyBroke = true;
-		} else {
-			itemBreakTokens.push(null);
-		}
-	}
-
-	// Parallel flow rule: completed items need isAtBlockEnd tokens
-	if (anyBroke) {
-		for (let i = 0; i < itemBreakTokens.length; i++) {
-			if (itemBreakTokens[i] === null) {
-				const doneToken = new BlockBreakToken(rowItems[i]);
-				doneToken.isAtBlockEnd = true;
-				doneToken.hasSeenAllChildren = true;
-				itemBreakTokens[i] = doneToken;
+			// Class A break between grid rows: if next row doesn't fit, bail
+			if (
+				this.#constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
+				rowIdx + 1 < gridRows.length &&
+				this.#blockOffset >=
+					this.#constraintSpace.fragmentainerBlockSize -
+						this.#constraintSpace.blockOffsetInFragmentainer
+			) {
+				this.#buildContainerBreakToken(rowIdx + 1);
+				break;
 			}
 		}
 	}
 
-	const rowFragment = new Fragment(node, maxItemBlockSize, itemFragments);
-	rowFragment.inlineSize = constraintSpace.availableInlineSize;
+	*#layoutGridRow(rowItems, blockOffset) {
+		const itemFragments = [];
+		const itemBreakTokens = [];
+		let maxItemBlockSize = 0;
+		let anyBroke = false;
 
-	let rowToken = null;
-	if (anyBroke) {
-		rowToken = new BlockBreakToken(node);
-		rowToken.childBreakTokens = itemBreakTokens;
-		rowToken.hasSeenAllChildren = true;
+		const itemCount = rowItems.length;
+		const itemInlineSize = this.#constraintSpace.availableInlineSize / itemCount;
+
+		for (let i = 0; i < itemCount; i++) {
+			const item = rowItems[i];
+			const itemBreakToken = findChildBreakToken(this.#breakToken, item);
+			const effectiveItemBreakToken = itemBreakToken?.isBreakBefore ? null : itemBreakToken;
+
+			const itemConstraint = new ConstraintSpace({
+				availableInlineSize: item.itemInlineSize || itemInlineSize,
+				availableBlockSize: this.#constraintSpace.availableBlockSize - blockOffset,
+				fragmentainerBlockSize: this.#constraintSpace.fragmentainerBlockSize,
+				blockOffsetInFragmentainer:
+					this.#constraintSpace.blockOffsetInFragmentainer + blockOffset,
+				fragmentationType: this.#constraintSpace.fragmentationType,
+			});
+
+			const result = yield new LayoutRequest(item, itemConstraint, effectiveItemBreakToken);
+
+			itemFragments.push(result.fragment);
+			if (result.fragment.blockSize > maxItemBlockSize) {
+				maxItemBlockSize = result.fragment.blockSize;
+			}
+
+			if (result.breakToken) {
+				itemBreakTokens.push(result.breakToken);
+				anyBroke = true;
+			} else {
+				itemBreakTokens.push(null);
+			}
+		}
+
+		// Parallel flow rule: completed items need isAtBlockEnd tokens
+		if (anyBroke) {
+			for (let i = 0; i < itemBreakTokens.length; i++) {
+				if (itemBreakTokens[i] === null) {
+					const doneToken = new BlockBreakToken(rowItems[i]);
+					doneToken.isAtBlockEnd = true;
+					doneToken.hasSeenAllChildren = true;
+					itemBreakTokens[i] = doneToken;
+				}
+			}
+		}
+
+		const rowFragment = new Fragment(this.#node, maxItemBlockSize, itemFragments);
+		rowFragment.inlineSize = this.#constraintSpace.availableInlineSize;
+
+		let rowToken = null;
+		if (anyBroke) {
+			rowToken = new BlockBreakToken(this.#node);
+			rowToken.childBreakTokens = itemBreakTokens;
+			rowToken.hasSeenAllChildren = true;
+		}
+
+		return { fragment: rowFragment, breakToken: rowToken, anyBroke };
 	}
 
-	return { fragment: rowFragment, breakToken: rowToken, anyBroke };
+	#buildContainerBreakToken(rowIndex) {
+		const token = new BlockBreakToken(this.#node);
+		token.consumedBlockSize = (this.#breakToken?.consumedBlockSize || 0) + this.#blockOffset;
+		token.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
+		token.hasSeenAllChildren = false;
+		token.algorithmData = {
+			type: ALGORITHM_GRID,
+			rowIndex,
+		};
+		this.#containerBreakToken = token;
+	}
+
+	#buildOutput() {
+		const fragment = new Fragment(this.#node, this.#blockOffset, this.#rowFragments);
+		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
+		if (this.#containerBreakToken) fragment.breakToken = this.#containerBreakToken;
+		return { fragment, breakToken: fragment.breakToken || null };
+	}
 }
 
 /**
@@ -172,17 +192,4 @@ function groupGridRows(children) {
 
 	// Sort by row index and return as array of arrays
 	return [...rowMap.entries()].sort((a, b) => a[0] - b[0]).map(([, items]) => items);
-}
-
-/** Build a grid container break token with algorithm data. */
-function buildGridBreakToken(node, prevToken, blockOffset, rowIndex) {
-	const token = new BlockBreakToken(node);
-	token.consumedBlockSize = (prevToken?.consumedBlockSize || 0) + blockOffset;
-	token.sequenceNumber = (prevToken?.sequenceNumber ?? -1) + 1;
-	token.hasSeenAllChildren = false;
-	token.algorithmData = {
-		type: ALGORITHM_GRID,
-		rowIndex,
-	};
-	return token;
 }

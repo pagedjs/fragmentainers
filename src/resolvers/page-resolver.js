@@ -614,7 +614,7 @@ export function resolveForcedBreakValue(breakToken) {
 /**
  * Resolve the break-before CSS value of the first child that will appear
  * on the next page. Used to detect side-specific breaks when blockOffset === 0
- * prevented the forced break from firing in layoutBlockContainer.
+ * prevented the forced break from firing in BlockContainerAlgorithm.
  *
  * @param {import("../layout/layout-node.js").LayoutNode} rootNode
  * @param {import("../fragmentation/tokens.js").BlockBreakToken|null} breakToken

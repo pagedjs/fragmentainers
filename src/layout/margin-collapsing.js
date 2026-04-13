@@ -82,7 +82,7 @@ export function collectThroughMargins(node) {
  * Encapsulates CSS2 §8.3.1 (sibling collapse, through-collapse) and
  * CSS Fragmentation L3 §5.2 (margin truncation at fragmentation breaks).
  *
- * Usage: create one instance per layoutBlockContainer call, then call
+ * Usage: create one instance per BlockContainerAlgorithm pass, then call
  * methods at the documented points in the child loop.
  */
 export class MarginState {

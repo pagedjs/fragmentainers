@@ -342,11 +342,11 @@ export class FragmentedFlow extends Iterator {
 	 * iteration limit is reached.
 	 */
 	#layoutFragmentainer(rootNode, constraintSpace, breakToken) {
-		const rootAlgorithm = getLayoutAlgorithm(rootNode);
+		const RootAlgoClass = getLayoutAlgorithm(rootNode);
 
 		const layoutChildFn = (child, cs) => {
-			const algo = getLayoutAlgorithm(child);
-			return runLayoutGenerator(algo, child, cs, null);
+			const ChildAlgoClass = getLayoutAlgorithm(child);
+			return runLayoutGenerator(new ChildAlgoClass(child, cs, null), child, cs, null);
 		};
 		const { reservedBlockStart, reservedBlockEnd, afterRenderCallbacks } = modules.layout(
 			rootNode,
@@ -375,14 +375,18 @@ export class FragmentedFlow extends Iterator {
 				});
 			}
 
-			result = runLayoutGenerator(rootAlgorithm, rootNode, adjustedSpace, breakToken);
+			result = runLayoutGenerator(
+				new RootAlgoClass(rootNode, adjustedSpace, breakToken),
+				rootNode,
+				adjustedSpace,
+				breakToken,
+			);
 			if (result.earlyBreak) {
 				result = runLayoutGenerator(
-					rootAlgorithm,
+					new RootAlgoClass(rootNode, adjustedSpace, breakToken, result.earlyBreak),
 					rootNode,
 					adjustedSpace,
 					breakToken,
-					result.earlyBreak,
 				);
 			}
 

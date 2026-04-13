@@ -7,12 +7,12 @@ import {
 	requiredPageSide,
 	isSideSpecificBreak,
 } from "../resolvers/page-resolver.js";
-import { layoutBlockContainer } from "../algorithms/block-container.js";
-import { layoutFlexContainer } from "../algorithms/flex-container.js";
-import { layoutGridContainer } from "../algorithms/grid-container.js";
-import { layoutInlineContent } from "../fragmentation/inline-content.js";
-import { layoutMulticolContainer } from "../algorithms/multicol-container.js";
-import { layoutTableRow } from "../algorithms/table-row.js";
+import { BlockContainerAlgorithm } from "../algorithms/block-container.js";
+import { FlexAlgorithm } from "../algorithms/flex-container.js";
+import { GridAlgorithm } from "../algorithms/grid-container.js";
+import { InlineContentAlgorithm } from "../algorithms/inline-content.js";
+import { MulticolAlgorithm } from "../algorithms/multicol-container.js";
+import { TableRowAlgorithm } from "../algorithms/table-row.js";
 
 /**
  * Yielded from layout generators to the driver.
@@ -27,34 +27,35 @@ export class LayoutRequest {
 }
 
 /**
- * Runs a layout generator to completion, recursively fulfilling
+ * Runs a layout algorithm to completion, recursively fulfilling
  * any child LayoutRequests it yields.
  *
- * @param {Function} generatorFn - Layout algorithm generator function
- * @param {Object} node - Layout node
- * @param {ConstraintSpace} constraintSpace
- * @param {Object|null} breakToken
- * @param {Object|null} [earlyBreakTarget] - For Pass 2: break at this target
+ * The `node`, `constraintSpace`, and `breakToken` parameters duplicate
+ * what's already stored on the algorithm instance — kept for legacy
+ * call-site signature compatibility. Stage 5's `LayoutDriver` extraction
+ * will simplify this.
+ *
+ * @param {Object} algorithm - Algorithm instance with a *layout() generator method
  */
-export function runLayoutGenerator(
-	generatorFn,
-	node,
-	constraintSpace,
-	breakToken,
-	earlyBreakTarget = null,
-) {
-	const gen = generatorFn(node, constraintSpace, breakToken, earlyBreakTarget);
+// eslint-disable-next-line no-unused-vars
+export function runLayoutGenerator(algorithm, node, constraintSpace, breakToken) {
+	const gen = algorithm.layout();
 	let genResult = gen.next();
 
 	while (!genResult.done) {
 		const request = genResult.value;
 
-		// Determine which layout algorithm to use for the child
-		const childGenFn = getLayoutAlgorithm(request.node);
+		// Determine which layout algorithm class to use for the child
+		const ChildAlgoClass = getLayoutAlgorithm(request.node);
+		const childAlgo = new ChildAlgoClass(
+			request.node,
+			request.constraintSpace,
+			request.breakToken,
+		);
 
 		// Recursively run the child's layout generator
 		const childResult = runLayoutGenerator(
-			childGenFn,
+			childAlgo,
 			request.node,
 			request.constraintSpace,
 			request.breakToken,
@@ -74,15 +75,15 @@ export function runLayoutGenerator(
 }
 
 /**
- * Dispatch to the correct layout algorithm based on node type.
+ * Dispatch to the correct layout algorithm class based on node type.
  */
 export function getLayoutAlgorithm(node) {
-	if (node.isMulticolContainer) return layoutMulticolContainer;
-	if (node.isFlexContainer) return layoutFlexContainer;
-	if (node.isGridContainer) return layoutGridContainer;
-	if (node.isInlineFormattingContext) return layoutInlineContent;
-	if (node.isTableRow) return layoutTableRow;
-	return layoutBlockContainer;
+	if (node.isMulticolContainer) return MulticolAlgorithm;
+	if (node.isFlexContainer) return FlexAlgorithm;
+	if (node.isGridContainer) return GridAlgorithm;
+	if (node.isInlineFormattingContext) return InlineContentAlgorithm;
+	if (node.isTableRow) return TableRowAlgorithm;
+	return BlockContainerAlgorithm;
 }
 
 /**
@@ -179,18 +180,22 @@ export function createFragments(rootNode, constraintSpaceOrResolver, continuatio
 			});
 		}
 
-		const rootAlgorithm = getLayoutAlgorithm(rootNode);
+		const RootAlgoClass = getLayoutAlgorithm(rootNode);
 
-		let result = runLayoutGenerator(rootAlgorithm, rootNode, constraintSpace, breakToken);
+		let result = runLayoutGenerator(
+			new RootAlgoClass(rootNode, constraintSpace, breakToken),
+			rootNode,
+			constraintSpace,
+			breakToken,
+		);
 
 		// Two-pass: if layout returned an earlyBreak, re-run with it as target
 		if (result.earlyBreak) {
 			result = runLayoutGenerator(
-				rootAlgorithm,
+				new RootAlgoClass(rootNode, constraintSpace, breakToken, result.earlyBreak),
 				rootNode,
 				constraintSpace,
 				breakToken,
-				result.earlyBreak,
 			);
 		}
 

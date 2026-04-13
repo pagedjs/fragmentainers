@@ -4,7 +4,7 @@ test.describe("Phase 2: Block layout (single fragmentainer)", () => {
 	test("lays out a single leaf node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator } = await import("/src/layout/layout-request.js");
-			const { layoutBlockContainer } = await import("/src/algorithms/block-container.js");
+			const { BlockContainerAlgorithm } = await import("/src/algorithms/block-container.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -21,7 +21,12 @@ test.describe("Phase 2: Block layout (single fragmentainer)", () => {
 				fragmentationType: "page",
 			});
 
-			const result = runLayoutGenerator(layoutBlockContainer, root, space, null);
+			const result = runLayoutGenerator(
+				new BlockContainerAlgorithm(root, space, null),
+				root,
+				space,
+				null,
+			);
 			const out = {
 				blockSize: result.fragment.blockSize,
 				breakToken: result.breakToken,

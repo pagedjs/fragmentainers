@@ -3,90 +3,118 @@ import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
 import { LayoutRequest } from "../layout/layout-request.js";
 import { findChildBreakToken } from "../fragmentation/tokens.js";
+
 export const ALGORITHM_TABLE_ROW = "TableRowData";
 
 /**
- * Table row layout generator — parallel flow.
+ * Table row layout algorithm — parallel flow.
  *
  * Each cell is yielded independently. All cells get break tokens
  * when any cell overflows (completed cells get isAtBlockEnd = true).
  * The tallest cell drives the break point.
+ *
+ * Table cells dispatched to InlineContentAlgorithm return content-only
+ * height (lines × lineHeight), missing cell padding/border. Use the
+ * DOM-measured height when it's larger for accurate row sizing.
  */
-export function* layoutTableRow(node, constraintSpace, breakToken) {
-	const cellFragments = [];
-	const cellBreakTokens = [];
-	let maxCellBlockSize = 0;
-	let anyChildBroke = false;
+export class TableRowAlgorithm {
+	#node;
+	#constraintSpace;
+	#breakToken;
+	// earlyBreakTarget is part of the algorithm constructor protocol but
+	// table rows have no Class A breakpoints to score — accepted and stored
+	// for parity with other algorithms.
+	// eslint-disable-next-line no-unused-private-class-members
+	#earlyBreakTarget;
 
-	const cells = node.cells || node.children;
-	const cellCount = cells.length;
+	#cellFragments = [];
+	#cellBreakTokens = [];
+	#maxCellBlockSize = 0;
+	#anyChildBroke = false;
 
-	for (let i = 0; i < cellCount; i++) {
-		const cell = cells[i];
-		const cellBreakToken = findChildBreakToken(breakToken, cell);
-		const effectiveCellBreakToken = cellBreakToken?.isBreakBefore ? null : cellBreakToken;
-
-		// Each cell gets the full inline size allocated by the table
-		// (simplified — real implementation uses column widths)
-		const cellInlineSize = cell.cellInlineSize || constraintSpace.availableInlineSize / cellCount;
-
-		const cellConstraint = new ConstraintSpace({
-			availableInlineSize: cellInlineSize,
-			availableBlockSize: constraintSpace.availableBlockSize,
-			fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
-			blockOffsetInFragmentainer: constraintSpace.blockOffsetInFragmentainer,
-			fragmentationType: constraintSpace.fragmentationType,
-		});
-
-		const result = yield new LayoutRequest(cell, cellConstraint, effectiveCellBreakToken);
-
-		cellFragments.push(result.fragment);
-
-		// Table cells dispatched to layoutInlineContent return content-only
-		// height (lines × lineHeight), missing cell padding/border. Use the
-		// DOM-measured height when it's larger for accurate row sizing.
-		// Only for fresh, non-fragmenting cells — continuation or fragmented
-		// cells must use the layout-computed size.
-		let cellBlockSize = result.fragment.blockSize;
-		if (!effectiveCellBreakToken && !result.breakToken && cell.blockSize > cellBlockSize) {
-			cellBlockSize = cell.blockSize;
-			result.fragment.blockSize = cellBlockSize;
-		}
-		maxCellBlockSize = Math.max(maxCellBlockSize, cellBlockSize);
-
-		if (result.breakToken) {
-			cellBreakTokens.push(result.breakToken);
-			anyChildBroke = true;
-		} else {
-			// Placeholder — resolved below if any sibling broke
-			cellBreakTokens.push(null);
-		}
+	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
+		this.#node = node;
+		this.#constraintSpace = constraintSpace;
+		this.#breakToken = breakToken;
+		this.#earlyBreakTarget = earlyBreakTarget;
 	}
 
-	// If any cell broke, completed cells need isAtBlockEnd tokens
-	if (anyChildBroke) {
-		for (let i = 0; i < cellBreakTokens.length; i++) {
-			if (cellBreakTokens[i] === null) {
-				const doneToken = new BlockBreakToken(cells[i]);
-				doneToken.isAtBlockEnd = true;
-				doneToken.hasSeenAllChildren = true;
-				cellBreakTokens[i] = doneToken;
+	*layout() {
+		const cells = this.#node.cells || this.#node.children;
+		yield* this.#layoutCells(cells);
+		if (this.#anyChildBroke) this.#fillCompletedCellTokens(cells);
+		return this.#buildOutput();
+	}
+
+	*#layoutCells(cells) {
+		const cellCount = cells.length;
+		for (let i = 0; i < cellCount; i++) {
+			const cell = cells[i];
+			const cellBreakToken = findChildBreakToken(this.#breakToken, cell);
+			const effectiveCellBreakToken = cellBreakToken?.isBreakBefore ? null : cellBreakToken;
+
+			// Each cell gets the full inline size allocated by the table
+			// (simplified — real implementation uses column widths)
+			const cellInlineSize =
+				cell.cellInlineSize || this.#constraintSpace.availableInlineSize / cellCount;
+
+			const cellConstraint = new ConstraintSpace({
+				availableInlineSize: cellInlineSize,
+				availableBlockSize: this.#constraintSpace.availableBlockSize,
+				fragmentainerBlockSize: this.#constraintSpace.fragmentainerBlockSize,
+				blockOffsetInFragmentainer: this.#constraintSpace.blockOffsetInFragmentainer,
+				fragmentationType: this.#constraintSpace.fragmentationType,
+			});
+
+			const result = yield new LayoutRequest(cell, cellConstraint, effectiveCellBreakToken);
+
+			this.#cellFragments.push(result.fragment);
+
+			// Use DOM-measured height as a floor for fresh, non-fragmenting cells
+			// (continuation or fragmented cells must use the layout-computed size).
+			let cellBlockSize = result.fragment.blockSize;
+			if (!effectiveCellBreakToken && !result.breakToken && cell.blockSize > cellBlockSize) {
+				cellBlockSize = cell.blockSize;
+				result.fragment.blockSize = cellBlockSize;
+			}
+			if (cellBlockSize > this.#maxCellBlockSize) this.#maxCellBlockSize = cellBlockSize;
+
+			if (result.breakToken) {
+				this.#cellBreakTokens.push(result.breakToken);
+				this.#anyChildBroke = true;
+			} else {
+				// Placeholder — resolved below if any sibling broke
+				this.#cellBreakTokens.push(null);
 			}
 		}
 	}
 
-	const fragment = new Fragment(node, maxCellBlockSize, cellFragments);
-	fragment.inlineSize = constraintSpace.availableInlineSize;
-
-	if (anyChildBroke) {
-		const rowToken = new BlockBreakToken(node);
-		rowToken.consumedBlockSize = (breakToken?.consumedBlockSize || 0) + maxCellBlockSize;
-		rowToken.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
-		rowToken.childBreakTokens = cellBreakTokens;
-		rowToken.hasSeenAllChildren = true;
-		rowToken.algorithmData = { type: ALGORITHM_TABLE_ROW };
-		fragment.breakToken = rowToken;
+	#fillCompletedCellTokens(cells) {
+		for (let i = 0; i < this.#cellBreakTokens.length; i++) {
+			if (this.#cellBreakTokens[i] === null) {
+				const doneToken = new BlockBreakToken(cells[i]);
+				doneToken.isAtBlockEnd = true;
+				doneToken.hasSeenAllChildren = true;
+				this.#cellBreakTokens[i] = doneToken;
+			}
+		}
 	}
 
-	return { fragment, breakToken: fragment.breakToken || null };
+	#buildOutput() {
+		const fragment = new Fragment(this.#node, this.#maxCellBlockSize, this.#cellFragments);
+		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
+
+		if (this.#anyChildBroke) {
+			const rowToken = new BlockBreakToken(this.#node);
+			rowToken.consumedBlockSize =
+				(this.#breakToken?.consumedBlockSize || 0) + this.#maxCellBlockSize;
+			rowToken.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
+			rowToken.childBreakTokens = this.#cellBreakTokens;
+			rowToken.hasSeenAllChildren = true;
+			rowToken.algorithmData = { type: ALGORITHM_TABLE_ROW };
+			fragment.breakToken = rowToken;
+		}
+
+		return { fragment, breakToken: fragment.breakToken || null };
+	}
 }

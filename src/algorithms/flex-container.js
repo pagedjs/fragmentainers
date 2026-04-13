@@ -10,7 +10,7 @@ export const ALGORITHM_FLEX = "FlexData";
 export const ALGORITHM_FLEX_LINE = "FlexLineData";
 
 /**
- * Flex container layout algorithm (generator).
+ * Flex container layout algorithm.
  *
  * Row direction: items within a flex line are parallel flows (same
  * pattern as table-row). Multi-line flex stacks lines in the block
@@ -19,187 +19,194 @@ export const ALGORITHM_FLEX_LINE = "FlexLineData";
  * Column direction: items are sequential in the block direction,
  * delegated to a flow thread (same Chromium pattern as multicol).
  */
-export function* layoutFlexContainer(node, constraintSpace, breakToken) {
-	const isRowDirection = node.flexDirection === "row" || node.flexDirection === "row-reverse";
+export class FlexAlgorithm {
+	#node;
+	#constraintSpace;
+	#breakToken;
+	// earlyBreakTarget is part of the algorithm constructor protocol but
+	// flex doesn't run Class A break scoring — accepted for parity.
+	// eslint-disable-next-line no-unused-private-class-members
+	#earlyBreakTarget;
 
-	if (!isRowDirection) {
-		// Column flex: sequential block layout via flow thread
-		return yield* layoutFlexColumn(node, constraintSpace, breakToken);
+	// Row-direction cross-iteration state
+	#lineFragments = [];
+	#blockOffset = 0;
+	#startLine = 0;
+	#containerBreakToken = null;
+
+	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
+		this.#node = node;
+		this.#constraintSpace = constraintSpace;
+		this.#breakToken = breakToken;
+		this.#earlyBreakTarget = earlyBreakTarget;
+		if (breakToken?.algorithmData?.type === ALGORITHM_FLEX) {
+			this.#startLine = breakToken.algorithmData.flexLineIndex;
+		}
 	}
 
-	// === ROW FLEX: items within a line are parallel flows ===
+	*layout() {
+		const isRowDirection =
+			this.#node.flexDirection === "row" || this.#node.flexDirection === "row-reverse";
+		if (!isRowDirection) return yield* this.#layoutColumnFlow();
+		if (this.#node.children.length === 0) return this.#emptyOutput();
 
-	const children = node.children;
-	if (children.length === 0) {
-		const fragment = new Fragment(node, 0);
-		fragment.inlineSize = constraintSpace.availableInlineSize;
+		const flexLines = groupFlexLines(
+			this.#node.children,
+			this.#node.flexWrap,
+			this.#constraintSpace,
+		);
+		yield* this.#layoutRowLines(flexLines);
+		return this.#buildOutput();
+	}
+
+	#emptyOutput() {
+		const fragment = new Fragment(this.#node, 0);
+		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
 		return { fragment, breakToken: null };
 	}
 
-	// Group children into flex lines.
-	// For nowrap (default), all items on one line.
-	// For wrap, items are grouped by their inlineSize property.
-	const flexLines = groupFlexLines(children, node.flexWrap, constraintSpace);
+	*#layoutRowLines(flexLines) {
+		for (let lineIdx = this.#startLine; lineIdx < flexLines.length; lineIdx++) {
+			const lineItems = flexLines[lineIdx];
 
-	const lineFragments = [];
-	let blockOffset = 0;
-	let startLine = 0;
-	let containerBreakToken = null;
+			// Lay out this flex line as parallel flows (table-row pattern)
+			const lineResult = yield* this.#layoutFlexLine(lineItems, this.#blockOffset);
 
-	// Resume from break token
-	if (breakToken?.algorithmData?.type === ALGORITHM_FLEX) {
-		startLine = breakToken.algorithmData.flexLineIndex;
-	}
+			this.#lineFragments.push(lineResult.fragment);
+			this.#blockOffset += lineResult.fragment.blockSize;
 
-	for (let lineIdx = startLine; lineIdx < flexLines.length; lineIdx++) {
-		const lineItems = flexLines[lineIdx];
+			if (lineResult.anyBroke) {
+				this.#containerBreakToken = this.#buildContainerBreakTokenForLine(
+					lineIdx,
+					lineResult.breakToken ? [lineResult.breakToken] : [],
+				);
+				break;
+			}
 
-		// Lay out this flex line as parallel flows (table-row pattern)
-		const lineResult = yield* layoutFlexLine(
-			node,
-			lineItems,
-			constraintSpace,
-			blockOffset,
-			breakToken,
-		);
-
-		lineFragments.push(lineResult.fragment);
-		blockOffset += lineResult.fragment.blockSize;
-
-		if (lineResult.anyBroke) {
-			// Build break token for the flex container
-			containerBreakToken = new BlockBreakToken(node);
-			containerBreakToken.consumedBlockSize = (breakToken?.consumedBlockSize || 0) + blockOffset;
-			containerBreakToken.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
-			containerBreakToken.childBreakTokens = lineResult.breakToken ? [lineResult.breakToken] : [];
-			containerBreakToken.hasSeenAllChildren = false;
-			containerBreakToken.algorithmData = {
-				type: ALGORITHM_FLEX,
-				flexLineIndex: lineIdx,
-			};
-			break;
-		}
-
-		// Check if next line fits (Class A break between flex lines)
-		if (
-			constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
-			lineIdx + 1 < flexLines.length &&
-			blockOffset >=
-				constraintSpace.fragmentainerBlockSize - constraintSpace.blockOffsetInFragmentainer
-		) {
-			containerBreakToken = new BlockBreakToken(node);
-			containerBreakToken.consumedBlockSize = (breakToken?.consumedBlockSize || 0) + blockOffset;
-			containerBreakToken.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
-			containerBreakToken.hasSeenAllChildren = false;
-			containerBreakToken.algorithmData = {
-				type: ALGORITHM_FLEX,
-				flexLineIndex: lineIdx + 1,
-			};
-			break;
-		}
-	}
-
-	const fragment = new Fragment(node, blockOffset, lineFragments);
-	fragment.inlineSize = constraintSpace.availableInlineSize;
-	if (containerBreakToken) fragment.breakToken = containerBreakToken;
-
-	return { fragment, breakToken: fragment.breakToken || null };
-}
-
-/**
- * Layout a single flex line's items as parallel flows.
- * Follows the exact same pattern as layoutTableRow.
- */
-function* layoutFlexLine(node, lineItems, constraintSpace, blockOffset, parentBreakToken) {
-	const itemFragments = [];
-	const itemBreakTokens = [];
-	let maxItemBlockSize = 0;
-	let anyBroke = false;
-
-	const itemCount = lineItems.length;
-	const itemInlineSize = constraintSpace.availableInlineSize / itemCount;
-
-	for (let i = 0; i < itemCount; i++) {
-		const item = lineItems[i];
-		const itemBreakToken = findChildBreakToken(parentBreakToken, item);
-		const effectiveItemBreakToken = itemBreakToken?.isBreakBefore ? null : itemBreakToken;
-
-		const itemConstraint = new ConstraintSpace({
-			availableInlineSize: item.itemInlineSize || itemInlineSize,
-			availableBlockSize: constraintSpace.availableBlockSize - blockOffset,
-			fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
-			blockOffsetInFragmentainer: constraintSpace.blockOffsetInFragmentainer + blockOffset,
-			fragmentationType: constraintSpace.fragmentationType,
-		});
-
-		const result = yield new LayoutRequest(item, itemConstraint, effectiveItemBreakToken);
-
-		itemFragments.push(result.fragment);
-		maxItemBlockSize = Math.max(maxItemBlockSize, result.fragment.blockSize);
-
-		if (result.breakToken) {
-			itemBreakTokens.push(result.breakToken);
-			anyBroke = true;
-		} else {
-			itemBreakTokens.push(null);
-		}
-	}
-
-	// Parallel flow rule: completed items need isAtBlockEnd tokens
-	if (anyBroke) {
-		for (let i = 0; i < itemBreakTokens.length; i++) {
-			if (itemBreakTokens[i] === null) {
-				const doneToken = new BlockBreakToken(lineItems[i]);
-				doneToken.isAtBlockEnd = true;
-				doneToken.hasSeenAllChildren = true;
-				itemBreakTokens[i] = doneToken;
+			// Class A break between flex lines: if next line doesn't fit, bail
+			if (
+				this.#constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
+				lineIdx + 1 < flexLines.length &&
+				this.#blockOffset >=
+					this.#constraintSpace.fragmentainerBlockSize -
+						this.#constraintSpace.blockOffsetInFragmentainer
+			) {
+				this.#containerBreakToken = this.#buildContainerBreakTokenForLine(lineIdx + 1, []);
+				break;
 			}
 		}
 	}
 
-	const lineFragment = new Fragment(node, maxItemBlockSize, itemFragments);
-	lineFragment.inlineSize = constraintSpace.availableInlineSize;
+	*#layoutFlexLine(lineItems, blockOffset) {
+		const itemFragments = [];
+		const itemBreakTokens = [];
+		let maxItemBlockSize = 0;
+		let anyBroke = false;
 
-	let lineToken = null;
-	if (anyBroke) {
-		lineToken = new BlockBreakToken(node);
-		lineToken.childBreakTokens = itemBreakTokens;
-		lineToken.hasSeenAllChildren = true;
-		lineToken.algorithmData = { type: ALGORITHM_FLEX_LINE };
+		const itemCount = lineItems.length;
+		const itemInlineSize = this.#constraintSpace.availableInlineSize / itemCount;
+
+		for (let i = 0; i < itemCount; i++) {
+			const item = lineItems[i];
+			const itemBreakToken = findChildBreakToken(this.#breakToken, item);
+			const effectiveItemBreakToken = itemBreakToken?.isBreakBefore ? null : itemBreakToken;
+
+			const itemConstraint = new ConstraintSpace({
+				availableInlineSize: item.itemInlineSize || itemInlineSize,
+				availableBlockSize: this.#constraintSpace.availableBlockSize - blockOffset,
+				fragmentainerBlockSize: this.#constraintSpace.fragmentainerBlockSize,
+				blockOffsetInFragmentainer:
+					this.#constraintSpace.blockOffsetInFragmentainer + blockOffset,
+				fragmentationType: this.#constraintSpace.fragmentationType,
+			});
+
+			const result = yield new LayoutRequest(item, itemConstraint, effectiveItemBreakToken);
+
+			itemFragments.push(result.fragment);
+			if (result.fragment.blockSize > maxItemBlockSize) {
+				maxItemBlockSize = result.fragment.blockSize;
+			}
+
+			if (result.breakToken) {
+				itemBreakTokens.push(result.breakToken);
+				anyBroke = true;
+			} else {
+				itemBreakTokens.push(null);
+			}
+		}
+
+		// Parallel flow rule: completed items need isAtBlockEnd tokens
+		if (anyBroke) {
+			for (let i = 0; i < itemBreakTokens.length; i++) {
+				if (itemBreakTokens[i] === null) {
+					const doneToken = new BlockBreakToken(lineItems[i]);
+					doneToken.isAtBlockEnd = true;
+					doneToken.hasSeenAllChildren = true;
+					itemBreakTokens[i] = doneToken;
+				}
+			}
+		}
+
+		const lineFragment = new Fragment(this.#node, maxItemBlockSize, itemFragments);
+		lineFragment.inlineSize = this.#constraintSpace.availableInlineSize;
+
+		let lineToken = null;
+		if (anyBroke) {
+			lineToken = new BlockBreakToken(this.#node);
+			lineToken.childBreakTokens = itemBreakTokens;
+			lineToken.hasSeenAllChildren = true;
+			lineToken.algorithmData = { type: ALGORITHM_FLEX_LINE };
+		}
+
+		return { fragment: lineFragment, breakToken: lineToken, anyBroke };
 	}
 
-	return { fragment: lineFragment, breakToken: lineToken, anyBroke };
-}
+	*#layoutColumnFlow() {
+		const flowThread = new FlowThreadNode(this.#node);
 
-/**
- * Column-direction flex: items are sequential in the block direction.
- * Uses a flow thread so dispatch routes to layoutBlockContainer.
- */
-function* layoutFlexColumn(node, constraintSpace, breakToken) {
-	const flowThread = new FlowThreadNode(node);
+		const contentToken = this.#breakToken?.childBreakTokens?.[0] ?? null;
+		const result = yield new LayoutRequest(flowThread, this.#constraintSpace, contentToken);
 
-	const contentToken = breakToken?.childBreakTokens?.[0] ?? null;
-	const result = yield new LayoutRequest(flowThread, constraintSpace, contentToken);
+		const fragment = new Fragment(
+			this.#node,
+			result.fragment.blockSize,
+			result.fragment.childFragments,
+		);
+		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
 
-	const fragment = new Fragment(
-		node,
-		result.fragment.blockSize,
-		result.fragment.childFragments,
-	);
-	fragment.inlineSize = constraintSpace.availableInlineSize;
+		if (result.breakToken) {
+			const containerToken = new BlockBreakToken(this.#node);
+			containerToken.consumedBlockSize =
+				(this.#breakToken?.consumedBlockSize || 0) + result.fragment.blockSize;
+			containerToken.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
+			containerToken.childBreakTokens = [result.breakToken];
+			containerToken.hasSeenAllChildren = false;
+			containerToken.algorithmData = { type: ALGORITHM_FLEX, flexLineIndex: 0 };
+			fragment.breakToken = containerToken;
+		}
 
-	if (result.breakToken) {
-		const containerToken = new BlockBreakToken(node);
-		containerToken.consumedBlockSize =
-			(breakToken?.consumedBlockSize || 0) + result.fragment.blockSize;
-		containerToken.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
-		containerToken.childBreakTokens = [result.breakToken];
-		containerToken.hasSeenAllChildren = false;
-		containerToken.algorithmData = { type: ALGORITHM_FLEX, flexLineIndex: 0 };
-		fragment.breakToken = containerToken;
+		return { fragment, breakToken: fragment.breakToken || null };
 	}
 
-	return { fragment, breakToken: fragment.breakToken || null };
+	#buildContainerBreakTokenForLine(flexLineIndex, childBreakTokens) {
+		const token = new BlockBreakToken(this.#node);
+		token.consumedBlockSize = (this.#breakToken?.consumedBlockSize || 0) + this.#blockOffset;
+		token.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
+		token.childBreakTokens = childBreakTokens;
+		token.hasSeenAllChildren = false;
+		token.algorithmData = {
+			type: ALGORITHM_FLEX,
+			flexLineIndex,
+		};
+		return token;
+	}
+
+	#buildOutput() {
+		const fragment = new Fragment(this.#node, this.#blockOffset, this.#lineFragments);
+		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
+		if (this.#containerBreakToken) fragment.breakToken = this.#containerBreakToken;
+		return { fragment, breakToken: fragment.breakToken || null };
+	}
 }
 
 /**

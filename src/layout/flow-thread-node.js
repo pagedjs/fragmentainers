@@ -3,7 +3,7 @@ import { LayoutNode } from "./layout-node-base.js";
 /**
  * Anonymous flow thread node (Chromium pattern). Wraps a multicol or
  * column-direction flex container's children so that `getLayoutAlgorithm`
- * dispatches to `layoutBlockContainer` instead of recursing back into the
+ * dispatches to `BlockContainerAlgorithm` instead of recursing back into the
  * wrapping algorithm.
  *
  * All classification flags stay at the `LayoutNode` defaults (falsy), which

@@ -1,5 +1,6 @@
-export { layoutBlockContainer } from "./block-container.js";
-export { layoutFlexContainer } from "./flex-container.js";
-export { layoutGridContainer } from "./grid-container.js";
-export { layoutMulticolContainer, resolveColumnDimensions } from "./multicol-container.js";
-export { layoutTableRow } from "./table-row.js";
+export { BlockContainerAlgorithm } from "./block-container.js";
+export { FlexAlgorithm } from "./flex-container.js";
+export { GridAlgorithm } from "./grid-container.js";
+export { InlineContentAlgorithm } from "./inline-content.js";
+export { MulticolAlgorithm, resolveColumnDimensions } from "./multicol-container.js";
+export { TableRowAlgorithm } from "./table-row.js";

@@ -4,7 +4,7 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 	test("lays out a table row where all cells fit", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator } = await import("/src/layout/layout-request.js");
-			const { layoutTableRow } = await import("/src/algorithms/table-row.js");
+			const { TableRowAlgorithm } = await import("/src/algorithms/table-row.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -32,7 +32,12 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 				fragmentainerBlockSize: 800,
 				fragmentationType: "page",
 			});
-			const result = runLayoutGenerator(layoutTableRow, rowNode, space, null);
+			const result = runLayoutGenerator(
+				new TableRowAlgorithm(rowNode, space, null),
+				rowNode,
+				space,
+				null,
+			);
 
 			const out = {
 				blockSize: result.fragment.blockSize,
@@ -52,7 +57,7 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 	test("all cells get break tokens when any cell overflows", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator } = await import("/src/layout/layout-request.js");
-			const { layoutTableRow } = await import("/src/algorithms/table-row.js");
+			const { TableRowAlgorithm } = await import("/src/algorithms/table-row.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -79,7 +84,12 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 				fragmentainerBlockSize: 200,
 				fragmentationType: "page",
 			});
-			const result = runLayoutGenerator(layoutTableRow, rowNode, space, null);
+			const result = runLayoutGenerator(
+				new TableRowAlgorithm(rowNode, space, null),
+				rowNode,
+				space,
+				null,
+			);
 
 			const tokenA = result.breakToken.childBreakTokens[0];
 			const tokenB = result.breakToken.childBreakTokens[1];
@@ -164,7 +174,7 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 	test("row height is driven by tallest cell", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator } = await import("/src/layout/layout-request.js");
-			const { layoutTableRow } = await import("/src/algorithms/table-row.js");
+			const { TableRowAlgorithm } = await import("/src/algorithms/table-row.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -190,7 +200,12 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 				fragmentainerBlockSize: 800,
 				fragmentationType: "page",
 			});
-			const result = runLayoutGenerator(layoutTableRow, rowNode, space, null);
+			const result = runLayoutGenerator(
+				new TableRowAlgorithm(rowNode, space, null),
+				rowNode,
+				space,
+				null,
+			);
 
 			container.remove();
 			return { blockSize: result.fragment.blockSize };

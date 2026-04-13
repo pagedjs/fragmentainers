@@ -43,88 +43,136 @@ export function resolveColumnDimensions(U, specifiedWidth, specifiedCount, gap) 
 }
 
 /**
- * Multicol container layout algorithm (generator).
+ * Multicol container layout algorithm.
  *
  * Resolves column dimensions, creates an anonymous flow thread,
  * and runs a column loop where each iteration is a column fragmentainer.
  * Mirrors Chromium's NGColumnLayoutAlgorithm.
- *
- * @param {import('../helpers.js').LayoutNode} node - The multicol container
- * @param {ConstraintSpace} constraintSpace
- * @param {import('../tokens.js').BlockBreakToken|null} breakToken
  */
-export function* layoutMulticolContainer(node, constraintSpace, breakToken) {
-	const containerInlineSize = constraintSpace.availableInlineSize;
-	const gap = node.columnGap ?? 0;
+export class MulticolAlgorithm {
+	#node;
+	#constraintSpace;
+	#breakToken;
+	// earlyBreakTarget is part of the algorithm constructor protocol but
+	// multicol doesn't run Class A break scoring — accepted for parity.
+	// eslint-disable-next-line no-unused-private-class-members
+	#earlyBreakTarget;
 
-	// Resolve column count and width (CSS Multicol §3)
-	const { count, width } = resolveColumnDimensions(
-		containerInlineSize,
-		node.columnWidth,
-		node.columnCount,
-		gap,
-	);
+	// Resolved during #setup, consumed in #layoutColumnLoop and #buildOutput
+	#count;
+	#width;
+	#gap;
+	#columnHeight;
+	#columnCS;
+	#flowThread;
 
-	// Determine column height from available block space
-	const columnHeight = constraintSpace.availableBlockSize;
+	// Cross-iteration state (collected during the column loop, consumed in output)
+	#columnFragments = [];
+	#contentToken;
 
-	// Build column constraint space
-	const columnCS = new ConstraintSpace({
-		availableInlineSize: width,
-		availableBlockSize: columnHeight,
-		fragmentainerBlockSize: columnHeight,
-		blockOffsetInFragmentainer: 0,
-		fragmentationType: FRAGMENTATION_COLUMN,
-		isNewFormattingContext: true,
-	});
-
-	// Create anonymous flow thread (Chromium pattern — avoids recursion)
-	const flowThread = new FlowThreadNode(node);
-
-	// Resume content token from previous outer fragmentainer
-	let contentToken = breakToken?.childBreakTokens?.[0] ?? null;
-
-	// === COLUMN LOOP ===
-	const columnFragments = [];
-
-	do {
-		const result = yield new LayoutRequest(flowThread, columnCS, contentToken);
-
-		columnFragments.push(result.fragment);
-		contentToken = result.breakToken;
-
-		// column-fill: auto — stop at column count limit
-		if (node.columnFill === "auto" && columnFragments.length >= count) {
-			break;
-		}
-	} while (contentToken !== null);
-
-	// Build multicol fragment
-	const multicolBlockSize =
-		columnHeight === Infinity
-			? Math.max(...columnFragments.map((f) => f.blockSize), 0)
-			: columnHeight;
-
-	const fragment = new Fragment(node, multicolBlockSize, columnFragments);
-	fragment.inlineSize = containerInlineSize;
-	fragment.multicolData = { columnWidth: width, columnGap: gap, columnCount: count };
-
-	// Break token if content remains and we're in an outer fragmentation context
-	// (stub: emitted but nested column-in-page re-resolution not yet handled)
-	if (contentToken !== null && constraintSpace.fragmentationType !== FRAGMENTATION_NONE) {
-		const multicolToken = new BlockBreakToken(node);
-		multicolToken.consumedBlockSize = (breakToken?.consumedBlockSize || 0) + multicolBlockSize;
-		multicolToken.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
-		multicolToken.childBreakTokens = [contentToken];
-		multicolToken.hasSeenAllChildren = false;
-		multicolToken.algorithmData = {
-			type: ALGORITHM_MULTICOL,
-			columnCount: count,
-			columnWidth: width,
-			columnGap: gap,
-		};
-		fragment.breakToken = multicolToken;
+	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
+		this.#node = node;
+		this.#constraintSpace = constraintSpace;
+		this.#breakToken = breakToken;
+		this.#earlyBreakTarget = earlyBreakTarget;
 	}
 
-	return { fragment, breakToken: fragment.breakToken || null };
+	*layout() {
+		this.#setup();
+		yield* this.#layoutColumnLoop();
+		return this.#buildOutput();
+	}
+
+	#setup() {
+		const containerInlineSize = this.#constraintSpace.availableInlineSize;
+		this.#gap = this.#node.columnGap ?? 0;
+
+		// Resolve column count and width (CSS Multicol §3)
+		const { count, width } = resolveColumnDimensions(
+			containerInlineSize,
+			this.#node.columnWidth,
+			this.#node.columnCount,
+			this.#gap,
+		);
+		this.#count = count;
+		this.#width = width;
+
+		// Determine column height from available block space
+		this.#columnHeight = this.#constraintSpace.availableBlockSize;
+
+		// Build column constraint space
+		this.#columnCS = new ConstraintSpace({
+			availableInlineSize: this.#width,
+			availableBlockSize: this.#columnHeight,
+			fragmentainerBlockSize: this.#columnHeight,
+			blockOffsetInFragmentainer: 0,
+			fragmentationType: FRAGMENTATION_COLUMN,
+			isNewFormattingContext: true,
+		});
+
+		// Create anonymous flow thread (Chromium pattern — avoids recursion)
+		this.#flowThread = new FlowThreadNode(this.#node);
+
+		// Resume content token from previous outer fragmentainer
+		this.#contentToken = this.#breakToken?.childBreakTokens?.[0] ?? null;
+	}
+
+	*#layoutColumnLoop() {
+		do {
+			const result = yield new LayoutRequest(
+				this.#flowThread,
+				this.#columnCS,
+				this.#contentToken,
+			);
+
+			this.#columnFragments.push(result.fragment);
+			this.#contentToken = result.breakToken;
+
+			// column-fill: auto — stop at column count limit
+			if (this.#node.columnFill === "auto" && this.#columnFragments.length >= this.#count) {
+				break;
+			}
+		} while (this.#contentToken !== null);
+	}
+
+	#buildMulticolBreakToken(multicolBlockSize) {
+		const token = new BlockBreakToken(this.#node);
+		token.consumedBlockSize = (this.#breakToken?.consumedBlockSize || 0) + multicolBlockSize;
+		token.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
+		token.childBreakTokens = [this.#contentToken];
+		token.hasSeenAllChildren = false;
+		token.algorithmData = {
+			type: ALGORITHM_MULTICOL,
+			columnCount: this.#count,
+			columnWidth: this.#width,
+			columnGap: this.#gap,
+		};
+		return token;
+	}
+
+	#buildOutput() {
+		const multicolBlockSize =
+			this.#columnHeight === Infinity
+				? Math.max(...this.#columnFragments.map((f) => f.blockSize), 0)
+				: this.#columnHeight;
+
+		const fragment = new Fragment(this.#node, multicolBlockSize, this.#columnFragments);
+		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
+		fragment.multicolData = {
+			columnWidth: this.#width,
+			columnGap: this.#gap,
+			columnCount: this.#count,
+		};
+
+		// Break token if content remains and we're in an outer fragmentation context
+		// (stub: emitted but nested column-in-page re-resolution not yet handled)
+		if (
+			this.#contentToken !== null &&
+			this.#constraintSpace.fragmentationType !== FRAGMENTATION_NONE
+		) {
+			fragment.breakToken = this.#buildMulticolBreakToken(multicolBlockSize);
+		}
+
+		return { fragment, breakToken: fragment.breakToken || null };
+	}
 }
