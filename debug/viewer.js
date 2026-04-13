@@ -216,7 +216,10 @@ const debug = process.argv.includes("--debug");
 const headless = html.enabled || inspect.enabled || pdf.enabled;
 
 const { port, server, existing } = await ensureServer(3000);
-printConfig(port, existing, specPath, specType, browserName);
+const skipConfig = (inspect?.enabled && !inspect.path) || (html?.enabled && !html.path);
+if (!skipConfig) {
+	printConfig(port, existing, specPath, specType, browserName);
+}
 
 if (ref && pdf.enabled) {
 	// Ref + PDF: no script injection, just print the page as-is
