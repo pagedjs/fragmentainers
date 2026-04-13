@@ -1,5 +1,5 @@
-import { LayoutModule } from "./module.js";
-import { modules } from "./registry.js";
+import { LayoutHandler } from "./handler.js";
+import { handlers } from "./registry.js";
 import { walkRules } from "../styles/walk-rules.js";
 
 /**
@@ -166,7 +166,7 @@ export function buildPerFragmentNthSheet(slot, descriptors) {
 	let nextRefId = 0;
 
 	for (const el of slot.querySelectorAll("*")) {
-		const sourceEl = modules.getSource(el);
+		const sourceEl = handlers.getSource(el);
 		if (!sourceEl) continue;
 
 		let pos = positionCache.get(sourceEl);
@@ -211,7 +211,7 @@ export function buildPerFragmentNthSheet(slot, descriptors) {
 	return sheet;
 }
 
-class NthSelectors extends LayoutModule {
+class NthSelectors extends LayoutHandler {
 	#descriptors = [];
 
 	resetRules() {

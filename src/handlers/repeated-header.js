@@ -1,9 +1,9 @@
-import { LayoutModule } from "./module.js";
+import { LayoutHandler } from "./handler.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { findChildBreakToken } from "../fragmentation/tokens.js";
 import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE } from "../fragmentation/constraint-space.js";
 
-class RepeatedTableHeader extends LayoutModule {
+class RepeatedTableHeader extends LayoutHandler {
 	beforeChildren(node, constraintSpace, breakToken) {
 		if (!breakToken || !node.isTable) return null;
 		if (constraintSpace.fragmentationType !== FRAGMENTATION_PAGE) return null;

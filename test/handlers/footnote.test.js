@@ -4,7 +4,7 @@ test.describe("Footnote.matches", () => {
 	test("returns true for a node with --float: footnote", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { Footnote } = await import("/src/modules/footnote.js");
+			const { Footnote } = await import("/src/handlers/footnote.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:400px";
@@ -28,7 +28,7 @@ test.describe("Footnote.matches", () => {
 	test("returns false for a regular block node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { Footnote } = await import("/src/modules/footnote.js");
+			const { Footnote } = await import("/src/handlers/footnote.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:400px";
@@ -49,7 +49,7 @@ test.describe("Footnote.matches", () => {
 test.describe("Footnote.layout", () => {
 	test("returns zero reservation by default", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Footnote } = await import("/src/modules/footnote.js");
+			const { Footnote } = await import("/src/handlers/footnote.js");
 			const mod = new Footnote();
 			const res = mod.layout();
 			return {
@@ -67,7 +67,7 @@ test.describe("Footnote.layout", () => {
 test.describe("Footnote.claimPersistent", () => {
 	test("returns empty array (footnotes are not persistent)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Footnote } = await import("/src/modules/footnote.js");
+			const { Footnote } = await import("/src/handlers/footnote.js");
 			const frag = document.createDocumentFragment();
 			const mod = new Footnote();
 			const res = mod.claimPersistent(frag, []);

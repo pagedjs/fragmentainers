@@ -1,8 +1,8 @@
 /**
  * Materialize ::before and ::after pseudo elements as real DOM elements.
  *
- * Implemented as a LayoutModule so pseudo handling participates in the
- * standard module pipeline:
+ * Implemented as a LayoutHandler so pseudo handling participates in the
+ * standard handler pipeline:
  *   - matchRule/appendRules rewrites ::before/::after rules to target
  *     synthetic <frag-pseudo> elements (companion + relocation rules),
  *     plus two global suppression rules that hide the original pseudos.
@@ -12,12 +12,12 @@
  * Follows Chromium LayoutNG's approach where pseudo elements become layout
  * objects in the layout tree, rather than being invisible to the engine.
  *
- * Modules can opt out via claimPseudo() (skip materialization) or
+ * Handlers can opt out via claimPseudo() (skip materialization) or
  * claimPseudoRule() (skip rule rewriting).
  */
 
-import { LayoutModule } from "./module.js";
-import { modules } from "./registry.js";
+import { LayoutHandler } from "./handler.js";
+import { handlers } from "./registry.js";
 
 const PSEUDO_TAG = "FRAG-PSEUDO";
 
@@ -84,7 +84,7 @@ function wrapRule(ruleText, wrappers) {
 	return css;
 }
 
-export class PseudoElements extends LayoutModule {
+export class PseudoElements extends LayoutHandler {
 	#rules = [];
 	#hasPseudoRules = false;
 
@@ -108,7 +108,7 @@ export class PseudoElements extends LayoutModule {
 			const pseudo = extractPseudo(sel);
 			if (!pseudo) continue;
 
-			if (modules.claimPseudoRule(rule, pseudo)) continue;
+			if (handlers.claimPseudoRule(rule, pseudo)) continue;
 
 			const base = sel.replace(/::(before|after)\s*$/, "").trim();
 			const fragSel = `${base} > frag-pseudo[data-pseudo="${pseudo}"]`;
@@ -181,7 +181,7 @@ export class PseudoElements extends LayoutModule {
 		const candidate = which === "before" ? el.firstElementChild : el.lastElementChild;
 		if (candidate?.tagName === PSEUDO_TAG && candidate.dataset.pseudo === which) return;
 
-		if (modules.claimPseudo(el, which, content)) return;
+		if (handlers.claimPseudo(el, which, content)) return;
 
 		const synthetic = document.createElement("frag-pseudo");
 		synthetic.setAttribute("role", "none");

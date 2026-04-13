@@ -1,5 +1,5 @@
-import { LayoutModule } from "./module.js";
-import { modules } from "./registry.js";
+import { LayoutHandler } from "./handler.js";
+import { handlers } from "./registry.js";
 
 /** Attributes managed by the compositor — never sync back to source. */
 const COMPOSITOR_ATTRS = new Set([
@@ -10,10 +10,10 @@ const COMPOSITOR_ATTRS = new Set([
 ]);
 
 /**
- * Layout module that syncs mutations from composed <fragment-container>
+ * Layout handler that syncs mutations from composed <fragment-container>
  * clones back to the source DOM.
  *
- * Uses the shared clone→source map on the module registry (populated
+ * Uses the shared clone→source map on the handler registry (populated
  * by mapFragment after composition) to resolve clone elements.
  *
  *   const sync = new MutationSync();
@@ -26,7 +26,7 @@ const COMPOSITOR_ATTRS = new Set([
  *     sync.applyMutations(records);
  *   });
  */
-export class MutationSync extends LayoutModule {
+export class MutationSync extends LayoutHandler {
 	/**
 	 * Process an array of MutationRecords from a fragment-container.
 	 * Applies each mutation back to the source DOM.
@@ -62,7 +62,7 @@ export class MutationSync extends LayoutModule {
 		const { attributeName, target } = mutation;
 		if (COMPOSITOR_ATTRS.has(attributeName)) return false;
 
-		const source = modules.getSource(target);
+		const source = handlers.getSource(target);
 		if (!source) return false;
 
 		const newValue = target.getAttribute(attributeName);
@@ -78,7 +78,7 @@ export class MutationSync extends LayoutModule {
 		let changed = false;
 		for (const node of mutation.removedNodes) {
 			if (node.nodeType !== 1) continue;
-			const source = modules.getSource(node);
+			const source = handlers.getSource(node);
 			if (!source) continue;
 			source.remove();
 			changed = true;
@@ -90,7 +90,7 @@ export class MutationSync extends LayoutModule {
 		let changed = false;
 		for (const node of mutation.addedNodes) {
 			if (node.nodeType !== 1) continue;
-			if (modules.getSource(node)) continue;
+			if (handlers.getSource(node)) continue;
 
 			const insertionPoint = this.#findInsertionPoint(node, mutation.target);
 			if (!insertionPoint) continue;
@@ -104,11 +104,11 @@ export class MutationSync extends LayoutModule {
 			}
 
 			// Register the new clone→source pairs in the shared map
-			modules.trackClone(node, sourceClone);
+			handlers.trackClone(node, sourceClone);
 			const composedDescs = node.querySelectorAll("*");
 			const sourceDescs = sourceClone.querySelectorAll("*");
 			for (let i = 0; i < composedDescs.length && i < sourceDescs.length; i++) {
-				modules.trackClone(composedDescs[i], sourceDescs[i]);
+				handlers.trackClone(composedDescs[i], sourceDescs[i]);
 			}
 
 			changed = true;
@@ -118,28 +118,28 @@ export class MutationSync extends LayoutModule {
 
 	#findInsertionPoint(node, parent) {
 		let prev = node.previousElementSibling;
-		while (prev && !modules.getSource(prev)) {
+		while (prev && !handlers.getSource(prev)) {
 			prev = prev.previousElementSibling;
 		}
 		if (prev) {
-			const sourceRef = modules.getSource(prev);
+			const sourceRef = handlers.getSource(prev);
 			if (sourceRef) {
 				return { parent: sourceRef.parentElement, before: sourceRef.nextElementSibling };
 			}
 		}
 
 		let next = node.nextElementSibling;
-		while (next && !modules.getSource(next)) {
+		while (next && !handlers.getSource(next)) {
 			next = next.nextElementSibling;
 		}
 		if (next) {
-			const sourceRef = modules.getSource(next);
+			const sourceRef = handlers.getSource(next);
 			if (sourceRef) {
 				return { parent: sourceRef.parentElement, before: sourceRef };
 			}
 		}
 
-		const parentSource = modules.getSource(parent);
+		const parentSource = handlers.getSource(parent);
 		if (parentSource) {
 			return { parent: parentSource, before: null };
 		}

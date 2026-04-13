@@ -1,7 +1,7 @@
-export class LayoutModule {
+export class LayoutHandler {
 	/**
-	 * Called once when the module is registered, and again when
-	 * options change. Modules use this for feature detection
+	 * Called once when the handler is registered, and again when
+	 * options change. Handlers use this for feature detection
 	 * and reading options that affect their behavior.
 	 *
 	 * @param {Object} [options] - Options from FragmentedFlow
@@ -20,7 +20,7 @@ export class LayoutModule {
 
 	/**
 	 * Called once per leaf CSSStyleRule during the centralized rule walk.
-	 * Modules override this to inspect CSS rules and accumulate state
+	 * Handlers override this to inspect CSS rules and accumulate state
 	 * (e.g. selectors for elements they need to claim).
 	 *
 	 * @param {CSSStyleRule} rule — a style rule with .selectorText and .style
@@ -47,7 +47,7 @@ export class LayoutModule {
 
 	/**
 	 * Called before measurement begins, with the full content fragment.
-	 * Modules can claim elements that should persist across all measurement
+	 * Handlers can claim elements that should persist across all measurement
 	 * segments (e.g., position: fixed elements that repeat on every page).
 	 *
 	 * @param {DocumentFragment|Element} content — the full content root
@@ -60,7 +60,7 @@ export class LayoutModule {
 	/**
 	 * Called during pseudo element materialization for each detected
 	 * ::before/::after. Return true to claim the pseudo and prevent
-	 * materialization (the module manages it via CSS).
+	 * materialization (the handler manages it via CSS).
 	 *
 	 * @param {Element} element — the element with the pseudo
 	 * @param {string} pseudo — "before" or "after"
@@ -73,7 +73,7 @@ export class LayoutModule {
 
 	/**
 	 * Called during CSS rule rewriting for each rule with ::before/::after.
-	 * Return true to skip rewriting this rule (the module owns it).
+	 * Return true to skip rewriting this rule (the handler owns it).
 	 *
 	 * @param {CSSStyleRule} rule — the CSS rule
 	 * @param {string} pseudo — "before" or "after"
@@ -86,7 +86,7 @@ export class LayoutModule {
 	/**
 	 * Called after content has been injected into the measurement container
 	 * and the browser has computed styles, but before measurement begins.
-	 * Modules can mutate the DOM here (e.g. materialize synthetic elements).
+	 * Handlers can mutate the DOM here (e.g. materialize synthetic elements).
 	 * A reflow is triggered after this hook, so changes are reflected in
 	 * getContentStyles().
 	 *
@@ -99,7 +99,7 @@ export class LayoutModule {
 	 * injected, pseudo-elements materialized, styles resolved). The
 	 * live DOM is available for getComputedStyle() queries.
 	 *
-	 * Modules can probe the DOM and build internal state such as
+	 * Handlers can probe the DOM and build internal state such as
 	 * generated stylesheets. Must not modify the DOM or adopted
 	 * stylesheets (to avoid measurer reflow).
 	 *
@@ -119,7 +119,7 @@ export class LayoutModule {
 
 	/**
 	 * Called after content layout completes for a fragmentainer.
-	 * Modules can inspect the resulting fragment and request additional
+	 * Handlers can inspect the resulting fragment and request additional
 	 * block-end space (e.g., for footnotes). Returning a different
 	 * reservedBlockEnd than what was used triggers a re-layout.
 	 *
@@ -133,7 +133,7 @@ export class LayoutModule {
 	}
 
 	/**
-	 * Clean up any resources held by this module instance.
+	 * Clean up any resources held by this handler instance.
 	 * Called by the registry before replacing instances on re-init.
 	 */
 	destroy() {}

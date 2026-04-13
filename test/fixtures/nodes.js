@@ -347,7 +347,7 @@ export function floatNode({
 }
 
 /**
- * Create a position: fixed node for testing the fixed-position module.
+ * Create a position: fixed node for testing the fixed-position handler.
  * @param {Object} opts
  * @param {string} [opts.anchorEdge="block-start"] - "block-start", "block-end", or "overlay"
  * @param {number} [opts.blockSize=0] - Intrinsic block size
@@ -360,7 +360,7 @@ export function fixedNode({
 	...overrides
 } = {}) {
 	// Build mock inline style for anchor edge classification.
-	// The module reads element.style.top / element.style.bottom to
+	// The handler reads element.style.top / element.style.bottom to
 	// classify which edge the fixed element anchors to.
 	const inlineStyle = {
 		"block-start": { top: "0px", bottom: "" },

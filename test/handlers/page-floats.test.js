@@ -4,7 +4,7 @@ test.describe("PageFloat.matches", () => {
 	test("returns true for a page-float node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { PageFloat } = await import("/src/modules/page-float.js");
+			const { PageFloat } = await import("/src/handlers/page-float.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -24,7 +24,7 @@ test.describe("PageFloat.matches", () => {
 	test("returns false for a regular block node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { PageFloat } = await import("/src/modules/page-float.js");
+			const { PageFloat } = await import("/src/handlers/page-float.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -49,7 +49,7 @@ test.describe("PageFloat.layout", () => {
 			const { createFragments } = await import("/src/layout/layout-request.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { PageFloat } = await import("/src/modules/page-float.js");
+			const { PageFloat } = await import("/src/handlers/page-float.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -90,7 +90,7 @@ test.describe("PageFloat.layout", () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { PageFloat } = await import("/src/modules/page-float.js");
+			const { PageFloat } = await import("/src/handlers/page-float.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -129,7 +129,7 @@ test.describe("PageFloat.layout", () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { PageFloat } = await import("/src/modules/page-float.js");
+			const { PageFloat } = await import("/src/handlers/page-float.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -169,7 +169,7 @@ test.describe("PageFloat.layout", () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { PageFloat } = await import("/src/modules/page-float.js");
+			const { PageFloat } = await import("/src/handlers/page-float.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -211,7 +211,7 @@ test.describe("page floats integration with createFragments", () => {
 			const { createFragments } = await import("/src/layout/layout-request.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { PageFloat } = await import("/src/modules/page-float.js");
+			const { PageFloat } = await import("/src/handlers/page-float.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -229,19 +229,19 @@ test.describe("page floats integration with createFragments", () => {
 				fragmentationType: FRAGMENTATION_PAGE,
 			});
 
-			// Without modules: content fits in one page (100 + 700 = 800)
+			// Without handlers: content fits in one page (100 + 700 = 800)
 			const noModFragments = createFragments(root, cs);
 
-			// With modules: float takes 100, content takes 700
-			const csWithModules = new ConstraintSpace({
+			// With handlers: float takes 100, content takes 700
+			const csWithHandlers = new ConstraintSpace({
 				availableInlineSize: 600,
 				availableBlockSize: 800 - 100,
 				fragmentainerBlockSize: 800,
 				blockOffsetInFragmentainer: 100,
 				fragmentationType: FRAGMENTATION_PAGE,
-				modules: [PageFloat],
+				handlers: [PageFloat],
 			});
-			const fragments = createFragments(root, csWithModules);
+			const fragments = createFragments(root, csWithHandlers);
 
 			container.remove();
 			return {
@@ -261,7 +261,7 @@ test.describe("page floats integration with createFragments", () => {
 			const { createFragments } = await import("/src/layout/layout-request.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { PageFloat } = await import("/src/modules/page-float.js");
+			const { PageFloat } = await import("/src/handlers/page-float.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -278,7 +278,7 @@ test.describe("page floats integration with createFragments", () => {
 				fragmentainerBlockSize: 800,
 				blockOffsetInFragmentainer: 200,
 				fragmentationType: FRAGMENTATION_PAGE,
-				modules: [PageFloat],
+				handlers: [PageFloat],
 			});
 			const fragments = createFragments(root, cs);
 
@@ -288,7 +288,7 @@ test.describe("page floats integration with createFragments", () => {
 		expect(result.len).toBe(2);
 	});
 
-	test("no modules produces same results as before", async ({ page }) => {
+	test("no handlers produces same results as before", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { createFragments } = await import("/src/layout/layout-request.js");
@@ -322,13 +322,13 @@ test.describe("page floats integration with createFragments", () => {
 });
 
 test.describe("FragmentedFlow.register / .remove", () => {
-	test("register() registers a module globally", async ({ page }) => {
+	test("register() registers a handler globally", async ({ page }) => {
 		await page.evaluate(async () => {
 			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
-			const { PageFloat } = await import("/src/modules/page-float.js");
+			const { PageFloat } = await import("/src/handlers/page-float.js");
 
 			FragmentedFlow.register(PageFloat);
-			// Registering the same module twice should be a no-op
+			// Registering the same handler twice should be a no-op
 			FragmentedFlow.register(PageFloat);
 			// After removal, it should be gone
 			FragmentedFlow.remove(PageFloat);
@@ -337,12 +337,12 @@ test.describe("FragmentedFlow.register / .remove", () => {
 		});
 	});
 
-	test("register() does not duplicate a module", async ({ page }) => {
+	test("register() does not duplicate a handler", async ({ page }) => {
 		await page.evaluate(async () => {
 			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
-			const { LayoutModule } = await import("/src/modules/module.js");
+			const { LayoutHandler } = await import("/src/handlers/handler.js");
 
-			class Spy extends LayoutModule {}
+			class Spy extends LayoutHandler {}
 			FragmentedFlow.register(Spy);
 			FragmentedFlow.register(Spy);
 			FragmentedFlow.remove(Spy);

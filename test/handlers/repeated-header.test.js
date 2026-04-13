@@ -7,7 +7,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
+			const { RepeatedTableHeader } = await import("/src/handlers/repeated-header.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -47,7 +47,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
+			const { RepeatedTableHeader } = await import("/src/handlers/repeated-header.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -80,7 +80,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
+			const { RepeatedTableHeader } = await import("/src/handlers/repeated-header.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -112,7 +112,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { FRAGMENTATION_COLUMN } = await import("/src/fragmentation/constraint-space.js");
-			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
+			const { RepeatedTableHeader } = await import("/src/handlers/repeated-header.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -146,7 +146,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
+			const { RepeatedTableHeader } = await import("/src/handlers/repeated-header.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -184,7 +184,7 @@ test.describe("RepeatedTableHeader.beforeChildren", () => {
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { RepeatedTableHeader } = await import("/src/modules/repeated-header.js");
+			const { RepeatedTableHeader } = await import("/src/handlers/repeated-header.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";

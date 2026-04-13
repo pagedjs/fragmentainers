@@ -13,7 +13,7 @@ import {
 	FragmentationContext,
 	ConstraintSpace,
 	PageResolver,
-	modules,
+	handlers,
 } from "fragmentainers";
 ```
 
@@ -27,7 +27,7 @@ Additional subpath barrels expose the rest of the public surface area:
 | `fragmentainers/resolvers` | `PageResolver`, `RegionResolver`, `RegionConstraints` |
 | `fragmentainers/components` | `ContentMeasureElement`, `FragmentContainerElement` |
 | `fragmentainers/styles` | `computedStyleMap` |
-| `fragmentainers/modules` | `LayoutModule`, `modules`, `PageFloat`, `RepeatedTableHeader`, `FixedPosition`, `Footnote` |
+| `fragmentainers/handlers` | `LayoutHandler`, `handlers`, `PageFloat`, `RepeatedTableHeader`, `FixedPosition`, `Footnote` |
 
 Constants and internal helpers (e.g. `NAMED_SIZES`, `FRAGMENTATION_*`, `BOX_DECORATION_*`, `walkRules`, `parseNumeric`) are imported from the specific file that owns them — see each section below for the exact path.
 
@@ -44,7 +44,7 @@ Constants and internal helpers (e.g. `NAMED_SIZES`, `FRAGMENTATION_*`, `BOX_DECO
 7. [Helpers](#7-helpers)
 8. [Constants](#8-constants)
 9. [Layout Algorithms](#9-layout-algorithms)
-10. [Layout Modules](#10-layout-modules)
+10. [Layout Handlers](#10-layout-handlers)
 
 ---
 
@@ -369,7 +369,7 @@ Typed OM when available.
 
 `import { walkRules, walkSheets, insertWrappedRule } from "fragmentainers/src/styles/walk-rules.js"`
 
-Shared helpers for walking CSS rule trees used by modules and `@page`
+Shared helpers for walking CSS rule trees used by handlers and `@page`
 processing.
 
 - `walkRules(ruleList, visitor, wrappers?)` — recursive descent that calls
@@ -743,7 +743,7 @@ list continuation, and monolithic content clipping.
 ### Fragment.map(inputBreakToken, composedParent)
 
 Walk the fragment tree and composed DOM in parallel, registering each
-clone→source pair in the module registry's shared map. Used by modules
+clone→source pair in the handler registry's shared map. Used by handlers
 (NthSelectors, MutationSync) to resolve composed elements back to their source.
 
 | Parameter         | Type                 | Description                                 |
@@ -1066,7 +1066,7 @@ non-null) since those were already counted in a previous fragmentainer.
 
 ## 8. Constants
 
-Each constant is exported from the file that manages it — import directly from the source module.
+Each constant is exported from the file that manages it — import directly from the source file.
 
 ### Fragmentation Types
 
@@ -1205,16 +1205,16 @@ this order:
 
 ---
 
-## 10. Layout Modules
+## 10. Layout Handlers
 
-Layout modules extend the engine with custom behaviors. See
-[modules.md](modules.md) for the full guide on writing custom modules.
+Layout handlers extend the engine with custom behaviors. See
+[handlers.md](handlers.md) for the full guide on writing custom handlers.
 
-### LayoutModule (base class)
+### LayoutHandler (base class)
 
-`import { LayoutModule } from "fragmentainers"`
+`import { LayoutHandler } from "fragmentainers"`
 
-Base class for all layout modules. Subclass and override methods as needed.
+Base class for all layout handlers. Subclass and override methods as needed.
 
 #### Properties
 
@@ -1226,14 +1226,14 @@ Base class for all layout modules. Subclass and override methods as needed.
 
 | Method                                                           | Returns                                                 | Description                                                                                          |
 | ---------------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `claim(node)`                                                    | `boolean`                                               | Return `true` if this module claims a child node (removes it from flow). Default: `false`.           |
+| `claim(node)`                                                    | `boolean`                                               | Return `true` if this handler claims a child node (removes it from flow). Default: `false`.          |
 | `resetRules()`                                                   | `void`                                                  | Reset state from a previous `matchRule` pass. Called before each CSS rule walk.                      |
 | `matchRule(rule, context)`                                       | `void`                                                  | Inspect a CSS rule during the centralized rule walk. `context.wrappers` has grouping rule preambles. |
 | `appendRules(rules)`                                             | `void`                                                  | Push CSS rule text strings into `rules[]` to inject into a shared stylesheet.                        |
 | `claimPersistent(content)`                                       | `Element[]`                                             | Called before measurement. Return elements to include in every measurement segment.                  |
 | `claimPseudo(element, pseudo, contentValue)`                     | `boolean`                                               | Claim a pseudo-element during materialization. Return `true` to prevent default handling.            |
 | `claimPseudoRule(rule, pseudo)`                                  | `boolean`                                               | Claim a CSS pseudo-element rule. Return `true` to skip rewriting.                                    |
-| `afterMeasurementSetup(contentRoot)`                             | `void`                                                  | Called after measurement DOM is set up. Modules can probe live elements via `getComputedStyle`.      |
+| `afterMeasurementSetup(contentRoot)`                             | `void`                                                  | Called after measurement DOM is set up. Handlers can probe live elements via `getComputedStyle`.     |
 | `getAdoptedSheets()`                                             | `CSSStyleSheet[]`                                       | Return stylesheets to adopt on each fragment-container's shadow DOM.                                 |
 | `layout(rootNode, constraintSpace, breakToken, layoutChild)`     | `{ reservedBlockStart, reservedBlockEnd, afterRender }` | Pre-layout hook. Called once per fragmentainer.                                                      |
 | `beforeChildren(node, constraintSpace, breakToken)`              | `{ node, constraintSpace, isRepeated } \| null`         | Called before the child loop. Return a layout descriptor to prepend, or `null`.                      |
@@ -1241,48 +1241,48 @@ Base class for all layout modules. Subclass and override methods as needed.
 
 ---
 
-### modules (registry)
+### handlers (registry)
 
-`import { modules } from "fragmentainers"`
+`import { handlers } from "fragmentainers"`
 
-Global `ModuleRegistry` instance. Built-in modules are registered automatically
+Global `HandlerRegistry` instance. Built-in handlers are registered automatically
 at import time.
 
 #### Methods
 
 | Method                                                           | Returns           | Description                                                               |
 | ---------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------- |
-| `register(module)`                                               | `void`            | Register a module instance                                                |
-| `remove(module)`                                                 | `void`            | Unregister a module                                                       |
-| `setOptions(options)`                                            | `void`            | Pass options from `FragmentedFlow` to all modules                         |
+| `register(handler)`                                              | `void`            | Register a handler instance                                               |
+| `remove(handler)`                                                | `void`            | Unregister a handler                                                      |
+| `setOptions(options)`                                            | `void`            | Pass options from `FragmentedFlow` to all handlers                        |
 | `processRules(styles)`                                           | `void`            | Walk CSS rules, dispatch to `matchRule()`, collect `appendRules()` output |
-| `claim(node)`                                                    | `boolean`         | Check if any registered module claims this node                           |
-| `claimPersistent(content)`                                       | `Element[]`       | Aggregate persistent elements from all modules                            |
-| `afterMeasurementSetup(contentRoot)`                             | `void`            | Let modules probe the live measurement DOM                                |
-| `getAdoptedSheets()`                                             | `CSSStyleSheet[]` | Collect stylesheets from modules for fragment-containers                  |
-| `layout(rootNode, constraintSpace, breakToken, layoutChild)`     | `object`          | Aggregate `layout()` results from all modules                             |
+| `claim(node)`                                                    | `boolean`         | Check if any registered handler claims this node                          |
+| `claimPersistent(content)`                                       | `Element[]`       | Aggregate persistent elements from all handlers                           |
+| `afterMeasurementSetup(contentRoot)`                             | `void`            | Let handlers probe the live measurement DOM                               |
+| `getAdoptedSheets()`                                             | `CSSStyleSheet[]` | Collect stylesheets from handlers for fragment-containers                 |
+| `layout(rootNode, constraintSpace, breakToken, layoutChild)`     | `object`          | Aggregate `layout()` results from all handlers                            |
 | `beforeChildren(node, constraintSpace, breakToken)`              | `object \| null`  | First non-null `beforeChildren()` result                                  |
 | `afterContentLayout(fragment, constraintSpace, inputBreakToken)` | `object \| null`  | Aggregate `afterContentLayout()` results                                  |
 
 ---
 
-### Built-in Modules
+### Built-in Handlers
 
-All built-in modules are registered automatically. They can also be imported directly.
+All built-in handlers are registered automatically. They can also be imported directly.
 
-| Module                   | Import                                                                                  | Description                                                                                     |
-| ------------------------ | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `PageFloat`              | `import { PageFloat } from "fragmentainers"`                                            | Page-relative floats via `--float-reference: page` and `--float: top\|bottom`                   |
-| `PageFit`                | `import { PageFit } from "fragmentainers"`                                              | Full-page elements via `--page-fit: contain\|cover\|fill`                                       |
-| `RepeatedTableHeader`    | `import { RepeatedTableHeader } from "fragmentainers"`                                  | Repeat `<thead>` on continuation pages                                                          |
-| `FixedPosition`          | `import { FixedPosition } from "fragmentainers/src/modules/fixed-position.js"`          | Repeat `position: fixed` elements on every page                                                 |
-| `Footnote`               | `import { Footnote } from "fragmentainers/src/modules/footnote.js"`                     | CSS footnotes (`float: footnote`) with iterative layout                                         |
-| `NthSelectors`           | `import { NthSelectors } from "fragmentainers/src/modules/nth-selectors.js"`            | Per-fragment nth-child/nth-of-type selector overrides                                           |
-| `EmulatePrintPixelRatio` | `import { EmulatePrintPixelRatio } from "fragmentainers/src/modules/normalize.js"`      | Line-height normalization for print-style flows (auto-enabled in Blink browsers; page-based only) |
-| `BodyRewriter`           | `import { BodyRewriter } from "fragmentainers/src/modules/body-rewriter.js"`            | Rewrites `body`/`html` selectors to `slot`/`:host` for shadow DOM (page-based only)             |
-| `MutationSync`           | `import { MutationSync } from "fragmentainers"`                                         | Optional. Syncs mutations from fragment-container clones back to source elements                |
+| Handler                  | Import                                                                                   | Description                                                                                     |
+| ------------------------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `PageFloat`              | `import { PageFloat } from "fragmentainers"`                                             | Page-relative floats via `--float-reference: page` and `--float: top\|bottom`                   |
+| `PageFit`                | `import { PageFit } from "fragmentainers"`                                               | Full-page elements via `--page-fit: contain\|cover\|fill`                                       |
+| `RepeatedTableHeader`    | `import { RepeatedTableHeader } from "fragmentainers"`                                   | Repeat `<thead>` on continuation pages                                                          |
+| `FixedPosition`          | `import { FixedPosition } from "fragmentainers/src/handlers/fixed-position.js"`          | Repeat `position: fixed` elements on every page                                                 |
+| `Footnote`               | `import { Footnote } from "fragmentainers/src/handlers/footnote.js"`                     | CSS footnotes (`float: footnote`) with iterative layout                                         |
+| `NthSelectors`           | `import { NthSelectors } from "fragmentainers/src/handlers/nth-selectors.js"`            | Per-fragment nth-child/nth-of-type selector overrides                                           |
+| `EmulatePrintPixelRatio` | `import { EmulatePrintPixelRatio } from "fragmentainers/src/handlers/normalize.js"`      | Line-height normalization for print-style flows (auto-enabled in Blink browsers; page-based only) |
+| `BodyRewriter`           | `import { BodyRewriter } from "fragmentainers/src/handlers/body-rewriter.js"`            | Rewrites `body`/`html` selectors to `slot`/`:host` for shadow DOM (page-based only)             |
+| `MutationSync`           | `import { MutationSync } from "fragmentainers"`                                          | Optional. Syncs mutations from fragment-container clones back to source elements                |
 
-`FragmentedFlow` computes an `isPageBased` flag (`true` when a `PageResolver` is used or when neither `resolver` nor `constraintSpace` is supplied) and passes it to all modules via `init()`. Modules that only apply to print-style fragmentation (`EmulatePrintPixelRatio`, `BodyRewriter`) gate their behavior on this flag and no-op for column/region flows.
+`FragmentedFlow` computes an `isPageBased` flag (`true` when a `PageResolver` is used or when neither `resolver` nor `constraintSpace` is supplied) and passes it to all handlers via `init()`. Handlers that only apply to print-style fragmentation (`EmulatePrintPixelRatio`, `BodyRewriter`) gate their behavior on this flag and no-op for column/region flows.
 
 ---
 

@@ -4,7 +4,7 @@ test.describe("MutationSync with shared clone map", () => {
 	test("populates the clone map via onClone during composition", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
-			const { MutationSync } = await import("/src/modules/mutation-sync.js");
+			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
 			await import("/src/components/content-measure.js");
 			await import("/src/components/fragment-container.js");
 
@@ -20,7 +20,7 @@ test.describe("MutationSync with shared clone map", () => {
 				const layout = new FragmentedFlow(template.content, { width: 400, height: 150 });
 				const flow = layout.flow();
 
-				const syncModule = FragmentedFlow.getModule(MutationSync);
+				const syncHandler = FragmentedFlow.getHandler(MutationSync);
 
 				const fragEl = flow[0];
 				document.body.appendChild(fragEl);
@@ -33,7 +33,7 @@ test.describe("MutationSync with shared clone map", () => {
 					attributeName: "class",
 					target: clone,
 				};
-				const { changed } = syncModule.applyMutations([mutation]);
+				const { changed } = syncHandler.applyMutations([mutation]);
 
 				document.body.removeChild(fragEl);
 				layout?.destroy();
@@ -51,13 +51,13 @@ test.describe("MutationSync with shared clone map", () => {
 test.describe("MutationSync attribute sync", () => {
 	test("syncs attribute changes via clone map", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MutationSync } = await import("/src/modules/mutation-sync.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sync = new MutationSync();
 			const source = document.createElement("p");
 			const clone = document.createElement("p");
-			modules.trackClone(clone, source);
+			handlers.trackClone(clone, source);
 			clone.setAttribute("class", "highlight");
 
 			const mutation = {
@@ -76,13 +76,13 @@ test.describe("MutationSync attribute sync", () => {
 
 	test("skips compositor-managed attributes", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MutationSync } = await import("/src/modules/mutation-sync.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sync = new MutationSync();
 			const source = document.createElement("div");
 			const clone = document.createElement("div");
-			modules.trackClone(clone, source);
+			handlers.trackClone(clone, source);
 			clone.setAttribute("data-split-from", "");
 
 			const mutation = {
@@ -100,14 +100,14 @@ test.describe("MutationSync attribute sync", () => {
 
 	test("removes attribute from source when removed from clone", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MutationSync } = await import("/src/modules/mutation-sync.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sync = new MutationSync();
 			const source = document.createElement("div");
 			source.setAttribute("class", "old");
 			const clone = document.createElement("div");
-			modules.trackClone(clone, source);
+			handlers.trackClone(clone, source);
 
 			const mutation = {
 				type: "attributes",
@@ -124,7 +124,7 @@ test.describe("MutationSync attribute sync", () => {
 
 	test("ignores unmapped elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MutationSync } = await import("/src/modules/mutation-sync.js");
+			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
 
 			const sync = new MutationSync();
 			const clone = document.createElement("div");
@@ -147,8 +147,8 @@ test.describe("MutationSync attribute sync", () => {
 test.describe("MutationSync element removal", () => {
 	test("removes source element when clone is removed", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MutationSync } = await import("/src/modules/mutation-sync.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sync = new MutationSync();
 			const sourceParent = document.createElement("div");
@@ -160,7 +160,7 @@ test.describe("MutationSync element removal", () => {
 			sourceParent.appendChild(sourceP2);
 
 			const removedClone = document.createElement("p");
-			modules.trackClone(removedClone, sourceP2);
+			handlers.trackClone(removedClone, sourceP2);
 
 			const mutation = {
 				type: "childList",
@@ -185,8 +185,8 @@ test.describe("MutationSync element removal", () => {
 test.describe("MutationSync element addition", () => {
 	test("inserts new element at correct position in source", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MutationSync } = await import("/src/modules/mutation-sync.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sync = new MutationSync();
 			const sourceDiv = document.createElement("div");
@@ -198,11 +198,11 @@ test.describe("MutationSync element addition", () => {
 			sourceDiv.appendChild(sourceP2);
 
 			const mockParent = document.createElement("div");
-			modules.trackClone(mockParent, sourceDiv);
+			handlers.trackClone(mockParent, sourceDiv);
 			const cloneP1 = document.createElement("p");
-			modules.trackClone(cloneP1, sourceP1);
+			handlers.trackClone(cloneP1, sourceP1);
 			const cloneP2 = document.createElement("p");
-			modules.trackClone(cloneP2, sourceP2);
+			handlers.trackClone(cloneP2, sourceP2);
 			const newH2 = document.createElement("h2");
 			newH2.textContent = "Inserted";
 
@@ -233,8 +233,8 @@ test.describe("MutationSync element addition", () => {
 
 	test("maps added element and descendants into clone map", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { MutationSync } = await import("/src/modules/mutation-sync.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sync = new MutationSync();
 			const sourceDiv = document.createElement("div");
@@ -242,9 +242,9 @@ test.describe("MutationSync element addition", () => {
 			sourceDiv.appendChild(sourceP);
 
 			const mockParent = document.createElement("div");
-			modules.trackClone(mockParent, sourceDiv);
+			handlers.trackClone(mockParent, sourceDiv);
 			const cloneP = document.createElement("p");
-			modules.trackClone(cloneP, sourceP);
+			handlers.trackClone(cloneP, sourceP);
 
 			const newDiv = document.createElement("div");
 			const innerSpan = document.createElement("span");

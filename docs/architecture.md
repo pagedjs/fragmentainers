@@ -22,7 +22,7 @@ For mappings to browser engine equivalents in Blink, Gecko, and WebKit, see [bro
 8. [Flow Thread Pattern](#8-flow-thread-pattern)
 9. [DOM Adapter](#9-dom-adapter)
 10. [Fragmentation](#10-composition)
-11. [Layout Modules](#11-layout-modules)
+11. [Layout Handlers](#11-layout-handlers)
 12. [Source Layout](#12-source-layout)
 
 ---
@@ -78,7 +78,7 @@ iteration produces one `<fragment-container>` element. Call
 fragment tree and clones DOM elements into visible DOM. For pages,
 this produces `<fragment-container>` custom elements with shadow DOM. For
 regions, the caller composes each fragment into the target region element
-directly. `Fragment.map()` registers clone→source mappings for modules
+directly. `Fragment.map()` registers clone→source mappings for handlers
 that need to resolve composed elements back to their source.
 
 **Resolver pattern.** The engine supports multiple fragmentation modes through
@@ -671,8 +671,8 @@ composed recursively. This ensures each fragment gets its own DOM subtree.
 ### Fragment.map()
 
 `map(inputBreakToken, composedParent)` walks the fragment tree and composed
-DOM in parallel, registering each clone→source pair in the module registry's
-shared map. This mapping is used by modules (NthSelectors, MutationSync)
+DOM in parallel, registering each clone→source pair in the handler registry's
+shared map. This mapping is used by handlers (NthSelectors, MutationSync)
 to resolve composed elements back to their source.
 
 ### Inline content reconstruction
@@ -737,23 +737,23 @@ For `box-decoration-break: clone`, each fragment gets the full box decoration
 
 ---
 
-## 11. Layout Modules
+## 11. Layout Handlers
 
-The engine supports **layout modules** — self-contained extensions that hook into
-the layout and composition pipeline without modifying core algorithms. Modules are
-managed by a global `ModuleRegistry` and all built-in modules are registered
+The engine supports **layout handlers** — self-contained extensions that hook into
+the layout and composition pipeline without modifying core algorithms. Handlers are
+managed by a global `HandlerRegistry` and all built-in handlers are registered
 automatically at import time.
 
 ### Hook points
 
-Modules interact with the engine at these hook points, listed in lifecycle order:
+Handlers interact with the engine at these hook points, listed in lifecycle order:
 
 1. **`resetRules()`** — clear state from a previous CSS rule walk. Called at the
    start of `processRules()`.
 
 2. **`matchRule(rule, context)`** — called once per leaf `CSSStyleRule` during
    the centralized rule walk. `context.wrappers` provides grouping rule
-   preambles (e.g., `["@media screen"]`). Modules accumulate state here.
+   preambles (e.g., `["@media screen"]`). Handlers accumulate state here.
 
 3. **`appendRules(rules)`** — push CSS rule text strings into `rules[]` to be
    inserted into a shared stylesheet prepended to the styles array.
@@ -771,7 +771,7 @@ Modules interact with the engine at these hook points, listed in lifecycle order
 7. **`afterMeasurementSetup(contentRoot)`** — called after the measurement
    container is fully set up (content injected, pseudo-elements materialized,
    styles resolved). The live DOM is available for `getComputedStyle()` queries.
-   Modules can probe elements and build internal state (e.g., generated
+   Handlers can probe elements and build internal state (e.g., generated
    stylesheets). Must not modify the measurer's adopted stylesheets.
 
 8. **`getAdoptedSheets()`** — returns `CSSStyleSheet[]` to be adopted on each
@@ -784,7 +784,7 @@ Modules interact with the engine at these hook points, listed in lifecycle order
    `afterRender` closure.
 
 10. **`claim(node)`** — during block container layout, each child is checked
-    against all modules. If any module returns `true`, the child is skipped in
+    against all handlers. If any handler returns `true`, the child is skipped in
     normal flow.
 
 11. **`beforeChildren(node, constraintSpace, breakToken)`** — called before the
@@ -792,18 +792,18 @@ Modules interact with the engine at these hook points, listed in lifecycle order
     content to prepend (e.g., repeated table headers), or `null`.
 
 12. **`afterContentLayout(fragment, constraintSpace, inputBreakToken)`** — called
-    after content layout completes. Modules can inspect the fragment and request
+    after content layout completes. Handlers can inspect the fragment and request
     additional block-end space (e.g., footnotes). Returning a different
     `reservedBlockEnd` triggers a re-layout.
 
-### Module options
+### Handler options
 
-`FragmentedFlow` passes its constructor options to all registered modules via
-`modules.setOptions(options)`. Modules read `this.options` to check for flags.
-This avoids tight coupling between `FragmentedFlow` and individual modules.
+`FragmentedFlow` passes its constructor options to all registered handlers via
+`handlers.setOptions(options)`. Handlers read `this.options` to check for flags.
+This avoids tight coupling between `FragmentedFlow` and individual handlers.
 
-See [Layout Modules](modules.md) for the full module interface and how to write
-custom modules.
+See [Layout Handlers](handlers.md) for the full handler interface and how to write
+custom handlers.
 
 ---
 
@@ -823,7 +823,7 @@ src/
   styles/           # CSS infrastructure: css-values (CSSNumericValue polyfill),
                     # computed-style-map polyfill, walk-rules, overrides,
                     # ua-defaults, style-utils
-  modules/          # LayoutModule base + built-ins: PageFloat, Footnote,
+  handlers/         # LayoutHandler base + built-ins: PageFloat, Footnote,
                     # FixedPosition, NthSelectors, EmulatePrintPixelRatio,
                     # BodyRewriter, RepeatedTableHeader, PageFit, MutationSync
   resolvers/        # PageResolver, RegionResolver (fragmentainer dimensions)

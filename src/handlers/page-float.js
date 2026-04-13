@@ -1,8 +1,8 @@
-import { LayoutModule } from "./module.js";
+import { LayoutHandler } from "./handler.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 
-class PageFloat extends LayoutModule {
+class PageFloat extends LayoutHandler {
 	claim(node) {
 		return node.getCustomProperty("float-reference") === "page";
 	}

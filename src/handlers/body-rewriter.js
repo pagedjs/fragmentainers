@@ -1,4 +1,4 @@
-import { LayoutModule } from "./module.js";
+import { LayoutHandler } from "./handler.js";
 import { buildRule } from "../styles/utils.js";
 
 const BACKGROUND_PROPS = new Set([
@@ -41,7 +41,7 @@ const HOST_SELECTOR = ":host(fragment-container), :host(content-measure)";
  * Only runs for page-based flows. On-screen column/region
  * fragmentation doesn't use shadow DOM slot/host substitution.
  */
-export class BodyRewriter extends LayoutModule {
+export class BodyRewriter extends LayoutHandler {
 	#enabled = false;
 	#matches = [];
 

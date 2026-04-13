@@ -1,6 +1,6 @@
 import { DOMLayoutNode } from "../layout/layout-node.js";
 import { isForcedBreakValue } from "../fragmentation/tokens.js";
-import { modules } from "../modules/registry.js";
+import { handlers } from "../handlers/registry.js";
 import { walkSheets } from "../styles/walk-rules.js";
 import "../components/content-measure.js";
 
@@ -158,12 +158,12 @@ export class Measurer {
 	 * @returns {Element} the content root (slot element)
 	 */
 	setup() {
-		// Walk CSS rules and let modules accumulate state, then claim elements.
-		// The PseudoElements module contributes ::before/::after companion,
+		// Walk CSS rules and let handlers accumulate state, then claim elements.
+		// The PseudoElements handler contributes ::before/::after companion,
 		// relocation, and suppression rules via matchRule/appendRules.
-		modules.processRules(this.#styles);
+		handlers.processRules(this.#styles);
 
-		this.#persistent = modules.claimPersistent(this.#content);
+		this.#persistent = handlers.claimPersistent(this.#content);
 		const persistentSet = new Set(this.#persistent);
 
 		// Resolve break properties only for non-persistent elements
@@ -187,15 +187,15 @@ export class Measurer {
 		measurer.injectFragment(this.#content, this.#styles);
 		document.body.appendChild(measurer);
 
-		// Let modules mutate the DOM (pseudo-element materialization
+		// Let handlers mutate the DOM (pseudo-element materialization
 		// happens here). Reflow so the changes are reflected in styles.
-		modules.beforeMeasurement(measurer.contentRoot);
+		handlers.beforeMeasurement(measurer.contentRoot);
 		void measurer.offsetHeight;
 
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
 
-		modules.afterMeasurementSetup(measurer.contentRoot);
+		handlers.afterMeasurementSetup(measurer.contentRoot);
 
 		return measurer.contentRoot;
 	}
@@ -246,14 +246,14 @@ export class Measurer {
 
 		document.body.appendChild(measurer);
 
-		modules.beforeMeasurement(measurer.contentRoot);
+		handlers.beforeMeasurement(measurer.contentRoot);
 		void measurer.offsetHeight;
 
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
 		this.#currentSegment = 0;
 
-		modules.afterMeasurementSetup(measurer.contentRoot);
+		handlers.afterMeasurementSetup(measurer.contentRoot);
 
 		return measurer.contentRoot;
 	}
@@ -305,12 +305,12 @@ export class Measurer {
 
 		document.body.appendChild(measurer);
 
-		modules.beforeMeasurement(newSlot);
+		handlers.beforeMeasurement(newSlot);
 		void measurer.offsetHeight;
 
 		this.#measureElement = measurer;
 
-		modules.afterMeasurementSetup(newSlot);
+		handlers.afterMeasurementSetup(newSlot);
 
 		// Rebuild root's children from the nodeMap
 		tree.setChildren(this.#buildSegmentChildren(this.#currentSegment));

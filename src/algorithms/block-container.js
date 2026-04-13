@@ -19,7 +19,7 @@ import {
 } from "../fragmentation/constraint-space.js";
 import { BOX_DECORATION_CLONE } from "../layout/layout-node.js";
 import { MarginState } from "../layout/margin-collapsing.js";
-import { modules } from "../modules/index.js";
+import { handlers } from "../handlers/index.js";
 
 // Skip break scoring when cumulative child content fills less than
 // this fraction of the fragmentainer — children this far from the
@@ -315,7 +315,7 @@ export class BlockContainerAlgorithm {
 	}
 
 	*runBeforeChildren() {
-		const beforeResult = modules.beforeChildren(
+		const beforeResult = handlers.beforeChildren(
 			this.#node,
 			this.#constraintSpace,
 			this.#breakToken,
@@ -494,8 +494,8 @@ export class BlockContainerAlgorithm {
 				continue;
 			}
 
-			// Skip children claimed by a layout module (e.g. page floats)
-			if (modules.claim(child)) continue;
+			// Skip children claimed by a layout handler (e.g. page floats)
+			if (handlers.claim(child)) continue;
 
 			// isBreakBefore means "pushed to this fragmentainer, lay out fresh"
 			const effectiveChildBreakToken = childBreakToken?.isBreakBefore ? null : childBreakToken;

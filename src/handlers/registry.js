@@ -1,78 +1,78 @@
-import { LayoutModule } from "./module.js";
+import { LayoutHandler } from "./handler.js";
 import { walkSheets } from "../styles/walk-rules.js";
 
-class ModuleRegistry {
+class HandlerRegistry {
 	#classes = [];
 	#created = [];
-	#modules = [];
+	#handlers = [];
 	#cloneMap = new WeakMap();
 
 	/**
-	 * Register a module class. A fresh instance is created each time
+	 * Register a handler class. A fresh instance is created each time
 	 * init() is called (once per FragmentedFlow initialization).
 	 *
-	 * @param {typeof LayoutModule} ModuleClass
+	 * @param {typeof LayoutHandler} HandlerClass
 	 */
-	register(ModuleClass) {
-		if (typeof ModuleClass !== "function" || !(ModuleClass.prototype instanceof LayoutModule)) {
-			throw new TypeError("Module must be a class that extends LayoutModule");
+	register(HandlerClass) {
+		if (typeof HandlerClass !== "function" || !(HandlerClass.prototype instanceof LayoutHandler)) {
+			throw new TypeError("Handler must be a class that extends LayoutHandler");
 		}
-		if (!this.#classes.includes(ModuleClass)) {
-			this.#classes.push(ModuleClass);
+		if (!this.#classes.includes(HandlerClass)) {
+			this.#classes.push(HandlerClass);
 		}
 	}
 
 	/**
-	 * Create fresh module instances and initialize them with options.
+	 * Create fresh handler instances and initialize them with options.
 	 * Called once per FragmentedFlow initialization. Destroys any
 	 * previous instances before creating new ones.
 	 *
 	 * @param {Object} [options]
 	 */
 	init(options) {
-		for (const mod of this.#created) {
-			mod.destroy();
+		for (const handler of this.#created) {
+			handler.destroy();
 		}
 		this.#cloneMap = new WeakMap();
 		this.#created = this.#classes.map((Cls) => {
-			const mod = new Cls();
-			mod.init(options);
-			return mod;
+			const handler = new Cls();
+			handler.init(options);
+			return handler;
 		});
-		this.#modules = [...this.#created];
+		this.#handlers = [...this.#created];
 	}
 
 	/**
-	 * Ensure #modules is populated. If init() hasn't been called yet
+	 * Ensure #handlers is populated. If init() hasn't been called yet
 	 * (e.g. code using createFragments() directly without FragmentedFlow),
 	 * create instances with default options so delegate methods work.
 	 */
 	#ensureReady() {
-		if (this.#modules.length === 0 && this.#classes.length > 0) {
+		if (this.#handlers.length === 0 && this.#classes.length > 0) {
 			this.init();
 		}
 	}
 
-	remove(ModuleClass) {
-		const idx = this.#classes.indexOf(ModuleClass);
+	remove(HandlerClass) {
+		const idx = this.#classes.indexOf(HandlerClass);
 		if (idx !== -1) this.#classes.splice(idx, 1);
 	}
 
 	/**
-	 * Return the current instance of a registered module class.
+	 * Return the current instance of a registered handler class.
 	 * Returns null if the class isn't registered or init() hasn't
 	 * been called yet.
 	 *
-	 * @param {typeof LayoutModule} ModuleClass
-	 * @returns {LayoutModule|null}
+	 * @param {typeof LayoutHandler} HandlerClass
+	 * @returns {LayoutHandler|null}
 	 */
-	get(ModuleClass) {
-		return this.#modules.find((m) => m instanceof ModuleClass) ?? null;
+	get(HandlerClass) {
+		return this.#handlers.find((m) => m instanceof HandlerClass) ?? null;
 	}
 
 	claim(node) {
 		this.#ensureReady();
-		return this.#modules.some((m) => m.claim(node));
+		return this.#handlers.some((handler) => handler.claim(node));
 	}
 
 	layout(rootNode, constraintSpace, breakToken, layoutChild) {
@@ -80,8 +80,8 @@ class ModuleRegistry {
 		let reservedBlockStart = 0;
 		let reservedBlockEnd = 0;
 		const afterRenderCallbacks = [];
-		for (const mod of this.#modules) {
-			const result = mod.layout(rootNode, constraintSpace, breakToken, layoutChild);
+		for (const handler of this.#handlers) {
+			const result = handler.layout(rootNode, constraintSpace, breakToken, layoutChild);
 			reservedBlockStart += result.reservedBlockStart;
 			reservedBlockEnd += result.reservedBlockEnd;
 			if (result.afterRender) {
@@ -93,8 +93,8 @@ class ModuleRegistry {
 
 	beforeChildren(node, constraintSpace, breakToken) {
 		this.#ensureReady();
-		for (const mod of this.#modules) {
-			const result = mod.beforeChildren(node, constraintSpace, breakToken);
+		for (const handler of this.#handlers) {
+			const result = handler.beforeChildren(node, constraintSpace, breakToken);
 			if (result) return result;
 		}
 		return null;
@@ -102,37 +102,37 @@ class ModuleRegistry {
 
 	/**
 	 * Walk all CSS rules in the given stylesheets and dispatch each
-	 * leaf style rule to every module's matchRule() callback. Recurses
+	 * leaf style rule to every handler's matchRule() callback. Recurses
 	 * into grouping rules (@media, @supports, @layer, etc.) and tracks
-	 * wrapper preambles for modules that need them (e.g. nth-selectors).
+	 * wrapper preambles for handlers that need them (e.g. nth-selectors).
 	 *
-	 * After the walk, collects injected sheets from modules and appends
+	 * After the walk, collects injected sheets from handlers and appends
 	 * them to the styles array so they cascade after UA and author rules.
 	 *
 	 * @param {CSSStyleSheet[]} styles — adopted stylesheets (mutated: injected sheet appended)
 	 */
 	processRules(styles) {
 		this.#ensureReady();
-		const mods = this.#modules;
+		const hs = this.#handlers;
 
-		// Reset module state and give access to the styles array
-		for (const mod of mods) {
-			mod.styles = styles;
-			mod.resetRules();
+		// Reset handler state and give access to the styles array
+		for (const handler of hs) {
+			handler.styles = styles;
+			handler.resetRules();
 		}
 
 		walkSheets(styles, (rule, wrappers) => {
 			if (rule.selectorText === undefined) return;
 			const ctx = { wrappers };
-			for (const mod of mods) {
-				mod.matchRule(rule, ctx);
+			for (const handler of hs) {
+				handler.matchRule(rule, ctx);
 			}
 		});
 
-		// Collect rules from modules into a shared sheet
+		// Collect rules from handlers into a shared sheet
 		const rules = [];
-		for (const mod of mods) {
-			mod.appendRules(rules);
+		for (const handler of hs) {
+			handler.appendRules(rules);
 		}
 		if (rules.length > 0) {
 			const sheet = new CSSStyleSheet();
@@ -144,7 +144,7 @@ class ModuleRegistry {
 	}
 
 	/**
-	 * Collect elements that modules want persisted across all measurement
+	 * Collect elements that handlers want persisted across all measurement
 	 * segments. Called after processRules() with the full content.
 	 *
 	 * @param {DocumentFragment|Element} content — the full content root
@@ -152,8 +152,8 @@ class ModuleRegistry {
 	 */
 	claimPersistent(content) {
 		const elements = [];
-		for (const mod of this.#modules) {
-			const claimed = mod.claimPersistent(content);
+		for (const handler of this.#handlers) {
+			const claimed = handler.claimPersistent(content);
 			if (claimed.length > 0) elements.push(...claimed);
 		}
 		return elements;
@@ -168,7 +168,7 @@ class ModuleRegistry {
 	}
 
 	/**
-	 * Let modules mutate the measurement DOM after content injection
+	 * Let handlers mutate the measurement DOM after content injection
 	 * but before measurement. Pseudo-element materialization happens
 	 * here. The caller should trigger a reflow afterwards.
 	 *
@@ -176,51 +176,51 @@ class ModuleRegistry {
 	 */
 	beforeMeasurement(contentRoot) {
 		this.#ensureReady();
-		for (const mod of this.#modules) {
-			mod.beforeMeasurement(contentRoot);
+		for (const handler of this.#handlers) {
+			handler.beforeMeasurement(contentRoot);
 		}
 	}
 
 	/**
-	 * Let modules probe the live measurement DOM after setup.
+	 * Let handlers probe the live measurement DOM after setup.
 	 * Called from the Measurer after pseudo-element materialization
 	 * and reflow, before getContentStyles().
 	 *
 	 * @param {Element} contentRoot — the measurement slot element
 	 */
 	afterMeasurementSetup(contentRoot) {
-		for (const mod of this.#modules) {
-			mod.afterMeasurementSetup(contentRoot);
+		for (const handler of this.#handlers) {
+			handler.afterMeasurementSetup(contentRoot);
 		}
 	}
 
 	/**
-	 * Collect CSSStyleSheets from modules for fragment-container adoption.
+	 * Collect CSSStyleSheets from handlers for fragment-container adoption.
 	 *
 	 * @returns {CSSStyleSheet[]}
 	 */
 	getAdoptedSheets() {
 		const sheets = [];
-		for (const mod of this.#modules) {
-			sheets.push(...mod.getAdoptedSheets());
+		for (const handler of this.#handlers) {
+			sheets.push(...handler.getAdoptedSheets());
 		}
 		return sheets;
 	}
 
 	claimPseudo(element, pseudo, contentValue) {
-		return this.#modules.some((m) => m.claimPseudo(element, pseudo, contentValue));
+		return this.#handlers.some((handler) => handler.claimPseudo(element, pseudo, contentValue));
 	}
 
 	claimPseudoRule(rule, pseudo) {
-		return this.#modules.some((m) => m.claimPseudoRule(rule, pseudo));
+		return this.#handlers.some((handler) => handler.claimPseudoRule(rule, pseudo));
 	}
 
 	afterContentLayout(fragment, constraintSpace, inputBreakToken) {
 		let reservedBlockEnd = 0;
 		const afterRenderCallbacks = [];
 		let hasResult = false;
-		for (const mod of this.#modules) {
-			const result = mod.afterContentLayout(fragment, constraintSpace, inputBreakToken);
+		for (const handler of this.#handlers) {
+			const result = handler.afterContentLayout(fragment, constraintSpace, inputBreakToken);
 			if (result) {
 				hasResult = true;
 				reservedBlockEnd += result.reservedBlockEnd;
@@ -233,4 +233,4 @@ class ModuleRegistry {
 	}
 }
 
-export const modules = new ModuleRegistry();
+export const handlers = new HandlerRegistry();

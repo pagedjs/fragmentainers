@@ -1,10 +1,10 @@
-import { LayoutModule } from "./module.js";
+import { LayoutHandler } from "./handler.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 
 const VALID_VALUES = new Set(["fill", "contain", "cover"]);
 
-class PageFit extends LayoutModule {
+class PageFit extends LayoutHandler {
 	claim(node) {
 		const value = node.getCustomProperty("page-fit");
 		return value !== null && VALID_VALUES.has(value);

@@ -8,7 +8,7 @@
  *
  * This stylesheet restores those defaults on the slot. It is placed
  * first in the adopted stylesheet list so author body rules
- * (rewritten to slot rules by the BodyRewriter module and appended
+ * (rewritten to slot rules by the BodyRewriter handler and appended
  * to the stylesheet list after processRules) override it by source
  * order.
  */

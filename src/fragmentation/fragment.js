@@ -6,8 +6,8 @@ import {
 	INLINE_CLOSE_TAG,
 	INLINE_ATOMIC,
 } from "../measurement/collect-inlines.js";
-import { modules } from "../modules/registry.js";
-import { isPseudoElement } from "../modules/pseudo-elements.js";
+import { handlers } from "../handlers/registry.js";
+import { isPseudoElement } from "../handlers/pseudo-elements.js";
 
 /**
  * The output of a layout algorithm — a positioned fragment.
@@ -341,9 +341,9 @@ export class Fragment {
 
 	/**
 	 * Walk the fragment tree and composed DOM in parallel, registering
-	 * each clone→source pair in the module registry's shared map.
+	 * each clone→source pair in the handler registry's shared map.
 	 *
-	 * Called once after build() to create the mapping that modules
+	 * Called once after build() to create the mapping that handlers
 	 * (NthSelectors, MutationSync) use to resolve clone elements back to
 	 * their source elements.
 	 *
@@ -404,10 +404,10 @@ export class Fragment {
 						Fragment.#mapDeep(inner, childFrag.node.element);
 					}
 				} else if (childFrag.multicolData) {
-					modules.trackClone(clone, childFrag.node.element);
+					handlers.trackClone(clone, childFrag.node.element);
 					// Multicol children are synthetic — don't recurse into columns
 				} else {
-					modules.trackClone(clone, childFrag.node.element);
+					handlers.trackClone(clone, childFrag.node.element);
 					if (childFrag.hasBlockChildren) {
 						childFrag.map(childBT, clone);
 					} else if (childFrag.node.isInlineFormattingContext) {
@@ -427,7 +427,7 @@ export class Fragment {
 	 * Recursively map a deep clone's children to their source counterparts.
 	 */
 	static #mapDeep(clone, source) {
-		modules.trackClone(clone, source);
+		handlers.trackClone(clone, source);
 		const sourceChildren = source.children;
 		const cloneChildren = clone.children;
 		for (let i = 0; i < sourceChildren.length && i < cloneChildren.length; i++) {

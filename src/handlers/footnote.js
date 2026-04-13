@@ -1,4 +1,4 @@
-import { LayoutModule } from "./module.js";
+import { LayoutHandler } from "./handler.js";
 
 const FOOTNOTE_STYLES = `
 [data-footnote-call] {
@@ -35,26 +35,26 @@ function getBreakBoundaryElement(breakToken) {
 }
 
 /**
- * Layout module for CSS footnotes (css-gcpm-3 Section 2).
+ * Layout handler for CSS footnotes (css-gcpm-3 Section 2).
  *
  * Elements styled with `float: footnote` are removed from the content
  * flow during preprocessing, replaced with inline call markers, and
  * their bodies placed in a footnote area at the page bottom during
  * rendering.
  *
- * Uses an iterative layout approach: after content layout, the module
+ * Uses an iterative layout approach: after content layout, the handler
  * checks which footnote calls landed on the page and requests block-end
  * space for their bodies. The fragmentainer driver re-runs layout with
  * the updated reservation until it stabilises.
  */
-class Footnote extends LayoutModule {
+class Footnote extends LayoutHandler {
 	/** @type {Map<string, { callElement: Element, bodyElement: Element, blockSize: number }>} */
 	#footnoteMap = new Map();
 
 	/** @type {string[]} Call IDs in document order */
 	#allCalls = [];
 
-	/** @type {CSSStyleSheet[]} Set by ModuleRegistry.processRules() */
+	/** @type {CSSStyleSheet[]} Set by HandlerRegistry.processRules() */
 	styles = null;
 
 	/** @type {Element|null} Dedicated <content-measure> for footnote bodies */

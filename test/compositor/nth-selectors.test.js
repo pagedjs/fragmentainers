@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("parseAnPlusB", () => {
 	test("parses 'odd'", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { parseAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return parseAnPlusB("odd");
 		});
 		expect(result).toEqual({ a: 2, b: 1 });
@@ -11,7 +11,7 @@ test.describe("parseAnPlusB", () => {
 
 	test("parses 'even'", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { parseAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return parseAnPlusB("even");
 		});
 		expect(result).toEqual({ a: 2, b: 0 });
@@ -19,7 +19,7 @@ test.describe("parseAnPlusB", () => {
 
 	test("parses a plain integer", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { parseAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return parseAnPlusB("3");
 		});
 		expect(result).toEqual({ a: 0, b: 3 });
@@ -27,7 +27,7 @@ test.describe("parseAnPlusB", () => {
 
 	test("parses negative integer", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { parseAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return parseAnPlusB("-2");
 		});
 		expect(result).toEqual({ a: 0, b: -2 });
@@ -35,7 +35,7 @@ test.describe("parseAnPlusB", () => {
 
 	test("parses 'n'", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { parseAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return parseAnPlusB("n");
 		});
 		expect(result).toEqual({ a: 1, b: 0 });
@@ -43,7 +43,7 @@ test.describe("parseAnPlusB", () => {
 
 	test("parses '-n+6'", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { parseAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return parseAnPlusB("-n+6");
 		});
 		expect(result).toEqual({ a: -1, b: 6 });
@@ -51,7 +51,7 @@ test.describe("parseAnPlusB", () => {
 
 	test("parses '2n+1'", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { parseAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return parseAnPlusB("2n+1");
 		});
 		expect(result).toEqual({ a: 2, b: 1 });
@@ -59,7 +59,7 @@ test.describe("parseAnPlusB", () => {
 
 	test("parses '2n'", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { parseAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return parseAnPlusB("2n");
 		});
 		expect(result).toEqual({ a: 2, b: 0 });
@@ -67,7 +67,7 @@ test.describe("parseAnPlusB", () => {
 
 	test("parses '+n'", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { parseAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return parseAnPlusB("+n");
 		});
 		expect(result).toEqual({ a: 1, b: 0 });
@@ -75,7 +75,7 @@ test.describe("parseAnPlusB", () => {
 
 	test("parses '-3n-2'", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { parseAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return parseAnPlusB("-3n-2");
 		});
 		expect(result).toEqual({ a: -3, b: -2 });
@@ -83,7 +83,7 @@ test.describe("parseAnPlusB", () => {
 
 	test("handles whitespace", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { parseAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { parseAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return parseAnPlusB(" 2n + 1 ");
 		});
 		expect(result).toEqual({ a: 2, b: 1 });
@@ -93,7 +93,7 @@ test.describe("parseAnPlusB", () => {
 test.describe("matchesAnPlusB", () => {
 	test("matches exact index", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { matchesAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { matchesAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return {
 				match3: matchesAnPlusB(3, { a: 0, b: 3 }),
 				match2: matchesAnPlusB(2, { a: 0, b: 3 }),
@@ -105,7 +105,7 @@ test.describe("matchesAnPlusB", () => {
 
 	test("matches odd (2n+1)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { matchesAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { matchesAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return {
 				m1: matchesAnPlusB(1, { a: 2, b: 1 }),
 				m2: matchesAnPlusB(2, { a: 2, b: 1 }),
@@ -119,7 +119,7 @@ test.describe("matchesAnPlusB", () => {
 
 	test("matches even (2n)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { matchesAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { matchesAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return {
 				m2: matchesAnPlusB(2, { a: 2, b: 0 }),
 				m4: matchesAnPlusB(4, { a: 2, b: 0 }),
@@ -133,7 +133,7 @@ test.describe("matchesAnPlusB", () => {
 
 	test("matches -n+3 (first 3 elements)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { matchesAnPlusB } = await import("/src/modules/nth-selectors.js");
+			const { matchesAnPlusB } = await import("/src/handlers/nth-selectors.js");
 			return {
 				m1: matchesAnPlusB(1, { a: -1, b: 3 }),
 				m2: matchesAnPlusB(2, { a: -1, b: 3 }),
@@ -151,7 +151,7 @@ test.describe("matchesAnPlusB", () => {
 test.describe("computeOriginalPosition", () => {
 	test("computes position for a single child", async ({ page }) => {
 		const pos = await page.evaluate(async () => {
-			const { computeOriginalPosition } = await import("/src/modules/nth-selectors.js");
+			const { computeOriginalPosition } = await import("/src/handlers/nth-selectors.js");
 			const parent = document.createElement("div");
 			const child = document.createElement("p");
 			parent.appendChild(child);
@@ -172,7 +172,7 @@ test.describe("computeOriginalPosition", () => {
 
 	test("computes position for middle child", async ({ page }) => {
 		const pos = await page.evaluate(async () => {
-			const { computeOriginalPosition } = await import("/src/modules/nth-selectors.js");
+			const { computeOriginalPosition } = await import("/src/handlers/nth-selectors.js");
 			const parent = document.createElement("ul");
 			parent.innerHTML = "<li>a</li><li>b</li><li>c</li>";
 			document.body.appendChild(parent);
@@ -188,7 +188,7 @@ test.describe("computeOriginalPosition", () => {
 
 	test("handles mixed tag types", async ({ page }) => {
 		const pos = await page.evaluate(async () => {
-			const { computeOriginalPosition } = await import("/src/modules/nth-selectors.js");
+			const { computeOriginalPosition } = await import("/src/handlers/nth-selectors.js");
 			const parent = document.createElement("div");
 			parent.innerHTML = "<p>first</p><span>mid</span><p>last</p>";
 			document.body.appendChild(parent);
@@ -205,7 +205,7 @@ test.describe("computeOriginalPosition", () => {
 
 	test("returns null for orphan elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { computeOriginalPosition } = await import("/src/modules/nth-selectors.js");
+			const { computeOriginalPosition } = await import("/src/handlers/nth-selectors.js");
 			const orphan = document.createElement("div");
 			return computeOriginalPosition(orphan);
 		});
@@ -216,7 +216,7 @@ test.describe("computeOriginalPosition", () => {
 test.describe("extractNthDescriptors", () => {
 	test("extracts :first-child rules", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { extractNthDescriptors } = await import("/src/modules/nth-selectors.js");
+			const { extractNthDescriptors } = await import("/src/handlers/nth-selectors.js");
 			const sheet = new CSSStyleSheet();
 			sheet.replaceSync("li:first-child { color: red; }");
 			const descriptors = extractNthDescriptors([sheet]);
@@ -235,7 +235,7 @@ test.describe("extractNthDescriptors", () => {
 
 	test("extracts :nth-child(odd) rules", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { extractNthDescriptors } = await import("/src/modules/nth-selectors.js");
+			const { extractNthDescriptors } = await import("/src/handlers/nth-selectors.js");
 			const sheet = new CSSStyleSheet();
 			sheet.replaceSync("li:nth-child(odd) { background: pink; }");
 			const descriptors = extractNthDescriptors([sheet]);
@@ -252,7 +252,7 @@ test.describe("extractNthDescriptors", () => {
 
 	test("captures @media wrappers", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { extractNthDescriptors } = await import("/src/modules/nth-selectors.js");
+			const { extractNthDescriptors } = await import("/src/handlers/nth-selectors.js");
 			const sheet = new CSSStyleSheet();
 			sheet.replaceSync("@media (min-width: 0px) { li:first-child { color: red; } }");
 			const descriptors = extractNthDescriptors([sheet]);
@@ -269,7 +269,7 @@ test.describe("extractNthDescriptors", () => {
 
 	test("handles multiple sheets", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { extractNthDescriptors } = await import("/src/modules/nth-selectors.js");
+			const { extractNthDescriptors } = await import("/src/handlers/nth-selectors.js");
 			const s1 = new CSSStyleSheet();
 			s1.replaceSync("li:first-child { color: red; }");
 			const s2 = new CSSStyleSheet();
@@ -281,7 +281,7 @@ test.describe("extractNthDescriptors", () => {
 
 	test("returns empty array for sheets without nth rules", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { extractNthDescriptors } = await import("/src/modules/nth-selectors.js");
+			const { extractNthDescriptors } = await import("/src/handlers/nth-selectors.js");
 			const sheet = new CSSStyleSheet();
 			sheet.replaceSync("div { color: blue; }");
 			return extractNthDescriptors([sheet]).length;
@@ -293,7 +293,7 @@ test.describe("extractNthDescriptors", () => {
 test.describe("buildPerFragmentNthSheet", () => {
 	test("returns null for empty descriptors", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildPerFragmentNthSheet } = await import("/src/modules/nth-selectors.js");
+			const { buildPerFragmentNthSheet } = await import("/src/handlers/nth-selectors.js");
 			const slot = document.createElement("div");
 			slot.innerHTML = "<li>a</li><li>b</li>";
 			return buildPerFragmentNthSheet(slot, []);
@@ -303,8 +303,8 @@ test.describe("buildPerFragmentNthSheet", () => {
 
 	test("generates :is([data-ref=...]) rules for :first-child", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildPerFragmentNthSheet } = await import("/src/modules/nth-selectors.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { buildPerFragmentNthSheet } = await import("/src/handlers/nth-selectors.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sourceUl = document.createElement("ul");
 			sourceUl.innerHTML = "<li>a</li><li>b</li><li>c</li>";
@@ -316,7 +316,7 @@ test.describe("buildPerFragmentNthSheet", () => {
 			const clones = slot.querySelectorAll("*");
 			const sources = sourceUl.children;
 			for (let i = 0; i < clones.length && i < sources.length; i++) {
-				modules.trackClone(clones[i], sources[i]);
+				handlers.trackClone(clones[i], sources[i]);
 			}
 
 			const descriptors = [
@@ -345,8 +345,8 @@ test.describe("buildPerFragmentNthSheet", () => {
 
 	test("generates rules for :nth-child(odd)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildPerFragmentNthSheet } = await import("/src/modules/nth-selectors.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { buildPerFragmentNthSheet } = await import("/src/handlers/nth-selectors.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sourceUl = document.createElement("ul");
 			sourceUl.innerHTML = "<li>1</li><li>2</li><li>3</li><li>4</li>";
@@ -358,7 +358,7 @@ test.describe("buildPerFragmentNthSheet", () => {
 			const clones = slot.querySelectorAll("*");
 			const sources = sourceUl.children;
 			for (let i = 0; i < clones.length && i < sources.length; i++) {
-				modules.trackClone(clones[i], sources[i]);
+				handlers.trackClone(clones[i], sources[i]);
 			}
 
 			const descriptors = [
@@ -388,8 +388,8 @@ test.describe("buildPerFragmentNthSheet", () => {
 
 	test("wraps rules in grouping contexts", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildPerFragmentNthSheet } = await import("/src/modules/nth-selectors.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { buildPerFragmentNthSheet } = await import("/src/handlers/nth-selectors.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sourceUl = document.createElement("ul");
 			sourceUl.innerHTML = "<li>a</li>";
@@ -401,7 +401,7 @@ test.describe("buildPerFragmentNthSheet", () => {
 			const clones = slot.querySelectorAll("*");
 			const sources = sourceUl.children;
 			for (let i = 0; i < clones.length && i < sources.length; i++) {
-				modules.trackClone(clones[i], sources[i]);
+				handlers.trackClone(clones[i], sources[i]);
 			}
 
 			const descriptors = [
@@ -429,8 +429,8 @@ test.describe("buildPerFragmentNthSheet", () => {
 
 	test("returns null when no elements match", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildPerFragmentNthSheet } = await import("/src/modules/nth-selectors.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { buildPerFragmentNthSheet } = await import("/src/handlers/nth-selectors.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sourceUl = document.createElement("ul");
 			sourceUl.innerHTML = "<li>a</li><li>b</li>";
@@ -442,7 +442,7 @@ test.describe("buildPerFragmentNthSheet", () => {
 			const clones = slot.querySelectorAll("*");
 			const sources = sourceUl.children;
 			for (let i = 0; i < clones.length && i < sources.length; i++) {
-				modules.trackClone(clones[i], sources[i]);
+				handlers.trackClone(clones[i], sources[i]);
 			}
 
 			const descriptors = [
@@ -463,8 +463,8 @@ test.describe("buildPerFragmentNthSheet", () => {
 
 	test("handles :last-child", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildPerFragmentNthSheet } = await import("/src/modules/nth-selectors.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { buildPerFragmentNthSheet } = await import("/src/handlers/nth-selectors.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sourceUl = document.createElement("ul");
 			sourceUl.innerHTML = "<li>a</li><li>b</li><li>c</li>";
@@ -476,7 +476,7 @@ test.describe("buildPerFragmentNthSheet", () => {
 			const clones = slot.querySelectorAll("*");
 			const sources = sourceUl.children;
 			for (let i = 0; i < clones.length && i < sources.length; i++) {
-				modules.trackClone(clones[i], sources[i]);
+				handlers.trackClone(clones[i], sources[i]);
 			}
 
 			const descriptors = [
@@ -502,8 +502,8 @@ test.describe("buildPerFragmentNthSheet", () => {
 
 	test("handles :only-child (two nthParts)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { buildPerFragmentNthSheet } = await import("/src/modules/nth-selectors.js");
-			const { modules } = await import("/src/modules/registry.js");
+			const { buildPerFragmentNthSheet } = await import("/src/handlers/nth-selectors.js");
+			const { handlers } = await import("/src/handlers/registry.js");
 
 			const sourceDiv = document.createElement("div");
 			sourceDiv.innerHTML = "<p>only child</p>";
@@ -515,7 +515,7 @@ test.describe("buildPerFragmentNthSheet", () => {
 			const clones = slot.querySelectorAll("*");
 			const sources = sourceDiv.children;
 			for (let i = 0; i < clones.length && i < sources.length; i++) {
-				modules.trackClone(clones[i], sources[i]);
+				handlers.trackClone(clones[i], sources[i]);
 			}
 
 			const descriptors = [

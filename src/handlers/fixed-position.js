@@ -1,4 +1,4 @@
-import { LayoutModule } from "./module.js";
+import { LayoutHandler } from "./handler.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE } from "../fragmentation/constraint-space.js";
 
@@ -36,7 +36,7 @@ function classifyAnchorEdge(element) {
  * Only active in page fragmentation — fixed elements are viewport-relative
  * in column/region contexts and don't participate in those flows.
  */
-class FixedPosition extends LayoutModule {
+class FixedPosition extends LayoutHandler {
 	#fixedSelectors = [];
 
 	resetRules() {

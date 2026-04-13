@@ -4,7 +4,7 @@ test.describe("FixedPosition.matches", () => {
 	test("returns true for a position: fixed node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { FixedPosition } = await import("/src/modules/fixed-position.js");
+			const { FixedPosition } = await import("/src/handlers/fixed-position.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -24,7 +24,7 @@ test.describe("FixedPosition.matches", () => {
 	test("returns false for a regular block node", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { FixedPosition } = await import("/src/modules/fixed-position.js");
+			const { FixedPosition } = await import("/src/handlers/fixed-position.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -48,7 +48,7 @@ test.describe("FixedPosition.layout", () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { FixedPosition } = await import("/src/modules/fixed-position.js");
+			const { FixedPosition } = await import("/src/handlers/fixed-position.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -89,7 +89,7 @@ test.describe("FixedPosition.layout", () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { FixedPosition } = await import("/src/modules/fixed-position.js");
+			const { FixedPosition } = await import("/src/handlers/fixed-position.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -128,7 +128,7 @@ test.describe("FixedPosition.layout", () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { FixedPosition } = await import("/src/modules/fixed-position.js");
+			const { FixedPosition } = await import("/src/handlers/fixed-position.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -168,7 +168,7 @@ test.describe("FixedPosition.layout", () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { FixedPosition } = await import("/src/modules/fixed-position.js");
+			const { FixedPosition } = await import("/src/handlers/fixed-position.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -209,7 +209,7 @@ test.describe("FixedPosition.layout", () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_COLUMN } = await import("/src/fragmentation/constraint-space.js");
-			const { FixedPosition } = await import("/src/modules/fixed-position.js");
+			const { FixedPosition } = await import("/src/handlers/fixed-position.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -250,7 +250,7 @@ test.describe("FixedPosition.layout", () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { FixedPosition } = await import("/src/modules/fixed-position.js");
+			const { FixedPosition } = await import("/src/handlers/fixed-position.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -291,7 +291,7 @@ test.describe("FixedPosition.layout", () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
-			const { FixedPosition } = await import("/src/modules/fixed-position.js");
+			const { FixedPosition } = await import("/src/handlers/fixed-position.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";

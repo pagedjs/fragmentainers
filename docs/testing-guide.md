@@ -13,12 +13,12 @@ The test suite is split into two tiers:
 | **Tests** (`test/**/*.test.js`) | Playwright  | Layout algorithms, break scoring, tokens, DOM measurement, compositor, end-to-end | ~2s for 440 tests |
 | **Spec tests** (`specs/`)       | Playwright  | Visual comparison against reference HTML                                          | ~3-5 min          |
 
-All tests run in real browsers — there is no separate Node environment. All test files use the `.test.js` extension. Tests are organized into subdirectories by module:
+All tests run in real browsers — there is no separate Node environment. All test files use the `.test.js` extension. Tests are organized into subdirectories by area:
 
 - `test/core/` — break scoring, tokens, counter state, reflow, overflow, fragmentainer layout
 - `test/layout/` — block, inline, multicol, flex, grid, table, forced breaks, monolithic
 - `test/compositor/` — composition, nth-selectors
-- `test/modules/` — page floats, footnotes, fixed position, repeated headers
+- `test/handlers/` — page floats, footnotes, fixed position, repeated headers
 - `test/atpage/` — @page rule resolution
 - `test/dom/` — DOM measurement, layout node, inline collection
 - `test/fixtures/` — mock node factories

@@ -16,9 +16,9 @@ import "../components/content-measure.js";
 import "../components/fragment-container.js";
 import { Measurer } from "../measurement/measure.js";
 import { setTargetDevicePixelRatio } from "../measurement/line-box.js";
-import { modules } from "../modules/registry.js";
+import { handlers } from "../handlers/registry.js";
 import { UA_DEFAULTS } from "../styles/ua-defaults.js";
-import "../modules/index.js";
+import "../handlers/index.js";
 
 const MAX_ZERO_PROGRESS = 5;
 
@@ -42,28 +42,28 @@ const MAX_ZERO_PROGRESS = 5;
  */
 export class FragmentedFlow extends Iterator {
 	/**
-	 * Register a layout module class globally.
-	 * @param {typeof import('../modules/module.js').LayoutModule} ModuleClass
+	 * Register a layout handler class globally.
+	 * @param {typeof import('../handlers/handler.js').LayoutHandler} HandlerClass
 	 */
-	static register(ModuleClass) {
-		modules.register(ModuleClass);
+	static register(HandlerClass) {
+		handlers.register(HandlerClass);
 	}
 
 	/**
-	 * Unregister a layout module class.
-	 * @param {typeof import('../modules/module.js').LayoutModule} ModuleClass
+	 * Unregister a layout handler class.
+	 * @param {typeof import('../handlers/handler.js').LayoutHandler} HandlerClass
 	 */
-	static remove(ModuleClass) {
-		modules.remove(ModuleClass);
+	static remove(HandlerClass) {
+		handlers.remove(HandlerClass);
 	}
 
 	/**
-	 * Return the current instance of a registered module class.
-	 * @param {typeof import('../modules/module.js').LayoutModule} ModuleClass
-	 * @returns {import('../modules/module.js').LayoutModule|null}
+	 * Return the current instance of a registered handler class.
+	 * @param {typeof import('../handlers/handler.js').LayoutHandler} HandlerClass
+	 * @returns {import('../handlers/handler.js').LayoutHandler|null}
 	 */
-	static getModule(ModuleClass) {
-		return modules.get(ModuleClass);
+	static getHandler(HandlerClass) {
+		return handlers.get(HandlerClass);
 	}
 
 	#content;
@@ -167,7 +167,7 @@ export class FragmentedFlow extends Iterator {
 		// Initialize context on first call
 		if (!this.#context) {
 			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles, {
-				adoptedSheets: modules.getAdoptedSheets(),
+				adoptedSheets: handlers.getAdoptedSheets(),
 			});
 		}
 
@@ -265,7 +265,7 @@ export class FragmentedFlow extends Iterator {
 		return new FragmentationContext([...this.#fragments], this.#contentStyles, {
 			start,
 			stop,
-			adoptedSheets: modules.getAdoptedSheets(),
+			adoptedSheets: handlers.getAdoptedSheets(),
 		});
 	}
 
@@ -327,7 +327,7 @@ export class FragmentedFlow extends Iterator {
 		this.releaseMeasurer();
 
 		return new FragmentationContext(newFragments, this.#contentStyles, {
-			adoptedSheets: modules.getAdoptedSheets(),
+			adoptedSheets: handlers.getAdoptedSheets(),
 		});
 	}
 
@@ -335,8 +335,8 @@ export class FragmentedFlow extends Iterator {
 	 * Lay out one fragmentainer with two-pass earlyBreak support
 	 * and iterative post-layout adjustment.
 	 *
-	 * After content layout, modules.afterContentLayout() is called.
-	 * If any module requests a different block-end reservation than
+	 * After content layout, handlers.afterContentLayout() is called.
+	 * If any handler requests a different block-end reservation than
 	 * what was used, layout is re-run with the updated constraint
 	 * space. This repeats until the reservation stabilises or the
 	 * iteration limit is reached.
@@ -348,7 +348,7 @@ export class FragmentedFlow extends Iterator {
 			const ChildAlgoClass = getLayoutAlgorithm(child);
 			return runLayoutGenerator(new ChildAlgoClass(child, cs, null));
 		};
-		const { reservedBlockStart, reservedBlockEnd, afterRenderCallbacks } = modules.layout(
+		const { reservedBlockStart, reservedBlockEnd, afterRenderCallbacks } = handlers.layout(
 			rootNode,
 			constraintSpace,
 			breakToken,
@@ -382,7 +382,7 @@ export class FragmentedFlow extends Iterator {
 				);
 			}
 
-			const adjustment = modules.afterContentLayout(result.fragment, constraintSpace, breakToken);
+			const adjustment = handlers.afterContentLayout(result.fragment, constraintSpace, breakToken);
 			if (!adjustment || adjustment.reservedBlockEnd === postLayoutReserved) {
 				if (adjustment?.afterRenderCallbacks.length > 0) {
 					postLayoutCallbacks = adjustment.afterRenderCallbacks;
@@ -549,12 +549,12 @@ export class FragmentedFlow extends Iterator {
 			const isPageBased =
 				this.#resolver instanceof PageResolver || (!this.#resolver && !this.#constraintSpace);
 			const layoutStyles = isPageBased ? [UA_DEFAULTS, ...styles] : styles;
-			// Set target devicePixelRatio before modules init and measurement.
+			// Set target devicePixelRatio before handlers init and measurement.
 			// Explicit option overrides window.devicePixelRatio.
 			if (this.#options.devicePixelRatio != null) {
 				setTargetDevicePixelRatio(this.#options.devicePixelRatio);
 			}
-			modules.init({ ...this.#options, isPageBased });
+			handlers.init({ ...this.#options, isPageBased });
 			this.#measurer = new Measurer(content, layoutStyles);
 			const contentRoot = this.#measurer.setup();
 

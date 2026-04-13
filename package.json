@@ -16,7 +16,7 @@
 		"./styles": "./src/styles/index.js",
 		"./components": "./src/components/index.js",
 		"./resolvers": "./src/resolvers/index.js",
-		"./modules": "./src/modules/index.js"
+		"./handlers": "./src/handlers/index.js"
 	},
 	"bin": {
 		"view": "debug/viewer.js"

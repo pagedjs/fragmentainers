@@ -60,9 +60,9 @@ for (const el of flow) {
 
 | Method             | Description                                                    |
 | ------------------ | -------------------------------------------------------------- |
-| `register(Module)`    | Register a layout module class (must extend `LayoutModule`)       |
-| `remove(Module)`      | Unregister a previously registered module class                   |
-| `getModule(Module)`   | Return the current instance of a registered module class          |
+| `register(Handler)`   | Register a layout handler class (must extend `LayoutHandler`)     |
+| `remove(Handler)`     | Unregister a previously registered handler class                  |
+| `getHandler(Handler)` | Return the current instance of a registered handler class         |
 
 **Methods:**
 
@@ -145,9 +145,9 @@ Grid containers are detected via `display: grid`. Items sharing a grid row are l
 
 When space runs out at a suboptimal breakpoint (e.g., between siblings where `break-after: avoid` or `break-before: avoid` applies), the engine identifies a better earlier breakpoint and re-runs layout (Pass 2) to break there. `break-inside: avoid` on a parent degrades all interior break scores. Widows/orphans violations are scored as `VIOLATING_ORPHANS_WIDOWS` as a part of the two-pass system.
 
-## Layout Modules
+## Layout Handlers
 
-The engine supports **modules** -- self-contained extensions that hook into the layout and rendering pipeline. Modules can claim child nodes, remove them from normal flow, reserve space in the fragmentainer, inject custom rendering, and claim persistent elements that should be included in every measurement segment (e.g., `position: fixed` headers/footers).
+The engine supports **handlers** -- self-contained extensions that hook into the layout and rendering pipeline. Handlers can claim child nodes, remove them from normal flow, reserve space in the fragmentainer, inject custom rendering, and claim persistent elements that should be included in every measurement segment (e.g., `position: fixed` headers/footers).
 
 ```css
 .float-top {
@@ -157,10 +157,10 @@ The engine supports **modules** -- self-contained extensions that hook into the 
 ```
 
 ```javascript
-import { LayoutModule, FragmentedFlow } from "fragmentainers";
+import { LayoutHandler, FragmentedFlow } from "fragmentainers";
 
-// Custom modules extend the LayoutModule base class
-class MyModule extends LayoutModule {
+// Custom handlers extend the LayoutHandler base class
+class MyHandler extends LayoutHandler {
 	claim(node) {
 		/* ... */
 	}
@@ -169,18 +169,18 @@ class MyModule extends LayoutModule {
 	}
 }
 
-// Built-in modules are registered automatically.
+// Built-in handlers are registered automatically.
 // To add your own, register the class (a fresh instance is created per flow):
-FragmentedFlow.register(MyModule);
+FragmentedFlow.register(MyHandler);
 ```
 
-See [Layout Modules](docs/modules.md) for the full module interface and how to write custom modules.
+See [Layout Handlers](docs/handlers.md) for the full handler interface and how to write custom handlers.
 
 ## Line-Height Normalization
 
 Blink-based browsers round `line-height: normal` to the device pixel ratio — integer CSS pixels at DPR 1, half-pixels at DPR 2. This means the same content renders at different line heights screen vs print, causing fragmentation mismatches between layout and rendering.
 
-The `Normalize` module solves this by generating a screen-only stylesheet with explicit `line-height` values derived from canvas font metrics (`fontBoundingBoxAscent + fontBoundingBoxDescent`) when `normal` is used. It is enabled automatically in Blink-based browsers and skipped in Firefox and Safari where it is not needed.
+The `Normalize` handler solves this by generating a screen-only stylesheet with explicit `line-height` values derived from canvas font metrics (`fontBoundingBoxAscent + fontBoundingBoxDescent`) when `normal` is used. It is enabled automatically in Blink-based browsers and skipped in Firefox and Safari where it is not needed.
 
 The normalization sheet is **not** used for measurement or printing, it only provides previews of the print output. The layout uses DPR 1 line-heights for block size computation in the inline layout, while the measurer continues to render at the screen's native DPR. The fragment-container rendering matches the layout's DPR 1 values via the adopted stylesheet.
 
@@ -189,7 +189,7 @@ The normalization sheet is **not** used for measurement or printing, it only pro
 - [Architecture](docs/architecture.md) — How the engine works internally
 - [API Reference](docs/api-reference.md) — Complete reference for all public exports
 - [Layout Algorithms](docs/layout-algorithms.md) — Guide to each layout algorithm generator
-- [Layout Modules](docs/modules.md) — How to use and write layout modules
+- [Layout Handlers](docs/handlers.md) — How to use and write layout handlers
 - [Browser Engine Reference](docs/browser-engine-reference.md) — Mappings to Blink, Gecko, and WebKit equivalents
 - [Testing](docs/testing-guide.md) — How to write tests and specs
 
