@@ -73,34 +73,19 @@
 			page: matePro;
 		}
 
-		.mate-pro-header {
-			position: running(mateproHeaderRunning);
-		}
-
-		.mate-pro-footer {
-			position: running(mateproFooterRunning);
-		}
-
 		@page matePro {
-			@top-center {
-				content: element(mateproHeaderRunning);
-			}
+			margin: 30px;
+			margin-top: 130px;
+		}
 
-			@bottom-center {
-				content: element(mateproFooterRunning);
-			}
+		h1 {
+			line-height: 1.15;
+		}
 
-			@bottom-left {
-				content: counter(page) "page, total:" counter(pages) "pages";
-			}
+		p {
+			line-height: 1.133;
 		}
 	</style>
-	<header class="base-header mate-pro-header">
-		<span class="base-title">HUAWEI Mate 60 Pro</span>
-	</header>
-
-	<footer class="base-footer mate-pro-footer">footer mate 60 pro</footer>
-
 	<section class="mate-pro">
 		<table class="base-description">
 			<tbody>

@@ -18,23 +18,38 @@
 			--page-margin-bottom: 70px;
 			--page-margin-left: 48px;
 		}
-		/* Test styles */
-		tr[data-nth-child-2np0] {
+
+		tr:is(
+			[data-ref="0"],
+			[data-ref="1"],
+			[data-ref="2"],
+			[data-ref="3"],
+			[data-ref="4"],
+			[data-ref="5"]
+		) {
 			background-color: lightgray;
 		}
 
 		table {
 			border-collapse: collapse;
 		}
+
+		h1 {
+			line-height: 1.15;
+		}
+
+		p {
+			line-height: 1.133;
+		}
 	</style>
 	<script type="module" src="/debug/page-container.js"></script>
 	<page-container>
 		<h1>Table Rebuild Rows</h1>
-		<table border="1" data-split-to="" style="border-block-end: none; padding-block-end: 0px">
-			<tbody data-split-to="" style="border-block-end: none; padding-block-end: 0px">
-				<tr data-child-index="1" data-type-index="1">
+		<table border="1" data-split-to="">
+			<tbody data-split-to="">
+				<tr>
 					<td style="width: 50%"><p>text</p></td>
-					<td style="width: 50%">
+					<td style="width: 50%" data-ref="0">
 						<p>
 							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
 							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
@@ -42,7 +57,7 @@
 							officiidsdsdsdsdsdsdsdsdsdsdsdsdsdsdsdsds dolores a itaque quibusdam. Iste delectus
 							enim nisi reiciendis delectus asperiores ipsa itaque in. E
 						</p>
-						<p>
+						<p data-ref="1">
 							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
 							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
 							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
@@ -53,13 +68,13 @@
 							repellendus omnis aut provident sit rerum omnis. Quod minima pariatur non quam a
 							laboriosam dignissimos. what does this all means?
 						</p>
-						<p><br /></p>
+						<p data-ref="2"><br /></p>
 						<p>
 							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
 							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
 							similique. Nisi minus quae omnis officia.
 						</p>
-						<p>
+						<p data-ref="3">
 							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
 							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
 							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
@@ -72,208 +87,161 @@
 						</p>
 					</td>
 				</tr>
-				<tr data-child-index="2" data-type-index="2" data-nth-child-2np0>
+				<tr data-ref="4">
 					<td style="width: 50%"><p>one</p></td>
-					<td style="width: 50%"><p>test</p></td>
+					<td style="width: 50%" data-ref="5"><p>test</p></td>
 				</tr>
 			</tbody>
 		</table>
 	</page-container>
 	<page-container>
-		<table
-			border="1"
-			data-split-from=""
-			data-split-to=""
-			style="border-block: none; padding-block: 0px"
-		>
-			<tbody data-split-from="" data-split-to="" style="border-block: none; padding-block: 0px">
-				<tr
-					data-child-index="3"
-					data-type-index="3"
-					style="border-block-start: none; padding-block-start: 0px"
-				>
-					<td style="width: 50%"><p>test</p></td>
+		<table border="1" data-split-from="" data-split-to="">
+			<tbody data-split-from="" data-split-to="">
+				<tr>
+					<td style="width: 50%"><p data-truncate-margin="">test</p></td>
+					<td style="width: 50%" data-ref="0">
+						<p data-truncate-margin="">
+							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
+							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
+							similique. Nisi minus quae omnis officia.
+						</p>
+						<p data-ref="1">
+							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
+							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
+							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
+						</p>
+						<p>
+							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
+							sapiente sunt odit quia reprehenderit non. Eos praesentium qui ea quia. Et eos
+							repellendus omnis aut provident sit rerum omnis. Quod minima pariatur non quam a
+							laboriosam dignissimos. what does this all means?
+						</p>
+						<p data-ref="2">
+							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
+							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
+							similique. Nisi minus quae omnis officia.
+						</p>
+						<p>
+							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
+							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
+							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
+						</p>
+						<p data-ref="3">
+							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
+							sapiente sunt odit quia reprehenderit non. Eos praesentium qui ea quia. Et eos
+							repellendus omnis aut provident sit rerum omnis. Quod minima pariatur non quam a
+							laboriosam dignissimos. what does this all means?
+						</p>
+						<p>
+							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
+							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
+							similique. Nisi minus quae omnis officia.
+						</p>
+						<p data-ref="4">
+							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
+							sapiente sunt odit quia reprehenderit non. Eos praesentium qui ea quia. Et eos
+							repellendus omnis aut provident sit rerum omnis. Quod minima pariatur non quam a
+							laboriosam dignissimos. what does this all means?
+						</p>
+					</td>
+				</tr>
+				<tr data-split-to="" data-ref="5">
+					<td style="width: 50%" data-split-to="">
+						<p data-split-to="">
+							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
+							enim nisi reiciendis delectus asperiores ipsa itaque in. At officia ducimus quae
+						</p>
+					</td>
+					<td style="width: 50%" data-split-to="" data-ref="6">
+						<p data-split-to="">
+							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
+							enim nisi reiciendis delectus
+						</p>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</page-container>
+	<page-container>
+		<table border="1" data-split-from="" data-split-to="">
+			<tbody data-split-from="" data-split-to="">
+				<tr data-split-from="" data-split-to="" data-ref="0">
+					<td style="width: 50%" data-split-from="">
+						<p data-split-from="" data-truncate-margin="">
+							animi. Aut aut sit molestiae sed odio in reiciendis. Id est quaerat. Sit laborum enim
+							deserunt. Necessitatibus error ducimus hic itaque. Quod harum rerum blanditiis
+							praesentium consequuntur quibusdam quo quia ipsam.
+						</p>
+					</td>
+					<td style="width: 50%" data-split-from="" data-split-to="" data-ref="1">
+						<p data-split-from="" data-truncate-margin="">
+							asperiores ipsa itaque in. Et illo voluptas in qui similique. Nisi minus quae omnis
+							officia.
+						</p>
+						<p data-ref="2">
+							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
+							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
+							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
+						</p>
+						<p>
+							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
+							sapiente sunt odit quia reprehenderit non. Eos praesentium qui ea quia. Et eos
+							repellendus omnis aut provident sit rerum omnis. Quod minima pariatur non quam a
+							laboriosam dignissimos. what does this all means?
+						</p>
+						<p data-ref="3">
+							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
+							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
+							similique. Nisi minus quae omnis officia.
+						</p>
+						<p>
+							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
+							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
+							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
+						</p>
+						<p data-ref="4">
+							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
+							sapiente sunt odit quia reprehenderit non. Eos praesentium qui ea quia. Et eos
+							repellendus omnis aut provident sit rerum omnis. Quod minima pariatur non quam a
+							laboriosam dignissimos. what does this all means?
+						</p>
+						<p><br /></p>
+						<p data-ref="5">
+							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
+							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
+							similique. Nisi minus quae omnis officia.
+						</p>
+						<p>
+							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
+							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
+							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
+						</p>
+						<p data-split-to="" data-ref="6">
+							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
+							sapiente sunt odit quia reprehenderit non. Eos praesentium qui ea quia. Et eos
+							repellendus omnis aut provident sit rerum omnis.
+						</p>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</page-container>
+	<page-container>
+		<table border="1" data-split-from="">
+			<tbody data-split-from="">
+				<tr data-split-from="" data-ref="0">
 					<td style="width: 50%">
 						<p>
 							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
-							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
-							similique. Nisi minus quae omnis officia.
-						</p>
-						<p>
-							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
-							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
-							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
-						</p>
-						<p>
-							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
-							sapiente sunt odit quia reprehenderit non. Eos praesentium qui ea quia. Et eos
-							repellendus omnis aut provident sit rerum omnis. Quod minima pariatur non quam a
-							laboriosam dignissimos. what does this all means?
-						</p>
-						<p>
-							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
-							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
-							similique. Nisi minus quae omnis officia.
-						</p>
-						<p>
-							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
-							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
-							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
-						</p>
-						<p>
-							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
-							sapiente sunt odit quia reprehenderit non. Eos praesentium qui ea quia. Et eos
-							repellendus omnis aut provident sit rerum omnis. Quod minima pariatur non quam a
-							laboriosam dignissimos. what does this all means?
-						</p>
-						<p>
-							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
-							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
-							similique. Nisi minus quae omnis officia.
-						</p>
-						<p>
-							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
-							sapiente sunt odit quia reprehenderit non. Eos praesentium qui ea quia. Et eos
-							repellendus omnis aut provident sit rerum omnis. Quod minima pariatur non quam a
-							laboriosam dignissimos. what does this all means?
-						</p>
-					</td>
-				</tr>
-				<tr
-					data-split-to=""
-					data-child-index="4"
-					data-type-index="4"
-					data-nth-child-2np0
-					data-last-child
-					data-last-of-type
-					style="border-block-end: none; padding-block-end: 0px"
-				>
-					<td style="width: 50%; border-block-end: none; padding-block-end: 0px" data-split-to="">
-						<p data-split-to=""></p>
-					</td>
-					<td style="width: 50%; border-block-end: none; padding-block-end: 0px" data-split-to="">
-						<p data-split-to=""></p>
-					</td>
-				</tr>
-			</tbody>
-		</table>
-	</page-container>
-	<page-container>
-		<table
-			border="1"
-			data-split-from=""
-			data-split-to=""
-			style="border-block: none; padding-block: 0px"
-		>
-			<tbody data-split-from="" data-split-to="" style="border-block: none; padding-block: 0px">
-				<tr
-					data-split-to=""
-					data-child-index="4"
-					data-type-index="4"
-					data-nth-child-2np0
-					data-last-child
-					data-last-of-type
-					style="border-block: none; padding-block: 0px"
-				>
-					<td
-						style="width: 50%; border-block-start: none; padding-block-start: 0px"
-					>
-						<p>
-							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
 							enim nisi reiciendis delectus asperiores ipsa itaque in. At officia ducimus quae
 							animi. Aut aut sit molestiae sed odio in reiciendis. Id est quaerat. Sit laborum enim
 							deserunt. Necessitatibus error ducimus hic itaque. Quod harum rerum blanditiis
 							praesentium consequuntur quibusdam quo quia ipsam.
 						</p>
 					</td>
-					<td
-						style="width: 50%; border-block: none; padding-block: 0px"
-						data-split-to=""
-					>
-						<p>
-							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
-							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
-							similique. Nisi minus quae omnis officia.
-						</p>
-						<p>
-							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
-							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
-							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
-						</p>
-						<p>
-							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
-							sapiente sunt odit quia reprehenderit non. Eos praesentium qui ea quia. Et eos
-							repellendus omnis aut provident sit rerum omnis. Quod minima pariatur non quam a
-							laboriosam dignissimos. what does this all means?
-						</p>
-						<p>
-							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
-							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
-							similique. Nisi minus quae omnis officia.
-						</p>
-						<p>
-							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
-							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
-							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
-						</p>
-						<p>
-							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
-							sapiente sunt odit quia reprehenderit non. Eos praesentium qui ea quia. Et eos
-							repellendus omnis aut provident sit rerum omnis. Quod minima pariatur non quam a
-							laboriosam dignissimos. what does this all means?
-						</p>
-						<p><br /></p>
-						<p>
-							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
-							enim nisi reiciendis delectus asperiores ipsa itaque in. Et illo voluptas in qui
-							similique. Nisi minus quae omnis officia.
-						</p>
-						<p>
-							At officia ducimus quae animi. Aut aut sit molestiae sed odio in reiciendis. Id est
-							quaerat. Sit laborum enim deserunt. Necessitatibus error ducimus hic itaque. Quod
-							harum rerum blanditiis praesentium consequuntur quibusdam quo quia ipsam.
-						</p>
-						<p data-split-to="">
-							Deleniti sequi recusandae natus at. Reprehenderit in aut accusamus ut aut. Sequi
-							sapiente sunt odit quia
-						</p>
-					</td>
-				</tr>
-			</tbody>
-		</table>
-	</page-container>
-	<page-container>
-		<table border="1" data-split-from="" style="border-block-start: none; padding-block-start: 0px">
-			<tbody data-split-from="" style="border-block-start: none; padding-block-start: 0px">
-				<tr
-					data-split-from=""
-					data-child-index="4"
-					data-type-index="4"
-					data-nth-child-2np0
-					data-last-child
-					data-last-of-type
-					style="border-block-start: none; padding-block-start: 0px"
-				>
-					<td
-						style="width: 50%; border-block-start: none; padding-block-start: 0px"
-						data-split-from=""
-					>
-						<p>
-							Est incidunt est nihil. Ut id sit officiis dolores a itaque quibusdam. Iste delectus
-							enim nisi reiciendis delectus asperiores ipsa itaque in. At officia ducimus quae
-							animi. Aut aut sit molestiae sed odio in reiciendis. Id est quaerat. Sit laborum enim
-							deserunt. Necessitatibus error ducimus hic itaque. Quod harum rerum blanditiis
-							praesentium consequuntur quibusdam quo quia ipsam.
-						</p>
-					</td>
-					<td
-						style="width: 50%; border-block-start: none; padding-block-start: 0px"
-						data-split-from=""
-					>
-						<p>
-							reprehenderit non. Eos praesentium qui ea quia. Et eos repellendus omnis aut provident
-							sit rerum omnis. Quod minima pariatur non quam a laboriosam dignissimos. what does
-							this all means?
+					<td style="width: 50%" data-split-from="" data-ref="1">
+						<p data-split-from="" data-truncate-margin="" data-ref="2">
+							Quod minima pariatur non quam a laboriosam dignissimos. what does this all means?
 						</p>
 					</td>
 				</tr>

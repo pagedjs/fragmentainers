@@ -58,7 +58,6 @@ body {
 
 /* Page spread grid */
 #output {
-	--page-scale: min(1, 45vw / (var(--page-inline-size)));
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: center;
@@ -77,16 +76,11 @@ body {
 .page-render.has-issues {
 	outline: 2px solid red;
 }
-.page-render.single {
-	margin-right: calc(var(--page-inline-size) + var(--grid-size));
-}
 
-@media (max-width: 900px) {
-	#output {
-		--page-scale: min(1, 90vw / (var(--page-inline-size)));
-	}
+@media (min-width: 1650px) {
 	.page-render.single {
-		margin-right: 0;
+			margin-right: calc(var(--page-inline-size) + var(--grid-size));
+
 	}
 }
 

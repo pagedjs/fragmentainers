@@ -35,7 +35,6 @@ at-page:
     type: print
   - name: rebuild
     type: print
-    skip: true
   - name: rebuild-all-tds
     type: print
     skip: true

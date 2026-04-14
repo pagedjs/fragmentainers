@@ -1,177 +1,150 @@
 <!doctype html>
 <html lang="en">
 	<style>
-		  @page {
-		    size: A4 portrait;
-		    margin: 0;
-		  }
+		@page {
+			size: A4 portrait;
+			margin: 0;
+		}
 
-		  body {
-		    padding: 0;
-		    margin: 0;
-		  }
-		  page-container {
-		  	--page-width: 210mm;
-		  	--page-height: 297mm;
-		  	--page-margin-top: 30px;
-		  	--page-margin-right: 30px;
-		  	--page-margin-bottom: 30px;
-		  	--page-margin-left: 30px;
-		  }
-		/* Test styles */
-		  .base-footer {
-		      text-transform: uppercasse;
-		      font-size: 12px;
-		    }
+		body {
+			padding: 0;
+			margin: 0;
+		}
+		page-container {
+			--page-width: 210mm;
+			--page-height: 297mm;
+			--page-margin-top: 30px;
+			--page-margin-right: 30px;
+			--page-margin-bottom: 30px;
+			--page-margin-left: 30px;
+		}
 
-		    .base-header {
-		      height: 100px;
-		      text-align: start;
-		      position: relative;
-		    }
+		.base-footer {
+			text-transform: uppercasse;
+			font-size: 12px;
+		}
 
-		    .base-title {
-		      position: absolute;
-		      left: 295px;
-		      top: 38px;
-		      font-size: 16px;
-		      font-weight: 500;
-		      line-height: 19px;
-		    }
+		.base-header {
+			height: 100px;
+			text-align: start;
+			position: relative;
+		}
 
-		    .base-description {
-		      margin-top: 6px;
-		      width: 100%;
-		      border-collapse: collapse;
-		    }
+		.base-title {
+			position: absolute;
+			left: 295px;
+			top: 38px;
+			font-size: 16px;
+			font-weight: 500;
+			line-height: 19px;
+		}
 
-		    .base-description th,
-		    .base-description td {
-		      font-size: 12px;
-		      padding: 1em;
-		      border: 1px solid #dcdcdc;
-		    }
+		.base-description {
+			margin-top: 6px;
+			width: 100%;
+			border-collapse: collapse;
+		}
 
-		    .base-description td:nth-child(odd) {
-		      width: 120px;
-		      background: #ebedf1;
-		    }
+		.base-description th,
+		.base-description td {
+			font-size: 12px;
+			padding: 1em;
+			border: 1px solid #dcdcdc;
+		}
 
-		    .base-description td:nth-child(even) {
-		      width: 249px;
-		    }
+		.base-description td:nth-child(odd) {
+			width: 120px;
+			background: #ebedf1;
+		}
 
-		    .base-evaluation {
-		      width: 100%;
-		      border-collapse: collapse;
-		    }
+		.base-description td:nth-child(even) {
+			width: 249px;
+		}
 
-		    .base-evaluation thead tr {
-		      background: #ebedf1;
-		    }
+		.base-evaluation {
+			width: 100%;
+			border-collapse: collapse;
+		}
 
-		    .base-evaluation thead tr th {
-		      text-align: center;
-		    }
+		.base-evaluation thead tr {
+			background: #ebedf1;
+		}
 
-		    .base-evaluation th,
-		    .base-evaluation td {
-		      font-size: 12px;
-		      border: 1px solid #dcdcdc;
-		      padding: 1em;
-		    }
+		.base-evaluation thead tr th {
+			text-align: center;
+		}
 
+		.base-evaluation th,
+		.base-evaluation td {
+			font-size: 12px;
+			border: 1px solid #dcdcdc;
+			padding: 1em;
+		}
 
+		.mate-pro {
+			page: matePro;
+		}
 
-		    .mate-pro {
-		      page: matePro;
-		    }
+		h1 {
+			line-height: 1.15;
+		}
 
-		    .mate-pro-header {
-
-		    }
-
-		    .mate-pro-footer {
-
-		    }
-
-
-
-		      @bottom-center {
-		        content: element(mateproFooterRunning);
-		      }
-
-		      @bottom-left {
-		        content: counter(page) "page, total:" counter(pages) "pages";
-		      }
-		    }
+		p {
+			line-height: 1.133;
+		}
 	</style>
 	<script type="module" src="/debug/page-container.js"></script>
 	<page-container>
-		<header class="base-header mate-pro-header">
-			<span class="base-title">HUAWEI Mate 60 Pro</span>
-		</header>
-		<footer class="base-footer mate-pro-footer">footer mate 60 pro</footer>
-	</page-container>
-	<page-container>
-		<section
-			class="mate-pro"
-			data-split-to=""
-			style="border-block: none; padding-block: 0px"
-		>
-			<table class="base-description">
-				<tbody>
-					<tr>
-						<td>Product Name</td>
-						<td>HUAWEI Mate 60 Pro</td>
-						<td>Dimensions</td>
-						<td>161mm x 74.5mm x 8.3mm</td>
+		<section class="mate-pro" data-split-to="">
+			<table class="base-description" data-ref="0">
+				<tbody data-ref="1">
+					<tr data-ref="2">
+						<td data-ref="3">Product Name</td>
+						<td data-ref="4">HUAWEI Mate 60 Pro</td>
+						<td data-ref="5">Dimensions</td>
+						<td data-ref="6">161mm x 74.5mm x 8.3mm</td>
 					</tr>
-					<tr>
-						<td>Weight</td>
-						<td>Approx. 200 g (including the battery)</td>
-						<td>Size</td>
-						<td>6.67 inches</td>
+					<tr data-ref="7">
+						<td data-ref="8">Weight</td>
+						<td data-ref="9">Approx. 200 g (including the battery)</td>
+						<td data-ref="10">Size</td>
+						<td data-ref="11">6.67 inches</td>
 					</tr>
-					<tr>
-						<td>Colour</td>
-						<td>1.07 billion colours</td>
-						<td>Type</td>
-						<td>OLED</td>
+					<tr data-ref="12">
+						<td data-ref="13">Colour</td>
+						<td data-ref="14">1.07 billion colours</td>
+						<td data-ref="15">Type</td>
+						<td data-ref="16">OLED</td>
 					</tr>
-					<tr>
-						<td>Resolution</td>
-						<td>2700 × 1220 Pixels</td>
-						<td>CPU</td>
-						<td>
+					<tr data-ref="17">
+						<td data-ref="18">Resolution</td>
+						<td data-ref="19">2700 × 1220 Pixels</td>
+						<td data-ref="20">CPU</td>
+						<td data-ref="21">
 							Octa-core, 1 × Cortex-X2@3.2 GHz + 3 × Cortex-A710@2.75 GHz + 4 × Cortex-A510@2.0 GHz
 						</td>
 					</tr>
-					<tr>
-						<td>Operating System</td>
-						<td>EMUI 13.1</td>
-						<td>Memory</td>
-						<td>RAM + ROM</td>
+					<tr data-ref="22">
+						<td data-ref="23">Operating System</td>
+						<td data-ref="24">EMUI 13.1</td>
+						<td data-ref="25">Memory</td>
+						<td data-ref="26">RAM + ROM</td>
 					</tr>
 				</tbody>
 			</table>
-			<table
-				class="base-evaluation"
-				data-split-to=""
-				style="border-block-end: none; padding-block-end: 0px"
-			>
-				<thead>
-					<tr>
-						<th>Column 1</th>
-						<th width="200px">Column 2</th>
-						<th>Column 3</th>
-						<th>Column 4</th>
+			<table class="base-evaluation" data-split-to="" data-ref="27">
+				<thead data-ref="28">
+					<tr data-ref="29">
+						<th data-ref="30">Column 1</th>
+						<th width="200px" data-ref="31">Column 2</th>
+						<th data-ref="32">Column 3</th>
+						<th data-ref="33">Column 4</th>
 					</tr>
 				</thead>
-				<tbody data-split-to="" style="border-block-end: none; padding-block-end: 0px">
-					<tr data-split-to="" style="border-block-end: none; padding-block-end: 0px">
-						<td>1</td>
-						<td data-split-to="">
+				<tbody data-split-to="" data-ref="34">
+					<tr data-split-to="" data-ref="35">
+						<td data-ref="36">1</td>
+						<td data-split-to="" data-ref="37">
 							something something something something something something something something
 							something something something something something something something something
 							something something something something something something something something
@@ -189,117 +162,101 @@
 							something something something something something something something something
 							something something something something something something something something
 							something something something something something something something something
-							something something something something something
+							something something something something something something something something
 						</td>
-						<div style="height: 669px; overflow: hidden">
-							<td data-split-to="" style="border-block-end: none; padding-block-end: 0px"></td>
-						</div>
-						<td>好</td>
+						<td data-ref="38"></td>
+						<td data-ref="39">好</td>
 					</tr>
 				</tbody>
 			</table>
 		</section>
 	</page-container>
 	<page-container>
-		<section
-			class="mate-pro"
-			data-split-from=""
-			data-split-to=""
-			style="border-block: none; padding-block: 0px"
-		>
-			<table
-				class="base-evaluation"
-				data-split-from=""
-				data-split-to=""
-				style="border-block: none; padding-block: 0px"
-			>
-				<tbody data-split-from="" data-split-to="" style="border-block: none; padding-block: 0px">
-					<tr data-split-from="" style="border-block-start: none; padding-block-start: 0px">
-						<td data-split-from="">1</td>
-						<td data-split-from="">
-							something something something something something something something something
-							something something something something something something something something
-							something something something something something something something something
-							something something something something something something something something
-							something something something something something something something something
-							something something something something something something something something
-							something something something something something something something something
-							something something something something something something something something
-							something something something
-						</td>
-						<div style="height: 336px; overflow: hidden">
-							<td
-								data-split-from=""
-								style="border-block-start: none; padding-block-start: 0px; margin-top: -669px"
-							></td>
-						</div>
-						<td data-split-from="">好</td>
+		<section class="mate-pro" data-split-from="" data-split-to="">
+			<table class="base-evaluation" data-split-from="" data-split-to="" data-ref="0">
+				<thead data-repeated="" data-ref="1">
+					<tr data-ref="2">
+						<th data-ref="3">Column 1</th>
+						<th width="200px" data-ref="4">Column 2</th>
+						<th data-ref="5">Column 3</th>
+						<th data-ref="6">Column 4</th>
 					</tr>
-					<tr data-split-to="" style="border-block-end: none; padding-block-end: 0px">
-						<td data-split-to=""></td>
-						<td data-split-to=""></td>
-						<div style="height: 12.6px; overflow: hidden">
-							<td data-split-to="" style="border-block-end: none; padding-block-end: 0px"></td>
-						</div>
-						<td data-split-to=""></td>
+				</thead>
+				<tbody data-split-from="" data-split-to="" data-ref="7">
+					<tr data-split-from="" data-ref="8">
+						<td data-ref="9">1</td>
+						<td data-split-from="" data-ref="10">
+							something something something something something something something something
+							something something something something something something something something
+							something something something something something something something something
+							something something something something something something something something
+							something something something something something something something something
+							something something something something something something something something
+							something something something something something something something something
+							something something something something something something something something
+						</td>
+						<td data-ref="11"></td>
+						<td data-ref="12">好</td>
+					</tr>
+					<tr data-split-to="" data-ref="13">
+						<td data-ref="14">2</td>
+						<td data-split-to="" data-ref="15">
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder
+						</td>
+						<td data-ref="16"></td>
+						<td data-ref="17">好</td>
 					</tr>
 				</tbody>
 			</table>
 		</section>
 	</page-container>
 	<page-container>
-		<section
-			class="mate-pro"
-			data-split-from=""
-			style="border-block-start: none; padding-block-start: 0px"
-		>
-			<table
-				class="base-evaluation"
-				data-split-from=""
-				style="border-block-start: none; padding-block-start: 0px"
-			>
-				<tbody data-split-from="" style="border-block-start: none; padding-block-start: 0px">
-					<tr data-split-from="" style="border-block-start: none; padding-block-start: 0px">
-						<td data-split-from="">2</td>
-						<td data-split-from="">
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
-							placeholder
-						</td>
-						<div style="height: 768.4px; overflow: hidden">
-							<td
-								data-split-from=""
-								style="border-block-start: none; padding-block-start: 0px; margin-top: -12.6px"
-							></td>
-						</div>
-						<td data-split-from="">好</td>
+		<section class="mate-pro" data-split-from="">
+			<table class="base-evaluation" data-split-from="" data-ref="0">
+				<thead data-repeated="" data-ref="1">
+					<tr data-ref="2">
+						<th data-ref="3">Column 1</th>
+						<th width="200px" data-ref="4">Column 2</th>
+						<th data-ref="5">Column 3</th>
+						<th data-ref="6">Column 4</th>
 					</tr>
-					<tr>
-						<td>3</td>
-						<td></td>
-						<td></td>
-						<td>好</td>
+				</thead>
+				<tbody data-split-from="" data-ref="7">
+					<tr data-split-from="" data-ref="8">
+						<td data-ref="9">2</td>
+						<td data-split-from="" data-ref="10">
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder placeholder placeholder
+							placeholder placeholder placeholder placeholder placeholder
+						</td>
+						<td data-ref="11"></td>
+						<td data-ref="12">好</td>
+					</tr>
+					<tr data-ref="13">
+						<td data-ref="14">3</td>
+						<td data-ref="15"></td>
+						<td data-ref="16"></td>
+						<td data-ref="17">好</td>
 					</tr>
 				</tbody>
 			</table>
