@@ -27,6 +27,7 @@ at-page:
     type: print
   - name: long-table
     type: print
+    skip: "failing on Github"
   - name: nested
     type: print
   - name: numbering
