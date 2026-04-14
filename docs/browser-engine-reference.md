@@ -506,7 +506,7 @@ Implements `@page` rule parsing, matching, cascading, and per-page constraint re
 | Property          | Type                         | Description                                                    |
 | ----------------- | ---------------------------- | -------------------------------------------------------------- |
 | `name`            | `string \| null`             | Named page type (`"chapter"`, `"cover"`) or null for universal |
-| `pseudoClass`     | `string \| null`             | `:first`, `:left`, `:right`, `:blank`                          |
+| `pseudoClasses`   | `string[]`                   | Subset of `:first`, `:left`, `:right`, `:blank`                |
 | `size`            | `string \| number[] \| null` | `"a4"`, `"letter landscape"`, `[width, height]`                |
 | `margin`          | `object \| null`             | `{ top, right, bottom, left }` in CSS px                       |
 | `pageOrientation` | `string \| null`             | `"rotate-left"`, `"rotate-right"`                              |

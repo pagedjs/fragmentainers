@@ -501,7 +501,7 @@ test.describe(":blank pseudo-class matching", () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 
 			const resolver = new PageResolver(
-				[new PageRule({ pseudoClass: "blank", margin: { top: 100 } })],
+				[new PageRule({ pseudoClasses: ["blank"], margin: { top: 100 } })],
 				{ inlineSize: 600, blockSize: 1000 },
 			);
 
@@ -518,12 +518,30 @@ test.describe(":blank pseudo-class matching", () => {
 		expect(result.blankIsBlank).toBe(true);
 	});
 
+	test("@page :blank:left matches only blank left pages", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver(
+				[new PageRule({ pseudoClasses: ["blank", "left"], margin: { top: 50 } })],
+				{ inlineSize: 600, blockSize: 1000 },
+			);
+			return {
+				blankLeft: resolver.resolve(1, null, null, true).margins.top,
+				blankRight: resolver.resolve(0, null, null, true).margins.top,
+				nonBlankLeft: resolver.resolve(1, null, null, false).margins.top,
+			};
+		});
+		expect(result.blankLeft).toBe(50);
+		expect(result.blankRight).toBe(0);
+		expect(result.nonBlankLeft).toBe(0);
+	});
+
 	test("@page :blank does not match non-blank pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 
 			const resolver = new PageResolver(
-				[new PageRule({ pseudoClass: "blank", size: [400, 400] })],
+				[new PageRule({ pseudoClasses: ["blank"], size: [400, 400] })],
 				{ inlineSize: 600, blockSize: 1000 },
 			);
 

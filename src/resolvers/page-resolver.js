@@ -36,22 +36,52 @@ export class PageRule {
 	/**
 	 * @param {object} opts
 	 * @param {string|null} [opts.name] - Named page type ('chapter', 'cover'), or null for universal
-	 * @param {string|null} [opts.pseudoClass] - 'first', 'left', 'right', 'blank', or null
+	 * @param {string[]} [opts.pseudoClasses] - Subset of 'first', 'left', 'right', 'blank'
 	 * @param {string|number[]|null} [opts.size] - 'a4', 'letter landscape', [width, height], or null
 	 * @param {object|null} [opts.margin] - { top, right, bottom, left } in CSS px
 	 * @param {string|null} [opts.pageOrientation] - 'rotate-left', 'rotate-right', or null
 	 * @param {CSSUnitValue[]|null} [opts.rawSize] - [inline, block] as CSSUnitValues with original units
 	 * @param {object|null} [opts.rawMargin] - { top, right, bottom, left } as CSSUnitValues
 	 */
-	constructor({ name, pseudoClass, size, margin, pageOrientation, rawSize, rawMargin } = {}) {
+	constructor({ name, pseudoClasses, size, margin, pageOrientation, rawSize, rawMargin } = {}) {
 		this.name = name || null;
-		this.pseudoClass = pseudoClass || null;
+		this.pseudoClasses = pseudoClasses ?? [];
 		this.size = size ?? null;
 		this.margin = margin ?? null;
 		this.pageOrientation = pageOrientation ?? null;
 		this.rawSize = rawSize ?? null;
 		this.rawMargin = rawMargin ?? null;
 	}
+}
+
+/**
+ * Compute CSS Paged Media §3.4 specificity as a tuple [f, g, h]:
+ *   f — 1 if a page type name is present, else 0
+ *   g — count of :first / :blank pseudo-classes
+ *   h — count of :left / :right pseudo-classes
+ * Compared lexicographically; higher wins.
+ *
+ * @param {PageRule} rule
+ * @returns {[number, number, number]}
+ */
+export function pageRuleSpecificity(rule) {
+	let g = 0;
+	let h = 0;
+	for (const pc of rule.pseudoClasses) {
+		if (pc === "first" || pc === "blank") g++;
+		else if (pc === "left" || pc === "right") h++;
+	}
+	return [rule.name ? 1 : 0, g, h];
+}
+
+/**
+ * Lexicographic comparator over [f, g, h] tuples.
+ * @param {[number, number, number]} a
+ * @param {[number, number, number]} b
+ * @returns {number}
+ */
+export function compareSpecificity(a, b) {
+	return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
 }
 
 /**
@@ -195,28 +225,28 @@ export class PageResolver {
 
 	/**
 	 * Match @page rules applicable to this page context.
-	 * A rule matches if its name matches (or is universal) AND its pseudo-class
-	 * matches (or has none).
+	 * A rule matches if its name matches (or is universal) AND every
+	 * pseudo-class in its selector matches the page context.
 	 */
 	matchRules(pageIndex, namedPage, isBlank = false) {
 		return this.pageRules.filter((rule) => {
-			// Named rule must match the page's named page
 			if (rule.name && rule.name !== namedPage) return false;
 
-			// Pseudo-class must match the page context
-			if (rule.pseudoClass === "first" && pageIndex !== 0) return false;
-			if (rule.pseudoClass === "left" && !this.isLeftPage(pageIndex)) return false;
-			if (rule.pseudoClass === "right" && this.isLeftPage(pageIndex)) return false;
-			if (rule.pseudoClass === "blank" && !isBlank) return false;
+			for (const pc of rule.pseudoClasses) {
+				if (pc === "first" && pageIndex !== 0) return false;
+				if (pc === "left" && !this.isLeftPage(pageIndex)) return false;
+				if (pc === "right" && this.isLeftPage(pageIndex)) return false;
+				if (pc === "blank" && !isBlank) return false;
+			}
 
 			return true;
 		});
 	}
 
 	/**
-	 * Cascade matched rules — sort by specificity, later/more-specific rules win.
-	 * Specificity: universal(0) < pseudo-class(1) < named(2) < named+pseudo(3).
-	 * Within same specificity, document order (array index) wins.
+	 * Cascade matched rules per CSS Paged Media §3.4.
+	 * Sorts by lexicographic [f, g, h] specificity; Array.sort's stability
+	 * preserves document order as the tiebreaker.
 	 */
 	cascadeRules(matchingRules) {
 		const result = {
@@ -227,12 +257,9 @@ export class PageResolver {
 			rawMargin: null,
 		};
 
-		// Stable sort by specificity — Array.sort is stable in modern engines
-		const sorted = [...matchingRules].sort((a, b) => {
-			const specA = (a.name ? 2 : 0) + (a.pseudoClass ? 1 : 0);
-			const specB = (b.name ? 2 : 0) + (b.pseudoClass ? 1 : 0);
-			return specA - specB;
-		});
+		const sorted = [...matchingRules].sort((a, b) =>
+			compareSpecificity(pageRuleSpecificity(a), pageRuleSpecificity(b)),
+		);
 
 		for (const rule of sorted) {
 			if (rule.size != null) {
@@ -336,28 +363,51 @@ export function parsePageRulesFromCSS(cssTexts) {
  */
 export function collectPageRules(cssRules, out = []) {
 	walkRules(cssRules, (rule) => {
-		if (rule instanceof CSSPageRule) out.push(parseOnePageRule(rule));
+		if (rule instanceof CSSPageRule) {
+			const parsed = parseOnePageRule(rule);
+			if (parsed) out.push(parsed);
+		}
 	});
 	return out;
 }
 
+const VALID_PAGE_PSEUDOS = new Set(["first", "left", "right", "blank"]);
+
 /**
- * Extract a PageRule from a CSSPageRule instance.
+ * Parse an @page selector into an optional name and pseudo-class list.
+ * Returns null if any pseudo is outside the CSS Paged Media allowlist
+ * (matches the spec's "invalid rule dropped" behavior).
+ *
+ * @param {string} selectorText
+ * @returns {{ name: string|null, pseudoClasses: string[] }|null}
+ */
+export function parsePageSelector(selectorText) {
+	const trimmed = (selectorText || "").trim();
+	if (!trimmed) return { name: null, pseudoClasses: [] };
+
+	const parts = trimmed.split(":");
+	const name = parts[0] || null;
+	const seen = new Set();
+	const pseudoClasses = [];
+	for (const raw of parts.slice(1)) {
+		const pc = raw.toLowerCase();
+		if (!VALID_PAGE_PSEUDOS.has(pc)) return null;
+		if (seen.has(pc)) continue;
+		seen.add(pc);
+		pseudoClasses.push(pc);
+	}
+	return { name, pseudoClasses };
+}
+
+/**
+ * Extract a PageRule from a CSSPageRule instance, or null if the
+ * selector contains an unknown pseudo-class.
  * @param {CSSPageRule} rule
- * @returns {PageRule}
+ * @returns {PageRule|null}
  */
 function parseOnePageRule(rule) {
-	// Parse selector: optional name, optional :pseudo
-	let name = null;
-	let pseudoClass = null;
-	const selector = rule.selectorText.trim();
-	if (selector) {
-		const selectorMatch = selector.match(/^(\w+)?\s*(?::(\w+))?$/);
-		if (selectorMatch) {
-			name = selectorMatch[1] || null;
-			pseudoClass = selectorMatch[2] || null;
-		}
-	}
+	const parsed = parsePageSelector(rule.selectorText);
+	if (!parsed) return null;
 
 	const size = parsePageSize(rule.style);
 	const margin = parsePageMargins(rule.style);
@@ -367,7 +417,15 @@ function parseOnePageRule(rule) {
 	const rawSize = parseRawPageSize(rule.style);
 	const rawMargin = parseRawPageMargins(rule.style);
 
-	return new PageRule({ name, pseudoClass, size, margin, pageOrientation, rawSize, rawMargin });
+	return new PageRule({
+		name: parsed.name,
+		pseudoClasses: parsed.pseudoClasses,
+		size,
+		margin,
+		pageOrientation,
+		rawSize,
+		rawMargin,
+	});
 }
 
 /**
