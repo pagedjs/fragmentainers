@@ -21,12 +21,6 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      - name: Start server
-        run: npx serve . -p 8080 --no-clipboard &
-
-      - name: Wait for server
-        run: timeout 10 bash -c 'until curl -s http://localhost:8080 > /dev/null; do sleep 0.5; done'
-
       - run: npm run specs
 
       - uses: actions/upload-artifact@v4

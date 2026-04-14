@@ -19,10 +19,10 @@
 		"./handlers": "./src/handlers/index.js"
 	},
 	"bin": {
-		"view": "debug/viewer.js"
+		"fragment": "debug/viewer.js"
 	},
 	"scripts": {
-		"test": "eslint src/ test/ && playwright test --config test/playwright.config.js",
+		"test": "playwright test --config test/playwright.config.js",
 		"lint": "eslint src/ test/",
 		"lint:fix": "eslint --fix src/ test/",
 		"serve": "serve .",

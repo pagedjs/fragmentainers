@@ -28,9 +28,9 @@ const green = (s) => `\x1b[32m${s}\x1b[0m`;
 
 function printUsage() {
 	console.log();
-	console.log(bold("  fragmentainers view"));
+	console.log(bold("  Fragmentainers viewer"));
 	console.log();
-	console.log("  Usage: node debug/viewer.js <spec-path> [options]");
+	console.log("  Usage: fragment <path> [options]");
 	console.log();
 	console.log("  Options:");
 	console.log("    --type <print|multicol>             Fragmentation mode (default: print)");
@@ -44,12 +44,12 @@ function printUsage() {
 	console.log("    --ref                                Skip script injection (view page as-is)");
 	console.log();
 	console.log("  Examples:");
-	console.log(dim("    node debug/viewer.js specs/at-page/awesome.html"));
-	console.log(dim("    node debug/viewer.js specs/at-page/awesome.html --type multicol"));
-	console.log(dim("    node debug/viewer.js specs/at-page/awesome.html --browser firefox"));
-	console.log(dim("    node debug/viewer.js specs/at-page/awesome.html --html output.html"));
-	console.log(dim("    node debug/viewer.js specs/at-page/awesome.html --inspect"));
-	console.log(dim("    node debug/viewer.js specs/at-page/awesome.html --pdf book.pdf"));
+	console.log(dim("    fragment specs/at-page/awesome.html"));
+	console.log(dim("    fragment specs/at-page/awesome.html --type multicol"));
+	console.log(dim("    fragment specs/at-page/awesome.html --browser firefox"));
+	console.log(dim("    fragment specs/at-page/awesome.html --html output.html"));
+	console.log(dim("    fragment specs/at-page/awesome.html --inspect"));
+	console.log(dim("    fragment specs/at-page/awesome.html --pdf book.pdf"));
 	console.log();
 }
 
