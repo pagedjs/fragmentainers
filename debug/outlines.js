@@ -227,12 +227,15 @@ export function buildFragmentOverlay(pageFragment, contentArea, margins) {
 					throughTop = first.blockOffset;
 				}
 			}
-			// Bottom through-collapse: last child's margin collapses through
-			// when parent has no bottom padding/border and child didn't break.
-			if (!child.breakToken) {
-				const bottomMargin = child.node.collapsedMarginBlockEnd || 0;
-				if (bottomMargin > 0) {
-					throughBottom = bottomMargin;
+			// Bottom through-collapse: measure the gap between the last child's
+			// end and the parent's blockSize when the parent has no bottom
+			// padding/border. Mirrors the throughTop computation.
+			const boxEnd = (child.node.paddingBlockEnd || 0) + (child.node.borderBlockEnd || 0);
+			if (boxEnd === 0 && child.childFragments.length > 0) {
+				const last = child.childFragments[child.childFragments.length - 1];
+				if (last && last.node) {
+					const trailing = child.blockSize - (last.blockOffset + last.blockSize);
+					if (trailing > 0) throughBottom = trailing;
 				}
 			}
 

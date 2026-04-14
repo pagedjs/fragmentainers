@@ -2,13 +2,13 @@
  * Browser-side module that runs paginate + inspect and stores
  * the text report on a data attribute for CLI extraction.
  */
-import { paginate } from "./paginate.js";
+import { paginate } from "../specs/helpers/paginate.js";
 import {
 	buildPageDump,
 	buildDocumentSummary,
 	buildElementSpans,
 	fragmentainerHeight,
-} from "./inspect.js";
+} from "./outlines.js";
 
 try {
 	const flow = await paginate();

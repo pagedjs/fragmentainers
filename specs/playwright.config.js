@@ -6,6 +6,12 @@ export default defineConfig({
 	timeout: 30000,
 	retries: 0,
 	workers: 8,
+	webServer: {
+		command: "serve . -p 8080 --no-clipboard",
+		port: 8080,
+		cwd: "..",
+		reuseExistingServer: true,
+	},
 	use: {
 		baseURL: "http://localhost:8080",
 		browserName: "chromium",

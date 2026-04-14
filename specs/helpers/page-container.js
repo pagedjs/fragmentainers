@@ -14,7 +14,7 @@
  * fragment-container applies inside its shadow DOM.
  */
 
-import { OVERRIDES } from "../src/styles/overrides.js";
+import { OVERRIDES } from "../../src/styles/overrides.js";
 
 const STYLES = `
   :host {

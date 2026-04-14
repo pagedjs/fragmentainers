@@ -1,8 +1,8 @@
 import { FragmentedFlow, PageResolver } from "../src/index.js";
 import { ContentParser } from "./content-parser.js";
 import "../src/components/fragment-container.js";
-import "./page-container.js";
-import { fragmentainerHeight, buildFragmentOverlay } from "./inspect.js";
+import "../specs/helpers/page-container.js";
+import { fragmentainerHeight, buildFragmentOverlay } from "./outlines.js";
 
 const params = new URLSearchParams(location.search);
 const url = params.get("url");

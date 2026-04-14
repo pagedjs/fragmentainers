@@ -2,8 +2,8 @@
  * Browser-side module that paginates and adds fragment border overlays.
  * Used by viewer.js --debug to show layout structure on each page.
  */
-import { paginate } from "./paginate.js";
-import { buildFragmentOverlay } from "./inspect.js";
+import { paginate } from "../specs/helpers/paginate.js";
+import { buildFragmentOverlay } from "./outlines.js";
 
 try {
 	const flow = await paginate();

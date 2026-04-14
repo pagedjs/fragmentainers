@@ -2,10 +2,10 @@
  * Multicol processor — replaces CSS column layout with
  * the library's fragmentation engine output.
  */
-import { ConstraintSpace } from "../src/index.js";
-import { createFragments } from "../src/layout/index.js";
-import { DOMLayoutNode } from "../src/layout/layout-node.js";
-import { FRAGMENTATION_COLUMN } from "../src/fragmentation/constraint-space.js";
+import { ConstraintSpace } from "../../src/index.js";
+import { createFragments } from "../../src/layout/index.js";
+import { DOMLayoutNode } from "../../src/layout/layout-node.js";
+import { FRAGMENTATION_COLUMN } from "../../src/fragmentation/constraint-space.js";
 import "./multicol-container.js";
 
 /**

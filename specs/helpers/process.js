@@ -4,8 +4,8 @@
  * Reads data-spec-type from the document element to decide which
  * fragmentation mode to run: "print" for pagination, "multicol" for columns.
  */
-import { paginate } from "/debug/paginate.js";
-import { findMulticolContainers, multicol } from "/debug/multicol.js";
+import { paginate } from "/specs/helpers/paginate.js";
+import { findMulticolContainers, multicol } from "/specs/helpers/multicol.js";
 
 async function process() {
 	try {

@@ -245,7 +245,7 @@ if (ref && pdf.enabled) {
 	await page.goto(`http://localhost:${port}/${specPath}`, { waitUntil: "load" });
 
 	const t0 = Date.now();
-	const script = inspect.enabled ? "/debug/inspect-report.js" : "/specs/helpers/process.js";
+	const script = inspect.enabled ? "/debug/report.js" : "/specs/helpers/process.js";
 	await page.addScriptTag({ type: "module", url: script });
 	await page.waitForSelector("[data-spec-ready]", { timeout: 30000 });
 
