@@ -39,6 +39,12 @@ export class DOMLayoutNode extends LayoutNode {
 	#display = null;
 	#textAlign = null;
 	#whiteSpace = null;
+	#marginBlockStart = null;
+	#marginBlockEnd = null;
+	#paddingBlockStart = null;
+	#paddingBlockEnd = null;
+	#borderBlockStart = null;
+	#borderBlockEnd = null;
 	#lineHeightCache = null;
 	#borderSpacingBlock = undefined;
 	#breakBeforeOverride = null;
@@ -66,11 +72,18 @@ export class DOMLayoutNode extends LayoutNode {
 		if (!this.#style) {
 			this.#style = getComputedStyle(this.element);
 			// Snapshot values that survive element detachment. The live
-			// CSSStyleDeclaration goes empty when the element is removed
-			// from the DOM, so these must be captured while attached.
+			// CSSStyleDeclaration (and CSSStyleMap) goes empty when the
+			// element is removed from the DOM, so capture while attached.
 			this.#display = this.#style.display || "block";
 			this.#textAlign = this.#style.textAlign || "start";
 			this.#whiteSpace = this.#style.whiteSpace || "normal";
+			const g = (name) => parseFloat(this.#style.getPropertyValue(name)) || 0;
+			this.#marginBlockStart = g("margin-block-start");
+			this.#marginBlockEnd = g("margin-block-end");
+			this.#paddingBlockStart = g("padding-block-start");
+			this.#paddingBlockEnd = g("padding-block-end");
+			this.#borderBlockStart = g("border-block-start-width");
+			this.#borderBlockEnd = g("border-block-end-width");
 		}
 		return this.#style;
 	}
@@ -237,13 +250,13 @@ export class DOMLayoutNode extends LayoutNode {
 	//Box model (margins, padding, border)
 
 	get marginBlockStart() {
-		const v = this.#getStyleMap().get("margin-top");
-		return v && v.unit ? v.value : 0;
+		if (this.#marginBlockStart === null) this.#getStyle();
+		return this.#marginBlockStart;
 	}
 
 	get marginBlockEnd() {
-		const v = this.#getStyleMap().get("margin-bottom");
-		return v && v.unit ? v.value : 0;
+		if (this.#marginBlockEnd === null) this.#getStyle();
+		return this.#marginBlockEnd;
 	}
 
 	/**
@@ -260,23 +273,23 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	get paddingBlockStart() {
-		const v = this.#getStyleMap().get("padding-top");
-		return v && v.unit ? v.value : 0;
+		if (this.#paddingBlockStart === null) this.#getStyle();
+		return this.#paddingBlockStart;
 	}
 
 	get paddingBlockEnd() {
-		const v = this.#getStyleMap().get("padding-bottom");
-		return v && v.unit ? v.value : 0;
+		if (this.#paddingBlockEnd === null) this.#getStyle();
+		return this.#paddingBlockEnd;
 	}
 
 	get borderBlockStart() {
-		const v = this.#getStyleMap().get("border-top-width");
-		return v && v.unit ? v.value : 0;
+		if (this.#borderBlockStart === null) this.#getStyle();
+		return this.#borderBlockStart;
 	}
 
 	get borderBlockEnd() {
-		const v = this.#getStyleMap().get("border-bottom-width");
-		return v && v.unit ? v.value : 0;
+		if (this.#borderBlockEnd === null) this.#getStyle();
+		return this.#borderBlockEnd;
 	}
 
 	//Fragmentation CSS

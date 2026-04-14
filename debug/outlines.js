@@ -243,10 +243,12 @@ export function buildFragmentOverlay(pageFragment, contentArea, margins) {
 			const color = COLORS[depth % COLORS.length];
 			const isIFC = child.node.isInlineFormattingContext;
 
+			const drawTop = top + throughTop;
+
 			const box = document.createElement("div");
 			box.style.cssText = `
 				position: absolute;
-				top: ${top}px;
+				top: ${drawTop}px;
 				left: ${left}px;
 				width: ${width}px;
 				height: ${visibleHeight}px;
@@ -263,13 +265,11 @@ export function buildFragmentOverlay(pageFragment, contentArea, margins) {
 
 			container.appendChild(box);
 
-			// Recurse into block children — subtract throughTop so the
-			// first child (whose blockOffset equals the through-margin)
-			// aligns with the visual box top.
+			// Recurse with the engine-reported top so grandchildren land at
+			// parent_engine_top + grandchild.blockOffset (their real position).
 			if (!isIFC && child.childFragments.length > 0) {
-				const childPadTop = (child.node.paddingBlockStart || 0) + (child.node.borderBlockStart || 0);
 				const childPadLeft = (child.node.paddingInlineStart || 0) + (child.node.borderInlineStart || 0);
-				walk(child, top + childPadTop - throughTop, left + childPadLeft, width, depth + 1);
+				walk(child, top, left + childPadLeft, width, depth + 1);
 			}
 		}
 	}
