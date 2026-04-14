@@ -4,41 +4,56 @@ Guide to each layout algorithm generator in `fragmentainers`.
 
 ---
 
-## How Layout Generators Work
+## How Layout Algorithms Work
 
-Every layout algorithm is a JavaScript `function*` generator. The generator yields `LayoutRequest` objects when it needs a child laid out. The driver (`runLayoutGenerator`) fulfills each request by recursively running the child's generator, then sends the result back via `generator.next(result)`.
+Each layout algorithm is a class with a `*layout()` generator method. The generator yields `LayoutRequest` objects when it needs a child laid out. The driver (`runLayoutGenerator` in `src/layout/layout-driver.js`) fulfills each request by instantiating the child's algorithm class and recursively running it, then sends the result back via `generator.next(result)`.
 
 ```javascript
-function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBreakTarget) {
-	// ...
-	for (const child of children) {
-		// Yield a request — driver runs child layout and returns the result
-		const result = yield layoutChild(child, childConstraintSpace, childBreakToken);
+export class BlockContainerAlgorithm {
+	#node;
+	#constraintSpace;
+	#breakToken;
+	#earlyBreakTarget;
 
-		// result.fragment — the child's PhysicalFragment
-		// result.breakToken — non-null if child broke (more content follows)
-		childFragments.push(result.fragment);
-		blockOffset += result.fragment.blockSize;
-
-		if (result.breakToken) {
-			// Child broke — record its token and stop iterating
-			childBreakTokens.push(result.breakToken);
-			break;
-		}
+	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
+		this.#node = node;
+		this.#constraintSpace = constraintSpace;
+		this.#breakToken = breakToken;
+		this.#earlyBreakTarget = earlyBreakTarget;
 	}
 
-	// Build the output fragment and break token
-	const fragment = new PhysicalFragment(node, blockOffset, childFragments);
-	return { fragment, breakToken: containerToken || null };
+	*layout() {
+		// ...
+		for (const child of children) {
+			// Yield a request — driver runs child layout and returns the result
+			const result = yield new LayoutRequest(child, childConstraintSpace, childBreakToken);
+
+			// result.fragment — the child's Fragment
+			// result.breakToken — non-null if child broke (more content follows)
+			childFragments.push(result.fragment);
+			blockOffset += result.fragment.blockSize;
+
+			if (result.breakToken) {
+				// Child broke — record its token and stop iterating
+				childBreakTokens.push(result.breakToken);
+				break;
+			}
+		}
+
+		// Build the output fragment and break token
+		const fragment = new Fragment(this.#node, blockOffset, childFragments);
+		return { fragment, breakToken: containerToken || null };
+	}
 }
 ```
 
 **Key conventions:**
 
-- **Parameters**: `(node, constraintSpace, breakToken, earlyBreakTarget)` for all algorithms
-- **Yield**: `yield layoutChild(childNode, childConstraintSpace, childBreakToken)` to request child layout
+- **Constructor**: `(node, constraintSpace, breakToken)` for all algorithms; `BlockContainerAlgorithm` also accepts an optional `earlyBreakTarget` as a fourth argument
+- **Generator method**: `*layout()` — no arguments; reads inputs from instance fields
+- **Yield**: `yield new LayoutRequest(childNode, childConstraintSpace, childBreakToken)` to request child layout
 - **Return**: `{ fragment, breakToken }` where `breakToken` is `null` if all content fit
-- **Two-pass**: Block container supports `earlyBreakTarget` for Pass 2; other algorithms propagate it through children
+- **Two-pass**: Only `BlockContainerAlgorithm` supports `earlyBreakTarget` for Pass 2; other algorithms propagate it through children implicitly
 
 ---
 
@@ -46,7 +61,7 @@ function* layoutBlockContainer(node, constraintSpace, breakToken, earlyBreakTarg
 
 **File:** `src/algorithms/block-container.js`
 **Dispatch:** Default algorithm when no other type matches
-**Generator:** `layoutBlockContainer(node, constraintSpace, breakToken, earlyBreakTarget)`
+**Class:** `BlockContainerAlgorithm` — `new BlockContainerAlgorithm(node, constraintSpace, breakToken, earlyBreakTarget?)` → `*layout()`
 
 The core algorithm. Lays out block-level children sequentially in the block direction.
 
@@ -60,7 +75,7 @@ The core algorithm. Lays out block-level children sequentially in the block dire
    - Check for named page changes (forces page break in page mode)
    - Handle monolithic content (push to next fragmentainer if it doesn't fit)
    - Build child constraint space with propagated `blockOffsetInFragmentainer`
-   - `yield layoutChild(child, childConstraint, childBreakToken)`
+   - `yield new LayoutRequest(child, childConstraint, childBreakToken)`
    - Accumulate `blockOffset` and track break tokens
 
 ### Container Box Insets
@@ -106,11 +121,13 @@ Per CSS Fragmentation: margins adjoining a fragmentainer break are truncated to 
 
 ## Inline Content
 
-**File:** `src/fragmentation/inline-content.js`
+**File:** `src/algorithms/inline-content.js`
 **Dispatch:** `node.isInlineFormattingContext === true`
-**Generator:** `layoutInlineContent(node, constraintSpace, breakToken)`
+**Class:** `InlineContentAlgorithm` — `new InlineContentAlgorithm(node, constraintSpace, breakToken)` → `*layout()`
 
 Handles text content and inline-level boxes. Breaks at word boundaries across lines and fragmentainers.
+
+Never yields a `LayoutRequest` — all measurement happens via the node's `inlineItemsData` plus the measurer. The `*layout()` generator still runs under the standard dispatch protocol; it returns the final `{ fragment, breakToken }` on its first `.next()`.
 
 ### Two Measurement Paths
 
@@ -162,7 +179,7 @@ When the break falls mid-word (non-whitespace characters on both sides), `isHyph
 
 **File:** `src/algorithms/table-row.js`
 **Dispatch:** `node.isTableRow === true`
-**Generator:** `layoutTableRow(node, constraintSpace, breakToken)`
+**Class:** `TableRowAlgorithm` — `new TableRowAlgorithm(node, constraintSpace, breakToken)` → `*layout()`
 
 Implements the **parallel flow** pattern. Each cell is laid out independently, and the tallest cell drives the row height.
 
@@ -195,7 +212,7 @@ The row's break token carries `algorithmData: { type: ALGORITHM_TABLE_ROW }` to 
 
 **File:** `src/algorithms/multicol-container.js`
 **Dispatch:** `node.isMulticolContainer === true` (checked first in dispatch chain)
-**Generator:** `layoutMulticolContainer(node, constraintSpace, breakToken)`
+**Class:** `MulticolAlgorithm` — `new MulticolAlgorithm(node, constraintSpace, breakToken)` → `*layout()`
 
 Implements CSS Multi-column Layout fragmentation.
 
@@ -214,17 +231,7 @@ const { count, width } = resolveColumnDimensions(
 
 ### Flow Thread Pattern
 
-Creates an **anonymous flow thread node** wrapping the multicol container's children. This prevents infinite recursion — `getLayoutAlgorithm(flowThread)` dispatches to `layoutBlockContainer` instead of back to `layoutMulticolContainer`:
-
-```javascript
-function createFlowThread(multicolNode) {
-	return {
-		children: multicolNode.children,
-		isMulticolContainer: false, // prevents recursion
-		// ... all other LayoutNode properties set to defaults
-	};
-}
-```
+Creates an **anonymous flow thread node** (`FlowThreadNode` from `src/layout/flow-thread-node.js`) wrapping the multicol container's children. This prevents infinite recursion — `getLayoutAlgorithm(flowThread)` returns `BlockContainerAlgorithm` instead of `MulticolAlgorithm` because the flow thread is not itself a multicol container.
 
 ### Column Loop
 
@@ -232,7 +239,7 @@ Each iteration lays out one column as a fragmentainer with `fragmentationType: "
 
 ```javascript
 do {
-  const result = yield layoutChild(flowThread, columnCS, contentToken);
+  const result = yield new LayoutRequest(flowThread, columnCS, contentToken);
   columnFragments.push(result.fragment);
   contentToken = result.breakToken;
 } while (contentToken !== null);
@@ -250,7 +257,7 @@ The fragment carries `multicolData: { columnWidth, columnGap, columnCount }` so 
 
 **File:** `src/algorithms/flex-container.js`
 **Dispatch:** `node.isFlexContainer === true`
-**Generator:** `layoutFlexContainer(node, constraintSpace, breakToken)`
+**Class:** `FlexAlgorithm` — `new FlexAlgorithm(node, constraintSpace, breakToken)` → `*layout()`
 
 Handles both row and column flex directions differently.
 
@@ -259,25 +266,19 @@ Handles both row and column flex directions differently.
 Items within a flex line are laid out as parallel flows — the same pattern as table rows:
 
 1. Group children into flex lines using `groupFlexLines()` (respects `flex-wrap`)
-2. For each flex line, run `layoutFlexLine()` which follows the table-row parallel flow pattern
+2. For each flex line, the `layoutFlexLine` helper method follows the table-row parallel flow pattern
 3. Stack flex lines in the block direction with Class A breaks between lines
 
 The break token carries `algorithmData: { type: ALGORITHM_FLEX, flexLineIndex }` to resume at the correct flex line.
 
 ### Column Direction (Flow Thread)
 
-Column-direction flex delegates to a flow thread (same pattern as multicol). The flow thread wraps the flex children so `getLayoutAlgorithm` dispatches to `layoutBlockContainer` for sequential block layout:
+Column-direction flex delegates to a `FlowThreadNode` (same pattern as multicol). The flow thread wraps the flex children so `getLayoutAlgorithm(flowThread)` returns `BlockContainerAlgorithm` for sequential block layout:
 
 ```javascript
-function* layoutFlexColumn(node, constraintSpace, breakToken) {
-	const flowThread = {
-		children: node.children,
-		isFlexContainer: false, // prevents recursion
-		// ... defaults
-	};
-	const result = yield layoutChild(flowThread, constraintSpace, contentToken);
-	// Wrap result in flex container fragment
-}
+const flowThread = new FlowThreadNode(this.#node);
+const result = yield new LayoutRequest(flowThread, this.#constraintSpace, contentToken);
+// Wrap result in flex container fragment
 ```
 
 ### Flex Line Grouping
@@ -293,7 +294,7 @@ function* layoutFlexColumn(node, constraintSpace, breakToken) {
 
 **File:** `src/algorithms/grid-container.js`
 **Dispatch:** `node.isGridContainer === true`
-**Generator:** `layoutGridContainer(node, constraintSpace, breakToken)`
+**Class:** `GridAlgorithm` — `new GridAlgorithm(node, constraintSpace, breakToken)` → `*layout()`
 
 Grid items sharing the same row are parallel flows. Rows are stacked in the block direction.
 
@@ -304,7 +305,7 @@ Items are grouped by their `gridRowStart` property via `groupGridRows()`. Items 
 ### Layout Pattern
 
 1. Group children into grid rows
-2. For each row, run `layoutGridRow()` (parallel flow pattern, same as table row)
+2. For each row, the `layoutGridRow` helper method runs the parallel flow pattern (same as table row)
 3. Stack rows in the block direction with Class A breaks between rows
 
 ### Algorithm Data
@@ -317,46 +318,56 @@ The break token carries `algorithmData: { type: ALGORITHM_GRID, rowIndex }` to r
 
 Step-by-step guide for adding a new layout mode:
 
-### 1. Create the Generator
+### 1. Create the Algorithm Class
 
-Create `src/layout/my-container.js`:
+Create `src/algorithms/my-container.js`:
 
 ```javascript
-import { BlockBreakToken } from "../tokens.js";
-import { ConstraintSpace } from "../constraint-space.js";
-import { PhysicalFragment } from "../fragment.js";
-import { layoutChild } from "../layout-request.js";
+import { BlockBreakToken } from "../fragmentation/tokens.js";
+import { ConstraintSpace } from "../fragmentation/constraint-space.js";
+import { Fragment } from "../fragmentation/fragment.js";
+import { LayoutRequest } from "../layout/layout-request.js";
 
-export function* layoutMyContainer(node, constraintSpace, breakToken) {
-	// 1. Process children (sequential or parallel)
-	// 2. yield layoutChild() for each child
-	// 3. Build fragment and break token
+export const ALGORITHM_MY_CONTAINER = "MyContainerData";
 
-	const fragment = new PhysicalFragment(node, blockOffset, childFragments);
-	return { fragment, breakToken: containerToken || null };
+export class MyContainerAlgorithm {
+	#node;
+	#constraintSpace;
+	#breakToken;
+
+	constructor(node, constraintSpace, breakToken) {
+		this.#node = node;
+		this.#constraintSpace = constraintSpace;
+		this.#breakToken = breakToken;
+	}
+
+	*layout() {
+		// 1. Process children (sequential or parallel)
+		// 2. yield new LayoutRequest(child, cs, bt) for each child
+		// 3. Build fragment and break token
+
+		const fragment = new Fragment(this.#node, blockOffset, childFragments);
+		return { fragment, breakToken: containerToken || null };
+	}
 }
 ```
 
 ### 2. Register in Algorithm Dispatch
 
-Add the check in `getLayoutAlgorithm()` in `src/layout/layout-request.js`. Order matters — place it before any type it might overlap with:
+Add the check in `getLayoutAlgorithm()` in `src/layout/layout-driver.js`. Order matters — place it before any type it might overlap with:
 
 ```javascript
 export function getLayoutAlgorithm(node) {
-	if (node.isMulticolContainer) return layoutMulticolContainer;
-	if (node.isMyContainer) return layoutMyContainer; // add here
-	if (node.isFlexContainer) return layoutFlexContainer;
+	if (node.isMulticolContainer) return MulticolAlgorithm;
+	if (node.isMyContainer) return MyContainerAlgorithm; // add here
+	if (node.isFlexContainer) return FlexAlgorithm;
 	// ...
 }
 ```
 
 ### 3. Define Algorithm Data Constants
 
-Add the constant at the top of your container's file (e.g. `src/layout/my-container.js`), co-located with the class that uses it:
-
-```javascript
-export const ALGORITHM_MY_CONTAINER = "MyContainerData";
-```
+The `ALGORITHM_MY_CONTAINER` constant lives at the top of your container's file, co-located with the class that uses it (see step 1).
 
 ### 4. Add LayoutNode Properties
 
@@ -379,10 +390,10 @@ export function myContainerNode({ debugName, children = [], ...overrides } = {})
 
 ### 6. Export
 
-Add the generator to `src/index.js`:
+Add the class to the algorithms barrel at `src/algorithms/index.js`:
 
 ```javascript
-export { layoutMyContainer } from "./layout/my-container.js";
+export { MyContainerAlgorithm } from "./my-container.js";
 ```
 
 ---

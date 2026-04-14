@@ -5,7 +5,7 @@ This document maps the fragmentainer engine's data structures, algorithms, and m
 ## Table of Contents
 
 1. [BreakToken / BlockBreakToken / InlineBreakToken](#1-break-tokens)
-2. [PhysicalFragment](#2-physicalfragment)
+2. [Fragment](#2-physicalfragment)
 3. [ConstraintSpace](#3-constraintspace)
 4. [EarlyBreak / BreakScore](#4-earlybreak--breakscore)
 5. [LayoutRequest](#5-layoutrequest)
@@ -112,7 +112,7 @@ Source: [`Source/WebCore/rendering/RenderBlockFlow.cpp`](https://github.com/WebK
 
 ---
 
-## 2. PhysicalFragment
+## 2. Fragment
 
 **Source:** `src/fragmentation/fragment.js`
 
@@ -123,7 +123,7 @@ The immutable output of a layout algorithm. Represents one positioned portion of
 | `node`           | `LayoutNode \| null`      | The CSS box that produced this fragment                                                     |
 | `blockSize`      | `number`                  | Block-axis size of this fragment                                                            |
 | `inlineSize`     | `number`                  | Inline-axis size                                                                            |
-| `childFragments` | `PhysicalFragment[]`      | Nested child fragments                                                                      |
+| `childFragments` | `Fragment[]`      | Nested child fragments                                                                      |
 | `breakToken`     | `BreakToken \| null`      | Continuation token for next fragmentainer                                                   |
 | `constraints`    | `PageConstraints \| null` | Fragmentainer constraint info                                                               |
 | `multicolData`   | `object \| null`          | `{ columnWidth, columnGap, columnCount }` for multicol containers                           |
@@ -165,7 +165,7 @@ Like Gecko, WebKit does not have a separate fragment tree. The **`RenderBox`** i
 
 | Engine          | Fragment model                                                   | Mutability |
 | --------------- | ---------------------------------------------------------------- | ---------- |
-| **This engine** | `PhysicalFragment` tree (separate from input)                    | Immutable  |
+| **This engine** | `Fragment` tree (separate from input)                    | Immutable  |
 | **Blink**       | `PhysicalBoxFragment` tree                                       | Immutable  |
 | **Gecko**       | `nsIFrame` continuation chain (frame _is_ the fragment)          | Mutable    |
 | **WebKit**      | `RenderBox` continuation chain (render object _is_ the fragment) | Mutable    |
@@ -305,11 +305,12 @@ Yielded from layout algorithm generators to the driver. Represents a request to 
 | `constraintSpace` | `ConstraintSpace`    | Constraint space for the child   |
 | `breakToken`      | `BreakToken \| null` | Continuation token (if resuming) |
 
-**Driver functions:**
+**Driver functions** (in `src/layout/layout-driver.js`):
 
-- `runLayoutGenerator(generatorFn, node, constraintSpace, breakToken, earlyBreakTarget)` — runs a generator, fulfills yielded requests recursively
-- `getLayoutAlgorithm(node)` — dispatches to correct layout algorithm by node type
-- `createFragments(rootNode, constraintSpaceOrResolver, continuation)` — top-level fragmentainer loop
+- `runLayoutGenerator(algorithm)` — runs an algorithm instance's `*layout()` generator to completion, fulfilling yielded `LayoutRequest` objects by recursively instantiating child algorithm classes
+- `getLayoutAlgorithm(node)` — returns the algorithm **class** for a node (not a function)
+- `LayoutDriver` — `Iterator`-subclassing top-level driver, one fragmentainer per `next()` call
+- `createFragments(rootNode, constraintSpaceOrResolver, continuation)` — backwards-compatible shim in `src/layout/layout-request.js` that wraps `new LayoutDriver(...).run()`
 
 ### Blink Equivalent
 
@@ -424,7 +425,7 @@ Wraps consecutive inline content in mixed-content containers per [CSS 2.1 §9.2.
 
 ## 7. InlineItemsData / InlineItem
 
-**Source:** `src/dom/collect-inlines.js`
+**Source:** `src/measurement/collect-inlines.js`
 
 Flat representation of inline formatting context content. Built by walking the DOM subtree and collecting text, controls, tags, and atomic inlines into a single array with a concatenated text string.
 
@@ -571,7 +572,7 @@ Implements `@page` rule parsing, matching, cascading, and per-page constraint re
 
 ## 9. Algorithm Data
 
-**Source:** `src/constants.js` (type constants), stored in `BlockBreakToken.algorithmData`
+**Source:** Type constants are defined at the top of each algorithm's file (e.g. `ALGORITHM_MULTICOL` lives in `src/algorithms/multicol-container.js`). They are stored in `BlockBreakToken.algorithmData`.
 
 Algorithm-specific state attached to break tokens for resuming container-specific layout across fragmentainers.
 
@@ -657,7 +658,7 @@ High-level coordinator that encapsulates the full content-to-fragmentation pipel
 | Method                          | Description                                                                                                                                              |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `constructor(content, options)` | Accepts `DocumentFragment`, `Element`, or mock node. Options: `{ styles, resolver, constraintSpace, width, height, type, trackRefs }`                    |
-| `next()`                        | Lay out the next fragmentainer, returns `PhysicalFragment`. Automatically inserts blank pages for side-specific breaks (`left`/`right`/`recto`/`verso`). |
+| `next()`                        | Lay out the next fragmentainer, returns `Fragment`. Automatically inserts blank pages for side-specific breaks (`left`/`right`/`recto`/`verso`). |
 | `flow()`                        | Runs fragmentation to completion, returns `FragmentationContext`                                                                                         |
 | `setup(forceUpdate?)`           | Initialize layout tree and internal `<content-measure>` (called lazily by `next()`)                                                                      |
 | `destroy()`                     | Remove the internal `<content-measure>` element                                                                                                          |
@@ -667,7 +668,7 @@ Delegates measurement to a `Measurer` instance, which creates `<content-measure>
 
 ### Measurer
 
-**Source:** `src/dom/measure.js`
+**Source:** `src/measurement/measure.js`
 
 Owns the `<content-measure>` element lifecycle. On setup, resolves `break-before`, `break-after`, and `page` CSS properties from stylesheet rules for each top-level child element. When forced breaks split content into multiple segments, each segment gets its own `<content-measure>` — the browser only computes layout for one segment at a time. Previous segments' measurers are destroyed as the engine advances. For documents without forced breaks, a single `<content-measure>` is used (identical to previous behavior).
 
@@ -679,25 +680,13 @@ Owns the `<content-measure>` element lifecycle. On setup, resolves `break-before
 | `applyConstraintSpace(cs)`  | `void`                     | Sync the measurement container's inline size                            |
 | `getContentStyles()`        | `object`                   | Adopted stylesheets and nth-selector descriptors for rendering          |
 
-### ContentParser
-
-**Source:** `src/dom/content-parser.js`
-
-Parses an HTML document string into a `DocumentFragment` + `CSSStyleSheet[]` with resolved URLs. Handles CSS preprocessing for properties not natively supported by browsers (e.g. rewrites `position: running(...)` to a custom property).
-
-| Property / Method                            | Type                     | Description                                                             |
-| -------------------------------------------- | ------------------------ | ----------------------------------------------------------------------- |
-| `ContentParser.fromString(content, baseURL)` | `Promise<ContentParser>` | Static factory — parses HTML, fetches linked stylesheets, resolves URLs |
-| `fragment`                                   | `DocumentFragment`       | Body content with resolved URLs                                         |
-| `styles`                                     | `CSSStyleSheet[]`        | Source sheets + URL override sheet                                      |
-
 ### FragmentationContext
 
 `FragmentationContext` extends `Array` — iterate directly to access composed `<fragment-container>` elements.
 
 | Property / Method              | Type                   | Description                                                                                                                   |
 | ------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `fragments`                    | `PhysicalFragment[]`   | All fragmentainer fragments                                                                                                   |
+| `fragments`                    | `Fragment[]`   | All fragmentainer fragments                                                                                                   |
 | `fragmentainerCount`           | `number`               | Number of fragmentainers                                                                                                      |
 | `createFragmentainer(index)`   | `Element`              | Composes one `<fragment-container>`. Blank pages get `data-blank-page` attribute. Sets `namedPage` property from constraints. |
 | `reflow(fromIndex?, options?)` | `FragmentationContext` | Re-layout from a specific fragmentainer, returns a new `FragmentationContext`                                                 |
@@ -758,17 +747,17 @@ Parses an HTML document string into a `DocumentFragment` + `CSSStyleSheet[]` wit
     │              Layout Algorithms                   │
     │  (generators yielding LayoutRequest objects)     │
     │                                                  │
-    │  layoutBlockContainer ← default dispatch         │
-    │  layoutInlineContent  ← inline formatting ctx    │
-    │  layoutMulticolContainer ← column-count/width    │
-    │  layoutFlexContainer  ← display: flex            │
-    │  layoutGridContainer  ← display: grid            │
-    │  layoutTableRow       ← display: table-row       │
+    │  BlockContainerAlgorithm ← default dispatch         │
+    │  InlineContentAlgorithm  ← inline formatting ctx    │
+    │  MulticolAlgorithm ← column-count/width    │
+    │  FlexAlgorithm  ← display: flex            │
+    │  GridAlgorithm  ← display: grid            │
+    │  TableRowAlgorithm       ← display: table-row       │
     └────────┬──────────────────────┬──────────────────┘
              │                      │
              ▼                      ▼
     ┌─────────────────┐   ┌──────────────────┐
-    │ PhysicalFragment │   │   BreakToken     │
+    │ Fragment │   │   BreakToken     │
     │ (layout output,  │   │   (continuation  │
     │  one box per     │   │    token tree)   │
     │  fragmentainer)  │   │                  │
@@ -801,7 +790,7 @@ Parses an HTML document string into a `DocumentFragment` + `CSSStyleSheet[]` wit
 | Layout input object | `LayoutNode`             | `LayoutBox`                | `nsIFrame`               | `RenderObject`                             |
 | Constraint delivery | `ConstraintSpace`        | `ConstraintSpace`          | `ReflowInput`            | `LayoutState` + methods                    |
 | Layout dispatch     | Generator yield          | Virtual `Layout()`         | Virtual `Reflow()`       | Virtual `layout()`                         |
-| Layout output       | `PhysicalFragment`       | `PhysicalBoxFragment`      | Mutated frame            | Mutated render object                      |
+| Layout output       | `Fragment`       | `PhysicalBoxFragment`      | Mutated frame            | Mutated render object                      |
 | Continuation        | `BreakToken` tree        | `BreakToken` tree          | Continuation frame chain | Continuation render object chain           |
 | Break scoring       | `EarlyBreak` (two-pass)  | `EarlyBreak` (two-pass)    | Single-pass push         | Single-pass push                           |
 | Inline items        | Flat `InlineItem[]`      | Flat `InlineItem` vector   | `nsTextFrame` per run    | `InlineItem` (LFC) / `LegacyInlineTextBox` |

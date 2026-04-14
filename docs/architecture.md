@@ -23,7 +23,6 @@ For mappings to browser engine equivalents in Blink, Gecko, and WebKit, see [bro
 9. [DOM Adapter](#9-dom-adapter)
 10. [Fragmentation](#10-composition)
 11. [Layout Handlers](#11-layout-handlers)
-12. [Source Layout](#12-source-layout)
 
 ---
 
@@ -53,7 +52,7 @@ FragmentedFlow
      ├── new DOMLayoutNode()
      │          |
      │          v
-     └── DOMLayoutNode ──> next() / flow()  ────> PhysicalFragment[]
+     └── DOMLayoutNode ──> next() / flow()  ────> Fragment[]
                                                           |
                                                           v
                                                   composeFragment()
@@ -95,10 +94,11 @@ per-fragmentainer constraints:
 
 ## 2. Generator-Based Layout
 
-Layout algorithms are JavaScript `function*` generators. This design choice gives
-the engine cooperative multitasking without callbacks or promises: a generator
-pauses at each `yield`, hands control to a synchronous driver, and resumes when
-the driver sends back a result.
+Each layout algorithm is a class (e.g. `BlockContainerAlgorithm`) with a
+`*layout()` generator method. This design gives the engine cooperative
+multitasking without callbacks or promises: the generator pauses at each
+`yield`, hands control to a synchronous driver, and resumes when the driver
+sends back a result.
 
 ### Why generators
 
@@ -108,16 +108,46 @@ this would be a deeply nested call stack with no opportunity for the top-level
 driver to inspect or intercept intermediate results. Generators flatten this: each
 algorithm yields a `LayoutRequest` to the driver, which decides how to fulfill it.
 
+### Algorithm classes
+
+An algorithm class stores the layout inputs on the instance (via private fields)
+and exposes a single `*layout()` method:
+
+```js
+export class BlockContainerAlgorithm {
+	#node;
+	#constraintSpace;
+	#breakToken;
+	#earlyBreakTarget;
+
+	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
+		this.#node = node;
+		this.#constraintSpace = constraintSpace;
+		this.#breakToken = breakToken;
+		this.#earlyBreakTarget = earlyBreakTarget;
+	}
+
+	*layout() {
+		// yield LayoutRequest objects, consume results, return { fragment, breakToken }
+	}
+}
+```
+
+`BlockContainerAlgorithm` is the only algorithm that accepts an
+`earlyBreakTarget` — the other algorithms (`FlexAlgorithm`, `GridAlgorithm`,
+`InlineContentAlgorithm`, `MulticolAlgorithm`, `TableRowAlgorithm`) have a
+three-argument constructor.
+
 ### LayoutRequest
 
 When a generator needs a child laid out, it yields a `LayoutRequest`:
 
 ```js
-// Inside a layout algorithm (e.g., layoutBlockContainer):
-const result = yield layoutChild(child, childConstraintSpace, childBreakToken);
+// Inside an algorithm's *layout() method:
+const result = yield new LayoutRequest(child, childConstraintSpace, childBreakToken);
 ```
 
-`layoutChild()` constructs a `LayoutRequest` with three fields:
+`LayoutRequest` (in `src/layout/layout-request.js`) has three fields:
 
 - `node` -- the child `LayoutNode` to lay out
 - `constraintSpace` -- the `ConstraintSpace` describing available size
@@ -125,33 +155,21 @@ const result = yield layoutChild(child, childConstraintSpace, childBreakToken);
 
 ### The driver: runLayoutGenerator
 
-`runLayoutGenerator` (in `src/layout/layout-request.js`) is the recursive driver that
-runs generators to completion:
+`runLayoutGenerator` (in `src/layout/layout-driver.js`) is the recursive driver
+that runs algorithm instances to completion:
 
 ```js
-function runLayoutGenerator(
-	generatorFn,
-	node,
-	constraintSpace,
-	breakToken,
-	earlyBreakTarget = null,
-) {
-	const gen = generatorFn(node, constraintSpace, breakToken, earlyBreakTarget);
+export function runLayoutGenerator(algorithm) {
+	const gen = algorithm.layout();
 	let genResult = gen.next();
 
 	while (!genResult.done) {
 		const request = genResult.value;
 
-		// Determine which layout algorithm to use for the child
-		const childGenFn = getLayoutAlgorithm(request.node);
-
-		// Recursively run the child's layout generator
-		const childResult = runLayoutGenerator(
-			childGenFn,
-			request.node,
-			request.constraintSpace,
-			request.breakToken,
-		);
+		// Look up the algorithm class for the child node, instantiate it, and recurse
+		const ChildAlgoClass = getLayoutAlgorithm(request.node);
+		const childAlgo = new ChildAlgoClass(request.node, request.constraintSpace, request.breakToken);
+		const childResult = runLayoutGenerator(childAlgo);
 
 		// If child returned an earlyBreak, propagate it up immediately
 		if (childResult.earlyBreak) return childResult;
@@ -166,11 +184,11 @@ function runLayoutGenerator(
 
 The loop works like this:
 
-1. Create the generator by calling `generatorFn(node, constraintSpace, ...)`.
+1. Call `algorithm.layout()` to obtain the generator.
 2. Call `gen.next()` to advance to the first `yield`.
 3. The yielded value is a `LayoutRequest`. Look up the correct child algorithm
-   via `getLayoutAlgorithm`, then recursively call `runLayoutGenerator` for the
-   child.
+   class via `getLayoutAlgorithm`, construct an instance, then recursively call
+   `runLayoutGenerator(childAlgo)`.
 4. If the child's result carries an `earlyBreak` (see
    [Two-Pass Break Scoring](#6-two-pass-break-scoring)), propagate it upward
    immediately -- the current pass is being abandoned.
@@ -182,9 +200,9 @@ The loop works like this:
 
 ### What a layout result contains
 
-Each layout algorithm returns an object with:
+Each algorithm's `*layout()` generator returns an object with:
 
-- `fragment` -- a `PhysicalFragment` for the portion that fit
+- `fragment` -- a `Fragment` for the portion that fit
 - `breakToken` -- a `BlockBreakToken` or `InlineBreakToken` if content remains,
   or `null` if the node completed
 - `earlyBreak` -- an `EarlyBreak` object if Pass 1 found a better breakpoint
@@ -195,20 +213,23 @@ Each layout algorithm returns an object with:
 ## 3. The Fragmentation Loop
 
 `FragmentedFlow.next()` lays out one fragmentainer per call. `flow()` is
-sugar that calls `next()` until `breakToken` is null. The lower-level
-`createFragments()` in `src/layout/layout-request.js` runs the same loop internally.
+sugar that calls `next()` until `breakToken` is null. Internally this is
+implemented by `LayoutDriver` (in `src/layout/layout-driver.js`), which
+extends `Iterator` and holds the per-fragmentainer state. The shim
+`createFragments()` in `src/layout/layout-request.js` wraps
+`new LayoutDriver(...).run()` for batch use.
 
 Each `next()` call:
 
 ```
 1. Resolve the ConstraintSpace for this fragmentainer (via resolver or fixed)
 2. Sync the DOM measurement container to the new inline size
-3. Run Pass 1: runLayoutGenerator(rootAlgorithm, rootNode, constraintSpace, breakToken)
+3. Run Pass 1: runLayoutGenerator(new RootAlgoClass(rootNode, constraintSpace, breakToken))
 4. If result.earlyBreak exists:
-     Run Pass 2: runLayoutGenerator(..., result.earlyBreak)
+     Run Pass 2: runLayoutGenerator(new RootAlgoClass(..., result.earlyBreak))
 5. Accumulate counter state
 6. Advance breakToken and fragmentainerIndex
-7. Return the PhysicalFragment
+7. Return the Fragment
 ```
 
 The caller decides when to stop. For pages, `flow()` stops when `breakToken`
@@ -225,10 +246,10 @@ The engine supports multiple resolver types:
 
 ### Continuation support
 
-An optional `continuation` parameter allows `createFragments` to start at a
-specific fragmentainer index and block offset. This supports flowing multiple
-independent elements across a shared sequence of pages (e.g., footnotes following
-body content).
+An optional `continuation` parameter allows `LayoutDriver` (and the
+`createFragments` shim) to start at a specific fragmentainer index and block
+offset. This supports flowing multiple independent elements across a shared
+sequence of pages (e.g., footnotes following body content).
 
 ### Zero-progress safety
 
@@ -240,25 +261,29 @@ zero-progress fragmentainers and bails after 5 to prevent infinite loops.
 
 ## 4. Algorithm Dispatch
 
-`getLayoutAlgorithm()` in `src/layout/layout-request.js` maps a `LayoutNode` to the
-correct generator function:
+`getLayoutAlgorithm()` in `src/layout/layout-driver.js` maps a `LayoutNode` to
+the correct algorithm **class**:
 
 ```js
-function getLayoutAlgorithm(node) {
-	if (node.isMulticolContainer) return layoutMulticolContainer;
-	if (node.isFlexContainer) return layoutFlexContainer;
-	if (node.isGridContainer) return layoutGridContainer;
-	if (node.isInlineFormattingContext) return layoutInlineContent;
-	if (node.isTableRow) return layoutTableRow;
-	return layoutBlockContainer;
+export function getLayoutAlgorithm(node) {
+	if (node.isMulticolContainer) return MulticolAlgorithm;
+	if (node.isFlexContainer) return FlexAlgorithm;
+	if (node.isGridContainer) return GridAlgorithm;
+	if (node.isInlineFormattingContext) return InlineContentAlgorithm;
+	if (node.isTableRow) return TableRowAlgorithm;
+	return BlockContainerAlgorithm;
 }
 ```
+
+The driver instantiates the returned class with `(node, constraintSpace, breakToken)`
+(plus an optional `earlyBreakTarget` for `BlockContainerAlgorithm`) and calls
+`*layout()` to obtain the generator.
 
 ### Why order matters
 
 The checks are ordered from most specific to least specific. A multicol container
 with `display: flex` is both a multicol container and a flex container, but it
-must be handled by `layoutMulticolContainer` because multicol establishes a
+must be handled by `MulticolAlgorithm` because multicol establishes a
 fragmentation context that wraps the flex layout. Checking `isMulticolContainer`
 first ensures correct dispatch.
 
@@ -266,14 +291,14 @@ first ensures correct dispatch.
 
 | Algorithm                 | Source file                        | Handles                          |
 | ------------------------- | ---------------------------------- | -------------------------------- |
-| `layoutMulticolContainer` | `algorithms/multicol-container.js` | `column-count` / `column-width`  |
-| `layoutFlexContainer`     | `algorithms/flex-container.js`     | `display: flex` (row and column) |
-| `layoutGridContainer`     | `algorithms/grid-container.js`     | `display: grid`                  |
-| `layoutInlineContent`     | `fragmentation/inline-content.js`  | Line breaking, inline boxes      |
-| `layoutTableRow`          | `algorithms/table-row.js`          | `<tr>` with parallel cell flows  |
-| `layoutBlockContainer`    | `algorithms/block-container.js`    | Default block layout             |
+| `MulticolAlgorithm`       | `algorithms/multicol-container.js` | `column-count` / `column-width`  |
+| `FlexAlgorithm`           | `algorithms/flex-container.js`     | `display: flex` (row and column) |
+| `GridAlgorithm`           | `algorithms/grid-container.js`     | `display: grid`                  |
+| `InlineContentAlgorithm`  | `algorithms/inline-content.js`     | Line breaking, inline boxes      |
+| `TableRowAlgorithm`       | `algorithms/table-row.js`          | `<tr>` with parallel cell flows  |
+| `BlockContainerAlgorithm` | `algorithms/block-container.js`    | Default block layout             |
 
-`layoutBlockContainer` is the fallback and handles the majority of elements.
+`BlockContainerAlgorithm` is the fallback and handles the majority of elements.
 It is also the algorithm that multicol delegates to via the flow thread pattern
 (see [Flow Thread Pattern](#8-flow-thread-pattern)).
 
@@ -293,7 +318,7 @@ Accumulates margins for CSS2 collapse resolution:
 
 #### MarginState
 
-Stateful tracker used by `layoutBlockContainer`. Instantiated at the top of
+Stateful tracker used by `BlockContainerAlgorithm`. Instantiated at the top of
 the child loop and called at four points per child:
 
 1. **`computeMarginBefore(child, params)`** — resolves the collapsed margin
@@ -518,7 +543,7 @@ Without it, the algorithm would lose track of item positions within the row.
 
 ### Table rows
 
-`layoutTableRow` (in `src/algorithms/table-row.js`) implements this pattern. Each
+`TableRowAlgorithm` (in `src/algorithms/table-row.js`) implements this pattern. Each
 `<td>` / `<th>` is dispatched via `yield layoutChild(cell, ...)`. After all
 cells return, the row determines the break point. If any cell broke, every cell
 gets a break token. The `algorithmData` on the row's `BlockBreakToken` stores
@@ -526,9 +551,9 @@ per-cell state for resumption.
 
 ### Flex and grid
 
-`layoutFlexContainer` handles `flex-direction: row` items as parallel flows and
+`FlexAlgorithm` handles `flex-direction: row` items as parallel flows and
 `flex-direction: column` items as a sequential flow thread (see
-[Flow Thread Pattern](#8-flow-thread-pattern)). `layoutGridContainer` groups
+[Flow Thread Pattern](#8-flow-thread-pattern)). `GridAlgorithm` groups
 items by row and treats each row's items as parallel flows.
 
 ---
@@ -540,34 +565,34 @@ is borrowed directly from Chromium's LayoutNG architecture.
 
 ### The problem
 
-`layoutMulticolContainer` manages columns (fragmentainers within a
+`MulticolAlgorithm` manages columns (fragmentainers within a
 fragmentainer). If it dispatched its children directly via
 `getLayoutAlgorithm`, each child would be routed to its own algorithm -- and
-the multicol container would need to duplicate all of `layoutBlockContainer`'s
+the multicol container would need to duplicate all of `BlockContainerAlgorithm`'s
 logic for managing child sequences, margins, and break tokens.
 
 ### The solution
 
-Instead, `layoutMulticolContainer` creates a synthetic `LayoutNode` that wraps
+Instead, `MulticolAlgorithm` creates a synthetic `LayoutNode` that wraps
 the container's children. When this synthetic node is passed to
 `getLayoutAlgorithm`, none of the special checks (`isMulticolContainer`,
-`isFlexContainer`, etc.) match, so it falls through to `layoutBlockContainer`.
+`isFlexContainer`, etc.) match, so it falls through to `BlockContainerAlgorithm`.
 
 This means the multicol algorithm only needs to manage the column loop (creating
 column constraint spaces, collecting column fragments, handling column breaks).
-The actual content layout is delegated to `layoutBlockContainer` running against
+The actual content layout is delegated to `BlockContainerAlgorithm` running against
 the synthetic flow thread node.
 
 ### Column flow
 
 ```
-layoutMulticolContainer
+MulticolAlgorithm
   |
   +-- for each column:
   |     resolve column ConstraintSpace
   |     yield layoutChild(flowThreadNode, columnConstraintSpace, columnBreakToken)
   |       |
-  |       +-- getLayoutAlgorithm(flowThreadNode) -> layoutBlockContainer
+  |       +-- getLayoutAlgorithm(flowThreadNode) -> BlockContainerAlgorithm
   |             (lays out the multicol container's children sequentially)
   |
   +-- collect column fragments
@@ -576,7 +601,7 @@ layoutMulticolContainer
 ```
 
 `flex-direction: column` also uses this pattern. The flex container creates a
-flow thread for its items and delegates to `layoutBlockContainer` for the
+flow thread for its items and delegates to `BlockContainerAlgorithm` for the
 sequential item flow within each fragmentainer.
 
 ---
@@ -623,7 +648,7 @@ Layout algorithms read these properties from `LayoutNode`:
 ### InlineItemsData
 
 For inline formatting contexts, `collectInlineItems()` (in
-`src/dom/collect-inlines.js`) walks the DOM subtree and produces a flat
+`src/measurement/collect-inlines.js`) walks the DOM subtree and produces a flat
 representation:
 
 - `items` -- array of typed items (`INLINE_TEXT`, `INLINE_OPEN_TAG`,
@@ -788,7 +813,7 @@ Handlers interact with the engine at these hook points, listed in lifecycle orde
     normal flow.
 
 11. **`beforeChildren(node, constraintSpace, breakToken)`** — called before the
-    child loop in `layoutBlockContainer`. Returns a layout request descriptor for
+    child loop in `BlockContainerAlgorithm`. Returns a layout request descriptor for
     content to prepend (e.g., repeated table headers), or `null`.
 
 12. **`afterContentLayout(fragment, constraintSpace, inputBreakToken)`** — called
@@ -804,37 +829,3 @@ This avoids tight coupling between `FragmentedFlow` and individual handlers.
 
 See [Layout Handlers](handlers.md) for the full handler interface and how to write
 custom handlers.
-
----
-
-## 12. Source Layout
-
-```
-src/
-  fragmentation/    # Fragment, FragmentedFlow, FragmentationContext, BreakToken,
-                    # ConstraintSpace, break scoring, counter state, inline-content
-  algorithms/       # Layout-algorithm generators: block, flex, grid, multicol,
-                    # table-row
-  layout/           # Layout plumbing: DOMLayoutNode, AnonymousBlockNode,
-                    # layout-request, margin-collapsing, layout-helpers
-  measurement/      # Measurer, line-box, pseudo-elements, collect-inlines,
-                    # font-metrics — DOM-side measurement probes
-  components/       # Custom elements: <content-measure>, <fragment-container>
-  styles/           # CSS infrastructure: css-values (CSSNumericValue polyfill),
-                    # computed-style-map polyfill, walk-rules, overrides,
-                    # ua-defaults, style-utils
-  handlers/         # LayoutHandler base + built-ins: PageFloat, Footnote,
-                    # FixedPosition, NthSelectors, EmulatePrintPixelRatio,
-                    # BodyRewriter, RepeatedTableHeader, PageFit, MutationSync
-  resolvers/        # PageResolver, RegionResolver (fragmentainer dimensions)
-```
-
-**Locality conventions.** Constants live next to the class that manages them:
-`BREAK_TOKEN_*` in `tokens.js`, `FRAGMENTATION_*` in `constraint-space.js`,
-`BOX_DECORATION_*` in `layout-node.js`, `ALGORITHM_*` in each algorithm's
-file, `NAMED_SIZES`/`NAMED_SIZES_CSS` in `page-resolver.js`. There is no
-shared `constants.js`.
-
-Similarly, small helpers live with their owning class: `findChildBreakToken`
-and `isForcedBreakValue` live in `tokens.js`; `isMonolithic` and
-`getMonolithicBlockSize` live in `layout-helpers.js`.

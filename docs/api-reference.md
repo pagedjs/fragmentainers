@@ -21,9 +21,9 @@ Additional subpath barrels expose the rest of the public surface area:
 
 | Subpath | Exports |
 | --- | --- |
-| `fragmentainers/fragmentation` | `BreakToken`, `BlockBreakToken`, `InlineBreakToken`, `findChildBreakToken`, `Fragment`, `ConstraintSpace`, `EarlyBreak`, `BreakScore`, `layoutInlineContent`, `FragmentedFlow`, `FragmentationContext`, `CounterState`, `parseCounterDirective`, `walkFragmentTree` |
-| `fragmentainers/layout` | `LayoutRequest`, `layoutChild`, `createFragments`, `runLayoutGenerator`, `getLayoutAlgorithm`, `isMonolithic`, `getMonolithicBlockSize`, `buildCumulativeHeights`, `layoutBlockContainer`, `layoutTableRow`, `DOMLayoutNode` |
-| `fragmentainers/algorithms` | `layoutBlockContainer`, `layoutFlexContainer`, `layoutGridContainer`, `layoutMulticolContainer`, `layoutTableRow`, `resolveColumnDimensions` |
+| `fragmentainers/fragmentation` | `BreakToken`, `BlockBreakToken`, `InlineBreakToken`, `findChildBreakToken`, `Fragment`, `ConstraintSpace`, `EarlyBreak`, `BreakScore`, `FragmentedFlow`, `FragmentationContext`, `CounterState`, `parseCounterDirective`, `walkFragmentTree` |
+| `fragmentainers/layout` | `LayoutRequest`, `createFragments`, `LayoutDriver`, `runLayoutGenerator`, `getLayoutAlgorithm`, `isMonolithic`, `getMonolithicBlockSize`, `buildCumulativeHeights`, `LayoutNode`, `DOMLayoutNode`, `AnonymousBlockNode`, `FlowThreadNode` |
+| `fragmentainers/algorithms` | `BlockContainerAlgorithm`, `FlexAlgorithm`, `GridAlgorithm`, `InlineContentAlgorithm`, `MulticolAlgorithm`, `TableRowAlgorithm`, `resolveColumnDimensions` |
 | `fragmentainers/resolvers` | `PageResolver`, `RegionResolver`, `RegionConstraints` |
 | `fragmentainers/components` | `ContentMeasureElement`, `FragmentContainerElement` |
 | `fragmentainers/styles` | `computedStyleMap` |
@@ -136,14 +136,14 @@ new FragmentationContext(fragments, contentStyles);
 
 | Parameter       | Type                                                                         | Description                                    |
 | --------------- | ---------------------------------------------------------------------------- | ---------------------------------------------- |
-| `fragments`     | `PhysicalFragment[]`                                                         | Array of root fragments, one per fragmentainer |
+| `fragments`     | `Fragment[]`                                                         | Array of root fragments, one per fragmentainer |
 | `contentStyles` | `{ sheets: CSSStyleSheet[], nthFormulas: Map, sourceRefs: WeakMap } \| null` | Content styles and ref maps for composition    |
 
 #### Properties
 
 | Property             | Type                 | Description              |
 | -------------------- | -------------------- | ------------------------ |
-| `fragments`          | `PhysicalFragment[]` | The fragment array       |
+| `fragments`          | `Fragment[]` | The fragment array       |
 | `fragmentainerCount` | `number`             | Number of fragmentainers |
 
 #### Methods
@@ -413,43 +413,43 @@ const result = createFragments(tree, resolver, {
 | `constraintSpaceOrResolver` | `ConstraintSpace \| PageResolver`                             | Reused constraint space or per-page resolver |
 | `continuation`              | `{ fragmentainerIndex: number, blockOffset: number } \| null` | Resume state for multi-element flows         |
 
-**Returns:** `PhysicalFragment[]` (no continuation) or `{ fragments: PhysicalFragment[], continuation }` (with continuation).
+**Returns:** `Fragment[]` (no continuation) or `{ fragments: Fragment[], continuation }` (with continuation).
 
 ---
 
-### runLayoutGenerator(generatorFn, node, constraintSpace, breakToken, earlyBreakTarget?)
+### runLayoutGenerator(algorithm)
 
-`import { runLayoutGenerator } from "fragmentainers"`
+`import { runLayoutGenerator } from "fragmentainers/layout"`
 
-Recursive driver that runs a layout generator to completion, fulfilling each
-yielded `LayoutRequest` by dispatching to the correct child algorithm via
-`getLayoutAlgorithm`.
+**Source:** `src/layout/layout-driver.js`
 
-| Parameter          | Type                 | Description                                    |
-| ------------------ | -------------------- | ---------------------------------------------- |
-| `generatorFn`      | `GeneratorFunction`  | Layout algorithm generator                     |
-| `node`             | `LayoutNode`         | Layout node                                    |
-| `constraintSpace`  | `ConstraintSpace`    | Layout input                                   |
-| `breakToken`       | `BreakToken \| null` | Continuation token from previous fragmentainer |
-| `earlyBreakTarget` | `EarlyBreak \| null` | Pass 2 target (default: `null`)                |
+Recursive driver that runs an algorithm instance to completion, fulfilling each
+`LayoutRequest` yielded from `*layout()` by instantiating the correct child
+algorithm class (via `getLayoutAlgorithm`) and recursing into it.
 
-**Returns:** `{ fragment: PhysicalFragment, breakToken: BreakToken | null, earlyBreak?: EarlyBreak }`
+| Parameter   | Type     | Description                                                                                                 |
+| ----------- | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `algorithm` | `Object` | Algorithm instance with a `*layout()` generator method (e.g. `new BlockContainerAlgorithm(node, cs, bt))` |
+
+**Returns:** `{ fragment: Fragment, breakToken: BreakToken | null, earlyBreak?: EarlyBreak }`
 
 ---
 
 ### getLayoutAlgorithm(node)
 
-`import { getLayoutAlgorithm } from "fragmentainers"`
+`import { getLayoutAlgorithm } from "fragmentainers/layout"`
 
-Dispatch to the correct layout algorithm based on node type. Checked in order:
-`isMulticolContainer` -> `isFlexContainer` -> `isGridContainer` ->
-`isInlineFormattingContext` -> `isTableRow` -> `layoutBlockContainer` (default).
+**Source:** `src/layout/layout-driver.js`
+
+Dispatch to the correct layout algorithm class based on node type. Checked in order:
+`isMulticolContainer` → `isFlexContainer` → `isGridContainer` →
+`isInlineFormattingContext` → `isTableRow` → `BlockContainerAlgorithm` (default).
 
 | Parameter | Type         | Description            |
 | --------- | ------------ | ---------------------- |
 | `node`    | `LayoutNode` | Layout node to inspect |
 
-**Returns:** Generator function suitable for `runLayoutGenerator`.
+**Returns:** An algorithm **class** constructor. Instantiate with `new Algo(node, constraintSpace, breakToken)` (plus optional `earlyBreakTarget` for `BlockContainerAlgorithm`) and pass the instance to `runLayoutGenerator`.
 
 ---
 
@@ -520,7 +520,7 @@ new ConstraintSpace({
 `import { MarginState } from "fragmentainers/src/layout/margin-collapsing.js"`
 
 Stateful tracker for CSS2 §8.3.1 block margin collapsing. Used by
-`layoutBlockContainer` to resolve collapsed margins between siblings, through
+`BlockContainerAlgorithm` to resolve collapsed margins between siblings, through
 parent boundaries, and at fragmentation breaks.
 
 ```js
@@ -538,9 +538,9 @@ Uses `MarginStrut` internally: positive margins take `max`, negative margins tak
 
 ---
 
-### PhysicalFragment
+### Fragment
 
-`import { PhysicalFragment } from "fragmentainers"`
+`import { Fragment } from "fragmentainers"`
 
 Immutable layout output. Represents a laid-out box or line within a single
 fragmentainer. Forms a tree via `childFragments`.
@@ -548,7 +548,7 @@ fragmentainer. Forms a tree via `childFragments`.
 #### Constructor
 
 ```js
-new PhysicalFragment(node, blockSize, childFragments?)
+new Fragment(node, blockSize, childFragments?)
 ```
 
 | Property         | Type                      | Default | Description                                                                  |
@@ -556,7 +556,7 @@ new PhysicalFragment(node, blockSize, childFragments?)
 | `node`           | `LayoutNode \| null`      | --      | Source layout node (`null` for line fragments)                               |
 | `blockSize`      | `number`                  | --      | Block-axis size consumed in this fragmentainer                               |
 | `inlineSize`     | `number`                  | `0`     | Inline-axis size                                                             |
-| `childFragments` | `PhysicalFragment[]`      | `[]`    | Child fragments within this fragment                                         |
+| `childFragments` | `Fragment[]`      | `[]`    | Child fragments within this fragment                                         |
 | `breakToken`     | `BreakToken \| null`      | `null`  | Continuation token if content overflowed                                     |
 | `constraints`    | `PageConstraints \| null` | `null`  | Page constraints (set by driver on root fragments)                           |
 | `multicolData`   | `object \| null`          | `null`  | Multicol layout data (`{ columnWidth, columnGap, columnCount }`)             |
@@ -567,19 +567,21 @@ new PhysicalFragment(node, blockSize, childFragments?)
 
 ---
 
-### LayoutRequest / layoutChild
+### LayoutRequest
 
-`import { LayoutRequest, layoutChild } from "fragmentainers"`
+`import { LayoutRequest } from "fragmentainers/layout"`
 
-Yielded from layout generators to the driver. Represents a request to lay out a
-child node.
+**Source:** `src/layout/layout-request.js`
+
+Yielded from an algorithm's `*layout()` generator to the driver. Represents a
+request to lay out a child node.
 
 ```js
-// Inside a layout generator:
-const result = yield layoutChild(childNode, childConstraintSpace, childBreakToken);
+// Inside an algorithm's *layout() method:
+const result = yield new LayoutRequest(childNode, childConstraintSpace, childBreakToken);
 ```
 
-#### LayoutRequest Constructor
+#### Constructor
 
 ```js
 new LayoutRequest(node, constraintSpace, breakToken?)
@@ -590,11 +592,6 @@ new LayoutRequest(node, constraintSpace, breakToken?)
 | `node`            | `LayoutNode`         | Child node to lay out                |
 | `constraintSpace` | `ConstraintSpace`    | Layout input for the child           |
 | `breakToken`      | `BreakToken \| null` | Continuation token (default: `null`) |
-
-#### layoutChild(node, constraintSpace, breakToken?)
-
-Convenience factory that returns a `LayoutRequest`. Identical to calling
-`new LayoutRequest(...)`.
 
 ---
 
@@ -841,41 +838,6 @@ prevent CSS leakage from the host page. Uses `all: initial` on `:host` and
 | `fragment-change` | `{ index: number }`                                         | Fired when content inside the fragment changes (coalesced via `queueMicrotask`)                               |
 | `overflow`        | `{ index, expectedBlockSize, renderedBlockSize, overflow }` | Fired when rendered content height exceeds the layout-computed expected size by more than `overflowThreshold` |
 
-### ContentParser
-
-`import { ContentParser } from "fragmentainers"`
-
-**Source:** `src/dom/content-parser.js`
-
-Parses an HTML document string into a `DocumentFragment` + `CSSStyleSheet[]`
-with all relative URLs resolved against the content's origin. Handles CSS
-preprocessing for properties not natively supported by browsers (e.g. rewrites
-`position: running(...)` to a custom property).
-
-#### Static Methods
-
-| Method                                  | Returns                  | Description                                                   |
-| --------------------------------------- | ------------------------ | ------------------------------------------------------------- |
-| `ContentParser.parse(content, baseURL)` | `Promise<ContentParser>` | Parse HTML string, fetch linked stylesheets, resolve all URLs |
-
-#### Properties
-
-| Property   | Type               | Description                        |
-| ---------- | ------------------ | ---------------------------------- |
-| `fragment` | `DocumentFragment` | Body content with resolved URLs    |
-| `styles`   | `CSSStyleSheet[]`  | Source sheets + URL override sheet |
-
-#### Example
-
-```js
-const parsed = await ContentParser.parse(htmlString, "https://example.com/book/");
-const layout = new FragmentedFlow(parsed.fragment, {
-	styles: parsed.styles,
-});
-const flow = layout.flow();
-for (const el of flow) document.body.append(el);
-```
-
 ---
 
 ## 7. Helpers
@@ -972,7 +934,7 @@ break.
 
 Resolve the `break-before` CSS value of the first child that will appear on
 the next page. Used to detect side-specific breaks when `blockOffset === 0`
-prevented the forced break from firing in `layoutBlockContainer`.
+prevented the forced break from firing in `BlockContainerAlgorithm`.
 
 **Returns:** `string | null`
 
@@ -1058,7 +1020,7 @@ non-null) since those were already counted in a previous fragmentainer.
 
 | Parameter         | Type                 | Description                             |
 | ----------------- | -------------------- | --------------------------------------- |
-| `fragment`        | `PhysicalFragment`   | Root fragment to walk                   |
+| `fragment`        | `Fragment`   | Root fragment to walk                   |
 | `inputBreakToken` | `BreakToken \| null` | Break token from previous fragmentainer |
 | `counterState`    | `CounterState`       | Accumulator                             |
 
@@ -1083,7 +1045,7 @@ Used in `ConstraintSpace.fragmentationType`.
 
 ### Inline Item Types
 
-`import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC } from "fragmentainers/src/dom/collect-inlines.js"`
+`import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC } from "fragmentainers/src/measurement/collect-inlines.js"`
 
 Used in `InlineItemsData.items[].type`.
 
@@ -1174,34 +1136,41 @@ All dimensions are in CSS pixels at 96 DPI.
 
 ## 9. Layout Algorithms
 
-All layout algorithms are generator functions with the same core signature.
-They `yield` `LayoutRequest` objects and receive child layout results. For
-detailed algorithm descriptions, see [layout-algorithms.md](layout-algorithms.md).
+All layout algorithms are classes with a `*layout()` generator method. The generator `yield`s `LayoutRequest` objects and receives child layout results. For detailed algorithm descriptions, see [layout-algorithms.md](layout-algorithms.md).
 
-`import { layoutBlockContainer, layoutInlineContent, layoutTableRow } from "fragmentainers"`
+```js
+import {
+	BlockContainerAlgorithm,
+	InlineContentAlgorithm,
+	TableRowAlgorithm,
+	MulticolAlgorithm,
+	FlexAlgorithm,
+	GridAlgorithm,
+} from "fragmentainers/algorithms";
+```
 
-| Algorithm                 | Signature                                                         | Source                             |
-| ------------------------- | ----------------------------------------------------------------- | ---------------------------------- |
-| `layoutBlockContainer`    | `function*(node, constraintSpace, breakToken, earlyBreakTarget?)` | `src/algorithms/block-container.js`    |
-| `layoutInlineContent`     | `function*(node, constraintSpace, breakToken)`                    | `src/fragmentation/inline-content.js`     |
-| `layoutTableRow`          | `function*(node, constraintSpace, breakToken)`                    | `src/algorithms/table-row.js`          |
-| `layoutMulticolContainer` | `function*(node, constraintSpace, breakToken)`                    | `src/algorithms/multicol-container.js` |
-| `layoutFlexContainer`     | `function*(node, constraintSpace, breakToken)`                    | `src/algorithms/flex-container.js`     |
-| `layoutGridContainer`     | `function*(node, constraintSpace, breakToken)`                    | `src/algorithms/grid-container.js`     |
+| Algorithm                 | Constructor                                                    | Source                             |
+| ------------------------- | -------------------------------------------------------------- | ---------------------------------- |
+| `BlockContainerAlgorithm` | `(node, constraintSpace, breakToken, earlyBreakTarget?)`       | `src/algorithms/block-container.js`    |
+| `InlineContentAlgorithm`  | `(node, constraintSpace, breakToken)`                          | `src/algorithms/inline-content.js`     |
+| `TableRowAlgorithm`       | `(node, constraintSpace, breakToken)`                          | `src/algorithms/table-row.js`          |
+| `MulticolAlgorithm`       | `(node, constraintSpace, breakToken)`                          | `src/algorithms/multicol-container.js` |
+| `FlexAlgorithm`           | `(node, constraintSpace, breakToken)`                          | `src/algorithms/flex-container.js`     |
+| `GridAlgorithm`           | `(node, constraintSpace, breakToken)`                          | `src/algorithms/grid-container.js`     |
 
-All generators return `{ fragment: PhysicalFragment, breakToken: BreakToken | null, earlyBreak?: EarlyBreak }` via their final `return` value. Only `layoutBlockContainer` accepts the `earlyBreakTarget` parameter for two-pass break optimization.
+Each class's `*layout()` generator returns `{ fragment: Fragment, breakToken: BreakToken | null, earlyBreak?: EarlyBreak }` via its final `return` value. Only `BlockContainerAlgorithm` accepts the `earlyBreakTarget` parameter for two-pass break optimization.
 
 ### Dispatch Order
 
 `getLayoutAlgorithm(node)` selects the algorithm by checking node properties in
 this order:
 
-1. `isMulticolContainer` -- `layoutMulticolContainer`
-2. `isFlexContainer` -- `layoutFlexContainer`
-3. `isGridContainer` -- `layoutGridContainer`
-4. `isInlineFormattingContext` -- `layoutInlineContent`
-5. `isTableRow` -- `layoutTableRow`
-6. (default) -- `layoutBlockContainer`
+1. `isMulticolContainer` -- `MulticolAlgorithm`
+2. `isFlexContainer` -- `FlexAlgorithm`
+3. `isGridContainer` -- `GridAlgorithm`
+4. `isInlineFormattingContext` -- `InlineContentAlgorithm`
+5. `isTableRow` -- `TableRowAlgorithm`
+6. (default) -- `BlockContainerAlgorithm`
 
 ---
 
@@ -1288,7 +1257,7 @@ All built-in handlers are registered automatically. They can also be imported di
 
 ### FontMetrics
 
-`import { getSharedFontMetrics } from "fragmentainers/src/dom/font-metrics.js"`
+`import { getSharedFontMetrics } from "fragmentainers/src/measurement/font-metrics.js"`
 
 Canvas-based font metric extraction. Measures the `fontBoundingBoxAscent + fontBoundingBoxDescent` ratio at a reference size and caches per font-family/weight/style combination. Results are rounded to the device pixel grid (floored at DPR 1, rounded at higher DPRs).
 

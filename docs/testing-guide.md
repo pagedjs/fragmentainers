@@ -1,329 +1,185 @@
 # Testing Guide
 
-How to write and run tests for `fragmentainers`.
+The engine has two tiers of tests. Both run in real Chromium via Playwright — there is no jsdom or Node-only path.
 
----
-
-## Test Architecture
-
-The test suite is split into two tiers:
-
-| Tier                            | Environment | Purpose                                                                           | Speed             |
-| ------------------------------- | ----------- | --------------------------------------------------------------------------------- | ----------------- |
-| **Tests** (`test/**/*.test.js`) | Playwright  | Layout algorithms, break scoring, tokens, DOM measurement, compositor, end-to-end | ~2s for 440 tests |
-| **Spec tests** (`specs/`)       | Playwright  | Visual comparison against reference HTML                                          | ~3-5 min          |
-
-All tests run in real browsers — there is no separate Node environment. All test files use the `.test.js` extension. Tests are organized into subdirectories by area:
-
-- `test/core/` — break scoring, tokens, counter state, reflow, overflow, fragmentainer layout
-- `test/layout/` — block, inline, multicol, flex, grid, table, forced breaks, monolithic
-- `test/compositor/` — composition, nth-selectors
-- `test/handlers/` — page floats, footnotes, fixed position, repeated headers
-- `test/atpage/` — @page rule resolution
-- `test/dom/` — DOM measurement, layout node, inline collection
-- `test/fixtures/` — mock node factories
-
----
-
-## Running Tests
+| Tier                    | Location | Config                       | What it checks                                            |
+| ----------------------- | -------- | ---------------------------- | --------------------------------------------------------- |
+| Unit / integration      | `test/`  | `test/playwright.config.js`  | Layout algorithms, tokens, composition, DOM measurement   |
+| Specs (Visual ref test) | `specs/` | `specs/playwright.config.js` | Pixel-compare fragmented output against hand-written refs |
 
 ```bash
-npm test               # Run ESLint + all tests
-npm run specs          # All spec tests
-```
-
-### Single spec suite
-
-```bash
-npx playwright test --config specs/playwright.config.js --project css-page
-```
-
-### Filtering tests
-
-```bash
-# Run a specific test file
-npx vitest run test/layout/block-layout.test.js
-
-# Run tests matching a pattern
-npx vitest run -t "forced break"
+npm test         # unit/integration
+npm run specs    # specs
+npm run lint     # eslint (separate from tests)
 ```
 
 ---
 
-## Unit Test Patterns
+## Specs
 
-Unit tests use mock node factories from `test/fixtures/nodes.js`. These create plain objects matching the `LayoutNode` interface without requiring a DOM.
+Specs are the primary way to verify fragmentation output against the CSS specs, modelled after and using [Web Platform Tests](https://web-platform-tests.org/) reftests. Each spec is a pair of HTML files:
 
-### Available Factories
+- **`name.html`** — a page using CSS features like `@page`, `break-*`, multicol, etc. The runner injects the fragmentation engine and replaces body content with the paginated output.
+- **`name-ref.html`** — a static hand-laid reference showing the expected visual output. It does not run the engine — instead it uses `<page-container>` elements sized with CSS custom properties to mimic each fragmentainer.
 
-| Factory               | Creates                          | Key Options                                                         |
-| --------------------- | -------------------------------- | ------------------------------------------------------------------- |
-| `blockNode()`         | Block-level element              | `blockSize`, `children`, `breakBefore`, `breakAfter`, `breakInside` |
-| `replacedNode()`      | Replaced element (monolithic)    | `blockSize`                                                         |
-| `scrollableNode()`    | Scrollable element (monolithic)  | `blockSize`, `children`                                             |
-| `inlineNode()`        | Inline formatting context        | `inlineItemsData`, `lineHeight`, `measureText`                      |
-| `tableRowNode()`      | Table row (parallel flows)       | `cells`                                                             |
-| `multicolNode()`      | Multicol container               | `columnCount`, `columnWidth`, `columnGap`, `columnFill`             |
-| `flexNode()`          | Flex container                   | `flexDirection`, `flexWrap`                                         |
-| `gridNode()`          | Grid container                   | `children` (use `gridItemNode` for items)                           |
-| `gridItemNode()`      | Grid item with row placement     | `blockSize`, `gridRowStart`                                         |
-| `textToInlineItems()` | InlineItemsData from text string | Plain text string                                                   |
+The runner screenshots each `<page-container>` from the processed test page and from the reference page, then compares them pixel-by-pixel. Many test cases are imported from Chromium's WPT suite and adapted; others are hand-authored against known-good output.
 
-### Example: Block Fragmentation
+Spec refs are hand-crafted and belong to the test surface. Never regenerate or delete an existing ref like a snapshot — if the engine output genuinely improved, the ref should be updated deliberately.
 
-```javascript
-import { describe, it, expect } from "vitest";
-import { createFragments, ConstraintSpace } from "../../src/index.js";
-import { blockNode } from "./fixtures/nodes.js";
+### Suites
 
-describe("block fragmentation", () => {
-	it("splits content across two fragmentainers", () => {
-		const root = blockNode({
-			children: [blockNode({ blockSize: 300 }), blockNode({ blockSize: 300 })],
-		});
+Three suites live under `specs/`:
 
-		const fragments = createFragments(
-			root,
-			new ConstraintSpace({
-				availableInlineSize: 600,
-				availableBlockSize: 400,
-				fragmentainerBlockSize: 400,
-				fragmentationType: "page",
-			}),
-		);
+- **`css-page/`** — WPT-imported `@page` pagination tests
+- **`at-page/`** — @page spec from pagedjs
+- **`fragmentation/`** — CSS Fragmentation module tests
 
-		expect(fragments).toHaveLength(2);
-		expect(fragments[0].childFragments).toHaveLength(1);
-		expect(fragments[1].childFragments).toHaveLength(1);
-	});
-});
-```
-
-### Example: Forced Breaks
-
-```javascript
-it("handles break-before: page", () => {
-	const root = blockNode({
-		children: [blockNode({ blockSize: 100 }), blockNode({ blockSize: 100, breakBefore: "page" })],
-	});
-
-	const fragments = createFragments(
-		root,
-		new ConstraintSpace({
-			availableInlineSize: 600,
-			availableBlockSize: 1000,
-			fragmentainerBlockSize: 1000,
-			fragmentationType: "page",
-		}),
-	);
-
-	expect(fragments).toHaveLength(2);
-});
-```
-
-### Example: Inline Content
-
-```javascript
-import { inlineNode, textToInlineItems } from "./fixtures/nodes.js";
-
-it("breaks text across fragmentainers", () => {
-	const root = blockNode({
-		children: [
-			inlineNode({
-				inlineItemsData: textToInlineItems("word ".repeat(50)),
-				lineHeight: 20,
-				measureText: (text) => text.length * 8,
-				availableInlineSize: 200,
-			}),
-		],
-	});
-
-	const fragments = createFragments(
-		root,
-		new ConstraintSpace({
-			availableInlineSize: 200,
-			availableBlockSize: 100,
-			fragmentainerBlockSize: 100,
-			fragmentationType: "page",
-		}),
-	);
-
-	expect(fragments.length).toBeGreaterThan(1);
-	expect(fragments[0].childFragments[0].lineCount).toBeGreaterThan(0);
-});
-```
-
-### Example: Parallel Flows (Table Row)
-
-```javascript
-import { tableRowNode } from "./fixtures/nodes.js";
-
-it("all cells get break tokens when one overflows", () => {
-	const root = blockNode({
-		children: [
-			tableRowNode({
-				cells: [blockNode({ blockSize: 100 }), blockNode({ blockSize: 500 })],
-			}),
-		],
-	});
-
-	const fragments = createFragments(
-		root,
-		new ConstraintSpace({
-			availableInlineSize: 400,
-			availableBlockSize: 300,
-			fragmentainerBlockSize: 300,
-			fragmentationType: "page",
-		}),
-	);
-
-	const rowToken = fragments[0].breakToken.childBreakTokens[0];
-	expect(rowToken.childBreakTokens).toHaveLength(2);
-	expect(rowToken.childBreakTokens[0].isAtBlockEnd).toBe(true);
-});
-```
-
-### Example: CSS Properties
-
-Any `LayoutNode` property can be overridden:
-
-```javascript
-const avoidBreak = blockNode({ blockSize: 100, breakAfter: "avoid" });
-const pageBreak = blockNode({ blockSize: 100, breakBefore: "page" });
-const clonedBox = blockNode({
-	blockSize: 200,
-	boxDecorationBreak: "clone",
-	paddingBlockStart: 10,
-	paddingBlockEnd: 10,
-	children: [blockNode({ blockSize: 180 })],
-});
-```
-
----
-
-## DOM-Dependent Test Patterns
-
-Some tests exercise real DOM APIs:
-
-- **DOM measurement** (`getBoundingClientRect`, `Range.getClientRects`)
-- **Layout node properties** (`DOMLayoutNode` wrapping real elements)
-- **Fragment building** (cloning elements, shadow DOM)
-- **End-to-end fragmentation** (`FragmentedFlow.flow()` with real content)
-- **Inline layout with real text** (actual font metrics, word wrapping)
-
-```javascript
-// test/core/flow.test.js
-import { describe, it, expect, afterEach } from "vitest";
-import { FragmentedFlow } from "../../src/fragmentation/fragmented-flow.js";
-
-describe("flow", () => {
-	let layout;
-
-	afterEach(() => {
-		layout?.destroy();
-	});
-
-	it("produces fragment containers with shadow DOM", () => {
-		const template = document.createElement("template");
-		template.innerHTML = "<p>Hello</p><p>World</p>";
-
-		layout = new FragmentedFlow(template.content, {
-			width: 200,
-			height: 50,
-		});
-		const flow = layout.flow();
-
-		expect(flow.length).toBeGreaterThan(0);
-		expect(flow[0].tagName.toLowerCase()).toBe("fragment-container");
-	});
-});
-```
-
----
-
-## Spec Tests (Visual Comparison)
-
-### How It Works
-
-Each spec test has a test HTML file and a reference HTML file (`-ref.html`). The shared processor (`specs/helpers/process.js`) runs fragmentation on the test file, then Playwright screenshots both the processed test and the static reference and compares them for pixel differences.
-
-### Test Suites
-
-### Writing a New Spec Test
-
-1. **Create the test HTML** (`specs/fragmentation/my-test.html`):
-
-```html
-<!DOCTYPE html>
-<style>
-	@page {
-		size: 200px 100px;
-		margin: 0;
-	}
-	div {
-		height: 60px;
-		background: blue;
-	}
-</style>
-<div></div>
-<div></div>
-```
-
-2. **Create the reference HTML** (`specs/fragmentation/my-test-ref.html`):
-
-```html
-<!DOCTYPE html>
-<style>
-	.page {
-		width: 200px;
-		height: 100px;
-		overflow: hidden;
-	}
-	.body {
-		width: 200px;
-		height: 100px;
-	}
-	div {
-		height: 60px;
-		background: blue;
-	}
-</style>
-<page-container>
-		<div></div>
-	</div>
-</page-container>
-<page-container>
-	<div class="body">
-		<div></div>
-	</div>
-</page-container>
-```
-
-3. **Add to the manifest** (`specs/tests.yml`):
+### `specs/tests.yml` format
 
 ```yaml
-- fragmentation
-  - name: my-test
-  - type: print # runs paginate on the content
+css-page:
+  - name: basic-pagination-001-print
+    type: print
+  - name: basic-pagination-002-print
+    type: print
+
+at-page:
+  - name: awesome
+    type: print
+  - name: rebuild-all-tds
+    type: print
+    skip: true # skip: true or "reason string" to skip a test
 ```
 
-4. **Run the test**:
+Each entry has:
+
+- `name` — the base filename (resolves to `name.html` + `name-ref.html` in the suite directory)
+- `type` — `print` (run `paginate()`) or `multicol` (run `multicol()` on detected multicol containers). See `specs/helpers/process.js`.
+- `skip` — optional; `true` or a reason string
+
+### Adding a spec
+
+1. Drop the test file into the suite directory, e.g. `specs/fragmentation/my-test.html`. Use real `@page` / `break-*` / multicol CSS. The engine runs against the live DOM.
+2. Author a reference file, `specs/fragmentation/my-test-ref.html`, that renders the expected output using `<page-container>` elements with `--page-width`, `--page-height`, and `--page-margin-*` custom properties. See `specs/fragmentation/border-padding-overflow-ref.html` for a complete example.
+3. Add the entry to `specs/tests.yml` under the right suite.
+4. Run a single spec:
+   ```bash
+   npm run specs -- --project fragmentation -g my-test
+   ```
+
+### Running a single suite or test
 
 ```bash
-npx playwright test --config specs/playwright.config.js --project fragmentation -g "my-test"
+# Entire suite
+npx playwright test --config specs/playwright.config.js --project at-page
+
+# Single test by name
+npx playwright test --config specs/playwright.config.js --project at-page -g awesome
+
+# With trace/HTML report
+npx playwright test --config specs/playwright.config.js --reporter=html
 ```
 
-### Debugging Failures
+The HTML report (auto-opened on failure) attaches screenshots for each page plus a per-pixel diff, which is usually the fastest way to see what drifted.
 
-When a spec test fails, Playwright saves diff images to `test-results/spec-diffs/`. Each diff shows:
+---
 
-- **Expected** — Screenshot of the reference HTML
-- **Actual** — Screenshot of the processed test HTML
-- **Diff** — Pixel differences highlighted
+## Debugging a spec with `fragment`
 
-To visually inspect a specific test, open it in the debug viewer:
+The `fragment` bin (installed from `debug/viewer.js`) opens a spec in a headed browser with the fragmentation engine live-injected. Refresh the page to re-run the engine after editing source or CSS.
 
 ```bash
-npm run serve
-# Open http://localhost:8080/specs/fragmentation/my-test.html
+# Open a spec in a headed Chromium window
+fragment specs/at-page/awesome.html
+
+# Multicol spec
+fragment specs/at-page/column-overflow.html --type multicol
+
+# Try cross-browser
+fragment specs/at-page/awesome.html --browser firefox
+fragment specs/at-page/awesome.html --browser webkit
+
+# View the reference page as-is (no engine injection)
+fragment specs/at-page/awesome-ref.html --ref
+
+# Visualize fragment boundaries
+fragment specs/at-page/awesome.html --debug
 ```
+
+Non-interactive modes dump output instead of opening a window:
+
+```bash
+# Dump the fragmented HTML (stdout or file)
+fragment specs/at-page/awesome.html --html
+fragment specs/at-page/awesome.html --html out.html
+
+# Print a per-page inspect report: block sizes, break tokens, element spans, issues
+fragment specs/at-page/awesome.html --inspect
+fragment specs/at-page/awesome.html --inspect report.txt
+
+# Render to PDF
+fragment specs/at-page/awesome.html --pdf book.pdf
+```
+
+`fragment --help` lists every flag. Use `--inspect` as the first stop when a spec fails — it surfaces which page a break token ended up on, which elements got split, and any zero-progress warnings — without needing to compare pixel screenshots.
+
+---
+
+### Patterns
+
+**DOM-based test** — wrap a real element, run layout, assert on the result:
+
+```js
+import { test, expect } from "../browser-fixture.js";
+
+test("lays out a leaf node", async ({ page }) => {
+	const result = await page.evaluate(async () => {
+		const { runLayoutGenerator } = await import("/src/layout/layout-driver.js");
+		const { BlockContainerAlgorithm } = await import("/src/algorithms/block-container.js");
+		const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+		const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+		const container = document.createElement("div");
+		container.style.cssText = "position:absolute;left:-9999px;width:600px";
+		container.innerHTML = '<div style="height:50px"></div>';
+		document.body.appendChild(container);
+
+		const root = new DOMLayoutNode(container.firstElementChild);
+		const space = new ConstraintSpace({
+			availableInlineSize: 600,
+			availableBlockSize: 800,
+			fragmentainerBlockSize: 800,
+			fragmentationType: "page",
+		});
+
+		const { fragment, breakToken } = runLayoutGenerator(
+			new BlockContainerAlgorithm(root, space, null),
+		);
+		container.remove();
+		return { blockSize: fragment.blockSize, broke: breakToken !== null };
+	});
+
+	expect(result.blockSize).toBe(50);
+	expect(result.broke).toBe(false);
+});
+```
+
+**Mock-node test** — use `test/fixtures/nodes.js` factories (`blockNode`, `inlineNode`, `tableRowNode`, `flexNode`, `gridNode`, `multicolNode`, etc.) to build a tree without touching the DOM. Useful for break scoring, margin collapsing, parallel-flow edge cases.
+
+### Filtering
+
+```bash
+# Single file
+npx playwright test --config test/playwright.config.js test/layout/block-layout.test.js
+
+# Pattern match on test title
+npx playwright test --config test/playwright.config.js -g "forced break"
+```
+
+---
+
+## Troubleshooting
+
+- **Spec fails only on CI.** DPR or font-rendering differences. The spec config pins `deviceScaleFactor: 1` and `--font-render-hinting=none`; reproduce with the same flags locally.
+- **Spec times out on `waitForSelector("[data-spec-ready]")`.** The engine threw inside `process.js`. Rerun with `fragment <spec>` and open DevTools — the error is also mirrored to `document.documentElement.dataset.specError`.
+- **Ref and test page counts don't match.** The spec runner fails fast on `expect(testCount).toBe(refCount)`. Use `--inspect` to see how many fragmentainers the engine produced, then reconcile with the ref.

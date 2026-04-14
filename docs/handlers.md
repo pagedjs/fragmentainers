@@ -50,7 +50,7 @@ A handler extends `LayoutHandler` and implements whichever methods it needs. All
     afterRender: (fragment, contentStyles) => void
   },
 
-  // Called before the child loop in layoutBlockContainer.
+  // Called before the child loop in BlockContainerAlgorithm.
   // Returns a layout request descriptor for content to prepend, or null.
   beforeChildren(node, constraintSpace, breakToken) -> {
     node,              // the child node to lay out
