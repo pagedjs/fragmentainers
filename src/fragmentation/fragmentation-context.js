@@ -58,7 +58,7 @@ export class FragmentationContext extends Array {
 
 		const el = document.createElement("fragment-container");
 		el.fragmentIndex = index;
-		el.pageConstraints = fragment.constraints;
+		el.constraints = fragment.constraints;
 		el.namedPage = fragment.constraints?.namedPage ?? null;
 		if (!fragment.constraints.pageBoxSize) {
 			el.style.width = `${contentArea.inlineSize}px`;

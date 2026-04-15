@@ -16,6 +16,7 @@ const CONTAINER_HOST_STYLES = `
   :host {
     display: block;
 		overflow: hidden;
+		contain: strict;
   }
   slot {
     display: block;
@@ -35,7 +36,7 @@ export class FragmentContainerElement extends HTMLElement {
 	#expectedBlockSize = null;
 	#overflowThreshold = 0;
 	#namedPage = null;
-	#pageConstraints = null;
+	#constraints = null;
 
 	constructor() {
 		super();
@@ -85,13 +86,18 @@ export class FragmentContainerElement extends HTMLElement {
 	}
 	set namedPage(value) {
 		this.#namedPage = value || null;
+		if (this.#namedPage) {
+			this.dataset.pageName = this.#namedPage;
+		} else {
+			delete this.dataset.pageName;
+		}
 	}
 
-	get pageConstraints() {
-		return this.#pageConstraints;
+	get constraints() {
+		return this.#constraints;
 	}
-	set pageConstraints(value) {
-		this.#pageConstraints = value || null;
+	set constraints(value) {
+		this.#constraints = value || null;
 	}
 
 	/**

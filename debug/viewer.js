@@ -264,7 +264,7 @@ if (ref && pdf.enabled) {
 		const outPath = resolve(pdf.path || "output.pdf");
 		const pageSize = await page.evaluate(() => {
 			const fc = document.querySelector("fragment-container");
-			const c = fc?.pageConstraints;
+			const c = fc?.constraints;
 			if (!c) return null;
 			return { width: c.pageBoxSize.inlineSize, height: c.pageBoxSize.blockSize };
 		});

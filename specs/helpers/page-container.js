@@ -6,7 +6,7 @@
  * through a default <slot>, so callers can pass either a
  * <fragment-container> or plain HTML elements.
  *
- * When a <fragment-container> with pageConstraints is slotted,
+ * When a <fragment-container> with constraints is slotted,
  * the element automatically sizes itself to the page box.
  *
  * Adopts the split-element override stylesheet on the document so
@@ -116,13 +116,13 @@ export class PageContainer extends HTMLElement {
 	}
 
 	/**
-	 * When a fragment-container is slotted, read its pageConstraints
+	 * When a fragment-container is slotted, read its constraints
 	 * and apply the page-box dimensions automatically.
 	 */
 	#onSlotChange() {
 		const assigned = this.#slot.assignedElements();
 		for (const node of assigned) {
-			const constraints = node.pageConstraints;
+			const constraints = node.constraints;
 			if (!constraints) continue;
 
 			const css = constraints.cssText;
