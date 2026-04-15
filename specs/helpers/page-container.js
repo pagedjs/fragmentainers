@@ -51,9 +51,12 @@ export class PageContainer extends HTMLElement {
 
 	#shadow = null;
 
+	#internals = null;
+
 	constructor() {
 		super();
 		this.#shadow = this.attachShadow({ mode: "open" });
+		this.#internals = this.attachInternals();
 		const style = document.createElement("style");
 		style.textContent = STYLES;
 		this.#shadow.appendChild(style);
@@ -61,6 +64,24 @@ export class PageContainer extends HTMLElement {
 		this.#slot = document.createElement("slot");
 		this.#slot.addEventListener("slotchange", () => this.#onSlotChange());
 		this.#shadow.appendChild(this.#slot);
+	}
+
+	#setState(name, on) {
+		if (on) this.#internals.states.add(name);
+		else this.#internals.states.delete(name);
+	}
+
+	/**
+	 * Set boolean page states exposed via `:state(...)` selectors.
+	 * Keys left `undefined` are not touched.
+	 *
+	 * @param {{ isFirst?: boolean, isBlank?: boolean, isVerso?: boolean, isRecto?: boolean }} states
+	 */
+	setStates(states = {}) {
+		if (states.isFirst !== undefined) this.#setState("isFirst", states.isFirst);
+		if (states.isBlank !== undefined) this.#setState("isBlank", states.isBlank);
+		if (states.isVerso !== undefined) this.#setState("isVerso", states.isVerso);
+		if (states.isRecto !== undefined) this.#setState("isRecto", states.isRecto);
 	}
 
 	connectedCallback() {
@@ -144,6 +165,13 @@ export class PageContainer extends HTMLElement {
 			} else if (constraints.contentArea) {
 				this.setPageBox(constraints.contentArea.inlineSize, constraints.contentArea.blockSize);
 			}
+
+			this.setStates({
+				isFirst: constraints.isFirst ?? node.hasAttribute("data-first"),
+				isBlank: constraints.isBlank ?? node.hasAttribute("data-blank-page"),
+				isVerso: constraints.isVerso,
+				isRecto: constraints.isRecto,
+			});
 			break;
 		}
 	}
