@@ -285,22 +285,21 @@ properties that should only appear on the first or last fragment of a
 split element (`text-indent`, `::first-letter`, `::before`, counter reset,
 etc.). Because it is last, it always wins the cascade.
 
-### Per-fragment nth sheets
+### Handler-contributed sheets
 
-After `setupForRendering` returns, `FragmentationContext` may call
-`adoptNthSheet(sheet)` one or more times. `NthSelectors`
-(`src/handlers/nth-selectors.js`) builds these per-fragment sheets in its
-`afterRender` hook by reaching back through the wrapper:
+After `setupForRendering` returns, `FragmentationContext` calls
+`adoptHandlerSheet(sheet)` for each sheet returned by
+`handlers.getAdoptedSheets()`. The method inserts the new sheet
+immediately before `OVERRIDES` so `OVERRIDES` retains highest priority.
 
-```js
-// src/handlers/nth-selectors.js
-wrapper.getRootNode().host.adoptNthSheet(nthSheet);
-```
-
-`adoptNthSheet` inserts the new sheet immediately before `OVERRIDES`, so
-the sheet overrides the original `:nth-child()` rules (which match the
-cloned DOM in the shadow root rather than source order) while `OVERRIDES`
-still wins.
+`StyleResolver` (`src/handlers/style-resolver.js`) uses this path to
+adopt a single shared sheet wrapped in `@layer nth`. Author stylesheets
+are first piped through `prepareAuthorSheetsForFragment`
+(`src/styles/strip-structural-pseudos.js`) which removes structural-pseudo
+rules (whose selectors would misfire against clones) and wraps the
+survivors in an anonymous `@layer`. The named `@layer nth` is declared
+later so it wins by layer order — the stamped `[data-ref="N"]` overrides
+beat any author rule that matched the element in the source cascade.
 
 ---
 

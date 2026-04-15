@@ -11,6 +11,7 @@
  */
 
 import { OVERRIDES } from "../styles/overrides.js";
+import { prepareAuthorSheetsForFragment } from "../styles/strip-structural-pseudos.js";
 
 const CONTAINER_HOST_STYLES = `
   :host {
@@ -216,7 +217,8 @@ export class FragmentContainerElement extends HTMLElement {
 		this.dataset.fragment = this.#fragmentIndex;
 
 		if (contentStyles.sheets.length > 0) {
-			this.#shadow.adoptedStyleSheets = [...contentStyles.sheets, OVERRIDES];
+			const fragmentSheets = prepareAuthorSheetsForFragment(contentStyles.sheets);
+			this.#shadow.adoptedStyleSheets = [...fragmentSheets, OVERRIDES];
 		} else {
 			this.#shadow.adoptedStyleSheets = [OVERRIDES];
 		}
@@ -269,16 +271,14 @@ export class FragmentContainerElement extends HTMLElement {
 	}
 
 	/**
-	 * Adopt a per-fragment nth-selector override stylesheet.
-	 * Inserted before OVERRIDES so it wins by source order over the
-	 * original nth pseudo-classes but OVERRIDES still has highest priority.
+	 * Adopt a handler-contributed override stylesheet. Inserted before
+	 * OVERRIDES so OVERRIDES retains highest priority.
 	 *
-	 * @param {CSSStyleSheet} nthSheet
+	 * @param {CSSStyleSheet} sheet
 	 */
-	adoptNthSheet(nthSheet) {
+	adoptHandlerSheet(sheet) {
 		const sheets = this.#shadow.adoptedStyleSheets;
-		// Insert before OVERRIDES (last sheet)
-		this.#shadow.adoptedStyleSheets = [...sheets.slice(0, -1), nthSheet, sheets[sheets.length - 1]];
+		this.#shadow.adoptedStyleSheets = [...sheets.slice(0, -1), sheet, sheets[sheets.length - 1]];
 	}
 }
 

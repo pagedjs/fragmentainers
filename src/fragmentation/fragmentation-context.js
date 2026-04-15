@@ -94,7 +94,7 @@ export class FragmentationContext extends Array {
 		}
 
 		for (const sheet of this.#adoptedSheets) {
-			el.adoptNthSheet(sheet);
+			el.adoptHandlerSheet(sheet);
 		}
 
 		el.expectedBlockSize = contentArea.blockSize;

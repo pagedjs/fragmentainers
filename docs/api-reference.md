@@ -743,7 +743,7 @@ list continuation, and monolithic content clipping.
 
 Walk the fragment tree and composed DOM in parallel, registering each
 clone→source pair in the handler registry's shared map. Used by handlers
-(NthSelectors, MutationSync) to resolve composed elements back to their source.
+(e.g. `MutationSync`) to resolve composed elements back to their source.
 
 | Parameter         | Type                 | Description                                 |
 | ----------------- | -------------------- | ------------------------------------------- |
@@ -1249,7 +1249,7 @@ All built-in handlers are registered automatically. They can also be imported di
 | `RepeatedTableHeader`    | `import { RepeatedTableHeader } from "fragmentainers"`                                   | Repeat `<thead>` on continuation pages                                                          |
 | `FixedPosition`          | `import { FixedPosition } from "fragmentainers/src/handlers/fixed-position.js"`          | Repeat `position: fixed` elements on every page                                                 |
 | `Footnote`               | `import { Footnote } from "fragmentainers/src/handlers/footnote.js"`                     | CSS footnotes (`float: footnote`) with iterative layout                                         |
-| `NthSelectors`           | `import { NthSelectors } from "fragmentainers/src/handlers/nth-selectors.js"`            | Per-fragment nth-child/nth-of-type selector overrides                                           |
+| `StyleResolver`          | `import { StyleResolver } from "fragmentainers/src/handlers/style-resolver.js"`          | Replays structural-pseudo selector matches across fragment shadow roots via `@layer nth`        |
 | `EmulatePrintPixelRatio` | `import { EmulatePrintPixelRatio } from "fragmentainers/src/handlers/normalize.js"`      | Line-height normalization for print-style flows (auto-enabled in Blink browsers; page-based only) |
 | `BodyRewriter`           | `import { BodyRewriter } from "fragmentainers/src/handlers/body-rewriter.js"`            | Rewrites `body`/`html` selectors to `slot`/`:host` for shadow DOM (page-based only)             |
 | `MutationSync`           | `import { MutationSync } from "fragmentainers"`                                          | Optional. Syncs mutations from fragment-container clones back to source elements                |

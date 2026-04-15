@@ -697,8 +697,8 @@ composed recursively. This ensures each fragment gets its own DOM subtree.
 
 `map(inputBreakToken, composedParent)` walks the fragment tree and composed
 DOM in parallel, registering each clone→source pair in the handler registry's
-shared map. This mapping is used by handlers (NthSelectors, MutationSync)
-to resolve composed elements back to their source.
+shared map. This mapping is used by handlers (e.g. `MutationSync`) to
+resolve composed elements back to their source.
 
 ### Inline content reconstruction
 

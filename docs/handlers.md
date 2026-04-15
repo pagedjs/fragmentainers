@@ -79,7 +79,7 @@ The `afterRender` closure captures whatever state the handler needs from `layout
 
 CSS rules are processed in a single pass by `HandlerRegistry.processRules(styles)`. The walk recurses into grouping rules (`@media`, `@supports`, `@layer`) and dispatches each leaf style rule to every handler's `matchRule()`. This replaces the previous pattern where each handler independently walked all stylesheets in `claimPersistent()`.
 
-The `context.wrappers` array tracks the chain of grouping rule preambles, e.g. `["@media screen"]` for a rule inside `@media screen { ... }`. This is used by the nth-selectors handler to reconstruct wrapper context when generating per-fragment override sheets.
+The `context.wrappers` array tracks the chain of grouping rule preambles, e.g. `["@media screen"]` for a rule inside `@media screen { ... }`. Handlers that re-emit rules preserve these wrappers so grouping-rule context survives.
 
 After the walk, the registry calls `appendRules(rules)` on each handler. Handlers push CSS rule text strings into the array. If any rules are collected, the registry creates a single `CSSStyleSheet`, inserts all rules, and prepends it to the styles array before measurement begins.
 
@@ -186,7 +186,7 @@ Built-in handlers (in `src/handlers/`) are registered by default:
 | `RepeatedTableHeader`    | Repeat `<thead>` on continuation pages                                    |     —      |
 | `FixedPosition`          | Repeat `position: fixed` elements on every page                           |     —      |
 | `Footnote`               | CSS footnotes (`float: footnote`)                                         |     —      |
-| `NthSelectors`           | Per-fragment nth-child/of-type overrides                                  |     —      |
+| `StyleResolver`          | Replays structural-pseudo selector matches across fragment shadow roots   |     —      |
 | `EmulatePrintPixelRatio` | Line-height normalization so screen rendering matches DPR-1 layout        |    yes     |
 | `BodyRewriter`           | Rewrites `body`/`html` selectors to `slot`/`:host` for the shadow DOM     |    yes     |
 
