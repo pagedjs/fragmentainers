@@ -521,8 +521,9 @@ Implements `@page` rule parsing, matching, cascading, and per-page constraint re
 | `pageBoxSize` | `{ inlineSize, blockSize }`    | Full page dimensions                                                |
 | `margins`     | `{ top, right, bottom, left }` | Page margins                                                        |
 | `contentArea` | `{ inlineSize, blockSize }`    | The fragmentainer (page box minus margins)                          |
-| `isFirstPage` | `boolean`                      | Matches `:first` pseudo-class                                       |
-| `isLeftPage`  | `boolean`                      | Matches `:left` pseudo-class                                        |
+| `isFirst`     | `boolean`                      | Matches `:first` pseudo-class                                       |
+| `isVerso`     | `boolean`                      | Matches `:left` pseudo-class (verso page)                           |
+| `isRecto`     | `boolean`                      | Matches `:right` pseudo-class (recto page)                          |
 | `isBlank`     | `boolean`                      | Matches `:blank` pseudo-class (blank page from side-specific break) |
 
 **Methods:**
@@ -538,7 +539,8 @@ Implements `@page` rule parsing, matching, cascading, and per-page constraint re
 | `cascadeRules(matchingRules)`                        | Cascades by specificity                                                         |
 | `resolveSize(sizeValue)`                             | Parses size to `{ inlineSize, blockSize }`                                      |
 | `resolveMargins(marginDecl, pageSize)`               | Resolves margins to px                                                          |
-| `isLeftPage(pageIndex)`                              | Page 0 is right (recto) in LTR                                                  |
+| `isVerso(pageIndex)`                                 | True when the page is verso (left); page 0 is recto in LTR                      |
+| `isRecto(pageIndex)`                                 | Inverse of `isVerso`                                                            |
 
 ### Blink Equivalent
 

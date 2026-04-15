@@ -190,7 +190,8 @@ new PageResolver(pageRules, size);
 | `resolveSize(sizeValue)`                             | `{ inlineSize, blockSize }`    | Resolve CSS size property to physical dimensions                                                                         |
 | `applyOrientation(size, orientation)`                | `{ inlineSize, blockSize }`    | Swap dimensions for `rotate-left` / `rotate-right`                                                                       |
 | `resolveMargins(marginDecl, pageSize)`               | `{ top, right, bottom, left }` | Resolve margin declarations to pixel values                                                                              |
-| `isLeftPage(pageIndex)`                              | `boolean`                      | LTR page progression: page 0 is right (recto), page 1 is left (verso)                                                    |
+| `isVerso(pageIndex)`                                 | `boolean`                      | True when the page is verso (left). LTR page progression: page 0 is recto (right), page 1 is verso (left)                |
+| `isRecto(pageIndex)`                                 | `boolean`                      | Inverse of `isVerso`                                                                                                      |
 
 ---
 
@@ -225,7 +226,7 @@ Resolved page dimensions for one page -- the fragmentainer definition.
 #### Constructor
 
 ```js
-new PageConstraints({ pageIndex, namedPage, pageBoxSize, margins, contentArea, isFirstPage, isLeftPage, isBlank? })
+new PageConstraints({ pageIndex, namedPage, pageBoxSize, margins, contentArea, isFirst, isVerso, isRecto, isBlank? })
 ```
 
 | Property      | Type                                        | Description                                                                        |
@@ -235,8 +236,9 @@ new PageConstraints({ pageIndex, namedPage, pageBoxSize, margins, contentArea, i
 | `pageBoxSize` | `{ inlineSize: number, blockSize: number }` | Full page dimensions                                                               |
 | `margins`     | `{ top, right, bottom, left }`              | Resolved margins in CSS px                                                         |
 | `contentArea` | `{ inlineSize: number, blockSize: number }` | The fragmentainer (page box minus margins)                                         |
-| `isFirstPage` | `boolean`                                   | Whether this is the first page                                                     |
-| `isLeftPage`  | `boolean`                                   | Whether this is a left (verso) page                                                |
+| `isFirst`     | `boolean`                                   | Whether this is the first page                                                     |
+| `isVerso`     | `boolean`                                   | Whether this is a verso (left) page                                                |
+| `isRecto`     | `boolean`                                   | Whether this is a recto (right) page                                               |
 | `isBlank`     | `boolean`                                   | Whether this is a blank page inserted for a side-specific break (default: `false`) |
 
 #### Methods
@@ -827,6 +829,7 @@ prevent CSS leakage from the host page. Uses `all: initial` on `:host` and
 | `contentRoot`       | `Element \| null` | The slot element inside the shadow root                                                       |
 | `fragmentIndex`     | `number`          | Zero-based index of this fragmentainer                                                        |
 | `namedPage`         | `string \| null`  | CSS named page type for this fragment (from `PageConstraints.namedPage`)                      |
+| `constraints`       | `PageConstraints \| RegionConstraints \| ConstraintSpace \| null` | Resolver output / fragmentainer geometry for this fragment   |
 | `nthFormulas`       | `Map \| null`     | Nth-selector formula descriptors from stylesheet rewriting                                    |
 | `expectedBlockSize` | `number` (setter) | Set the expected block size from layout. Used by the overflow detector.                       |
 | `overflowThreshold` | `number` (setter) | Minimum delta in px before `overflow` event fires (defaults to `DEFAULT_OVERFLOW_THRESHOLD`). |
