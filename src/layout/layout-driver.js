@@ -158,7 +158,7 @@ export class LayoutDriver extends Iterator {
 	}
 
 	#maybeBuildBlankFragment() {
-		if (!this.#useResolver || !this.#constraintSpaceOrResolver.isLeftPage) return null;
+		if (!this.#useResolver || !this.#constraintSpaceOrResolver.isVerso) return null;
 
 		let sideValue = resolveForcedBreakValue(this.#breakToken);
 		if (!isSideSpecificBreak(sideValue)) {
@@ -172,7 +172,7 @@ export class LayoutDriver extends Iterator {
 		const side = requiredPageSide(sideValue);
 		if (side === null) return null;
 
-		const isLeft = this.#constraintSpaceOrResolver.isLeftPage(this.#fragmentainerIndex);
+		const isLeft = this.#constraintSpaceOrResolver.isVerso(this.#fragmentainerIndex);
 		const currentSide = isLeft ? "left" : "right";
 		if (currentSide === side) return null;
 

@@ -95,8 +95,9 @@ export class PageConstraints {
 	 * @param {{ inlineSize: number, blockSize: number }} opts.pageBoxSize - Full page dimensions
 	 * @param {{ top: number, right: number, bottom: number, left: number }} opts.margins
 	 * @param {{ inlineSize: number, blockSize: number }} opts.contentArea - The fragmentainer
-	 * @param {boolean} opts.isFirstPage
-	 * @param {boolean} opts.isLeftPage
+	 * @param {boolean} opts.isFirst
+	 * @param {boolean} opts.isVerso
+	 * @param {boolean} opts.isRecto
 	 * @param {boolean} [opts.isBlank]
 	 * @param {PageRule[]} [opts.matchedRules] - The @page rules that matched this page
 	 * @param {object|null} [opts.cssText] - Original CSS unit values for rendering
@@ -107,8 +108,9 @@ export class PageConstraints {
 		pageBoxSize,
 		margins,
 		contentArea,
-		isFirstPage,
-		isLeftPage,
+		isFirst,
+		isVerso,
+		isRecto,
 		isBlank = false,
 		matchedRules = [],
 		cssText = null,
@@ -118,8 +120,9 @@ export class PageConstraints {
 		this.pageBoxSize = pageBoxSize;
 		this.margins = margins;
 		this.contentArea = contentArea;
-		this.isFirstPage = isFirstPage;
-		this.isLeftPage = isLeftPage;
+		this.isFirst = isFirst;
+		this.isVerso = isVerso;
+		this.isRecto = isRecto;
 		this.isBlank = isBlank;
 		this.matchedRules = matchedRules;
 		this.cssText = cssText;
@@ -209,14 +212,16 @@ export class PageResolver {
 			blockSize: orientedSize.blockSize - margins.top - margins.bottom,
 		};
 
+		const verso = this.isVerso(pageIndex);
 		return new PageConstraints({
 			pageIndex,
 			namedPage,
 			pageBoxSize: orientedSize,
 			margins,
 			contentArea,
-			isFirstPage: pageIndex === 0,
-			isLeftPage: this.isLeftPage(pageIndex),
+			isFirst: pageIndex === 0,
+			isVerso: verso,
+			isRecto: !verso,
 			isBlank,
 			matchedRules: matchingRules,
 			cssText: {},
@@ -234,8 +239,8 @@ export class PageResolver {
 
 			for (const pc of rule.pseudoClasses) {
 				if (pc === "first" && pageIndex !== 0) return false;
-				if (pc === "left" && !this.isLeftPage(pageIndex)) return false;
-				if (pc === "right" && this.isLeftPage(pageIndex)) return false;
+				if (pc === "left" && !this.isVerso(pageIndex)) return false;
+				if (pc === "right" && this.isVerso(pageIndex)) return false;
 				if (pc === "blank" && !isBlank) return false;
 			}
 
@@ -331,9 +336,14 @@ export class PageResolver {
 		return margins;
 	}
 
-	/** In LTR page progression, page 0 is right (recto), page 1 is left (verso). */
-	isLeftPage(pageIndex) {
+	/** In LTR page progression, page 0 is recto (right), page 1 is verso (left). */
+	isVerso(pageIndex) {
 		return pageIndex % 2 === 1;
+	}
+
+	/** Inverse of isVerso — true when the page is recto (right). */
+	isRecto(pageIndex) {
+		return !this.isVerso(pageIndex);
 	}
 }
 

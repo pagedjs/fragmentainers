@@ -421,7 +421,7 @@ export class FragmentedFlow extends Iterator {
 			}
 			const side = requiredPageSide(sideValue);
 			if (side !== null) {
-				const isLeft = this.#resolver.isLeftPage(this.#fragmentainerIndex);
+				const isLeft = this.#resolver.isVerso(this.#fragmentainerIndex);
 				const currentSide = isLeft ? "left" : "right";
 				if (currentSide !== side) {
 					// Wrong side — emit a blank page without running layout

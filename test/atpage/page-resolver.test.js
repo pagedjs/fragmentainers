@@ -399,7 +399,7 @@ test.describe("PageResolver", () => {
 		expect(result.fragmentationType).toBe("page");
 	});
 
-	test("isFirstPage and isLeftPage flags", async ({ page }) => {
+	test("isFirst, isVerso, isRecto flags", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };
@@ -408,16 +408,20 @@ test.describe("PageResolver", () => {
 			const c0 = resolver.resolve(0, null, null);
 			const c1 = resolver.resolve(1, null, null);
 			return {
-				c0First: c0.isFirstPage,
-				c0Left: c0.isLeftPage,
-				c1First: c1.isFirstPage,
-				c1Left: c1.isLeftPage,
+				c0First: c0.isFirst,
+				c0Verso: c0.isVerso,
+				c0Recto: c0.isRecto,
+				c1First: c1.isFirst,
+				c1Verso: c1.isVerso,
+				c1Recto: c1.isRecto,
 			};
 		});
 		expect(result.c0First).toBe(true);
-		expect(result.c0Left).toBe(false);
+		expect(result.c0Verso).toBe(false);
+		expect(result.c0Recto).toBe(true);
 		expect(result.c1First).toBe(false);
-		expect(result.c1Left).toBe(true);
+		expect(result.c1Verso).toBe(true);
+		expect(result.c1Recto).toBe(false);
 	});
 });
 
