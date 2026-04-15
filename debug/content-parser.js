@@ -3,8 +3,10 @@
  * with all relative URLs resolved against the content's origin.
  *
  * Replaces the fetchAndParse / preprocessContent pipeline that previously
- * used regex-based URL rebasing. CSS url() resolution is handled natively
- * by the browser via CSSStyleSheet's baseURL constructor option.
+ * used regex-based URL rebasing. CSS url() references are rewritten to
+ * absolute URLs because the CSSStyleSheet `baseURL` constructor option is
+ * not honored for @font-face loading in Chromium (fonts otherwise resolve
+ * against document.baseURI).
  */
 
 /** Attributes that carry URLs and should be resolved. */
@@ -30,6 +32,9 @@ const FOOTNOTE_CALL_RE = /::footnote-call/g;
 
 /** Rewrite `::footnote-marker` pseudo-element to attribute selector. */
 const FOOTNOTE_MARKER_RE = /::footnote-marker/g;
+
+/** Match `url(...)` references in CSS (captures optional quote + URL body). */
+const CSS_URL_RE = /url\(\s*(['"]?)([^'")]+?)\1\s*\)/g;
 
 export class ContentParser {
 	#fragment;
@@ -62,6 +67,7 @@ export class ContentParser {
 		baseURL = new URL(baseURL, document.baseURI).href;
 		const doc = new DOMParser().parseFromString(content, "text/html");
 
+		ContentParser.resolveURLs(doc.head, baseURL);
 		const fragment = ContentParser.html(doc, baseURL);
 		const styles = await ContentParser.css(doc, baseURL);
 
@@ -85,7 +91,7 @@ export class ContentParser {
 			fragment.appendChild(document.adoptNode(source.firstChild));
 		}
 
-		ContentParser.#resolveFragmentURLs(fragment, baseURL);
+		ContentParser.resolveURLs(fragment, baseURL);
 		return fragment;
 	}
 
@@ -110,8 +116,7 @@ export class ContentParser {
 			try {
 				const cssURL = new URL(href, baseURL).href;
 				const response = await fetch(cssURL);
-				const cssBaseURL = cssURL.substring(0, cssURL.lastIndexOf("/") + 1);
-				cssEntries.push({ css: await response.text(), cssBaseURL });
+				cssEntries.push({ css: await response.text(), cssBaseURL: cssURL });
 			} catch (e) {
 				console.warn(`Failed to fetch stylesheet: ${href}`, e);
 			}
@@ -151,10 +156,14 @@ export class ContentParser {
 	// DOM URL resolution
 
 	/**
-	 * Walk every element in the fragment and resolve relative URL attributes.
+	 * Walk any root (DocumentFragment, Element, or head) and resolve
+	 * relative URL attributes (src/href/poster/data) against baseURL.
+	 *
+	 * @param {DocumentFragment|Element} root
+	 * @param {string} baseURL — absolute base URL for resolving relative paths
 	 */
-	static #resolveFragmentURLs(fragment, baseURL) {
-		for (const el of fragment.querySelectorAll("*")) {
+	static resolveURLs(root, baseURL) {
+		for (const el of root.querySelectorAll("*")) {
 			for (const attr of URL_ATTRS) {
 				const value = el.getAttribute(attr);
 				if (value && !ABSOLUTE_URL_RE.test(value)) {
@@ -169,8 +178,29 @@ export class ContentParser {
 	}
 
 	/**
-	 * Build CSSStyleSheets from CSS entries, using baseURL for native
-	 * relative url() resolution.
+	 * Rewrite relative `url(...)` references in CSS text to absolute URLs
+	 * against baseURL. Leaves absolute URLs, data:, blob:, and fragment (#)
+	 * references untouched.
+	 *
+	 * @param {string} css
+	 * @param {string} baseURL
+	 * @returns {string}
+	 */
+	static #resolveCSSURLs(css, baseURL) {
+		return css.replace(CSS_URL_RE, (match, quote, url) => {
+			const trimmed = url.trim();
+			if (!trimmed || ABSOLUTE_URL_RE.test(trimmed)) return match;
+			try {
+				return `url(${quote}${new URL(trimmed, baseURL).href}${quote})`;
+			} catch {
+				return match;
+			}
+		});
+	}
+
+	/**
+	 * Build CSSStyleSheets from CSS entries, rewriting relative url()
+	 * references to absolute URLs against each entry's baseURL.
 	 *
 	 * @param {{ css: string, cssBaseURL: string }[]} cssEntries
 	 * @returns {CSSStyleSheet[]}
@@ -179,6 +209,7 @@ export class ContentParser {
 		const sheets = [];
 
 		for (let { css, cssBaseURL } of cssEntries) {
+			css = ContentParser.#resolveCSSURLs(css, cssBaseURL);
 			css = css.replace(RUNNING_POSITION_RE, "--page-position: $1; display: none");
 			css = css.replace(FLOAT_FOOTNOTE_RE, "--float: footnote; display: none");
 			css = css.replace(FOOTNOTE_DISPLAY_RE, "--footnote-display:");
