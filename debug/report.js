@@ -10,12 +10,42 @@ import {
 	fragmentainerHeight,
 } from "./outlines.js";
 
+function measureRendered(container) {
+	const slot = container?.contentRoot;
+	if (!slot) return 0;
+	const slotTop = slot.getBoundingClientRect().top;
+	let maxBottom = 0;
+	for (const child of slot.children) {
+		const rect = child.getBoundingClientRect();
+		const bottom = rect.bottom - slotTop;
+		if (bottom > maxBottom) maxBottom = bottom;
+	}
+	return maxBottom;
+}
+
 try {
 	const flow = await paginate();
 	if (flow) {
 		const fragments = flow.fragments;
+		const containers = document.querySelectorAll("fragment-container");
+		const overflowPages = [];
+		for (let i = 0; i < fragments.length; i++) {
+			if (fragments[i].isBlank) continue;
+			const effH = fragmentainerHeight(fragments[i]);
+			const rendered = measureRendered(containers[i]);
+			if (rendered > effH + 0.5) {
+				overflowPages.push({ page: i + 1, expected: effH, rendered });
+			}
+		}
 		const lines = [];
 		lines.push(buildDocumentSummary(fragments));
+		if (overflowPages.length > 0) {
+			lines.push(`- renderedOverflowPages: ${overflowPages.length}`);
+			const listing = overflowPages
+				.map((o) => `page ${o.page} (+${(o.rendered - o.expected).toFixed(2)}px)`)
+				.join(", ");
+			lines.push(`  - ${listing}`);
+		}
 		const elementSpans = buildElementSpans(fragments);
 		for (let i = 0; i < fragments.length; i++) {
 			const c = fragments[i].constraints;
