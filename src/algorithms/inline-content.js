@@ -316,7 +316,7 @@ export class InlineContentAlgorithm {
 			elementRect.top + boxStart + (this.#consumedLines + linesToPlace) * accurateLineHeight;
 
 		let breakFlatOffset;
-		if (measurer.offsetAtY) {
+		if (element && measurer.offsetAtY) {
 			breakFlatOffset = measurer.offsetAtY(element, inlineItems.items, yCutoff);
 		}
 		if (breakFlatOffset == null) {

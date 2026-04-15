@@ -1,3 +1,5 @@
+import { isAvoidBreakValue } from "./tokens.js";
+
 export const EARLY_BREAK_BEFORE = "before";
 export const EARLY_BREAK_INSIDE = "inside";
 
@@ -42,25 +44,26 @@ export function isBetterBreak(a, b) {
  * @param {import("./helpers.js").LayoutNode} nextChild - child after the break
  * @returns {number} BreakScore value
  */
-export function scoreClassABreak(prevChild, nextChild) {
-	// Check break-before: avoid on nextChild
-	if (nextChild.breakBefore === "avoid") {
+export function scoreClassABreak(prevChild, nextChild, fragmentationType = "page") {
+	if (isAvoidBreakValue(nextChild.breakBefore, fragmentationType)) {
 		return BreakScore.VIOLATING_BREAK_AVOID;
 	}
-	// Check break-after: avoid on prevChild
-	if (prevChild && prevChild.breakAfter === "avoid") {
+	if (prevChild && isAvoidBreakValue(prevChild.breakAfter, fragmentationType)) {
 		return BreakScore.VIOLATING_BREAK_AVOID;
 	}
-	// Check break-inside: avoid on the parent (handled by caller)
 	return BreakScore.PERFECT;
 }
 
 /**
- * Check if the parent has break-inside: avoid.
- * If so, any break inside degrades the score.
+ * Check if the parent has break-inside: avoid (or context-appropriate
+ * avoid-page/avoid-column/avoid-region). If so, any break inside
+ * degrades the score.
  */
-export function applyBreakInsideAvoid(node, score) {
-	if (node.breakInside === "avoid" && score < BreakScore.VIOLATING_BREAK_AVOID) {
+export function applyBreakInsideAvoid(node, score, fragmentationType = "page") {
+	if (
+		isAvoidBreakValue(node.breakInside, fragmentationType) &&
+		score < BreakScore.VIOLATING_BREAK_AVOID
+	) {
 		return BreakScore.VIOLATING_BREAK_AVOID;
 	}
 	return score;

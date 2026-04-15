@@ -103,8 +103,31 @@ export function findChildBreakToken(parentBreakToken, childNode) {
 /**
  * Check if a CSS break-before/break-after value is a forced break.
  * Values like "page", "column", "always", "left", "right" force a
- * break; "auto" and "avoid" do not.
+ * break; "auto" and the "avoid"/"avoid-*" family do not.
  */
 export function isForcedBreakValue(value) {
-	return value && value !== "auto" && value !== "avoid";
+	if (!value || value === "auto") return false;
+	if (
+		value === "avoid" ||
+		value === "avoid-page" ||
+		value === "avoid-column" ||
+		value === "avoid-region"
+	) {
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Check if a CSS break-before/after/inside value is an avoid value
+ * applicable to the current fragmentation context. `avoid` applies to
+ * any context; `avoid-page`, `avoid-column`, `avoid-region` apply only
+ * to their respective contexts.
+ */
+export function isAvoidBreakValue(value, fragmentationType = "page") {
+	if (value === "avoid") return true;
+	if (fragmentationType === "page" && value === "avoid-page") return true;
+	if (fragmentationType === "column" && value === "avoid-column") return true;
+	if (fragmentationType === "region" && value === "avoid-region") return true;
+	return false;
 }

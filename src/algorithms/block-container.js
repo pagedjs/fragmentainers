@@ -2,7 +2,11 @@ import { BlockBreakToken } from "../fragmentation/tokens.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
 import { LayoutRequest } from "../layout/layout-request.js";
-import { findChildBreakToken } from "../fragmentation/tokens.js";
+import {
+	findChildBreakToken,
+	isAvoidBreakValue,
+	isForcedBreakValue,
+} from "../fragmentation/tokens.js";
 import { isMonolithic, getMonolithicBlockSize } from "../layout/layout-helpers.js";
 import {
 	EarlyBreak,
@@ -363,11 +367,8 @@ export class BlockContainerAlgorithm {
 	}
 
 	#shouldForceBreakBefore(child, childBT, blockOffsetBeforeMargin) {
-		const breakBefore = child.breakBefore;
 		return (
-			breakBefore &&
-			breakBefore !== "auto" &&
-			breakBefore !== "avoid" &&
+			isForcedBreakValue(child.breakBefore) &&
 			!childBT &&
 			blockOffsetBeforeMargin > 0
 		);
@@ -389,7 +390,9 @@ export class BlockContainerAlgorithm {
 
 	#shouldPushBreakInsideAvoid(child, childBT, remainingSpace) {
 		if (isMonolithic(child) || childBT || this.#blockOffset === 0) return false;
-		if (child.breakInside !== "avoid") return false;
+		if (!isAvoidBreakValue(child.breakInside, this.#constraintSpace.fragmentationType)) {
+			return false;
+		}
 		const childSize = child.blockSize || 0;
 		return childSize > remainingSpace;
 	}
@@ -416,8 +419,16 @@ export class BlockContainerAlgorithm {
 	#maybeReturnEarlyBreak(child, nextChild) {
 		// Returns bare EarlyBreak target when a better earlier break exists,
 		// or null when space exhaustion here is the right break point.
-		const exhaustionScore = scoreClassABreak(child, nextChild);
-		const adjustedScore = applyBreakInsideAvoid(this.#node, exhaustionScore);
+		const exhaustionScore = scoreClassABreak(
+			child,
+			nextChild,
+			this.#constraintSpace.fragmentationType,
+		);
+		const adjustedScore = applyBreakInsideAvoid(
+			this.#node,
+			exhaustionScore,
+			this.#constraintSpace.fragmentationType,
+		);
 
 		if (this.#bestEarlyBreak && this.#bestEarlyBreak.score < adjustedScore) {
 			const earlyBreak = new EarlyBreak(
@@ -456,8 +467,9 @@ export class BlockContainerAlgorithm {
 
 		const prevChild = children[i - 1];
 		const child = children[i];
-		let score = scoreClassABreak(prevChild, child);
-		score = applyBreakInsideAvoid(this.#node, score);
+		const fragType = this.#constraintSpace.fragmentationType;
+		let score = scoreClassABreak(prevChild, child, fragType);
+		score = applyBreakInsideAvoid(this.#node, score, fragType);
 
 		const candidate = new EarlyBreak(child, score, EARLY_BREAK_BEFORE);
 		if (isBetterBreak(candidate, this.#bestEarlyBreak)) {
@@ -469,7 +481,11 @@ export class BlockContainerAlgorithm {
 		// Track break quality from child (e.g. orphans/widows violation,
 		// or break-inside: avoid being violated)
 		if (result.breakScore != null && result.breakScore > BreakScore.PERFECT) {
-			const childScore = applyBreakInsideAvoid(this.#node, result.breakScore);
+			const childScore = applyBreakInsideAvoid(
+				this.#node,
+				result.breakScore,
+				this.#constraintSpace.fragmentationType,
+			);
 			const candidate = new EarlyBreak(child, childScore, EARLY_BREAK_INSIDE);
 			if (isBetterBreak(candidate, this.#bestEarlyBreak)) {
 				this.#bestEarlyBreak = candidate;
@@ -609,7 +625,7 @@ export class BlockContainerAlgorithm {
 
 			// Forced break-after: break-after: page|column|always
 			const breakAfter = child.breakAfter;
-			if (breakAfter && breakAfter !== "auto" && breakAfter !== "avoid" && nextChild) {
+			if (isForcedBreakValue(breakAfter) && nextChild) {
 				this.#childBreakTokens.push(
 					BlockBreakToken.createBreakBefore(nextChild, true, breakAfter),
 				);

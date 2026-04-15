@@ -121,6 +121,52 @@ test.describe("Phase 7: Break scoring & two-pass layout", () => {
 		expect(result.length >= 2).toBeTruthy();
 	});
 
+	test("break-inside: avoid-page pushes oversized child to next page", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:100px;margin:0;padding:0"></div>
+        <div style="break-inside:avoid-page;margin:0;padding:0">
+          <div style="height:80px;margin:0;padding:0"></div>
+          <div style="height:70px;margin:0;padding:0"></div>
+        </div>
+      </div>`;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			const pages = createFragments(
+				root,
+				new ConstraintSpace({
+					availableInlineSize: 600,
+					availableBlockSize: 200,
+					fragmentainerBlockSize: 200,
+					fragmentationType: "page",
+				}),
+			);
+
+			const r = {
+				length: pages.length,
+				p0Children: pages[0].childFragments.length,
+				p0BlockSize: pages[0].blockSize,
+				p1Children: pages[1]?.childFragments.length ?? 0,
+				p1BlockSize: pages[1]?.blockSize ?? 0,
+			};
+			container.remove();
+			return r;
+		});
+
+		expect(result.length).toBe(2);
+		expect(result.p0Children).toBe(1);
+		expect(result.p0BlockSize).toBe(100);
+		expect(result.p1Children).toBe(1);
+		expect(result.p1BlockSize).toBe(150);
+	});
+
 	test("falls back to normal break when no better alternative exists", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { createFragments } = await import("/src/layout/layout-request.js");
