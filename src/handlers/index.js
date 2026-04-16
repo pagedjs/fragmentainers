@@ -8,10 +8,8 @@ import { EmulatePrintPixelRatio } from "./normalize.js";
 import { BodyRewriter } from "./body-rewriter.js";
 import { PseudoElements } from "./pseudo-elements.js";
 
-handlers.register(PageFloat);
 handlers.register(RepeatedTableHeader);
 handlers.register(FixedPosition);
-handlers.register(Footnote);
 handlers.register(StyleResolver);
 handlers.register(EmulatePrintPixelRatio);
 handlers.register(BodyRewriter);

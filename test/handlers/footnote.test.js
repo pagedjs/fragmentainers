@@ -83,6 +83,8 @@ test.describe("Footnotes in paged media (browser)", () => {
 			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
+			const { Footnote } = await import("/src/handlers/footnote.js");
+			FragmentedFlow.register(Footnote);
 
 			const css = ".fn { --float: footnote; }";
 			const sheet = new CSSStyleSheet();
@@ -135,6 +137,8 @@ test.describe("Footnotes in paged media (browser)", () => {
 			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
+			const { Footnote } = await import("/src/handlers/footnote.js");
+			FragmentedFlow.register(Footnote);
 
 			const css = ".fn { --float: footnote; }";
 			const sheet = new CSSStyleSheet();
@@ -178,6 +182,8 @@ test.describe("Footnotes in paged media (browser)", () => {
 			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
+			const { Footnote } = await import("/src/handlers/footnote.js");
+			FragmentedFlow.register(Footnote);
 
 			const css = ".fn { --float: footnote; }";
 			const sheet = new CSSStyleSheet();
@@ -228,6 +234,8 @@ test.describe("Footnotes in paged media (browser)", () => {
 			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
+			const { Footnote } = await import("/src/handlers/footnote.js");
+			FragmentedFlow.register(Footnote);
 
 			const css = ".fn { --float: footnote; }";
 			const sheet = new CSSStyleSheet();
@@ -265,6 +273,8 @@ test.describe("Footnotes in paged media (browser)", () => {
 			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
+			const { Footnote } = await import("/src/handlers/footnote.js");
+			FragmentedFlow.register(Footnote);
 
 			const css = ".fn { --float: footnote; }";
 			const sheet = new CSSStyleSheet();
@@ -303,6 +313,8 @@ test.describe("Footnotes in paged media (browser)", () => {
 			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
+			const { Footnote } = await import("/src/handlers/footnote.js");
+			FragmentedFlow.register(Footnote);
 
 			const css = ".fn { --float: footnote; }";
 			const sheet = new CSSStyleSheet();

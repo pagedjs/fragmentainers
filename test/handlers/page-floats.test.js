@@ -210,7 +210,10 @@ test.describe("page floats integration with createFragments", () => {
 			const { createFragments } = await import("/src/layout/layout-request.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
 			const { PageFloat } = await import("/src/handlers/page-float.js");
+
+			FragmentedFlow.register(PageFloat);
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
@@ -238,9 +241,9 @@ test.describe("page floats integration with createFragments", () => {
 				fragmentainerBlockSize: 800,
 				blockOffsetInFragmentainer: 100,
 				fragmentationType: FRAGMENTATION_PAGE,
-				handlers: [PageFloat],
 			});
 			const fragments = createFragments(root, csWithHandlers);
+			FragmentedFlow.remove(PageFloat);
 
 			container.remove();
 			return {
