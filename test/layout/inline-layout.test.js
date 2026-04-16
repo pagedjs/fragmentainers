@@ -240,4 +240,89 @@ test.describe("Inline content layout (browser)", () => {
 		expect(result.pageCount).toBeGreaterThanOrEqual(2);
 		expect(result.firstPageChildCount).toBeGreaterThan(0);
 	});
+
+	test("respects explicit CSS height on an IFC element", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:400px";
+			container.innerHTML = `
+				<div>
+					<h3 style="height:200px;margin:0;padding:0;font:16px/18px monospace">Short</h3>
+				</div>
+			`;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			const pages = createFragments(
+				root,
+				new ConstraintSpace({
+					availableInlineSize: 400,
+					availableBlockSize: 800,
+					fragmentainerBlockSize: 800,
+					fragmentationType: "page",
+				}),
+			);
+
+			const out = {
+				pageCount: pages.length,
+				h3BlockSize: pages[0].childFragments[0]?.blockSize,
+			};
+			container.remove();
+			return out;
+		});
+
+		expect(result.pageCount).toBe(1);
+		expect(result.h3BlockSize).toBe(200);
+	});
+
+	test("explicit-height IFC element breaks across fragmentainers", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:400px";
+			container.innerHTML = `
+				<div>
+					<div style="height:150px;margin:0;padding:0"></div>
+					<h3 style="height:200px;margin:0;padding:0;font:16px/18px monospace">Short</h3>
+					<div style="height:100px;margin:0;padding:0"></div>
+				</div>
+			`;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			const pages = createFragments(
+				root,
+				new ConstraintSpace({
+					availableInlineSize: 400,
+					availableBlockSize: 300,
+					fragmentainerBlockSize: 300,
+					fragmentationType: "page",
+				}),
+			);
+
+			const out = {
+				pageCount: pages.length,
+				pageSizes: pages.map((p) => p.blockSize),
+				pageChildSums: pages.map((p) =>
+					p.childFragments.reduce((s, c) => s + c.blockSize, 0),
+				),
+			};
+			container.remove();
+			return out;
+		});
+
+		// 150 + 200 + 100 = 450px of box content on 300px pages → 2 pages required
+		expect(result.pageCount).toBeGreaterThanOrEqual(2);
+		// Total box content across all pages should sum to 450 (modulo rounding)
+		const total = result.pageChildSums.reduce((s, n) => s + n, 0);
+		expect(total).toBeGreaterThanOrEqual(445);
+		expect(total).toBeLessThanOrEqual(455);
+	});
 });

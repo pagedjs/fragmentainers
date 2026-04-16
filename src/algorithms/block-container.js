@@ -216,10 +216,12 @@ export class BlockContainerAlgorithm {
 			this.#blockOffset += this.#containerBoxEnd;
 		}
 
-		// If no children contributed height but the browser measures a non-zero
-		// height (e.g. from CSS pseudo-elements, list markers, min-height), use
-		// the measured height as a floor. Only applies when children were laid out
-		// but all produced zero blockSize.
+		// Floor blockOffset to the browser-measured height in two cases:
+		// (1) no children contributed height but the browser measures a non-zero
+		//     height (CSS pseudo-elements, list markers, min-height);
+		// (2) the node has an explicit CSS height that exceeds the children sum.
+		// Case 2 only applies when the container isn't being fragmented — if it
+		// is, the slice size is already determined by the fragmentainer.
 		const boxStartIncluded = !breakToken || this.#isClone ? this.#containerBoxStart : 0;
 		const boxEndIncluded =
 			(this.#hasSeenAllChildren && this.#childBreakTokens.length === 0) ||
@@ -227,8 +229,24 @@ export class BlockContainerAlgorithm {
 				? this.#containerBoxEnd
 				: 0;
 		const contentHeight = this.#blockOffset - boxStartIncluded - boxEndIncluded;
-		if (contentHeight === 0 && this.#childFragments.length > 0 && node.element) {
-			const measuredHeight = node.isTableCell ? node.intrinsicBlockSize : node.blockSize;
+		const hasExplicitHeight =
+			node.element &&
+			!node.isTableCell &&
+			this.#hasSeenAllChildren &&
+			this.#childBreakTokens.length === 0 &&
+			node.computedBlockSize &&
+			node.computedBlockSize() != null;
+		if (
+			(contentHeight === 0 && this.#childFragments.length > 0 && node.element) ||
+			hasExplicitHeight
+		) {
+			// hasExplicitHeight excludes table cells, so borderBoxBlockSize is safe
+			// there — and reads from cached style, avoiding a layout reflow.
+			const measuredHeight = node.isTableCell
+				? node.intrinsicBlockSize
+				: hasExplicitHeight
+					? node.borderBoxBlockSize()
+					: node.blockSize;
 			if (measuredHeight > this.#blockOffset) {
 				this.#blockOffset = measuredHeight;
 			}

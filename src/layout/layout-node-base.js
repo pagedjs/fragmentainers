@@ -35,6 +35,10 @@ export class LayoutNode {
 		return null;
 	}
 
+	borderBoxBlockSize() {
+		return null;
+	}
+
 	getCustomProperty() {
 		return null;
 	}

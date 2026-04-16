@@ -1,12 +1,9 @@
-import { InlineBreakToken } from "../fragmentation/tokens.js";
+import { BlockBreakToken, InlineBreakToken } from "../fragmentation/tokens.js";
 import { Fragment } from "../fragmentation/fragment.js";
 import { BreakScore } from "../fragmentation/break-scoring.js";
-import {
-	INLINE_TEXT,
-	INLINE_CONTROL,
-	INLINE_ATOMIC,
-} from "../measurement/collect-inlines.js";
+import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../measurement/collect-inlines.js";
 import { DEFAULT_OVERFLOW_THRESHOLD } from "../fragmentation/fragmentation-context.js";
+import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 import { measureLines } from "../measurement/line-box.js";
 
 /**
@@ -132,6 +129,13 @@ export class InlineContentAlgorithm {
 		// Guard: only non-content items (empty element with pseudo-content) → monolithic
 		if (!hasContentItems(inlineItems.items)) return this.#buildMonolithicFragment();
 
+		// Explicit CSS height: box size is authoritative (not line count).
+		// Fragment by box height, slicing at fragmentainer boundaries — the
+		// element's own content positions itself within each slice.
+		if (this.#node.element && this.#node.computedBlockSize() != null) {
+			return this.#layoutExplicitHeight();
+		}
+
 		// Guard: insufficient space for even one line → zero-height continuation
 		if (this.#insufficientSpace()) return this.#buildInsufficientSpaceFragment();
 
@@ -160,13 +164,33 @@ export class InlineContentAlgorithm {
 		return { fragment, breakToken: null };
 	}
 
+	#layoutExplicitHeight() {
+		const totalHeight = this.#node.borderBoxBlockSize();
+		const consumed = this.#breakToken?.consumedBlockSize || 0;
+		const remaining = totalHeight - consumed;
+		const available = this.#availableBlockSpace();
+		const fits =
+			this.#constraintSpace.fragmentationType === FRAGMENTATION_NONE ||
+			remaining <= available ||
+			available <= 0;
+
+		const fragment = new Fragment(this.#node, fits ? remaining : available);
+		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
+
+		if (fits) return { fragment, breakToken: null };
+
+		const token = new BlockBreakToken(this.#node);
+		token.consumedBlockSize = consumed + available;
+		token.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
+		token.hasSeenAllChildren = true;
+		fragment.breakToken = token;
+		return { fragment, breakToken: token };
+	}
+
 	#insufficientSpace() {
 		const lineHeight = this.#node.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
 		const availableBlockSpace = this.#availableBlockSpace();
-		return (
-			availableBlockSpace < lineHeight &&
-			this.#constraintSpace.blockOffsetInFragmentainer > 0
-		);
+		return availableBlockSpace < lineHeight && this.#constraintSpace.blockOffsetInFragmentainer > 0;
 	}
 
 	#buildInsufficientSpaceFragment() {
@@ -227,9 +251,10 @@ export class InlineContentAlgorithm {
 			// so deriving line count from content height over-counts. Use actual
 			// line-box enumeration instead.
 			const contentHeight = totalHeight - boxStart - boxEnd;
-			const totalLines = this.#node.isTableCell && element
-				? measureLines(element).count
-				: Math.round(contentHeight / lineHeight);
+			const totalLines =
+				this.#node.isTableCell && element
+					? measureLines(element).count
+					: Math.round(contentHeight / lineHeight);
 			this.#consumedLines = isFirstFragment
 				? 0
 				: Math.round(Math.max(0, consumedHeight - boxStart) / lineHeight);
@@ -331,11 +356,7 @@ export class InlineContentAlgorithm {
 			);
 		}
 
-		const pos = advanceToOffset(
-			inlineItems.items,
-			breakFlatOffset,
-			inlineItems.textContent.length,
-		);
+		const pos = advanceToOffset(inlineItems.items, breakFlatOffset, inlineItems.textContent.length);
 		this.#itemIndex = pos.itemIndex;
 		this.#textOffset = pos.textOffset;
 		return true;

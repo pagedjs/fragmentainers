@@ -163,6 +163,51 @@ test.describe("Phase 2: Block layout (single fragmentainer)", () => {
 
 		expect(result.inlineSize).toBe(600);
 	});
+
+	test("respects explicit CSS height when children sum is smaller", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			// Mixed content (block child + inline text) forces BlockContainer
+			// layout, not IFC — mirrors the user-reported case where a pseudo
+			// element makes the h3 non-IFC.
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			// h3: height 180 + padding-top 60 → box 240; children sum < 240
+			container.innerHTML = `
+				<div style="margin:0;padding:0">
+					<h3 style="height:180px;padding-top:60px;margin:0;font:16px/18px monospace">
+						<span style="display:block;height:20px"></span>
+						Short
+					</h3>
+				</div>
+			`;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			const pages = createFragments(
+				root,
+				new ConstraintSpace({
+					availableInlineSize: 600,
+					availableBlockSize: 800,
+					fragmentainerBlockSize: 800,
+					fragmentationType: "page",
+				}),
+			);
+
+			const out = {
+				pageCount: pages.length,
+				h3BlockSize: pages[0].childFragments[0]?.blockSize,
+			};
+			container.remove();
+			return out;
+		});
+
+		expect(result.pageCount).toBe(1);
+		expect(result.h3BlockSize).toBe(240);
+	});
 });
 
 test.describe("Phase 3: Block fragmentation across fragmentainers", () => {

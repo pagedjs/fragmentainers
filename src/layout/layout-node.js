@@ -465,6 +465,29 @@ export class DOMLayoutNode extends LayoutNode {
 		return null;
 	}
 
+	/**
+	 * Block-direction border-box size from computed style, normalized for
+	 * `box-sizing`. Returns null when `height` is auto.
+	 *
+	 * Prefer this over `blockSize` when an explicit CSS height is expected:
+	 * it reads from the cached style snapshot, avoiding the forced reflow
+	 * from `getBoundingClientRect()`.
+	 */
+	borderBoxBlockSize() {
+		const cssHeight = this.computedBlockSize();
+		if (cssHeight == null) return null;
+		// Replaced elements: measureElementBlockSize already yields border-box.
+		if (this.isReplacedElement) return cssHeight;
+		if (this.#getStyle().boxSizing === "border-box") return cssHeight;
+		return (
+			cssHeight +
+			this.paddingBlockStart +
+			this.paddingBlockEnd +
+			this.borderBlockStart +
+			this.borderBlockEnd
+		);
+	}
+
 	//Inline formatting context
 
 	get isInlineFormattingContext() {
