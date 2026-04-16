@@ -42,6 +42,7 @@ function printUsage() {
 	console.log("    --pdf [path]                         Save as PDF (default: output.pdf)");
 	console.log("    --debug                              Show fragment border overlays");
 	console.log("    --ref                                Skip script injection (view page as-is)");
+	console.log("    --measure                            Show each measurement segment (no pagination)");
 	console.log();
 	console.log("  Examples:");
 	console.log(dim("    fragment specs/at-page/awesome.html"));
@@ -146,7 +147,7 @@ async function launchBrowser(browserName, { headless = false } = {}) {
 	return { browser, page };
 }
 
-function setupSpecInjection(page, specType, { overlay = false } = {}) {
+function setupSpecInjection(page, specType, { overlay = false, measure = false } = {}) {
 	page.on("console", (msg) => {
 		if (msg.type() === "error") {
 			console.log(`  ${red("error")}  ${msg.text()}`);
@@ -160,7 +161,11 @@ function setupSpecInjection(page, specType, { overlay = false } = {}) {
 			await page.evaluate((t) => {
 				document.documentElement.dataset.specType = t;
 			}, specType);
-			const script = overlay ? "/debug/overlay.js" : "/specs/helpers/process.js";
+			const script = measure
+				? "/debug/measurement.js"
+				: overlay
+					? "/debug/overlay.js"
+					: "/specs/helpers/process.js";
 			await page.addScriptTag({ type: "module", url: script });
 			await page.waitForSelector("[data-spec-ready]", { timeout: 30000 });
 			await page.addStyleTag({
@@ -213,6 +218,7 @@ const inspect = parseOptionalArg("--inspect");
 const pdf = parseOptionalArg("--pdf");
 const ref = process.argv.includes("--ref");
 const debug = process.argv.includes("--debug");
+const measure = process.argv.includes("--measure");
 const headless = html.enabled || inspect.enabled || pdf.enabled;
 
 const { port, server, existing } = await ensureServer(3000);
@@ -303,7 +309,7 @@ if (ref && pdf.enabled) {
 } else {
 	// Interactive: headed browser with refresh support
 	const { browser, page } = await launchBrowser(browserName);
-	setupSpecInjection(page, specType, { overlay: debug });
+	setupSpecInjection(page, specType, { overlay: debug, measure });
 
 	await page.goto(`http://localhost:${port}/${specPath}`, { waitUntil: "load" });
 	printFooter();
