@@ -455,9 +455,7 @@ function parsePageSize(style) {
 		return sizeStr.toLowerCase();
 	}
 
-	const size = parts
-		.map((s) => parseNumeric(s)?.to("px").value ?? null)
-		.filter((v) => v !== null);
+	const size = parts.map((s) => parseNumeric(s)?.to("px").value ?? null).filter((v) => v !== null);
 	if (size.length === 1) return [size[0], size[0]];
 	if (size.length >= 2) return [size[0], size[1]];
 
