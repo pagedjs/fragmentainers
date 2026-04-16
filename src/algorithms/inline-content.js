@@ -336,9 +336,8 @@ export class InlineContentAlgorithm {
 			return false;
 		}
 		// Find the text offset at the break line.
-		// Content starts at boxStart below the element's border-box top.
-		const yCutoff =
-			elementRect.top + boxStart + (this.#consumedLines + linesToPlace) * accurateLineHeight;
+		const breakLineIndex = this.#consumedLines + linesToPlace;
+		const yCutoff = measured.tops[breakLineIndex];
 
 		let breakFlatOffset;
 		if (element && measurer.offsetAtY) {

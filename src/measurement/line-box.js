@@ -47,23 +47,28 @@ export function getTargetDevicePixelRatio() {
 /**
  * Measure rendered line boxes in an element using getClientRects().
  *
- * Returns the line count, an accurate line height measured from the
- * gap between the last two line tops, and the first line box height
- * (for single-line fallback). Measuring from the last two tops avoids
- * first-line distortion from ::before pseudo-elements or mixed metrics.
+ * Returns the line count, the array of line-box tops (absolute Y),
+ * an accurate line height measured from the gap between the last two
+ * line tops, and the first line box height (for single-line fallback).
+ * Measuring from the last two tops avoids first-line distortion from
+ * ::before pseudo-elements or mixed metrics.
+ *
+ * The `tops` array lets callers read exact line positions rather than
+ * extrapolating from a single lineHeight — extrapolation accumulates
+ * sub-pixel drift across many lines.
  *
  * @param {Element} element
- * @returns {{ count: number, lineHeight: number, firstLineHeight: number }}
+ * @returns {{ count: number, lineHeight: number, firstLineHeight: number, tops: number[] }}
  */
 export function measureLines(element) {
 	const range = document.createRange();
 	range.selectNodeContents(element);
 	const rects = range.getClientRects();
-	if (rects.length === 0) return { count: 0, lineHeight: 0, firstLineHeight: 0 };
+	if (rects.length === 0) return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [] };
 
 	const tops = [rects[0].top];
 	for (let i = 1; i < rects.length; i++) {
-		if (rects[i].top > tops[tops.length - 1] + 0.5) {
+		if (rects[i].top > tops[tops.length - 1]) {
 			tops.push(rects[i].top);
 		}
 	}
@@ -73,7 +78,7 @@ export function measureLines(element) {
 		lineHeight = tops[tops.length - 1] - tops[tops.length - 2];
 	}
 
-	return { count: tops.length, lineHeight, firstLineHeight: rects[0].height };
+	return { count: tops.length, lineHeight, firstLineHeight: rects[0].height, tops };
 }
 
 /**
@@ -104,9 +109,10 @@ export function getLineHeight(element) {
 	// Measure the actual rendered line gap from the element itself.
 	if (!lh || !lh.unit) {
 		const measured = measureLines(element);
-		const raw = measured.lineHeight > 0
-			? measured.lineHeight
-			: measured.firstLineHeight || map.get("font-size")?.value || 16;
+		const raw =
+			measured.lineHeight > 0
+				? measured.lineHeight
+				: measured.firstLineHeight || map.get("font-size")?.value || 16;
 		return targetDevicePixelRatio === 1 ? Math.floor(raw) : raw;
 	}
 
@@ -136,6 +142,20 @@ function charTop(range, textNode, offset) {
 }
 
 /**
+ * Returns the bottom edge of a character's line box at the given offset.
+ * Used by break-offset search: a line fits only when its bottom edge
+ * is within the available space, avoiding sub-pixel top-edge drift.
+ */
+function charBottom(range, textNode, offset) {
+	const safeEnd = Math.min(offset + 1, textNode.textContent.length);
+	if (offset >= safeEnd) return Infinity;
+	range.setStart(textNode, offset);
+	range.setEnd(textNode, safeEnd);
+	const rects = range.getClientRects();
+	return rects.length > 0 ? rects[0].bottom : Infinity;
+}
+
+/**
  * Create a text measurer backed by the DOM Range API.
  *
  * Uses getClientRects() on the live DOM text to read the browser's
@@ -145,6 +165,7 @@ export function createRangeMeasurer() {
 	const range = document.createRange();
 	return {
 		charTop: (textNode, offset) => charTop(range, textNode, offset),
+		charBottom: (textNode, offset) => charBottom(range, textNode, offset),
 	};
 }
 
@@ -176,6 +197,7 @@ export function createCaretMeasurer() {
 
 	return {
 		charTop: (textNode, offset) => charTop(range, textNode, offset),
+		charBottom: (textNode, offset) => charBottom(range, textNode, offset),
 
 		/**
 		 * Find the flat textContent offset at a Y cutoff by hitting the
