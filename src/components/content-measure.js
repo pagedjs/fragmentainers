@@ -50,6 +50,17 @@ export class ContentMeasureElement extends HTMLElement {
 		this.#shadow.appendChild(style);
 		this.#slot = document.createElement("slot");
 		this.#shadow.appendChild(this.#slot);
+		this.#syncLang();
+	}
+
+	#syncLang() {
+		if (!this.#slot) return;
+		const lang = this.getAttribute("lang") || document.documentElement.lang || "";
+		if (lang) {
+			this.#slot.setAttribute("lang", lang);
+		} else {
+			this.#slot.removeAttribute("lang");
+		}
 	}
 
 	/**
@@ -94,6 +105,7 @@ export class ContentMeasureElement extends HTMLElement {
 		this.#ensureSetup();
 		this.#slot.innerHTML = "";
 		this.#shadow.adoptedStyleSheets = [...styles];
+		this.#syncLang();
 		return this.#slot;
 	}
 
