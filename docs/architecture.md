@@ -426,7 +426,9 @@ BlockBreakToken.createRepeated(node, sequenceNumber);
 For inline formatting contexts (text and inline-level boxes). Key fields:
 
 - **`itemIndex`** -- index into the flat `InlineItemsData.items` array
-- **`textOffset`** -- offset into `InlineItemsData.textContent`
+- **`textOffset`** -- offset into `InlineItemsData.textContent` (resume cursor: points at the first character of the next fragmentainer, not the last of the current one)
+- **`isHyphenated`** -- break falls mid-word (soft hyphen or `hyphens: auto` dictionary break)
+- **`hasTrailingCollapsibleSpace`** -- a collapsible line-end space sits at `textOffset - 1`; the render layer trims it from page N's last text node (CSS Text §4.1.1 — `white-space` values `normal`, `nowrap`, `pre-line`, `pre-wrap`)
 
 These are **content-addressed**, not geometry-addressed. The token says "resume
 at character 147 of inline item 3" rather than "resume at pixel offset 312".

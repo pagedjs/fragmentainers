@@ -295,7 +295,8 @@ test.describe("buildInlineContent", () => {
 			container.remove();
 			return out;
 		});
-		expect(result.textContent).toBe("before break");
+		// Raw slice — trim only fires when hasTrailingCollapsibleSpace=true
+		expect(result.textContent).toBe("before break ");
 		expect(result.hasItalic).toBe(false);
 	});
 

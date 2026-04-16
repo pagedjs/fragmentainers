@@ -89,6 +89,12 @@ export class InlineBreakToken extends BreakToken {
 		this.textOffset = 0; // offset into InlineItemsData.textContent
 		this.flags = 0; // inline-specific state bits
 		this.isHyphenated = false; // true when break follows a soft hyphen (U+00AD)
+		/**
+		 * When true, the render layer trims one trailing space from the
+		 * last text node of page N. Set by the layout layer when the
+		 * break advanced past a collapsible line-end space.
+		 */
+		this.hasTrailingCollapsibleSpace = false;
 	}
 }
 

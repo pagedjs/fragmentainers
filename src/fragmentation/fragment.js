@@ -167,7 +167,10 @@ export class Fragment {
 
 		const ws = isAnonymous ? "normal" : node.whiteSpace;
 		const collapseWS = !ws.startsWith("pre");
-		const isHyphenated = this.breakToken?.isHyphenated ?? false;
+		const hasTrailingCollapsibleSpace =
+			this.breakToken?.type === BREAK_TOKEN_INLINE
+				? this.breakToken.hasTrailingCollapsibleSpace
+				: false;
 
 		// Build context for pseudo element suppression at split boundaries
 		const isContinuation =
@@ -190,8 +193,8 @@ export class Fragment {
 				endOffset,
 				docFragment,
 				collapseWS,
-				isHyphenated,
 				pseudoContext,
+				hasTrailingCollapsibleSpace,
 			);
 			parentEl.appendChild(docFragment);
 		} else {
@@ -206,8 +209,8 @@ export class Fragment {
 				endOffset,
 				el,
 				collapseWS,
-				isHyphenated,
 				pseudoContext,
+				hasTrailingCollapsibleSpace,
 			);
 			parentEl.appendChild(el);
 		}
@@ -446,8 +449,9 @@ export class Fragment {
 	 * @param {number} endOffset - visible range end (from output break token)
 	 * @param {Element} container - DOM element to append content into
 	 * @param {boolean} [collapseWS=false] - collapse whitespace runs
-	 * @param {boolean} [_isHyphenated=false] - whether break follows soft hyphen
 	 * @param {Object|null} [pseudoContext=null] - pseudo element suppression context
+	 * @param {boolean} [hasTrailingCollapsibleSpace=false] - trim one trailing
+	 *   space from the last rendered text node when set by the layout layer
 	 */
 	static buildInlineContent(
 		items,
@@ -456,8 +460,8 @@ export class Fragment {
 		endOffset,
 		container,
 		collapseWS = false,
-		_isHyphenated = false,
 		pseudoContext = null,
+		hasTrailingCollapsibleSpace = false,
 	) {
 		let current = container;
 		const stack = [];
@@ -548,10 +552,11 @@ export class Fragment {
 			i++;
 		}
 
-		// Trim trailing whitespace at break boundaries — the space before
-		// the break is not composed (it belongs to the inter-word gap).
-		if (lastTextNode && endOffset < textContent.length) {
-			lastTextNode.textContent = lastTextNode.textContent.replace(/\s+$/, "");
+		if (lastTextNode && hasTrailingCollapsibleSpace) {
+			const t = lastTextNode.textContent;
+			if (t.length > 0 && t.charCodeAt(t.length - 1) === 0x20) {
+				lastTextNode.textContent = t.slice(0, -1);
+			}
 		}
 	}
 }

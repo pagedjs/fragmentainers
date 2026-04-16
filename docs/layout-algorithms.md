@@ -129,10 +129,13 @@ Handles text content and inline-level boxes. Breaks at word boundaries across li
 
 Never yields a `LayoutRequest` — all measurement happens via the node's `inlineItemsData` plus the measurer. The `*layout()` generator still runs under the standard dispatch protocol; it returns the final `{ fragment, breakToken }` on its first `.next()`.
 
-### Two Measurement Paths
+### Break Offset Resolution
 
-1. **Browser path** (DOM nodes with `measurer.charTop`): Uses the element's rendered height from `getBoundingClientRect()`, computes total lines, and binary-searches for break offsets via `findBreakOffset()`
-2. **Mock path** (test nodes): Falls back to word-by-word `breakLine()` with per-word measurement
+The algorithm uses the element's rendered height from `getBoundingClientRect()` to compute total lines, then resolves the break offset via `measurer.offsetAtLine(items, lineTops, targetLineIndex)`.
+
+`offsetAtLine` binary-searches the flat text range using `lineIndexAtOffset`, which snaps each candidate char's rendered rect to a known line-top from `measureLines().tops`. Comparing integer line indices rather than scalar Y cutoffs eliminates sub-pixel boundary artifacts — notably the zero-width leading rect that `Range.getClientRects()` emits for chars at hyphenated soft-wrap boundaries (handled by `renderedRect`, which picks the rect with the largest top).
+
+`getClientRects()` works for offscreen layout, so the same path runs inside `content-measure`'s `left: -9999px` harness.
 
 ### Content-Addressed Break Tokens
 
@@ -143,6 +146,15 @@ const inlineToken = new InlineBreakToken(node);
 inlineToken.itemIndex = itemIndex; // index into items array
 inlineToken.textOffset = textOffset; // offset into textContent string
 ```
+
+### Collapsible Space at the Break
+
+Before emitting the token, the algorithm consults each `INLINE_TEXT` item's `whiteSpace` (captured at inline-item collection) to decide whether the space straddling the break is collapsible per CSS Text §4.1.1. Two adjustments:
+
+- **Leading collapsed space** — if `breakFlatOffset` lands inside a multi-space run whose `white-space` collapses (`normal`, `nowrap`, `pre-line`, `pre-wrap`), the offset advances past it so page N+1 does not start with a rendered space.
+- **Trailing collapsed space** — if the char at `breakFlatOffset - 1` is a collapsible space under the same policy, `hasTrailingCollapsibleSpace` is set on the token. `Fragment.buildInlineContent` reads the flag and trims one trailing space from page N's last text node; without the flag, the slice is preserved verbatim (required for `pre` and `break-spaces`).
+
+This mirrors Chromium's `RemoveTrailingCollapsibleSpace` — see `references/chromium-inline-break-token-findings.md`.
 
 ### Orphans and Widows
 

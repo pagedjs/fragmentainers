@@ -234,43 +234,11 @@ test.describe("setTargetDevicePixelRatio / getTargetDevicePixelRatio", () => {
 	});
 });
 
-test.describe("createRangeMeasurer", () => {
+test.describe("createMeasurer", () => {
 	test.describe("charTop", () => {
 		test("returns different top values for characters on different lines", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { createRangeMeasurer } = await import("/src/measurement/line-box.js");
-				const div = document.createElement("div");
-				div.style.fontFamily = "monospace";
-				div.style.fontSize = "16px";
-				div.style.lineHeight = "20px";
-				div.style.width = "50px";
-				div.style.wordBreak = "break-all";
-				// Enough text to wrap to multiple lines in a 50px-wide container
-				div.textContent = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-				document.body.appendChild(div);
-
-				const measurer = createRangeMeasurer();
-				const textNode = div.firstChild;
-
-				const topFirst = measurer.charTop(textNode, 0);
-				// Pick an offset far enough along to be on a later line
-				const topLater = measurer.charTop(textNode, 20);
-
-				div.remove();
-				return { topFirst, topLater };
-			});
-			expect(result.topFirst).not.toBe(Infinity);
-			expect(result.topLater).not.toBe(Infinity);
-			expect(result.topLater).toBeGreaterThan(result.topFirst);
-		});
-	});
-});
-
-test.describe("createCaretMeasurer", () => {
-	test.describe("charTop", () => {
-		test("returns different top values for characters on different lines", async ({ page }) => {
-			const result = await page.evaluate(async () => {
-				const { createCaretMeasurer } = await import("/src/measurement/line-box.js");
+				const { createMeasurer } = await import("/src/measurement/line-box.js");
 				const div = document.createElement("div");
 				div.style.fontFamily = "monospace";
 				div.style.fontSize = "16px";
@@ -280,7 +248,7 @@ test.describe("createCaretMeasurer", () => {
 				div.textContent = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 				document.body.appendChild(div);
 
-				const measurer = createCaretMeasurer();
+				const measurer = createMeasurer();
 				const textNode = div.firstChild;
 
 				const topFirst = measurer.charTop(textNode, 0);
@@ -295,10 +263,10 @@ test.describe("createCaretMeasurer", () => {
 		});
 	});
 
-	test.describe("offsetAtY", () => {
+	test.describe("offsetAtLine", () => {
 		test("returns the flat offset at the start of a given line", async ({ page }) => {
 			const result = await page.evaluate(async () => {
-				const { createCaretMeasurer } = await import("/src/measurement/line-box.js");
+				const { createMeasurer, measureLines } = await import("/src/measurement/line-box.js");
 				const { INLINE_TEXT } = await import("/src/measurement/collect-inlines.js");
 				const div = document.createElement("div");
 				div.style.fontFamily = "monospace";
@@ -319,24 +287,26 @@ test.describe("createCaretMeasurer", () => {
 					},
 				];
 
-				const measurer = createCaretMeasurer();
-				const rect = div.getBoundingClientRect();
+				const measurer = createMeasurer();
+				const { tops } = measureLines(div);
 
-				// Probe at the top of the second line
-				const offset = measurer.offsetAtY(div, items, rect.top + 20);
+				const offset = measurer.offsetAtLine(items, tops, 1);
 				const textLength = div.textContent.length;
 
 				div.remove();
-				return { offset, textLength };
+				return { offset, textLength, lineCount: tops.length };
 			});
+			expect(result.lineCount).toBeGreaterThan(1);
 			expect(result.offset).not.toBeNull();
 			expect(result.offset).toBeGreaterThan(0);
 			expect(result.offset).toBeLessThan(result.textLength);
 		});
 
-		test("returns offset consistent with charTop", async ({ page }) => {
+		test("offset lands on the target line and the predecessor is on the previous line", async ({
+			page,
+		}) => {
 			const result = await page.evaluate(async () => {
-				const { createCaretMeasurer } = await import("/src/measurement/line-box.js");
+				const { createMeasurer, measureLines } = await import("/src/measurement/line-box.js");
 				const { INLINE_TEXT } = await import("/src/measurement/collect-inlines.js");
 				const div = document.createElement("div");
 				div.style.fontFamily = "monospace";
@@ -357,32 +327,20 @@ test.describe("createCaretMeasurer", () => {
 					},
 				];
 
-				const measurer = createCaretMeasurer();
-				const rect = div.getBoundingClientRect();
-				const yCutoff = rect.top + 20; // start of second line
+				const measurer = createMeasurer();
+				const { tops } = measureLines(div);
 
-				const caretOffset = measurer.offsetAtY(div, items, yCutoff);
-
-				// The charTop at the returned offset should be >= yCutoff
+				const caretOffset = measurer.offsetAtLine(items, tops, 1);
 				const topAtOffset = measurer.charTop(textNode, caretOffset);
-
-				// And the character before it should be on the previous line
-				let topBefore = null;
-				if (caretOffset > 0) {
-					topBefore = measurer.charTop(textNode, caretOffset - 1);
-				}
+				const topBefore = caretOffset > 0 ? measurer.charTop(textNode, caretOffset - 1) : null;
 
 				div.remove();
-				return { caretOffset, topAtOffset, yCutoff, topBefore };
+				return { caretOffset, topAtOffset, topBefore, secondLineTop: tops[1] };
 			});
 			expect(result.caretOffset).not.toBeNull();
-
-			// The charTop at the returned offset should be >= yCutoff
-			expect(result.topAtOffset).toBeGreaterThanOrEqual(result.yCutoff - 1); // 1px tolerance
-
-			// And the character before it should be on the previous line
+			expect(result.topAtOffset).toBe(result.secondLineTop);
 			if (result.topBefore !== null) {
-				expect(result.topBefore).toBeLessThan(result.yCutoff);
+				expect(result.topBefore).toBeLessThan(result.secondLineTop);
 			}
 		});
 	});

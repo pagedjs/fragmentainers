@@ -23,11 +23,13 @@ export function collectInlineItems(nodes) {
 		if (node.nodeType === Node.TEXT_NODE) {
 			const content = node.textContent;
 			if (content.length > 0) {
+				const whiteSpace = getComputedStyle(node.parentElement).whiteSpace;
 				items.push({
 					type: INLINE_TEXT,
 					startOffset: offset,
 					endOffset: offset + content.length,
 					domNode: node,
+					whiteSpace,
 				});
 				textParts.push(content);
 				offset += content.length;

@@ -126,116 +126,108 @@ export function getLineHeight(element) {
 	return lh.value;
 }
 
-// Text measurers — charTop / offsetAtY
-
 /**
- * Shared charTop implementation for both Range and Caret measurers.
- * Returns the vertical position of a character at the given offset.
+ * Pick the rect a glyph actually renders at. `getClientRects()` on a
+ * single-char range at a soft-wrap boundary can emit a leading
+ * zero-width rect on the previous line; the rect with the largest top
+ * is the one the glyph is drawn at.
  */
+function renderedRect(rects) {
+	if (rects.length === 0) return null;
+	let best = rects[0];
+	for (let i = 1; i < rects.length; i++) {
+		if (rects[i].top > best.top) best = rects[i];
+	}
+	return best;
+}
+
 function charTop(range, textNode, offset) {
 	const safeEnd = Math.min(offset + 1, textNode.textContent.length);
 	if (offset >= safeEnd) return Infinity;
 	range.setStart(textNode, offset);
 	range.setEnd(textNode, safeEnd);
-	const rects = range.getClientRects();
-	return rects.length > 0 ? rects[0].top : Infinity;
+	const rect = renderedRect(range.getClientRects());
+	return rect ? rect.top : Infinity;
 }
 
 /**
- * Returns the bottom edge of a character's line box at the given offset.
- * Used by break-offset search: a line fits only when its bottom edge
- * is within the available space, avoiding sub-pixel top-edge drift.
+ * Visual line index of the character at `offset` (index into `lineTops`).
+ * Snapping a rect-top to a known line-top eliminates sub-pixel drift.
+ *
+ * Returns -1 if the range has no rects, or `lineTops.length` if the
+ * offset is past the end of the text node.
  */
-function charBottom(range, textNode, offset) {
+function lineIndexAtOffset(range, textNode, offset, lineTops) {
 	const safeEnd = Math.min(offset + 1, textNode.textContent.length);
-	if (offset >= safeEnd) return Infinity;
+	if (offset >= safeEnd) return lineTops.length;
 	range.setStart(textNode, offset);
 	range.setEnd(textNode, safeEnd);
-	const rects = range.getClientRects();
-	return rects.length > 0 ? rects[0].bottom : Infinity;
-}
-
-/**
- * Create a text measurer backed by the DOM Range API.
- *
- * Uses getClientRects() on the live DOM text to read the browser's
- * actual line layout, avoiding re-implementation of line breaking.
- */
-export function createRangeMeasurer() {
-	const range = document.createRange();
-	return {
-		charTop: (textNode, offset) => charTop(range, textNode, offset),
-		charBottom: (textNode, offset) => charBottom(range, textNode, offset),
-	};
-}
-
-// Lazy-initialized process-wide measurer shared by layout nodes.
-let sharedMeasurer = null;
-
-/**
- * Get the shared text measurer for layout. Lazily constructs a caret-based
- * measurer when the browser supports `caretPositionFromPoint()`, otherwise
- * a Range-based one. All layout nodes use the same instance to amortize
- * the cost of the backing Range.
- */
-export function getSharedMeasurer() {
-	if (!sharedMeasurer) {
-		sharedMeasurer =
-			typeof document.caretPositionFromPoint === "function"
-				? createCaretMeasurer()
-				: createRangeMeasurer();
+	const rect = renderedRect(range.getClientRects());
+	if (!rect) return -1;
+	for (let i = lineTops.length - 1; i >= 0; i--) {
+		if (rect.top >= lineTops[i]) return i;
 	}
-	return sharedMeasurer;
+	return 0;
 }
 
-/**
- * Create a text measurer that extends the Range measurer with
- * caretPositionFromPoint() for finding break offsets in a single call.
- */
-export function createCaretMeasurer() {
+// Exclusive upper bound: a local offset must be a valid character index
+// within domNode, so `endOffset` (one-past-last) is deliberately excluded.
+function offsetToItemAndLocal(textItems, flatOffset) {
+	for (const item of textItems) {
+		if (flatOffset >= item.startOffset && flatOffset < item.endOffset) {
+			return { item, local: flatOffset - item.startOffset };
+		}
+	}
+	return null;
+}
+
+export function createMeasurer() {
 	const range = document.createRange();
 
 	return {
 		charTop: (textNode, offset) => charTop(range, textNode, offset),
-		charBottom: (textNode, offset) => charBottom(range, textNode, offset),
 
 		/**
-		 * Find the flat textContent offset at a Y cutoff by hitting the
-		 * browser's caret positioning directly.
+		 * Flat textContent offset of the first character that renders on
+		 * `targetLineIndex`. Binary-searches against `lineTops` via
+		 * `lineIndexAtOffset`, so the comparison is integer-valued.
 		 *
-		 * @param {Element} element - the inline formatting context element
+		 * `getClientRects()` works for offscreen elements, so this works
+		 * for `content-measure`'s offscreen layout harness.
+		 *
 		 * @param {Object[]} items - InlineItemsData.items
-		 * @param {number} yCutoff - Y position to probe
-		 * @returns {number|null} flat textContent offset, or null on miss
+		 * @param {number[]} lineTops - measureLines(element).tops
+		 * @param {number} targetLineIndex - index into lineTops (>= 1)
+		 * @returns {number|null}
 		 */
-		offsetAtY(element, items, yCutoff) {
-			const rect = element.getBoundingClientRect();
-			const x = rect.left + 1;
-			const pos = document.caretPositionFromPoint(x, yCutoff);
-			if (!pos) return null;
+		offsetAtLine(items, lineTops, targetLineIndex) {
+			if (targetLineIndex <= 0 || targetLineIndex >= lineTops.length) return null;
 
-			const node = pos.offsetNode;
-			const localOffset = pos.offset;
+			const textItems = items.filter((it) => it.type === INLINE_TEXT);
+			if (textItems.length === 0) return null;
 
-			for (const item of items) {
-				if (item.type === INLINE_TEXT && item.domNode === node) {
-					return item.startOffset + localOffset;
+			let lo = textItems[0].startOffset;
+			let hi = textItems[textItems.length - 1].endOffset;
+
+			while (lo < hi) {
+				const mid = (lo + hi) >>> 1;
+				const loc = offsetToItemAndLocal(textItems, mid);
+				if (!loc) {
+					lo = mid + 1;
+					continue;
 				}
+				const line = lineIndexAtOffset(range, loc.item.domNode, loc.local, lineTops);
+				if (line >= targetLineIndex) hi = mid;
+				else lo = mid + 1;
 			}
-
-			const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-			walker.currentNode = node.nodeType === Node.TEXT_NODE ? node : element;
-			let textNode = walker.nextNode();
-			while (textNode) {
-				for (const item of items) {
-					if (item.type === INLINE_TEXT && item.domNode === textNode) {
-						return item.startOffset;
-					}
-				}
-				textNode = walker.nextNode();
-			}
-
-			return null;
+			return lo;
 		},
 	};
+}
+
+let sharedMeasurer = null;
+
+export function getSharedMeasurer() {
+	if (!sharedMeasurer) sharedMeasurer = createMeasurer();
+	return sharedMeasurer;
 }

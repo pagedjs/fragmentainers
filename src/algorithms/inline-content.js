@@ -22,39 +22,27 @@ function findItemAtOffset(items, flatOffset) {
 	return null;
 }
 
-/**
- * Binary search across the inline items to find the flat textContent offset
- * where content transitions past a given Y cutoff.
- *
- * @param {Object} measurer - must have charTop(textNode, localOffset)
- * @param {Object[]} items - InlineItemsData.items
- * @param {number} searchStart - flat offset to start searching from
- * @param {number} searchEnd - flat offset to search up to
- * @param {number} yCutoff - the Y position threshold
- * @returns {number} flat textContent offset of the first char past the cutoff
- */
-function findBreakOffset(measurer, items, searchStart, searchEnd, yCutoff) {
-	let lo = searchStart;
-	let hi = searchEnd;
+// White-space values that collapse trailing space at a soft wrap
+// (CSS Text §4.1.1).
+const COLLAPSING_WHITE_SPACE = new Set(["normal", "nowrap", "pre-line", "pre-wrap"]);
 
-	while (lo < hi) {
-		const mid = (lo + hi) >>> 1;
-		const loc = findItemAtOffset(items, mid);
+function hasTrailingCollapsibleSpace(items, textContent, flatOffset) {
+	if (flatOffset <= 0 || flatOffset > textContent.length) return false;
+	if (textContent.charCodeAt(flatOffset - 1) !== 0x20) return false;
+	const loc = findItemAtOffset(items, flatOffset - 1);
+	if (!loc) return false;
+	return COLLAPSING_WHITE_SPACE.has(loc.item.whiteSpace || "normal");
+}
 
-		if (!loc) {
-			// Offset is in a non-text item (control, tag) — move forward
-			lo = mid + 1;
-			continue;
-		}
-
-		const top = measurer.charTop(loc.item.domNode, loc.localOffset);
-		if (top >= yCutoff) {
-			hi = mid;
-		} else {
-			lo = mid + 1;
-		}
+function skipLeadingCollapsibleSpace(items, textContent, flatOffset) {
+	while (flatOffset < textContent.length) {
+		if (textContent.charCodeAt(flatOffset) !== 0x20) return flatOffset;
+		const loc = findItemAtOffset(items, flatOffset);
+		if (!loc) return flatOffset;
+		if (!COLLAPSING_WHITE_SPACE.has(loc.item.whiteSpace || "normal")) return flatOffset;
+		flatOffset += 1;
 	}
-	return lo;
+	return flatOffset;
 }
 
 /**
@@ -108,6 +96,7 @@ export class InlineContentAlgorithm {
 	#textOffset;
 	#consumedLines = 0;
 	#remainingLines = 0;
+	#hasTrailingCollapsibleSpace = false;
 
 	// Class A break scoring (earlyBreakTarget) is only implemented by
 	// BlockContainerAlgorithm — inline content emits its own breakScore.
@@ -335,25 +324,32 @@ export class InlineContentAlgorithm {
 			this.#textOffset = inlineItems.textContent.length;
 			return false;
 		}
-		// Find the text offset at the break line.
 		const breakLineIndex = this.#consumedLines + linesToPlace;
-		const yCutoff = measured.tops[breakLineIndex];
-
-		let breakFlatOffset;
-		if (element && measurer.offsetAtY) {
-			breakFlatOffset = measurer.offsetAtY(element, inlineItems.items, yCutoff);
-		}
+		let breakFlatOffset = measurer.offsetAtLine(
+			inlineItems.items,
+			measured.tops,
+			breakLineIndex,
+		);
 		if (breakFlatOffset == null) {
-			const searchStart = this.#textOffset;
-			const searchEnd = inlineItems.textContent.length;
-			breakFlatOffset = findBreakOffset(
-				measurer,
-				inlineItems.items,
-				searchStart,
-				searchEnd,
-				yCutoff,
+			throw new Error(
+				`offsetAtLine failed to resolve break offset (breakLineIndex=${breakLineIndex}, lineCount=${measured.tops.length})`,
 			);
 		}
+
+		// Advance past a leading collapsed space so page N+1 doesn't
+		// start with one, and flag a trailing collapsed space so the
+		// render layer trims it off page N (Chromium parity — see
+		// references/chromium-inline-break-token-findings.md).
+		breakFlatOffset = skipLeadingCollapsibleSpace(
+			inlineItems.items,
+			inlineItems.textContent,
+			breakFlatOffset,
+		);
+		this.#hasTrailingCollapsibleSpace = hasTrailingCollapsibleSpace(
+			inlineItems.items,
+			inlineItems.textContent,
+			breakFlatOffset,
+		);
 
 		const pos = advanceToOffset(inlineItems.items, breakFlatOffset, inlineItems.textContent.length);
 		this.#itemIndex = pos.itemIndex;
@@ -408,6 +404,7 @@ export class InlineContentAlgorithm {
 			const inlineToken = new InlineBreakToken(this.#node);
 			inlineToken.itemIndex = this.#itemIndex;
 			inlineToken.textOffset = this.#textOffset;
+			inlineToken.hasTrailingCollapsibleSpace = this.#hasTrailingCollapsibleSpace;
 
 			// Detect mid-word break: non-whitespace/non-control text characters
 			// on both sides of the break offset indicate a hyphenated break

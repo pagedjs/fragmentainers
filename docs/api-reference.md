@@ -669,12 +669,13 @@ changes between fragmentainers.
 new InlineBreakToken(node);
 ```
 
-| Property       | Type      | Default | Description                                         |
-| -------------- | --------- | ------- | --------------------------------------------------- |
-| `itemIndex`    | `number`  | `0`     | Index into `InlineItemsData.items`                  |
-| `textOffset`   | `number`  | `0`     | Character offset into `InlineItemsData.textContent` |
-| `flags`        | `number`  | `0`     | Bitfield for internal state                         |
-| `isHyphenated` | `boolean` | `false` | Line was broken with a hyphen                       |
+| Property                      | Type      | Default | Description                                                                                     |
+| ----------------------------- | --------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `itemIndex`                   | `number`  | `0`     | Index into `InlineItemsData.items`                                                              |
+| `textOffset`                  | `number`  | `0`     | Character offset into `InlineItemsData.textContent`                                             |
+| `flags`                       | `number`  | `0`     | Bitfield for internal state                                                                     |
+| `isHyphenated`                | `boolean` | `false` | Line was broken with a hyphen                                                                   |
+| `hasTrailingCollapsibleSpace` | `boolean` | `false` | Trim one trailing space from page N's last text node at render time (CSS Text §4.1.1)           |
 
 ---
 
@@ -750,18 +751,21 @@ clone→source pair in the handler registry's shared map. Used by handlers
 | `inputBreakToken` | `BreakToken \| null` | Break token from the previous fragmentainer |
 | `composedParent`  | `Element`            | The composed DOM parent to walk in parallel |
 
-### Fragment.buildInlineContent(items, textContent, startOffset, endOffset, container)
+### Fragment.buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS?, pseudoContext?, hasTrailingCollapsibleSpace?)
 
 Static method. Reconstructs DOM from the flat `InlineItemsData` list within
 break token offset ranges.
 
-| Parameter     | Type           | Description              |
-| ------------- | -------------- | ------------------------ |
-| `items`       | `InlineItem[]` | Flat inline item array   |
-| `textContent` | `string`       | Full text content string |
-| `startOffset` | `number`       | Start character offset   |
-| `endOffset`   | `number`       | End character offset     |
-| `container`   | `Element`      | Target container element |
+| Parameter                     | Type           | Description                                                                                                    |
+| ----------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------- |
+| `items`                       | `InlineItem[]` | Flat inline item array                                                                                         |
+| `textContent`                 | `string`       | Full text content string                                                                                       |
+| `startOffset`                 | `number`       | Start character offset                                                                                         |
+| `endOffset`                   | `number`       | End character offset                                                                                           |
+| `container`                   | `Element`      | Target container element                                                                                       |
+| `collapseWS`                  | `boolean`      | Collapse whitespace runs inside each text slice (default `false`)                                              |
+| `pseudoContext`               | `object\|null` | `{ isContinuation, willContinue }` — suppress `::before` on continuations and `::after` on non-last fragments  |
+| `hasTrailingCollapsibleSpace` | `boolean`      | Trim one trailing space from the last rendered text node (default `false`); set by the inline layout algorithm |
 
 ### Fragment.hasBlockChildren
 

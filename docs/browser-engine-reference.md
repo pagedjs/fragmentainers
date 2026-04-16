@@ -56,12 +56,13 @@ Break tokens are continuation tokens that capture enough state to resume layout 
 
 ### InlineBreakToken (extends BreakToken)
 
-| Property       | Type      | Description                               |
-| -------------- | --------- | ----------------------------------------- |
-| `itemIndex`    | `number`  | Index into `InlineItemsData.items`        |
-| `textOffset`   | `number`  | Offset into `InlineItemsData.textContent` |
-| `flags`        | `number`  | Inline-specific state bits                |
-| `isHyphenated` | `boolean` | Break follows soft hyphen (U+00AD)        |
+| Property                      | Type      | Description                                                                          |
+| ----------------------------- | --------- | ------------------------------------------------------------------------------------ |
+| `itemIndex`                   | `number`  | Index into `InlineItemsData.items`                                                   |
+| `textOffset`                  | `number`  | Offset into `InlineItemsData.textContent` (resume cursor — points at next page's first char) |
+| `flags`                       | `number`  | Inline-specific state bits                                                           |
+| `isHyphenated`                | `boolean` | Break falls mid-word (soft hyphen or `hyphens: auto` dictionary break)               |
+| `hasTrailingCollapsibleSpace` | `boolean` | Collapsed line-end space sits at `textOffset - 1`; render layer trims it from page N |
 
 > **Design note:** `InlineBreakToken` is content-addressed (item index + text offset), not geometry-addressed. This means it survives inline-size changes between fragmentainers.
 
