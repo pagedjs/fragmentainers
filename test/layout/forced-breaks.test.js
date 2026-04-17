@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("Phase 8: Forced breaks", () => {
 	test("break-before: page forces a page break", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -52,7 +52,7 @@ test.describe("Phase 8: Forced breaks", () => {
 
 	test("break-before: column forces a break", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -85,7 +85,7 @@ test.describe("Phase 8: Forced breaks", () => {
 
 	test("break-before: page forces a break (always equivalent)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -118,7 +118,7 @@ test.describe("Phase 8: Forced breaks", () => {
 
 	test("break-after: page forces a break after the element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -161,7 +161,7 @@ test.describe("Phase 8: Forced breaks", () => {
 
 	test("break-before on first child does nothing (already at top)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -199,7 +199,7 @@ test.describe("Phase 8: Forced breaks", () => {
 
 	test("break-after on last child does nothing", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -232,7 +232,7 @@ test.describe("Phase 8: Forced breaks", () => {
 
 	test("multiple forced breaks produce multiple pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -276,7 +276,7 @@ test.describe("Phase 8: Forced breaks", () => {
 
 	test("break-before: avoid does not force a break", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 

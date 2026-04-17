@@ -93,7 +93,7 @@ test.describe("Inline break offset normalization", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { measureLines } = await import("/src/measurement/line-box.js");

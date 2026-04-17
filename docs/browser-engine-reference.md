@@ -312,7 +312,7 @@ Yielded from layout algorithm generators to the driver. Represents a request to 
 - `runLayoutGenerator(algorithm)` — runs an algorithm instance's `*layout()` generator to completion, fulfilling yielded `LayoutRequest` objects by recursively instantiating child algorithm classes
 - `getLayoutAlgorithm(node)` — returns the algorithm **class** for a node (not a function)
 - `LayoutDriver` — `Iterator`-subclassing top-level driver, one fragmentainer per `next()` call
-- `createFragments(rootNode, constraintSpaceOrResolver, continuation)` — backwards-compatible shim in `src/layout/layout-request.js` that wraps `new LayoutDriver(...).run()`
+- `createFragments(rootNode, constraintSpaceOrResolver, continuation)` — backwards-compatible shim that wraps `new LayoutDriver(...).run()`
 
 ### Blink Equivalent
 

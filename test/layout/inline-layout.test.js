@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("Inline content layout (browser)", () => {
 	test("lays out inline content that fits on one page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -40,7 +40,7 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("breaks text across multiple lines", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -77,7 +77,7 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("fragments inline content across pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -116,7 +116,7 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("InlineBreakToken has content-addressed position", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { BREAK_TOKEN_INLINE } = await import("/src/fragmentation/tokens.js");
@@ -160,7 +160,7 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("handles forced line break with <br>", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -197,7 +197,7 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("varying inline size between pages changes line breaks", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -243,7 +243,7 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("respects explicit CSS height on an IFC element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -281,7 +281,7 @@ test.describe("Inline content layout (browser)", () => {
 
 	test("explicit-height IFC element breaks across fragmentainers", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 

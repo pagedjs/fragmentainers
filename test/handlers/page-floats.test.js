@@ -207,7 +207,7 @@ test.describe("page floats integration with createFragments", () => {
 	test("top float reduces available space for content", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
@@ -260,7 +260,7 @@ test.describe("page floats integration with createFragments", () => {
 	test("float causes content to overflow into second page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 			const { PageFloat } = await import("/src/handlers/page-float.js");
@@ -293,7 +293,7 @@ test.describe("page floats integration with createFragments", () => {
 	test("no handlers produces same results as before", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 

@@ -592,7 +592,7 @@ test.describe("resolveNamedPageForBreakToken", () => {
 test.describe("Named page forced breaks", () => {
 	test("forces break when page property changes between siblings", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -626,7 +626,7 @@ test.describe("Named page forced breaks", () => {
 
 	test("forces break when changing from named to null", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -653,7 +653,7 @@ test.describe("Named page forced breaks", () => {
 
 	test("forces break when changing from null to named", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -680,7 +680,7 @@ test.describe("Named page forced breaks", () => {
 
 	test("no break when both siblings have same page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -707,7 +707,7 @@ test.describe("Named page forced breaks", () => {
 
 	test("no break when both siblings have null page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -734,7 +734,7 @@ test.describe("Named page forced breaks", () => {
 
 	test("forced break token has isForcedBreak = true", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -763,7 +763,7 @@ test.describe("Named page forced breaks", () => {
 test.describe("createFragments with PageResolver", () => {
 	test("resolves page sizes dynamically", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -789,7 +789,7 @@ test.describe("createFragments with PageResolver", () => {
 
 	test("uses named page sizes for different pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -822,7 +822,7 @@ test.describe("createFragments with PageResolver", () => {
 
 	test("accepts a plain ConstraintSpace (no resolver)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-request.js");
+			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 

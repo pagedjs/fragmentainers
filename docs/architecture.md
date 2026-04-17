@@ -216,7 +216,7 @@ Each algorithm's `*layout()` generator returns an object with:
 sugar that calls `next()` until `breakToken` is null. Internally this is
 implemented by `LayoutDriver` (in `src/layout/layout-driver.js`), which
 extends `Iterator` and holds the per-fragmentainer state. The shim
-`createFragments()` in `src/layout/layout-request.js` wraps
+`createFragments()` in `src/layout/layout-driver.js` wraps
 `new LayoutDriver(...).run()` for batch use.
 
 Each `next()` call:

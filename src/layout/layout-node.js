@@ -1,5 +1,5 @@
 import { collectInlineItems } from "../measurement/collect-inlines.js";
-import { measureElementBlockSize, measureCellIntrinsicBlockSize } from "../measurement/measure.js";
+import { measureElementBlockSize, measureCellIntrinsicBlockSize } from "../measurement/block-size.js";
 import { getLineHeight, getSharedMeasurer } from "../measurement/line-box.js";
 import { computedStyleMap } from "../styles/computed-style-map.js";
 import { buildCumulativeHeights } from "./layout-helpers.js";
