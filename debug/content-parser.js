@@ -113,12 +113,26 @@ export class ContentParser {
 		for (const link of doc.querySelectorAll('link[rel="stylesheet"]')) {
 			const href = link.getAttribute("href");
 			if (!href) continue;
+			let cssURL;
 			try {
-				const cssURL = new URL(href, baseURL).href;
-				const response = await fetch(cssURL);
+				cssURL = new URL(href, baseURL).href;
+			} catch (e) {
+				console.warn(`Invalid stylesheet URL: ${href}`, e);
+				continue;
+			}
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 10000);
+			try {
+				const response = await fetch(cssURL, { signal: controller.signal });
+				if (!response.ok) {
+					console.warn(`Failed to fetch stylesheet ${cssURL}: HTTP ${response.status}`);
+					continue;
+				}
 				cssEntries.push({ css: await response.text(), cssBaseURL: cssURL });
 			} catch (e) {
-				console.warn(`Failed to fetch stylesheet: ${href}`, e);
+				console.warn(`Failed to fetch stylesheet ${cssURL}:`, e);
+			} finally {
+				clearTimeout(timeoutId);
 			}
 		}
 
