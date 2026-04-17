@@ -43,6 +43,8 @@ function printUsage() {
 	console.log("    --debug                              Show fragment border overlays");
 	console.log("    --ref                                Skip script injection (view page as-is)");
 	console.log("    --measure                            Show each measurement segment (no pagination)");
+	console.log("    --headless <true|false>              Force headless mode (overrides default)");
+	console.log("    --scale <int>                        Device scale factor");
 	console.log();
 	console.log("  Examples:");
 	console.log(dim("    fragment specs/at-page/awesome.html"));
@@ -120,7 +122,7 @@ function findFreePort(start) {
 
 // Browser
 
-async function launchBrowser(browserName, { headless = false } = {}) {
+async function launchBrowser(browserName, { headless = false, deviceScaleFactor = null } = {}) {
 	// "chrome" uses installed Chrome via Playwright's channel option
 	const isChannel = browserName === "chrome";
 	const engine = isChannel ? chromium : BROWSERS[browserName];
@@ -141,6 +143,8 @@ async function launchBrowser(browserName, { headless = false } = {}) {
 		if (!headless) launchOptions.devtools = true;
 		if (!headless) contextOptions.deviceScaleFactor = 2;
 	}
+
+	if (deviceScaleFactor != null) contextOptions.deviceScaleFactor = deviceScaleFactor;
 
 	const browser = await engine.launch(launchOptions);
 	const page = await browser.newPage(contextOptions);
@@ -219,7 +223,12 @@ const pdf = parseOptionalArg("--pdf");
 const ref = process.argv.includes("--ref");
 const debug = process.argv.includes("--debug");
 const measure = process.argv.includes("--measure");
-const headless = html.enabled || inspect.enabled || pdf.enabled;
+const headlessArg = parseOptionalArg("--headless");
+const headlessOverride = headlessArg.enabled ? headlessArg.path !== "false" : null;
+const extract = html.enabled || inspect.enabled || pdf.enabled;
+const headless = headlessOverride ?? extract;
+const scaleArg = parseOptionalArg("--scale");
+const scale = scaleArg.enabled && scaleArg.path ? parseInt(scaleArg.path, 10) : null;
 
 const { port, server, existing } = await ensureServer(3000);
 const skipConfig = (inspect?.enabled && !inspect.path) || (html?.enabled && !html.path);
@@ -229,7 +238,7 @@ if (!skipConfig) {
 
 if (ref && pdf.enabled) {
 	// Ref + PDF: no script injection, just print the page as-is
-	const { browser, page } = await launchBrowser(browserName, { headless: true });
+	const { browser, page } = await launchBrowser(browserName, { headless, deviceScaleFactor: scale });
 	await page.goto(`http://localhost:${port}/${specPath}`, { waitUntil: "networkidle" });
 
 	const outPath = resolve(pdf.path || "output.pdf");
@@ -242,12 +251,12 @@ if (ref && pdf.enabled) {
 	await browser.close();
 } else if (ref) {
 	// Ref: open the page as-is in a headed browser
-	const { browser, page } = await launchBrowser(browserName);
+	const { browser, page } = await launchBrowser(browserName, { headless, deviceScaleFactor: scale });
 	await page.goto(`http://localhost:${port}/${specPath}`, { waitUntil: "load" });
 	printFooter();
 	await new Promise((r) => browser.on("disconnected", r));
-} else if (headless) {
-	const { browser, page } = await launchBrowser(browserName, { headless: true });
+} else if (extract) {
+	const { browser, page } = await launchBrowser(browserName, { headless, deviceScaleFactor: scale });
 	await page.goto(`http://localhost:${port}/${specPath}`, { waitUntil: "load" });
 
 	const t0 = Date.now();
@@ -308,7 +317,7 @@ if (ref && pdf.enabled) {
 	await browser.close();
 } else {
 	// Interactive: headed browser with refresh support
-	const { browser, page } = await launchBrowser(browserName);
+	const { browser, page } = await launchBrowser(browserName, { headless, deviceScaleFactor: scale });
 	setupSpecInjection(page, specType, { overlay: debug, measure });
 
 	await page.goto(`http://localhost:${port}/${specPath}`, { waitUntil: "load" });

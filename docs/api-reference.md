@@ -1128,17 +1128,18 @@ Used in `breakToken.algorithmData.type`.
 
 All dimensions are in CSS pixels at 96 DPI.
 
-| Key      | inlineSize | blockSize |
-| -------- | ---------- | --------- |
-| `A6`     | 397        | 559       |
-| `A5`     | 559        | 794       |
-| `A4`     | 794        | 1123      |
-| `A3`     | 1123       | 1587      |
-| `B5`     | 499        | 709       |
-| `B4`     | 709        | 1001      |
-| `LETTER` | 816        | 1056      |
-| `LEGAL`  | 816        | 1344      |
-| `LEDGER` | 1056       | 1632      |
+| Key       | inlineSize | blockSize |
+| --------- | ---------- | --------- |
+| `A5`      | 559        | 794       |
+| `A4`      | 794        | 1123      |
+| `A3`      | 1123       | 1587      |
+| `B5`      | 665        | 945       |
+| `B4`      | 945        | 1334      |
+| `JIS-B5`  | 688        | 972       |
+| `JIS-B4`  | 972        | 1376      |
+| `LETTER`  | 816        | 1056      |
+| `LEGAL`   | 816        | 1344      |
+| `LEDGER`  | 1056       | 1632      |
 
 `NAMED_SIZES_CSS` provides the same set as `[value, unit]` pairs (e.g. `[210, "mm"]`) preserving original CSS units for subpixel-accurate rendering.
 

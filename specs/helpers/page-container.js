@@ -21,12 +21,12 @@ const STYLES = `
 		display: block;
     box-sizing: border-box;
     overflow: hidden;
-    width: round(down, var(--page-width), 1px);
-    height: round(down, var(--page-height), 1px);
-    padding-top: round(down, var(--page-margin-top, 0px), 1px);
-    padding-right: round(down, var(--page-margin-right, 0px), 1px);
-    padding-bottom: round(down, var(--page-margin-bottom, 0px), 1px);
-    padding-left: round(down, var(--page-margin-left, 0px), 1px);
+    width: round(var(--page-width), 1px);
+    height: round(var(--page-height), 1px);
+    padding-top: round(var(--page-margin-top, 0px), 1px);
+    padding-right: round(var(--page-margin-right, 0px), 1px);
+    padding-bottom: round(var(--page-margin-bottom, 0px), 1px);
+    padding-left: round(var(--page-margin-left, 0px), 1px);
   }
 	div.body {
     display: block;

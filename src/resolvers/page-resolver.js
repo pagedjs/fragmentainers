@@ -3,14 +3,16 @@ import { BREAK_TOKEN_INLINE } from "../fragmentation/tokens.js";
 import { cssValue, parseNumeric } from "../styles/css-values.js";
 import { walkRules } from "../styles/walk-rules.js";
 
-// Named page sizes (CSS pixels at 96 DPI, floor-rounded to match resolveSize)
+// Named page sizes from CSS Paged Media Level 3 §3.1
+// (CSS pixels at 96 DPI, rounded to match resolveSize)
 export const NAMED_SIZES = {
-	A6: { inlineSize: 396, blockSize: 559 },
-	A5: { inlineSize: 559, blockSize: 793 },
-	A4: { inlineSize: 793, blockSize: 1122 },
-	A3: { inlineSize: 1122, blockSize: 1587 },
-	B5: { inlineSize: 665, blockSize: 944 },
-	B4: { inlineSize: 944, blockSize: 1334 },
+	A5: { inlineSize: 559, blockSize: 794 },
+	A4: { inlineSize: 794, blockSize: 1123 },
+	A3: { inlineSize: 1123, blockSize: 1587 },
+	B5: { inlineSize: 665, blockSize: 945 },
+	B4: { inlineSize: 945, blockSize: 1334 },
+	"JIS-B5": { inlineSize: 688, blockSize: 972 },
+	"JIS-B4": { inlineSize: 972, blockSize: 1376 },
 	LETTER: { inlineSize: 816, blockSize: 1056 },
 	LEGAL: { inlineSize: 816, blockSize: 1344 },
 	LEDGER: { inlineSize: 1056, blockSize: 1632 },
@@ -18,12 +20,13 @@ export const NAMED_SIZES = {
 
 // Named page sizes in original CSS units (for subpixel-accurate rendering)
 export const NAMED_SIZES_CSS = {
-	A6: { inline: [105, "mm"], block: [148, "mm"] },
 	A5: { inline: [148, "mm"], block: [210, "mm"] },
 	A4: { inline: [210, "mm"], block: [297, "mm"] },
 	A3: { inline: [297, "mm"], block: [420, "mm"] },
 	B5: { inline: [176, "mm"], block: [250, "mm"] },
 	B4: { inline: [250, "mm"], block: [353, "mm"] },
+	"JIS-B5": { inline: [182, "mm"], block: [257, "mm"] },
+	"JIS-B4": { inline: [257, "mm"], block: [364, "mm"] },
 	LETTER: { inline: [8.5, "in"], block: [11, "in"] },
 	LEGAL: { inline: [8.5, "in"], block: [14, "in"] },
 	LEDGER: { inline: [11, "in"], block: [17, "in"] },
@@ -315,7 +318,7 @@ export class PageResolver {
 			({ inlineSize, blockSize } = this.size);
 		}
 
-		return { inlineSize: Math.floor(inlineSize), blockSize: Math.floor(blockSize) };
+		return { inlineSize: Math.round(inlineSize), blockSize: Math.round(blockSize) };
 	}
 
 	/** Apply page-orientation by swapping dimensions. */
@@ -331,7 +334,7 @@ export class PageResolver {
 		const SIDES = ["top", "right", "bottom", "left"];
 		const margins = {};
 		for (const side of SIDES) {
-			margins[side] = Math.floor(marginDecl?.[side] ?? 0);
+			margins[side] = Math.round(marginDecl?.[side] ?? 0);
 		}
 		return margins;
 	}
