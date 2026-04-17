@@ -23,12 +23,25 @@ const INLINE_DISPLAYS = new Set([
 /**
  * Lazy wrapper around a DOM Element that implements the LayoutNode interface.
  *
- * Properties are computed on-demand from getComputedStyle() and cached.
- * Does NOT mutate the DOM — read-only measurement only.
+ * Read-only: resolves computed styles on demand via CSS Typed OM and caches
+ * the results. Does not mutate the DOM.
  */
+
+// `.toString()` fallback covers properties Chromium under-reifies (e.g.
+// `border-block-*-width`), which come back as bare CSSStyleValue.
+function cssPx(value) {
+	if (!value) return 0;
+	if (value.unit === "px") return value.value;
+	return parseFloat(value.toString()) || 0;
+}
+
+function cssKeyword(value, fallback) {
+	if (!value) return fallback;
+	return typeof value.value === "string" ? value.value : value.toString();
+}
+
 export class DOMLayoutNode extends LayoutNode {
 	#element;
-	#style = null;
 	#styleMap = null;
 	#children = null;
 	#inlineItemsData = null;
@@ -68,39 +81,32 @@ export class DOMLayoutNode extends LayoutNode {
 		return `${tag}${id}${cls}`;
 	}
 
-	#getStyle() {
-		if (!this.#style) {
-			this.#style = getComputedStyle(this.element);
-			// Snapshot values that survive element detachment. The live
-			// CSSStyleDeclaration (and CSSStyleMap) goes empty when the
-			// element is removed from the DOM, so capture while attached.
-			this.#display = this.#style.display || "block";
-			this.#textAlign = this.#style.textAlign || "start";
-			this.#whiteSpace = this.#style.whiteSpace || "normal";
-			const g = (name) => parseFloat(this.#style.getPropertyValue(name)) || 0;
-			this.#marginBlockStart = g("margin-block-start");
-			this.#marginBlockEnd = g("margin-block-end");
-			this.#paddingBlockStart = g("padding-block-start");
-			this.#paddingBlockEnd = g("padding-block-end");
-			this.#borderBlockStart = g("border-block-start-width");
-			this.#borderBlockEnd = g("border-block-end-width");
+	#getStyleMap() {
+		if (!this.#styleMap && this.element.isConnected) {
+			this.#styleMap = computedStyleMap(this.element);
+			const map = this.#styleMap;
+			this.#display = cssKeyword(map.get("display"), "block");
+			this.#textAlign = cssKeyword(map.get("text-align"), "start");
+			this.#whiteSpace = cssKeyword(map.get("white-space"), "normal");
+			this.#marginBlockStart = cssPx(map.get("margin-block-start"));
+			this.#marginBlockEnd = cssPx(map.get("margin-block-end"));
+			this.#paddingBlockStart = cssPx(map.get("padding-block-start"));
+			this.#paddingBlockEnd = cssPx(map.get("padding-block-end"));
+			this.#borderBlockStart = cssPx(map.get("border-block-start-width"));
+			this.#borderBlockEnd = cssPx(map.get("border-block-end-width"));
 		}
-		return this.#style;
+		return this.#styleMap || computedStyleMap(this.element);
 	}
 
 	getCustomProperty(name) {
-		return this.#getStyle().getPropertyValue(`--${name}`).trim() || null;
+		const v = this.#getStyleMap().get(`--${name}`);
+		if (!v) return null;
+		const s = typeof v.value === "string" ? v.value : v.toString();
+		return s.trim() || null;
 	}
 
 	get position() {
-		return this.#getStyle().position || "static";
-	}
-
-	#getStyleMap() {
-		if (!this.#styleMap) {
-			this.#styleMap = computedStyleMap(this.element);
-		}
-		return this.#styleMap;
+		return cssKeyword(this.#getStyleMap().get("position"), "static");
 	}
 
 	//Layout classification
@@ -110,27 +116,26 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	get isScrollable() {
-		const style = this.#getStyle();
-		return (
-			style.overflowY === "scroll" ||
-			style.overflowY === "auto" ||
-			style.overflowX === "scroll" ||
-			style.overflowX === "auto"
-		);
+		const map = this.#getStyleMap();
+		const oy = cssKeyword(map.get("overflow-y"), "visible");
+		const ox = cssKeyword(map.get("overflow-x"), "visible");
+		return oy === "scroll" || oy === "auto" || ox === "scroll" || ox === "auto";
 	}
 
 	get hasOverflowHidden() {
-		return this.#getStyle().overflow === "hidden";
+		return cssKeyword(this.#getStyleMap().get("overflow"), "visible") === "hidden";
 	}
 
 	get hasExplicitBlockSize() {
-		const h = this.#getStyle().height;
-		return h !== "auto" && h !== "" && h !== "0px";
+		const h = this.#getStyleMap().get("height");
+		if (!h) return false;
+		if (h.unit === "px") return h.value !== 0;
+		return cssKeyword(h, "auto") !== "auto";
 	}
 
 	get display() {
-		if (this.#display === null) this.#getStyle();
-		return this.#display;
+		if (this.#display === null) this.#getStyleMap();
+		return this.#display ?? "block";
 	}
 
 	get isTable() {
@@ -195,11 +200,11 @@ export class DOMLayoutNode extends LayoutNode {
 	//Flex/Grid properties
 
 	get flexDirection() {
-		return this.#getStyle().flexDirection || "row";
+		return cssKeyword(this.#getStyleMap().get("flex-direction"), "row");
 	}
 
 	get flexWrap() {
-		return this.#getStyle().flexWrap || "nowrap";
+		return cssKeyword(this.#getStyleMap().get("flex-wrap"), "nowrap");
 	}
 
 	get gridRowStart() {
@@ -244,19 +249,19 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	get columnFill() {
-		return this.#getStyle().columnFill || "balance";
+		return cssKeyword(this.#getStyleMap().get("column-fill"), "balance");
 	}
 
 	//Box model (margins, padding, border)
 
 	get marginBlockStart() {
-		if (this.#marginBlockStart === null) this.#getStyle();
-		return this.#marginBlockStart;
+		if (this.#marginBlockStart === null) this.#getStyleMap();
+		return this.#marginBlockStart ?? 0;
 	}
 
 	get marginBlockEnd() {
-		if (this.#marginBlockEnd === null) this.#getStyle();
-		return this.#marginBlockEnd;
+		if (this.#marginBlockEnd === null) this.#getStyleMap();
+		return this.#marginBlockEnd ?? 0;
 	}
 
 	/**
@@ -273,30 +278,30 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	get paddingBlockStart() {
-		if (this.#paddingBlockStart === null) this.#getStyle();
-		return this.#paddingBlockStart;
+		if (this.#paddingBlockStart === null) this.#getStyleMap();
+		return this.#paddingBlockStart ?? 0;
 	}
 
 	get paddingBlockEnd() {
-		if (this.#paddingBlockEnd === null) this.#getStyle();
-		return this.#paddingBlockEnd;
+		if (this.#paddingBlockEnd === null) this.#getStyleMap();
+		return this.#paddingBlockEnd ?? 0;
 	}
 
 	get borderBlockStart() {
-		if (this.#borderBlockStart === null) this.#getStyle();
-		return this.#borderBlockStart;
+		if (this.#borderBlockStart === null) this.#getStyleMap();
+		return this.#borderBlockStart ?? 0;
 	}
 
 	get borderBlockEnd() {
-		if (this.#borderBlockEnd === null) this.#getStyle();
-		return this.#borderBlockEnd;
+		if (this.#borderBlockEnd === null) this.#getStyleMap();
+		return this.#borderBlockEnd ?? 0;
 	}
 
 	//Fragmentation CSS
 
 	get page() {
 		if (this.#pageOverride !== undefined) return this.#pageOverride;
-		const val = this.#getStyle().page;
+		const val = cssKeyword(this.#getStyleMap().get("page"), "auto");
 		return val && val !== "auto" ? val : null;
 	}
 
@@ -306,7 +311,7 @@ export class DOMLayoutNode extends LayoutNode {
 
 	get breakBefore() {
 		if (this.#breakBeforeOverride !== null) return this.#breakBeforeOverride;
-		return this.#getStyle().breakBefore || "auto";
+		return cssKeyword(this.#getStyleMap().get("break-before"), "auto");
 	}
 
 	set breakBefore(value) {
@@ -314,15 +319,15 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	get breakAfter() {
-		return this.#getStyle().breakAfter || "auto";
+		return cssKeyword(this.#getStyleMap().get("break-after"), "auto");
 	}
 
 	get breakInside() {
-		return this.#getStyle().breakInside || "auto";
+		return cssKeyword(this.#getStyleMap().get("break-inside"), "auto");
 	}
 
 	get boxDecorationBreak() {
-		return this.#getStyle().boxDecorationBreak || BOX_DECORATION_SLICE;
+		return cssKeyword(this.#getStyleMap().get("box-decoration-break"), BOX_DECORATION_SLICE);
 	}
 
 	get orphans() {
@@ -338,22 +343,22 @@ export class DOMLayoutNode extends LayoutNode {
 	//Counters
 
 	get counterReset() {
-		return this.#getStyle().counterReset || "none";
+		return cssKeyword(this.#getStyleMap().get("counter-reset"), "none");
 	}
 	get counterIncrement() {
-		return this.#getStyle().counterIncrement || "none";
+		return cssKeyword(this.#getStyleMap().get("counter-increment"), "none");
 	}
 
 	//Compositor-accessed styles (snapshot values so they survive detachment)
 
 	get textAlign() {
-		if (this.#textAlign === null) this.#getStyle();
-		return this.#textAlign;
+		if (this.#textAlign === null) this.#getStyleMap();
+		return this.#textAlign ?? "start";
 	}
 
 	get whiteSpace() {
-		if (this.#whiteSpace === null) this.#getStyle();
-		return this.#whiteSpace;
+		if (this.#whiteSpace === null) this.#getStyleMap();
+		return this.#whiteSpace ?? "normal";
 	}
 
 	//Children
@@ -478,7 +483,8 @@ export class DOMLayoutNode extends LayoutNode {
 		if (cssHeight == null) return null;
 		// Replaced elements: measureElementBlockSize already yields border-box.
 		if (this.isReplacedElement) return cssHeight;
-		if (this.#getStyle().boxSizing === "border-box") return cssHeight;
+		if (cssKeyword(this.#getStyleMap().get("box-sizing"), "content-box") === "border-box")
+			return cssHeight;
 		return (
 			cssHeight +
 			this.paddingBlockStart +
