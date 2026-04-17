@@ -1,4 +1,4 @@
-import { findChildBreakToken, BREAK_TOKEN_INLINE } from "./tokens.js";
+import { findChildBreakToken, BREAK_TOKEN_INLINE, DEFAULT_HYPHEN } from "./tokens.js";
 import {
 	INLINE_TEXT,
 	INLINE_CONTROL,
@@ -167,10 +167,12 @@ export class Fragment {
 
 		const ws = isAnonymous ? "normal" : node.whiteSpace;
 		const collapseWS = !ws.startsWith("pre");
-		const hasTrailingCollapsibleSpace =
-			this.breakToken?.type === BREAK_TOKEN_INLINE
-				? this.breakToken.hasTrailingCollapsibleSpace
-				: false;
+		const isInlineToken = this.breakToken?.type === BREAK_TOKEN_INLINE;
+		const hasTrailingCollapsibleSpace = isInlineToken
+			? this.breakToken.hasTrailingCollapsibleSpace
+			: false;
+		const isHyphenated = isInlineToken ? this.breakToken.isHyphenated : false;
+		const hyphenateCharacter = isInlineToken ? this.breakToken.hyphenateCharacter : DEFAULT_HYPHEN;
 
 		// Build context for pseudo element suppression at split boundaries
 		const isContinuation =
@@ -184,6 +186,14 @@ export class Fragment {
 			willContinue: !!this.breakToken,
 		};
 
+		const options = {
+			collapseWS,
+			pseudoContext,
+			hasTrailingCollapsibleSpace,
+			isHyphenated,
+			hyphenateCharacter,
+		};
+
 		if (isAnonymous) {
 			const docFragment = document.createDocumentFragment();
 			Fragment.buildInlineContent(
@@ -192,9 +202,7 @@ export class Fragment {
 				startOffset,
 				endOffset,
 				docFragment,
-				collapseWS,
-				pseudoContext,
-				hasTrailingCollapsibleSpace,
+				options,
 			);
 			parentEl.appendChild(docFragment);
 		} else {
@@ -208,9 +216,7 @@ export class Fragment {
 				startOffset,
 				endOffset,
 				el,
-				collapseWS,
-				pseudoContext,
-				hasTrailingCollapsibleSpace,
+				options,
 			);
 			parentEl.appendChild(el);
 		}
@@ -448,10 +454,15 @@ export class Fragment {
 	 * @param {number} startOffset - visible range start (from input break token)
 	 * @param {number} endOffset - visible range end (from output break token)
 	 * @param {Element} container - DOM element to append content into
-	 * @param {boolean} [collapseWS=false] - collapse whitespace runs
-	 * @param {Object|null} [pseudoContext=null] - pseudo element suppression context
-	 * @param {boolean} [hasTrailingCollapsibleSpace=false] - trim one trailing
-	 *   space from the last rendered text node when set by the layout layer
+	 * @param {Object} [options]
+	 * @param {boolean} [options.collapseWS=false] - collapse whitespace runs
+	 * @param {Object|null} [options.pseudoContext=null] - pseudo element suppression context
+	 * @param {boolean} [options.hasTrailingCollapsibleSpace=false] - trim one
+	 *   trailing space from the last rendered text node
+	 * @param {boolean} [options.isHyphenated=false] - append a hyphen glyph
+	 *   after the last rendered text node (stripping a trailing soft hyphen first)
+	 * @param {string} [options.hyphenateCharacter=DEFAULT_HYPHEN] - glyph to
+	 *   append when `isHyphenated` is true
 	 */
 	static buildInlineContent(
 		items,
@@ -459,9 +470,13 @@ export class Fragment {
 		startOffset,
 		endOffset,
 		container,
-		collapseWS = false,
-		pseudoContext = null,
-		hasTrailingCollapsibleSpace = false,
+		{
+			collapseWS = false,
+			pseudoContext = null,
+			hasTrailingCollapsibleSpace = false,
+			isHyphenated = false,
+			hyphenateCharacter = DEFAULT_HYPHEN,
+		} = {},
 	) {
 		let current = container;
 		const stack = [];
@@ -557,6 +572,14 @@ export class Fragment {
 			if (t.length > 0 && t.charCodeAt(t.length - 1) === 0x20) {
 				lastTextNode.textContent = t.slice(0, -1);
 			}
+		}
+
+		if (lastTextNode && isHyphenated) {
+			let t = lastTextNode.textContent;
+			if (t.length > 0 && t.charCodeAt(t.length - 1) === 0x00ad) {
+				t = t.slice(0, -1);
+			}
+			lastTextNode.textContent = t + hyphenateCharacter;
 		}
 	}
 }

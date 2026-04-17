@@ -427,7 +427,8 @@ For inline formatting contexts (text and inline-level boxes). Key fields:
 
 - **`itemIndex`** -- index into the flat `InlineItemsData.items` array
 - **`textOffset`** -- offset into `InlineItemsData.textContent` (resume cursor: points at the first character of the next fragmentainer, not the last of the current one)
-- **`isHyphenated`** -- break falls mid-word (soft hyphen or `hyphens: auto` dictionary break)
+- **`isHyphenated`** -- break falls mid-word; set only when the containing text's CSS `hyphens` allows it (`manual` requires a soft hyphen at the break; `auto` also flags dictionary breaks; `none` never flags). Render layer appends `hyphenateCharacter` to page N's last text node
+- **`hyphenateCharacter`** -- resolved glyph to append (parsed from the CSS `hyphenate-character` computed value; defaults to U+2010 HYPHEN when `auto`)
 - **`hasTrailingCollapsibleSpace`** -- a collapsible line-end space sits at `textOffset - 1`; the render layer trims it from page N's last text node (CSS Text §4.1.1 — `white-space` values `normal`, `nowrap`, `pre-line`, `pre-wrap`)
 
 These are **content-addressed**, not geometry-addressed. The token says "resume

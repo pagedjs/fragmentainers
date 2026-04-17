@@ -1,4 +1,4 @@
-import { BlockBreakToken, InlineBreakToken } from "../fragmentation/tokens.js";
+import { BlockBreakToken, InlineBreakToken, DEFAULT_HYPHEN } from "../fragmentation/tokens.js";
 import { Fragment } from "../fragmentation/fragment.js";
 import { BreakScore } from "../fragmentation/break-scoring.js";
 import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../measurement/collect-inlines.js";
@@ -43,6 +43,45 @@ function skipLeadingCollapsibleSpace(items, textContent, flatOffset) {
 		flatOffset += 1;
 	}
 	return flatOffset;
+}
+
+/**
+ * Classify the break as hyphenated, honoring the containing item's
+ * `hyphens` CSS property. Returns the resolved `hyphenate-character`
+ * glyph (ready to render) or null when the break is not hyphenated.
+ *
+ * `hyphens: manual` → soft-hyphen (U+00AD) break points only
+ * `hyphens: auto`   → soft-hyphen OR mid-word dictionary breaks
+ * `hyphens: none`   → never hyphenated
+ */
+function computeHyphenation(items, textContent, flatOffset) {
+	if (flatOffset <= 0 || flatOffset >= textContent.length) return null;
+	const loc = findItemAtOffset(items, flatOffset - 1);
+	if (!loc) return null;
+
+	const hyphens = loc.item.hyphens || "manual";
+	if (hyphens === "none") return null;
+
+	const before = textContent.charCodeAt(flatOffset - 1);
+	const after = textContent.charCodeAt(flatOffset);
+	const isWordChar = (c) => c > 0x20 && c !== 0x00ad;
+	const softHyphenBefore = before === 0x00ad;
+	const midWord = isWordChar(before) && isWordChar(after);
+
+	const hyphenated = softHyphenBefore || (hyphens === "auto" && midWord);
+	if (!hyphenated) return null;
+
+	return resolveHyphenateCharacter(loc.item.hyphenateCharacter);
+}
+
+// Computed style serializes `<string>` with quotes intact (e.g. `"-"`,
+// `"\u2053"`) and passes CSS escape sequences through unevaluated. This
+// strips one layer of straight quotes; it does not re-evaluate escapes
+// or handle escaped quotes within the string.
+function resolveHyphenateCharacter(raw) {
+	if (!raw || raw === "auto") return DEFAULT_HYPHEN;
+	const m = raw.match(/^"(.*)"$|^'(.*)'$/);
+	return m ? (m[1] ?? m[2]) : raw;
 }
 
 /**
@@ -406,16 +445,14 @@ export class InlineContentAlgorithm {
 			inlineToken.textOffset = this.#textOffset;
 			inlineToken.hasTrailingCollapsibleSpace = this.#hasTrailingCollapsibleSpace;
 
-			// Detect mid-word break: non-whitespace/non-control text characters
-			// on both sides of the break offset indicate a hyphenated break
-			// (soft hyphen, hyphens:auto dictionary break, etc.)
-			if (this.#textOffset > 0 && this.#textOffset < inlineItems.textContent.length) {
-				const before = inlineItems.textContent.charCodeAt(this.#textOffset - 1);
-				const after = inlineItems.textContent.charCodeAt(this.#textOffset);
-				const isTextChar = (c) => c > 0x20 && c !== 0x00ad;
-				if (isTextChar(before) && isTextChar(after)) {
-					inlineToken.isHyphenated = true;
-				}
+			const hyphen = computeHyphenation(
+				inlineItems.items,
+				inlineItems.textContent,
+				this.#textOffset,
+			);
+			if (hyphen) {
+				inlineToken.isHyphenated = true;
+				inlineToken.hyphenateCharacter = hyphen;
 			}
 
 			fragment.breakToken = inlineToken;

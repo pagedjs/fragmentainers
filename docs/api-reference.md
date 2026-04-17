@@ -669,13 +669,14 @@ changes between fragmentainers.
 new InlineBreakToken(node);
 ```
 
-| Property                      | Type      | Default | Description                                                                                     |
-| ----------------------------- | --------- | ------- | ----------------------------------------------------------------------------------------------- |
-| `itemIndex`                   | `number`  | `0`     | Index into `InlineItemsData.items`                                                              |
-| `textOffset`                  | `number`  | `0`     | Character offset into `InlineItemsData.textContent`                                             |
-| `flags`                       | `number`  | `0`     | Bitfield for internal state                                                                     |
-| `isHyphenated`                | `boolean` | `false` | Line was broken with a hyphen                                                                   |
-| `hasTrailingCollapsibleSpace` | `boolean` | `false` | Trim one trailing space from page N's last text node at render time (CSS Text §4.1.1)           |
+| Property                      | Type      | Default    | Description                                                                                     |
+| ----------------------------- | --------- | ---------- | ----------------------------------------------------------------------------------------------- |
+| `itemIndex`                   | `number`  | `0`        | Index into `InlineItemsData.items`                                                              |
+| `textOffset`                  | `number`  | `0`        | Character offset into `InlineItemsData.textContent`                                             |
+| `flags`                       | `number`  | `0`        | Bitfield for internal state                                                                     |
+| `isHyphenated`                | `boolean` | `false`    | Break is mid-word; render layer appends `hyphenateCharacter` to page N's last text node         |
+| `hyphenateCharacter`          | `string`  | `"\u2010"` | Glyph appended when `isHyphenated` is true (resolved from the containing item's `hyphenate-character`) |
+| `hasTrailingCollapsibleSpace` | `boolean` | `false`    | Trim one trailing space from page N's last text node at render time (CSS Text §4.1.1)           |
 
 ---
 
@@ -751,7 +752,7 @@ clone→source pair in the handler registry's shared map. Used by handlers
 | `inputBreakToken` | `BreakToken \| null` | Break token from the previous fragmentainer |
 | `composedParent`  | `Element`            | The composed DOM parent to walk in parallel |
 
-### Fragment.buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS?, pseudoContext?, hasTrailingCollapsibleSpace?)
+### Fragment.buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS?, pseudoContext?, hasTrailingCollapsibleSpace?, isHyphenated?, hyphenateCharacter?)
 
 Static method. Reconstructs DOM from the flat `InlineItemsData` list within
 break token offset ranges.
@@ -766,6 +767,8 @@ break token offset ranges.
 | `collapseWS`                  | `boolean`      | Collapse whitespace runs inside each text slice (default `false`)                                              |
 | `pseudoContext`               | `object\|null` | `{ isContinuation, willContinue }` — suppress `::before` on continuations and `::after` on non-last fragments  |
 | `hasTrailingCollapsibleSpace` | `boolean`      | Trim one trailing space from the last rendered text node (default `false`); set by the inline layout algorithm |
+| `isHyphenated`                | `boolean`      | Append `hyphenateCharacter` to the last rendered text node (default `false`); stripping a trailing U+00AD first |
+| `hyphenateCharacter`          | `string`       | Glyph appended when `isHyphenated` is true (default `"\u2010"`)                                                |
 
 ### Fragment.hasBlockChildren
 

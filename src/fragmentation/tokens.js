@@ -1,6 +1,11 @@
 export const BREAK_TOKEN_BLOCK = "block";
 export const BREAK_TOKEN_INLINE = "inline";
 
+// U+2010 HYPHEN — the spec default glyph rendered at a hyphenated break
+// when `hyphenate-character: auto`. Used as a fallback anywhere a concrete
+// glyph is required but the computed value is unavailable.
+export const DEFAULT_HYPHEN = "\u2010";
+
 /**
  * Base break token — continuation token for layout.
  * When a node's content doesn't fit in the current fragmentainer,
@@ -89,6 +94,7 @@ export class InlineBreakToken extends BreakToken {
 		this.textOffset = 0; // offset into InlineItemsData.textContent
 		this.flags = 0; // inline-specific state bits
 		this.isHyphenated = false; // true when break follows a soft hyphen (U+00AD)
+		this.hyphenateCharacter = DEFAULT_HYPHEN; // glyph to append on page N when isHyphenated
 		/**
 		 * When true, the render layer trims one trailing space from the
 		 * last text node of page N. Set by the layout layer when the

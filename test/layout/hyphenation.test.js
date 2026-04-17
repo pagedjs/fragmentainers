@@ -239,4 +239,155 @@ test.describe("Inline break offset normalization", () => {
 
 		expect(result.whiteSpace).toBe("pre");
 	});
+
+	test("hyphens + hyphenateCharacter propagate onto inline items", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { collectInlineItems, INLINE_TEXT } = await import(
+				"/src/measurement/collect-inlines.js"
+			);
+			const container = document.createElement("div");
+			container.style.cssText = "position: absolute; left: -9999px; top: 0;";
+			document.body.appendChild(container);
+
+			const p = document.createElement("p");
+			p.style.cssText =
+				'hyphens: auto; -webkit-hyphens: auto; hyphenate-character: "\u2053"; -webkit-hyphenate-character: "\u2053";';
+			p.textContent = "hello world";
+			container.appendChild(p);
+
+			const { items } = collectInlineItems(p.childNodes);
+			const textItem = items.find((it) => it.type === INLINE_TEXT);
+
+			container.remove();
+			return { hyphens: textItem?.hyphens, hyphenateCharacter: textItem?.hyphenateCharacter };
+		});
+
+		expect(result.hyphens).toBe("auto");
+		// Computed style returns the string with surrounding quotes; we parse
+		// it at break time via resolveHyphenateCharacter.
+		expect(result.hyphenateCharacter).toContain("\u2053");
+	});
+});
+
+test.describe("Hyphenation rendering", () => {
+	test("auto hyphenation injects a hyphen on page N", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+
+			document.documentElement.setAttribute("lang", "en");
+
+			const frag = document.createDocumentFragment();
+			const p = document.createElement("p");
+			p.style.cssText =
+				"width: 150px; font: 24px serif; line-height: 28px; margin: 0; padding: 0; hyphens: auto; -webkit-hyphens: auto;";
+			p.lang = "en";
+			p.textContent = "antidisestablishmentarianism";
+			frag.appendChild(p);
+
+			const flow = new FragmentedFlow(frag, { width: 150, height: 28, styles: [] });
+			const pages = [];
+			for (const el of flow) {
+				pages.push(el);
+				if (pages.length > 20) break;
+			}
+			const page1Text = pages[0].shadowRoot.querySelector("p").textContent;
+			const page2Text = pages[1].shadowRoot.querySelector("p").textContent;
+			flow.destroy();
+			return { pageCount: pages.length, page1Text, page2Text };
+		});
+
+		expect(result.pageCount).toBeGreaterThanOrEqual(2);
+		expect(result.page1Text.endsWith("\u2010")).toBe(true);
+		expect(/^[a-z]/i.test(result.page2Text)).toBe(true);
+	});
+
+	test("manual hyphenation — soft hyphen in source renders as a visible hyphen", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+
+			const frag = document.createDocumentFragment();
+			const p = document.createElement("p");
+			p.style.cssText =
+				"width: 200px; font: 24px serif; line-height: 28px; margin: 0; padding: 0; hyphens: manual; -webkit-hyphens: manual;";
+			// Long word with a single soft hyphen; the browser will break at
+			// the soft hyphen when neither half fits on a single line alone.
+			p.textContent = "establish\u00ADmentarianism";
+			frag.appendChild(p);
+
+			const flow = new FragmentedFlow(frag, { width: 200, height: 28, styles: [] });
+			const pages = [];
+			for (const el of flow) {
+				pages.push(el);
+				if (pages.length > 20) break;
+			}
+			const page1Text = pages[0].shadowRoot.querySelector("p").textContent;
+			const page2Text = pages[1].shadowRoot.querySelector("p").textContent;
+			flow.destroy();
+			return { pageCount: pages.length, page1Text, page2Text };
+		});
+
+		expect(result.pageCount).toBeGreaterThanOrEqual(2);
+		expect(result.page1Text.endsWith("\u2010")).toBe(true);
+		expect(result.page1Text.includes("\u00ad")).toBe(false);
+		expect(result.page2Text.startsWith("mentarianism")).toBe(true);
+	});
+
+	test("hyphens: none suppresses the injected hyphen", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+
+			document.documentElement.setAttribute("lang", "en");
+
+			const frag = document.createDocumentFragment();
+			const p = document.createElement("p");
+			p.style.cssText =
+				"width: 150px; font: 24px serif; line-height: 28px; margin: 0; padding: 0; hyphens: none; -webkit-hyphens: none; overflow-wrap: anywhere;";
+			p.lang = "en";
+			p.textContent = "antidisestablishmentarianism";
+			frag.appendChild(p);
+
+			const flow = new FragmentedFlow(frag, { width: 150, height: 28, styles: [] });
+			const pages = [];
+			for (const el of flow) {
+				pages.push(el);
+				if (pages.length > 20) break;
+			}
+			const page1Text = pages[0].shadowRoot.querySelector("p").textContent;
+			flow.destroy();
+			return { pageCount: pages.length, page1Text };
+		});
+
+		expect(result.pageCount).toBeGreaterThanOrEqual(2);
+		expect(result.page1Text.endsWith("\u2010")).toBe(false);
+	});
+
+	test("custom hyphenate-character is used instead of U+2010", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+
+			const frag = document.createDocumentFragment();
+			const p = document.createElement("p");
+			p.style.cssText =
+				'width: 200px; font: 24px serif; line-height: 28px; margin: 0; padding: 0; hyphens: manual; -webkit-hyphens: manual; hyphenate-character: "\u2053"; -webkit-hyphenate-character: "\u2053";';
+			p.textContent = "establish\u00ADmentarianism";
+			frag.appendChild(p);
+
+			const flow = new FragmentedFlow(frag, { width: 200, height: 28, styles: [] });
+			const pages = [];
+			for (const el of flow) {
+				pages.push(el);
+				if (pages.length > 20) break;
+			}
+			const page1Text = pages[0].shadowRoot.querySelector("p").textContent;
+			flow.destroy();
+			return { pageCount: pages.length, page1Text };
+		});
+
+		expect(result.pageCount).toBeGreaterThanOrEqual(2);
+		// U+2053 SWUNG DASH is our chosen test glyph.
+		expect(result.page1Text.endsWith("\u2053")).toBe(true);
+		expect(result.page1Text.endsWith("\u2010")).toBe(false);
+	});
 });
