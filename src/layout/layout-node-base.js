@@ -158,6 +158,9 @@ export class LayoutNode {
 	get inlineItemsData() {
 		return null;
 	}
+	measureLines() {
+		return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [] };
+	}
 	get cells() {
 		return [];
 	}

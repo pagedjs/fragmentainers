@@ -45,17 +45,27 @@ export function getTargetDevicePixelRatio() {
 // Line measurement
 
 /**
- * Measure rendered line boxes in an element using getClientRects().
- *
- * Returns the line count, the array of line-box tops (absolute Y),
- * an accurate line height measured from the gap between the last two
- * line tops, and the first line box height (for single-line fallback).
- * Measuring from the last two tops avoids first-line distortion from
- * ::before pseudo-elements or mixed metrics.
- *
- * The `tops` array lets callers read exact line positions rather than
- * extrapolating from a single lineHeight — extrapolation accumulates
- * sub-pixel drift across many lines.
+ * Reduce a DOMRectList (one rect per rendered line-box) to line tops.
+ * `tops` lets callers read exact line positions rather than extrapolating
+ * from a single lineHeight — extrapolation accumulates sub-pixel drift
+ * across many lines. Line-height is taken from the gap between the last
+ * two tops to avoid first-line distortion from ::before pseudo-elements
+ * or mixed metrics.
+ */
+function reduceRectsToLines(rects) {
+	if (rects.length === 0) return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [] };
+
+	const tops = [rects[0].top];
+	for (let i = 1; i < rects.length; i++) {
+		if (rects[i].top > tops[tops.length - 1]) tops.push(rects[i].top);
+	}
+
+	const lineHeight = tops.length >= 2 ? tops[tops.length - 1] - tops[tops.length - 2] : 0;
+	return { count: tops.length, lineHeight, firstLineHeight: rects[0].height, tops };
+}
+
+/**
+ * Measure rendered line boxes inside an element.
  *
  * @param {Element} element
  * @returns {{ count: number, lineHeight: number, firstLineHeight: number, tops: number[] }}
@@ -63,22 +73,25 @@ export function getTargetDevicePixelRatio() {
 export function measureLines(element) {
 	const range = document.createRange();
 	range.selectNodeContents(element);
-	const rects = range.getClientRects();
-	if (rects.length === 0) return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [] };
+	return reduceRectsToLines(range.getClientRects());
+}
 
-	const tops = [rects[0].top];
-	for (let i = 1; i < rects.length; i++) {
-		if (rects[i].top > tops[tops.length - 1]) {
-			tops.push(rects[i].top);
-		}
+/**
+ * Measure rendered line boxes spanning a contiguous run of DOM nodes — used
+ * by anonymous block boxes, which wrap inline content without a backing
+ * element (CSS 2.1 §9.2.1.1).
+ *
+ * @param {Node[]} nodes - the anonymous block's inline child nodes
+ * @returns {{ count: number, lineHeight: number, firstLineHeight: number, tops: number[] }}
+ */
+export function measureLinesAcrossNodes(nodes) {
+	if (!nodes || nodes.length === 0) {
+		return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [] };
 	}
-
-	let lineHeight = 0;
-	if (tops.length >= 2) {
-		lineHeight = tops[tops.length - 1] - tops[tops.length - 2];
-	}
-
-	return { count: tops.length, lineHeight, firstLineHeight: rects[0].height, tops };
+	const range = document.createRange();
+	range.setStartBefore(nodes[0]);
+	range.setEndAfter(nodes[nodes.length - 1]);
+	return reduceRectsToLines(range.getClientRects());
 }
 
 /**

@@ -1,5 +1,9 @@
 import { collectInlineItems } from "../measurement/collect-inlines.js";
-import { getLineHeight, getSharedMeasurer } from "../measurement/line-box.js";
+import {
+	getLineHeight,
+	getSharedMeasurer,
+	measureLinesAcrossNodes,
+} from "../measurement/line-box.js";
 import { LayoutNode } from "./layout-node-base.js";
 
 /**
@@ -53,5 +57,9 @@ export class AnonymousBlockNode extends LayoutNode {
 		range.setStartBefore(nodes[0]);
 		range.setEndAfter(nodes[nodes.length - 1]);
 		return range.getBoundingClientRect();
+	}
+
+	measureLines() {
+		return measureLinesAcrossNodes(this.#childNodes);
 	}
 }

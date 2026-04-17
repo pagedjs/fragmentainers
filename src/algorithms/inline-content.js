@@ -4,7 +4,6 @@ import { BreakScore } from "../fragmentation/break-scoring.js";
 import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../measurement/collect-inlines.js";
 import { DEFAULT_OVERFLOW_THRESHOLD } from "../fragmentation/fragmentation-context.js";
 import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
-import { measureLines } from "../measurement/line-box.js";
 
 /**
  * Given a flat textContent offset, find the kText item that contains it
@@ -279,10 +278,9 @@ export class InlineContentAlgorithm {
 			// so deriving line count from content height over-counts. Use actual
 			// line-box enumeration instead.
 			const contentHeight = totalHeight - boxStart - boxEnd;
-			const totalLines =
-				this.#node.isTableCell && element
-					? measureLines(element).count
-					: Math.round(contentHeight / lineHeight);
+			const totalLines = this.#node.isTableCell
+				? this.#node.measureLines().count
+				: Math.round(contentHeight / lineHeight);
 			this.#consumedLines = isFirstFragment
 				? 0
 				: Math.round(Math.max(0, consumedHeight - boxStart) / lineHeight);
@@ -302,14 +300,13 @@ export class InlineContentAlgorithm {
 
 		// SLOW PATH — content breaks. Use accurate gap-based line height
 		// from measureLines() to determine exactly how many lines fit.
-		const measured = element ? measureLines(element) : null;
-		const accurateLineHeight =
-			measured && measured.lineHeight > 0 ? measured.lineHeight : lineHeight;
+		// The node abstracts measurement over its Range (DOMLayoutNode)
+		// or child-node span (AnonymousBlockNode).
+		const measured = this.#node.measureLines();
+		const accurateLineHeight = measured.lineHeight > 0 ? measured.lineHeight : lineHeight;
 		const contentHeight = totalHeight - boxStart - boxEnd;
 		const totalLines =
-			measured && measured.count > 0
-				? measured.count
-				: Math.round(contentHeight / accurateLineHeight);
+			measured.count > 0 ? measured.count : Math.round(contentHeight / accurateLineHeight);
 
 		this.#consumedLines = isFirstFragment
 			? 0
