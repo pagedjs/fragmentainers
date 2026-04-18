@@ -1,4 +1,7 @@
 import { LayoutHandler } from "./handler.js";
+import { FragmentFlow } from "../fragmentation/fragment-flow.js";
+import { DOMLayoutNode } from "../layout/layout-node.js";
+import { parseNumeric } from "../styles/css-values.js";
 
 const FOOTNOTE_STYLES = `
 [data-footnote-call] {
@@ -16,15 +19,11 @@ const FOOTNOTE_STYLES = `
 [data-footnote-marker]::marker {
   content: counter(footnote) ". ";
 }
+[data-footnote-continuation]::marker {
+  content: "";
+}
 `;
 
-/**
- * Walk a break token chain to find the deepest element at the break
- * boundary. This is the DOM element where content was split or pushed.
- *
- * @param {import('../fragmentation/tokens.js').BreakToken|null} breakToken
- * @returns {Element|null}
- */
 function getBreakBoundaryElement(breakToken) {
 	if (!breakToken) return null;
 	let token = breakToken;
@@ -34,54 +33,65 @@ function getBreakBoundaryElement(breakToken) {
 	return token.node?.element ?? null;
 }
 
+function readFootnotePolicy(bodyElement) {
+	const raw = getComputedStyle(bodyElement).getPropertyValue("--footnote-policy").trim();
+	if (raw === "line" || raw === "block") return raw;
+	return "auto";
+}
+
 /**
- * Layout handler for CSS footnotes (css-gcpm-3 Section 2).
+ * Layout handler for CSS footnotes (css-gcpm-3 §2).
  *
- * Elements styled with `float: footnote` are removed from the content
- * flow during preprocessing, replaced with inline call markers, and
- * their bodies placed in a footnote area at the page bottom during
- * rendering.
+ * Preprocessing: elements matching `--float: footnote` are removed from
+ * the main flow and replaced with inline `<a data-footnote-call>` markers;
+ * bodies are stashed in a hidden `<content-measure>`.
  *
- * Uses an iterative layout approach: after content layout, the handler
- * checks which footnote calls landed on the page and requests block-end
- * space for their bodies. The fragmentainer driver re-runs layout with
- * the updated reservation until it stabilises.
+ * Layout: delegated to a `FragmentFlow` driven by FragmentedFlow's parallel
+ * flow coordinator. The coordinator calls `extractFlowChildren` per page to
+ * enqueue bodies whose calls landed on the page, runs the flow into the
+ * footnote area cap, and invokes `composeFlowFragment` to place the result
+ * at the bottom of the page wrapper.
+ *
+ * `--footnote-policy` (per body):
+ * - `auto` (default): body may split across pages via the flow's break
+ *   token carryover.
+ * - `line` / `block`: body is marked `break-inside: avoid`; if it doesn't
+ *   fit, the flow rejects it and the coordinator pushes the call's
+ *   containing block to the next page.
  */
 class Footnote extends LayoutHandler {
-	/** @type {Map<string, { callElement: Element, bodyElement: Element, blockSize: number }>} */
 	#footnoteMap = new Map();
-
-	/** @type {string[]} Call IDs in document order */
-	#allCalls = [];
-
-	/** @type {CSSStyleSheet[]} Set by HandlerRegistry.processRules() */
-	styles = null;
-
-	/** @type {Element|null} Dedicated <content-measure> for footnote bodies */
 	#measurer = null;
-
-	/** @type {boolean} Whether body heights have been measured */
-	#measured = false;
-
-	/** @type {CSSStyleSheet|null} Default footnote stylesheet */
+	#flow = new FragmentFlow();
+	#pushedCalls = new WeakSet();
 	#defaultSheet = null;
-
-	/** @type {string[]} Selectors accumulated from matchRule */
 	#footnoteSelectors = [];
+	#footnoteMaxHeight = null;
+	styles = null;
 
 	resetRules() {
 		this.#footnoteSelectors = [];
+		this.#footnoteMaxHeight = null;
 	}
 
 	matchRule(rule) {
 		if (rule.style.getPropertyValue("--float").trim() === "footnote") {
 			this.#footnoteSelectors.push(rule.selectorText);
 		}
+		// Custom properties are stripped from @page (CSS Paged Media §3.2), so
+		// --footnote-max-height is declared on :root / html and read once here.
+		const sel = rule.selectorText;
+		if (sel === ":root" || sel === "html") {
+			const raw = rule.style.getPropertyValue("--footnote-max-height").trim();
+			if (raw) {
+				const val = parseNumeric(raw)?.to("px").value;
+				if (val != null) this.#footnoteMaxHeight = val;
+			}
+		}
 	}
 
 	appendRules(rules) {
 		if (this.#footnoteSelectors.length === 0) return;
-		// Parse the constant CSS through a temp sheet to get valid rule text
 		if (!this.#defaultSheet) {
 			this.#defaultSheet = new CSSStyleSheet();
 			this.#defaultSheet.replaceSync(FOOTNOTE_STYLES);
@@ -91,15 +101,9 @@ class Footnote extends LayoutHandler {
 		}
 	}
 
-	/**
-	 * Extract matching elements from the content tree and insert call
-	 * markers in their place. Bodies are stored for separate measurement.
-	 */
 	claimPersistent(content) {
 		this.#footnoteMap.clear();
-		this.#allCalls = [];
-		this.#measured = false;
-
+		this.#flow.destroy();
 		if (this.#measurer) {
 			this.#measurer.remove();
 			this.#measurer = null;
@@ -115,13 +119,11 @@ class Footnote extends LayoutHandler {
 			} catch {
 				continue;
 			}
-
 			for (const el of elements) {
 				if (el.hasAttribute("data-footnote-body")) continue;
 				if (!el.parentNode) continue;
 
 				const id = `fn-${counter++}`;
-
 				const call = document.createElement("a");
 				call.setAttribute("data-footnote-call", id);
 				el.parentNode.insertBefore(call, el);
@@ -132,12 +134,11 @@ class Footnote extends LayoutHandler {
 				this.#footnoteMap.set(id, {
 					callElement: call,
 					bodyElement: el,
-					blockSize: 0,
+					bodyNode: null,
+					policy: "auto",
 				});
-				this.#allCalls.push(id);
 			}
 		}
-
 		return [];
 	}
 
@@ -152,104 +153,48 @@ class Footnote extends LayoutHandler {
 		return false;
 	}
 
-	claim(node) {
-		return node.getCustomProperty("float") === "footnote";
+	getFlow() {
+		if (this.#footnoteMap.size === 0) return null;
+		return this.#flow;
 	}
 
-	layout() {
-		return { reservedBlockStart: 0, reservedBlockEnd: 0, afterRender: null };
+	getFlowCap() {
+		return this.#footnoteMaxHeight ?? Infinity;
 	}
 
-	afterContentLayout(fragment, constraintSpace, inputBreakToken) {
-		if (this.#allCalls.length === 0) return null;
+	extractFlowChildren(mainFragment, inputBreakToken, cap) {
+		if (this.#footnoteMap.size === 0) return { children: [], pushForward: [] };
+		this.#ensureBodiesAttached(mainFragment);
 
-		if (!this.#measured) {
-			this.#measureBodies(constraintSpace);
-		}
-
-		const callsOnPage = this.#findCallsOnPage(inputBreakToken, fragment.breakToken);
-
-		if (callsOnPage.length === 0) return null;
-
-		const reservedBlockEnd = callsOnPage.reduce(
-			(sum, id) => sum + this.#footnoteMap.get(id).blockSize,
-			0,
-		);
-
-		const capturedCalls = [...callsOnPage];
-		return {
-			reservedBlockEnd,
-			afterRender: (wrapper) => this.#renderFootnotes(capturedCalls, wrapper),
-		};
-	}
-
-	/**
-	 * Create a dedicated <content-measure> for footnote bodies,
-	 * insert them, and read their block sizes.
-	 */
-	#measureBodies(constraintSpace) {
-		const measurer = document.createElement("content-measure");
-		measurer.classList.add("footnotes");
-		measurer.setupEmpty(this.styles);
-		measurer.style.width = `${constraintSpace.availableInlineSize}px`;
-
-		for (const [, entry] of this.#footnoteMap) {
-			// Override display:none from the CSS rewrite so bodies are measurable
-			entry.bodyElement.style.setProperty("display", "block");
-			measurer.contentRoot.appendChild(entry.bodyElement);
-		}
-
-		document.body.appendChild(measurer);
-		void measurer.offsetHeight;
-
-		for (const [, entry] of this.#footnoteMap) {
-			entry.blockSize = entry.bodyElement.offsetHeight;
-		}
-
-		this.#measurer = measurer;
-		this.#measured = true;
-	}
-
-	/**
-	 * Determine which footnote calls fall within the content placed on
-	 * this page by comparing call positions to the break boundaries.
-	 *
-	 * Uses Node.compareDocumentPosition() for correct ordering at any
-	 * nesting depth. A call is on this page if it comes at or after the
-	 * input boundary and before the output boundary.
-	 */
-	#findCallsOnPage(inputBreakToken, outputBreakToken) {
 		const startBoundary = getBreakBoundaryElement(inputBreakToken);
-		const endBoundary = getBreakBoundaryElement(outputBreakToken);
+		const endBoundary = getBreakBoundaryElement(mainFragment.breakToken ?? null);
 
-		return this.#allCalls.filter((id) => {
-			const callEl = this.#footnoteMap.get(id).callElement;
-
-			if (startBoundary) {
-				const pos = startBoundary.compareDocumentPosition(callEl);
-				// Call must follow or equal the start boundary
-				if (pos !== 0 && !(pos & Node.DOCUMENT_POSITION_FOLLOWING)) {
-					return false;
-				}
+		const children = [];
+		const pushForward = [];
+		for (const [, entry] of this.#footnoteMap) {
+			if (!isWithinBoundaries(entry.callElement, startBoundary, endBoundary)) continue;
+			// `line` / `block` policy: push the call's containing block to the
+			// next page when the body exceeds the cap — but only once per call.
+			// After a push the body renders via auto-style splitting on the
+			// next page; otherwise a body larger than the fragmentainer would
+			// push its call forward on every page and never render.
+			const needsPush =
+				entry.policy !== "auto" &&
+				entry.bodyElement.offsetHeight > cap &&
+				!this.#pushedCalls.has(entry.callElement);
+			if (needsPush) {
+				pushForward.push(entry.callElement);
+				this.#pushedCalls.add(entry.callElement);
+				continue;
 			}
-
-			if (endBoundary) {
-				const pos = callEl.compareDocumentPosition(endBoundary);
-				// End boundary must follow or equal the call
-				if (pos !== 0 && !(pos & Node.DOCUMENT_POSITION_FOLLOWING)) {
-					return false;
-				}
-			}
-
-			return true;
-		});
+			children.push(entry.bodyNode);
+		}
+		return { children, pushForward };
 	}
 
-	/**
-	 * Render footnote bodies into a footnote area at the bottom of the
-	 * fragmentainer wrapper.
-	 */
-	#renderFootnotes(callIds, wrapper) {
+	composeFlowFragment(wrapper, flowFragment, flowInputBreakToken) {
+		if (!flowFragment || flowFragment.blockSize === 0) return;
+
 		const area = document.createElement("div");
 		area.classList.add("footnote-area");
 		area.style.setProperty("position", "absolute");
@@ -257,30 +202,84 @@ class Footnote extends LayoutHandler {
 		area.style.setProperty("left", "0");
 		area.style.setProperty("right", "0");
 
-		for (const id of callIds) {
-			const entry = this.#footnoteMap.get(id);
-			const body = entry.bodyElement.cloneNode(true);
-			body.setAttribute("data-footnote-marker", "");
-			body.removeAttribute("data-footnote-body");
-			body.style.setProperty("display", "block");
-			area.appendChild(body);
-		}
+		const docFragment = flowFragment.build(flowInputBreakToken);
+		decorateForFootnoteArea(docFragment);
+		area.appendChild(docFragment);
 
 		wrapper.style.setProperty("position", "relative");
 		wrapper.appendChild(area);
 	}
 
-	/**
-	 * Clean up the footnote measurement container.
-	 */
 	destroy() {
 		if (this.#measurer) {
 			this.#measurer.remove();
 			this.#measurer = null;
 		}
 		this.#footnoteMap.clear();
-		this.#allCalls = [];
-		this.#measured = false;
+		this.#flow.destroy();
+	}
+
+	#ensureBodiesAttached(mainFragment) {
+		if (this.#measurer) return;
+		const inlineSize = mainFragment.inlineSize || 0;
+		const measurer = document.createElement("content-measure");
+		measurer.classList.add("footnotes");
+		measurer.setupEmpty(this.styles);
+		measurer.style.width = `${inlineSize}px`;
+
+		for (const [, entry] of this.#footnoteMap) {
+			entry.bodyElement.style.setProperty("display", "block");
+			measurer.contentRoot.appendChild(entry.bodyElement);
+		}
+		document.body.appendChild(measurer);
+		void measurer.offsetHeight;
+
+		for (const [, entry] of this.#footnoteMap) {
+			entry.policy = readFootnotePolicy(entry.bodyElement);
+			entry.bodyNode = new DOMLayoutNode(entry.bodyElement);
+			if (entry.policy === "line" || entry.policy === "block") {
+				entry.bodyNode.breakInside = "avoid";
+			}
+		}
+		this.#measurer = measurer;
+	}
+}
+
+function isWithinBoundaries(callElement, start, end) {
+	if (start) {
+		const pos = start.compareDocumentPosition(callElement);
+		if (pos !== 0 && !(pos & Node.DOCUMENT_POSITION_FOLLOWING)) return false;
+	}
+	if (end) {
+		const pos = callElement.compareDocumentPosition(end);
+		if (pos !== 0 && !(pos & Node.DOCUMENT_POSITION_FOLLOWING)) return false;
+	}
+	return true;
+}
+
+/**
+ * Tag bodies inside the composed fragment with `data-footnote-marker`
+ * on first slices and `data-footnote-continuation` on tails. The flow
+ * wraps continuation slices in a `overflow: hidden` clip container; we
+ * key off that to distinguish them.
+ */
+function decorateForFootnoteArea(root) {
+	const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+	let node = walker.nextNode();
+	while (node) {
+		if (node.hasAttribute("data-footnote-body")) {
+			const clip = node.parentElement;
+			const isContinuation =
+				clip && clip.style.overflow === "hidden" && node.style.marginTop.startsWith("-");
+			node.removeAttribute("data-footnote-body");
+			if (isContinuation) {
+				node.setAttribute("data-footnote-continuation", "");
+			} else {
+				node.setAttribute("data-footnote-marker", "");
+			}
+			node.style.setProperty("display", "block");
+		}
+		node = walker.nextNode();
 	}
 }
 

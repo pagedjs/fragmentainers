@@ -23,6 +23,34 @@ import "../handlers/index.js";
 const MAX_ZERO_PROGRESS = 5;
 
 /**
+ * Walk the layout tree for the deepest DOMLayoutNode whose element
+ * contains `target`. Sets `breakBefore = "page"` on it so the next
+ * main-flow iteration pushes that block to the next page. Returns
+ * true when a push was actually applied.
+ *
+ * `target` may be a LayoutNode (with `.element`) or an Element.
+ */
+function pushBlockAncestorToNextPage(rootNode, target) {
+	const targetEl = target instanceof Element ? target : (target?.element ?? null);
+	if (!targetEl) return false;
+	const ancestor = findBlockAncestor(rootNode, targetEl);
+	if (!ancestor || ancestor.breakBefore === "page") return false;
+	ancestor.breakBefore = "page";
+	return true;
+}
+
+function findBlockAncestor(node, targetEl) {
+	if (!node) return null;
+	for (const child of node.children) {
+		const el = child.element;
+		if (el && (el === targetEl || el.contains(targetEl))) {
+			return findBlockAncestor(child, targetEl) ?? child;
+		}
+	}
+	return null;
+}
+
+/**
  * A fragmented flow — iterates over content, producing one
  * <fragment-container> element per fragmentainer.
  *
@@ -76,6 +104,7 @@ export class FragmentedFlow extends Iterator {
 	#measurer = null;
 	#measureElement = null;
 	#breakToken = null;
+	#mainDone = false;
 	#fragmentainerIndex = 0;
 	#counterState = null;
 	#contentStyles = null;
@@ -195,8 +224,12 @@ export class FragmentedFlow extends Iterator {
 			this.#zeroProgressCount = 0;
 		}
 
-		// Check if this is the last fragment
-		if (fragment.breakToken === null && !fragment.isBlank) {
+		// Check if this is the last fragment. Main-flow completion is tracked
+		// separately from overall completion because parallel flows may
+		// emit additional pages to drain their carryover.
+		if (fragment.breakToken === null) this.#mainDone = true;
+		const pendingFlow = handlers.getFlows().some(({ flow }) => flow.breakToken !== null);
+		if (fragment.breakToken === null && !pendingFlow && !fragment.isBlank) {
 			this.#done = true;
 			fragment.isLast = true;
 		}
@@ -254,7 +287,11 @@ export class FragmentedFlow extends Iterator {
 			if (this.#measurer) {
 				this.#measurer.advance(fragment.breakToken, this.#tree);
 			}
-		} while (fragment.breakToken !== null || fragment.isBlank);
+		} while (
+			fragment.breakToken !== null ||
+			fragment.isBlank ||
+			handlers.getFlows().some(({ flow }) => flow.breakToken !== null)
+		);
 
 		fragment.isLast = true;
 
@@ -319,7 +356,11 @@ export class FragmentedFlow extends Iterator {
 			if (this.#measurer) {
 				this.#measurer.advance(fragment.breakToken, this.#tree);
 			}
-		} while (fragment.breakToken !== null || fragment.isBlank);
+		} while (
+			fragment.breakToken !== null ||
+			fragment.isBlank ||
+			handlers.getFlows().some(({ flow }) => flow.breakToken !== null)
+		);
 
 		fragment.isLast = true;
 
@@ -348,20 +389,22 @@ export class FragmentedFlow extends Iterator {
 			const ChildAlgoClass = getLayoutAlgorithm(child);
 			return runLayoutGenerator(new ChildAlgoClass(child, cs, null));
 		};
-		const { reservedBlockStart, reservedBlockEnd, afterRenderCallbacks } = handlers.layout(
-			rootNode,
-			constraintSpace,
-			breakToken,
-			layoutChildFn,
-		);
+		const { reservedBlockStart, reservedBlockEnd, afterRenderCallbacks } = this.#mainDone
+			? { reservedBlockStart: 0, reservedBlockEnd: 0, afterRenderCallbacks: [] }
+			: handlers.layout(rootNode, constraintSpace, breakToken, layoutChildFn);
 
 		const MAX_POST_LAYOUT_ITERATIONS = 3;
+		const flowEntries = handlers.getFlows();
+		const flowReservations = flowEntries.map(() => 0);
+		let flowFragments = flowEntries.map(() => null);
+		let flowInputTokens = flowEntries.map(() => null);
 		let postLayoutReserved = 0;
 		let postLayoutCallbacks = [];
 		let result;
 
 		for (let iter = 0; iter <= MAX_POST_LAYOUT_ITERATIONS; iter++) {
-			const totalReservedEnd = reservedBlockEnd + postLayoutReserved;
+			const flowTotal = flowReservations.reduce((s, n) => s + n, 0);
+			const totalReservedEnd = reservedBlockEnd + postLayoutReserved + flowTotal;
 			let adjustedSpace = constraintSpace;
 			if (reservedBlockStart > 0 || totalReservedEnd > 0) {
 				adjustedSpace = new ConstraintSpace({
@@ -375,25 +418,89 @@ export class FragmentedFlow extends Iterator {
 				});
 			}
 
-			result = runLayoutGenerator(new RootAlgoClass(rootNode, adjustedSpace, breakToken));
-			if (result.earlyBreak) {
-				result = runLayoutGenerator(
-					new RootAlgoClass(rootNode, adjustedSpace, breakToken, result.earlyBreak),
-				);
+			if (this.#mainDone) {
+				const emptyFragment = new Fragment(rootNode, 0);
+				emptyFragment.inlineSize = adjustedSpace.availableInlineSize;
+				result = { fragment: emptyFragment, breakToken: null };
+			} else {
+				result = runLayoutGenerator(new RootAlgoClass(rootNode, adjustedSpace, breakToken));
+				if (result.earlyBreak) {
+					result = runLayoutGenerator(
+						new RootAlgoClass(rootNode, adjustedSpace, breakToken, result.earlyBreak),
+					);
+				}
 			}
 
 			const adjustment = handlers.afterContentLayout(result.fragment, constraintSpace, breakToken);
-			if (!adjustment || adjustment.reservedBlockEnd === postLayoutReserved) {
-				if (adjustment?.afterRenderCallbacks.length > 0) {
-					postLayoutCallbacks = adjustment.afterRenderCallbacks;
+			const legacyReserved = adjustment?.reservedBlockEnd ?? 0;
+			const legacyCallbacks = adjustment?.afterRenderCallbacks ?? [];
+
+			let flowsSettled = true;
+			let pushedForward = false;
+			for (let i = 0; i < flowEntries.length; i++) {
+				const { handler, flow } = flowEntries[i];
+				const cap = handler.getFlowCap(constraintSpace);
+				const save = flow.snapshot();
+				// On drainage pages (main done, flow has carry-over) we don't
+				// re-extract bodies — the flow queue already holds the in-progress
+				// item, and re-extracting would re-enqueue completed bodies from
+				// earlier pages.
+				if (!this.#mainDone) {
+					const { children, pushForward } = handler.extractFlowChildren(
+						result.fragment,
+						breakToken,
+						cap,
+					);
+					for (const el of pushForward) {
+						if (pushBlockAncestorToNextPage(rootNode, el)) pushedForward = true;
+					}
+					if (pushedForward) {
+						flowsSettled = false;
+						break;
+					}
+					flow.enqueue(children);
 				}
-				break;
+				const flowResult = flow.layoutFragmentainer({
+					availableInlineSize: constraintSpace.availableInlineSize,
+					availableBlockSize: cap,
+				});
+
+				if (flowResult.rejectedNode) {
+					flow.restore(save);
+					const pushed = pushBlockAncestorToNextPage(rootNode, flowResult.rejectedNode);
+					if (pushed) pushedForward = true;
+					flowsSettled = false;
+					continue;
+				}
+
+				const needed = flowResult.fragment.blockSize;
+				if (needed !== flowReservations[i]) {
+					flow.restore(save);
+					flowReservations[i] = needed;
+					flowsSettled = false;
+					continue;
+				}
+				flowFragments[i] = flowResult.fragment;
+				flowInputTokens[i] = flowResult.inputBreakToken;
 			}
-			postLayoutReserved = adjustment.reservedBlockEnd;
-			postLayoutCallbacks = adjustment.afterRenderCallbacks;
+
+			const settled =
+				flowsSettled && !pushedForward && legacyReserved === postLayoutReserved;
+			postLayoutReserved = legacyReserved;
+			postLayoutCallbacks = legacyCallbacks;
+			if (settled) break;
 		}
 
-		const allCallbacks = [...afterRenderCallbacks, ...postLayoutCallbacks];
+		const flowCallbacks = [];
+		for (let i = 0; i < flowEntries.length; i++) {
+			const fragment = flowFragments[i];
+			if (!fragment) continue;
+			const { handler } = flowEntries[i];
+			const inputBT = flowInputTokens[i];
+			flowCallbacks.push((wrapper) => handler.composeFlowFragment(wrapper, fragment, inputBT));
+		}
+
+		const allCallbacks = [...afterRenderCallbacks, ...postLayoutCallbacks, ...flowCallbacks];
 		if (allCallbacks.length > 0) {
 			result.fragment.afterRender = allCallbacks;
 		}
@@ -727,7 +834,10 @@ export class FragmentedFlow extends Iterator {
 			this.#measurer.release();
 			this.#measurer = null;
 		}
-		this.#measureElement?.remove();
+		// Mock-node path stubs #measureElement with a plain object, so guard remove().
+		if (typeof this.#measureElement?.remove === "function") {
+			this.#measureElement.remove();
+		}
 		this.#measureElement = null;
 	}
 }

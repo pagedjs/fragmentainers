@@ -61,6 +61,7 @@ export class DOMLayoutNode extends LayoutNode {
 	#lineHeightCache = null;
 	#borderSpacingBlock = undefined;
 	#breakBeforeOverride = null;
+	#breakInsideOverride = null;
 	#pageOverride = undefined;
 
 	constructor(element) {
@@ -323,7 +324,12 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	get breakInside() {
+		if (this.#breakInsideOverride !== null) return this.#breakInsideOverride;
 		return cssKeyword(this.#getStyleMap().get("break-inside"), "auto");
+	}
+
+	set breakInside(value) {
+		this.#breakInsideOverride = value;
 	}
 
 	get boxDecorationBreak() {

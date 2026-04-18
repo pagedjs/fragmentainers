@@ -231,6 +231,19 @@ class HandlerRegistry {
 		}
 		return hasResult ? { reservedBlockEnd, afterRenderCallbacks } : null;
 	}
+
+	/**
+	 * Return handlers that run a parallel flow, paired with their flow.
+	 * @returns {Array<{ handler: LayoutHandler, flow: import('../fragmentation/fragment-flow.js').FragmentFlow }>}
+	 */
+	getFlows() {
+		const result = [];
+		for (const handler of this.#handlers) {
+			const flow = handler.getFlow();
+			if (flow) result.push({ handler, flow });
+		}
+		return result;
+	}
 }
 
 export const handlers = new HandlerRegistry();

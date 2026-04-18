@@ -133,6 +133,51 @@ export class LayoutHandler {
 	}
 
 	/**
+	 * Return a FragmentFlow instance if this handler runs a parallel flow
+	 * (footnotes, sidenotes, etc.). Return null for handlers without a flow.
+	 *
+	 * @returns {import('../fragmentation/fragment-flow.js').FragmentFlow|null}
+	 */
+	getFlow() {
+		return null;
+	}
+
+	/**
+	 * Per-fragmentainer hook: return the LayoutNodes to enqueue into this
+	 * handler's flow for the page just laid out by the main flow, plus any
+	 * elements whose containing block should be pushed to the next page.
+	 *
+	 * @param {import('../fragmentation/fragment.js').Fragment} mainFragment
+	 * @param {import('../fragmentation/tokens.js').BreakToken|null} mainInputBreakToken
+	 * @param {number} cap — resolved block-size cap for the flow
+	 * @returns {{ children: import('../layout/layout-node-base.js').LayoutNode[], pushForward: Element[] }}
+	 */
+	extractFlowChildren() {
+		return { children: [], pushForward: [] };
+	}
+
+	/**
+	 * Cap on the flow's block-size contribution to the fragmentainer.
+	 * Returning Infinity (default) lets the flow take whatever it needs.
+	 *
+	 * @param {import('../fragmentation/constraint-space.js').ConstraintSpace} constraintSpace
+	 * @returns {number}
+	 */
+	getFlowCap() {
+		return Infinity;
+	}
+
+	/**
+	 * Compose the flow's Fragment into the fragmentainer wrapper. Called
+	 * once per page after the main fragment is composed.
+	 *
+	 * @param {Element} wrapper
+	 * @param {import('../fragmentation/fragment.js').Fragment} flowFragment
+	 * @param {import('../fragmentation/tokens.js').BreakToken|null} flowInputBreakToken
+	 */
+	composeFlowFragment() {}
+
+	/**
 	 * Clean up any resources held by this handler instance.
 	 * Called by the registry before replacing instances on re-init.
 	 */
