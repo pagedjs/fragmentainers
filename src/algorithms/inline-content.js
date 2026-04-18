@@ -203,6 +203,10 @@ export class InlineContentAlgorithm {
 
 		const fragment = new Fragment(this.#node, fits ? remaining : available);
 		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
+		// Continuation fragments (consumed > 0) always clip so only the current
+		// slice is visible. The first fragment only clips when it's about to
+		// break — if the whole element fits, no clip needed.
+		fragment.needsBlockClip = !fits || consumed > 0;
 
 		if (fits) return { fragment, breakToken: null };
 

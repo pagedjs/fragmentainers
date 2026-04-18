@@ -122,6 +122,7 @@ export class BlockContainerAlgorithm {
 			) {
 				const fragment = new Fragment(node, availableSpace);
 				fragment.inlineSize = constraintSpace.availableInlineSize;
+				fragment.needsBlockClip = true;
 				const token = new BlockBreakToken(node);
 				token.consumedBlockSize = consumed + availableSpace;
 				token.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
@@ -132,6 +133,7 @@ export class BlockContainerAlgorithm {
 
 			const fragment = new Fragment(node, remaining);
 			fragment.inlineSize = constraintSpace.availableInlineSize;
+			if (consumed > 0) fragment.needsBlockClip = true;
 			return { fragment, breakToken: null };
 		}
 

@@ -211,4 +211,58 @@ test.describe("Phase 4: Monolithic content", () => {
 		expect(result.pageCount).toBe(1);
 		expect(result.p0ChildCount).toBe(2);
 	});
+
+	test("sliced monolithic element clips each fragment to its blockSize", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+
+			const frag = document.createDocumentFragment();
+			const root = document.createElement("div");
+			root.innerHTML =
+				'<div id="tall" style="height:500px;overflow:hidden;background:#f00">tall content</div>';
+			frag.appendChild(root);
+
+			const flow = new FragmentedFlow(frag, { width: 300, height: 200 });
+			const pages = [];
+			for (const el of flow) {
+				pages.push(el);
+				if (pages.length >= 5) break;
+			}
+
+			const probe = (p) => {
+				const container = p.shadowRoot || p;
+				const tall = container.querySelector("#tall");
+				if (!tall) return null;
+				const wrapper = tall.parentElement;
+				return {
+					wrapperTag: wrapper?.tagName,
+					wrapperHeight: wrapper?.style.height,
+					wrapperOverflow: wrapper?.style.overflow,
+					tallMarginTop: tall.style.marginTop,
+				};
+			};
+
+			const out = {
+				pageCount: pages.length,
+				page1: probe(pages[0]),
+				page2: probe(pages[1]),
+				page3: probe(pages[2]),
+			};
+
+			flow.destroy();
+			return out;
+		});
+
+		expect(result.pageCount).toBeGreaterThanOrEqual(3);
+		expect(result.page1.wrapperTag).toBe("DIV");
+		expect(result.page1.wrapperOverflow).toBe("hidden");
+		expect(result.page1.wrapperHeight).toMatch(/^\d/);
+		expect(result.page1.tallMarginTop).toBe("");
+
+		expect(result.page2.wrapperOverflow).toBe("hidden");
+		expect(result.page2.tallMarginTop).toMatch(/^-\d/);
+
+		expect(result.page3.wrapperOverflow).toBe("hidden");
+		expect(result.page3.tallMarginTop).toMatch(/^-\d/);
+	});
 });

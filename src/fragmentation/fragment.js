@@ -1,4 +1,9 @@
-import { findChildBreakToken, BREAK_TOKEN_INLINE, DEFAULT_HYPHEN } from "./tokens.js";
+import {
+	findChildBreakToken,
+	BREAK_TOKEN_BLOCK,
+	BREAK_TOKEN_INLINE,
+	DEFAULT_HYPHEN,
+} from "./tokens.js";
 import {
 	INLINE_TEXT,
 	INLINE_CONTROL,
@@ -32,6 +37,7 @@ export class Fragment {
 		this.isFirst = false;
 		this.blockOffset = 0;
 		this.isLast = false;
+		this.needsBlockClip = false;
 	}
 
 	/**
@@ -112,19 +118,8 @@ export class Fragment {
 			this.#applySplitAttributes(el, inputBreakToken);
 			if (this.truncateMarginBlockStart) el.setAttribute("data-truncate-margin", "");
 			if (this.truncateMarginBlockEnd) el.setAttribute("data-truncate-margin-end", "");
-
-			// Sliced monolithic content: wrap in a clip container and offset
-			// by the consumed amount to show the correct portion.
-			const consumed = inputBreakToken?.consumedBlockSize || 0;
-			if (consumed > 0 || this.breakToken) {
-				const wrapper = document.createElement("div");
-				wrapper.style.height = `${this.blockSize}px`;
-				wrapper.style.overflow = "hidden";
-				if (consumed > 0) {
-					el.style.marginTop = `-${consumed}px`;
-				}
-				wrapper.appendChild(el);
-				parentEl.appendChild(wrapper);
+			if (this.needsBlockClip) {
+				this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
 			} else {
 				parentEl.appendChild(el);
 			}
@@ -218,8 +213,29 @@ export class Fragment {
 				el,
 				options,
 			);
-			parentEl.appendChild(el);
+			if (this.needsBlockClip) {
+				this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
+			} else {
+				parentEl.appendChild(el);
+			}
 		}
+	}
+
+	/**
+	 * Append `el` to `parentEl`, wrapping it in a clip container when this
+	 * fragment is a slice of a block-sized (monolithic or explicit-height)
+	 * box. The wrapper clips to the fragment's blockSize and offsets the
+	 * element by the consumed amount so only the current slice is visible.
+	 */
+	#appendWithBlockSlice(el, parentEl, inputBreakToken) {
+		const consumed =
+			inputBreakToken?.type === BREAK_TOKEN_BLOCK ? inputBreakToken.consumedBlockSize : 0;
+		const wrapper = document.createElement("div");
+		wrapper.style.height = `${this.blockSize}px`;
+		wrapper.style.overflow = "hidden";
+		if (consumed > 0) el.style.marginTop = `-${consumed}px`;
+		wrapper.appendChild(el);
+		parentEl.appendChild(wrapper);
 	}
 
 	/**
