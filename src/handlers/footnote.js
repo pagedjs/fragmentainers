@@ -259,24 +259,20 @@ function isWithinBoundaries(callElement, start, end) {
 
 /**
  * Tag bodies inside the composed fragment with `data-footnote-marker`
- * on first slices and `data-footnote-continuation` on tails. The flow
- * wraps continuation slices in a `overflow: hidden` clip container; we
- * key off that to distinguish them.
+ * on first slices and `data-footnote-continuation` on tails. The builder
+ * sets `data-split-from` on continuation elements of a sliced fragment.
  */
 function decorateForFootnoteArea(root) {
 	const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
 	let node = walker.nextNode();
 	while (node) {
 		if (node.hasAttribute("data-footnote-body")) {
-			const clip = node.parentElement;
-			const isContinuation =
-				clip && clip.style.overflow === "hidden" && node.style.marginTop.startsWith("-");
+			const isContinuation = node.hasAttribute("data-split-from");
 			node.removeAttribute("data-footnote-body");
-			if (isContinuation) {
-				node.setAttribute("data-footnote-continuation", "");
-			} else {
-				node.setAttribute("data-footnote-marker", "");
-			}
+			node.setAttribute(
+				isContinuation ? "data-footnote-continuation" : "data-footnote-marker",
+				"",
+			);
 			node.style.setProperty("display", "block");
 		}
 		node = walker.nextNode();
