@@ -24,7 +24,7 @@ test.describe("MutationSync with shared clone map", () => {
 
 				const fragEl = flow[0];
 				document.body.appendChild(fragEl);
-				const clone = fragEl.contentRoot.querySelector("div");
+				const clone = fragEl.querySelector("div");
 				const cloneExists = clone !== null;
 
 				clone.setAttribute("class", "test");
@@ -299,8 +299,7 @@ test.describe("FragmentContainerElement.takeMutationRecords()", () => {
 
 			const res = await new Promise((resolve) => {
 				requestAnimationFrame(() => {
-					const wrapper = fragEl.contentRoot;
-					wrapper.setAttribute("data-test", "value");
+					fragEl.firstElementChild?.setAttribute("data-test", "value");
 
 					queueMicrotask(() => {
 						queueMicrotask(() => {

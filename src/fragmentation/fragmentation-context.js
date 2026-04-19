@@ -2,6 +2,14 @@
 // Used when the fragment's root node has no computed lineHeight.
 export const DEFAULT_OVERFLOW_THRESHOLD = 16 * 1.2;
 
+function formatCounterSet(snapshot) {
+	const parts = [];
+	for (const [name, value] of Object.entries(snapshot)) {
+		parts.push(`${name} ${value}`);
+	}
+	return parts.join(" ");
+}
+
 /**
  * The result of running fragmentation — a "fragmented flow" in CSS spec terms.
  *
@@ -12,7 +20,6 @@ export const DEFAULT_OVERFLOW_THRESHOLD = 16 * 1.2;
 export class FragmentationContext extends Array {
 	#fragments;
 	#contentStyles;
-	#adoptedSheets;
 
 	static get [Symbol.species]() {
 		return Array;
@@ -21,13 +28,12 @@ export class FragmentationContext extends Array {
 	/**
 	 * @param {import("./fragment.js").Fragment[]} fragments
 	 * @param {{ sheets: CSSStyleSheet[] }|null} contentStyles
-	 * @param {{ start?: number, stop?: number, adoptedSheets?: CSSStyleSheet[] }} [range]
+	 * @param {{ start?: number, stop?: number }} [range]
 	 */
-	constructor(fragments, contentStyles, { start = 0, stop, adoptedSheets = [] } = {}) {
+	constructor(fragments, contentStyles, { start = 0, stop } = {}) {
 		super();
 		this.#fragments = fragments;
 		this.#contentStyles = contentStyles;
-		this.#adoptedSheets = adoptedSheets;
 		if (contentStyles) {
 			const end = stop ?? fragments.length;
 			for (let i = start; i < end; i++) {
@@ -65,16 +71,15 @@ export class FragmentationContext extends Array {
 			el.style.height = `${contentArea.blockSize}px`;
 		}
 
-		if (fragment.isFirst) {
-			el.setAttribute("data-first", "");
-		}
-		if (fragment.isLast) {
-			el.setAttribute("data-last", "");
+		if (fragment.isFirst) el.setAttribute("data-first", "");
+		if (fragment.isLast) el.setAttribute("data-last", "");
+
+		const counterSnapshot = index > 0 ? this.#fragments[index - 1].counterState : null;
+		if (counterSnapshot && Object.keys(counterSnapshot).length > 0) {
+			el.style.counterSet = formatCounterSet(counterSnapshot);
 		}
 
 		if (fragment.isBlank) {
-			const counterSnapshot = index > 0 ? this.#fragments[index - 1].counterState : null;
-			el.setupForRendering(this.#contentStyles, counterSnapshot);
 			el.setAttribute("data-blank-page", "");
 			el.expectedBlockSize = contentArea.blockSize;
 			el.overflowThreshold = 0;
@@ -82,19 +87,13 @@ export class FragmentationContext extends Array {
 		}
 
 		const prevBreakToken = index > 0 ? this.#fragments[index - 1].breakToken : null;
-		const counterSnapshot = index > 0 ? this.#fragments[index - 1].counterState : null;
-		const wrapper = el.setupForRendering(this.#contentStyles, counterSnapshot);
-		wrapper.appendChild(fragment.build(prevBreakToken));
-		fragment.map(prevBreakToken, wrapper);
+		el.appendChild(fragment.build(prevBreakToken));
+		fragment.map(prevBreakToken, el);
 
 		if (fragment.afterRender) {
 			for (const callback of fragment.afterRender) {
-				callback(wrapper, this.#contentStyles);
+				callback(el, this.#contentStyles);
 			}
-		}
-
-		for (const sheet of this.#adoptedSheets) {
-			el.adoptHandlerSheet(sheet);
 		}
 
 		el.expectedBlockSize = contentArea.blockSize;

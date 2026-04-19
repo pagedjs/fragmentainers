@@ -18,6 +18,7 @@ import { Measurer } from "../measurement/measure.js";
 import { setTargetDevicePixelRatio } from "../measurement/line-box.js";
 import { handlers } from "../handlers/registry.js";
 import { UA_DEFAULTS } from "../styles/ua-defaults.js";
+import { buildCompositeSheet } from "../styles/composite-sheet.js";
 import "../handlers/index.js";
 
 const MAX_ZERO_PROGRESS = 5;
@@ -110,6 +111,7 @@ export class FragmentedFlow extends Iterator {
 	#contentStyles = null;
 	#prevFragment = null;
 	#fragments = [];
+	#docSheet = null;
 
 	// Iterator state
 	#context = null;
@@ -195,9 +197,7 @@ export class FragmentedFlow extends Iterator {
 
 		// Initialize context on first call
 		if (!this.#context) {
-			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles, {
-				adoptedSheets: handlers.getAdoptedSheets(),
-			});
+			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles);
 		}
 
 		const fragment = this.#nextFragment();
@@ -302,7 +302,6 @@ export class FragmentedFlow extends Iterator {
 		return new FragmentationContext([...this.#fragments], this.#contentStyles, {
 			start,
 			stop,
-			adoptedSheets: handlers.getAdoptedSheets(),
 		});
 	}
 
@@ -367,9 +366,7 @@ export class FragmentedFlow extends Iterator {
 		// Layout is done — release the measurer before composition.
 		this.releaseMeasurer();
 
-		return new FragmentationContext(newFragments, this.#contentStyles, {
-			adoptedSheets: handlers.getAdoptedSheets(),
-		});
+		return new FragmentationContext(newFragments, this.#contentStyles);
 	}
 
 	/**
@@ -668,6 +665,7 @@ export class FragmentedFlow extends Iterator {
 			this.#tree = new DOMLayoutNode(contentRoot);
 			this.#measureElement = { applyConstraintSpace: () => {} };
 			this.#contentStyles = this.#measurer.getContentStyles();
+			this.#installDocSheet();
 
 			// If segmented, override root's children with the first segment
 			const initialChildren = this.#measurer.initialChildren;
@@ -839,5 +837,25 @@ export class FragmentedFlow extends Iterator {
 			this.#measureElement.remove();
 		}
 		this.#measureElement = null;
+		this.#removeDocSheet();
+	}
+
+	/**
+	 * Build the document-level scoped stylesheet from contentStyles +
+	 * per-flow handler sheets, and adopt it on `document.adoptedStyleSheets`.
+	 * Idempotent — replaces any previously installed sheet.
+	 */
+	#installDocSheet() {
+		this.#removeDocSheet();
+		this.#docSheet = buildCompositeSheet(this.#contentStyles, handlers.getAdoptedSheets());
+		document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.#docSheet];
+	}
+
+	#removeDocSheet() {
+		if (!this.#docSheet) return;
+		document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+			(s) => s !== this.#docSheet,
+		);
+		this.#docSheet = null;
 	}
 }

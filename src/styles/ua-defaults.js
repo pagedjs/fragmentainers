@@ -1,16 +1,13 @@
 /**
- * UA stylesheet defaults for the slot element (body stand-in).
+ * UA stylesheet defaults restoring `body { margin: 8px }` for the
+ * body stand-in. UA rules aren't reachable through document.styleSheets,
+ * so the engine restates them.
  *
- * Browsers apply `body { margin: 8px }` from the user-agent stylesheet,
- * but UA rules are not accessible through document.styleSheets. When the
- * engine extracts body content into a DocumentFragment and injects it
- * into a shadow DOM slot, the body's UA margin is lost.
+ * `UA_DEFAULTS` adopts on `<content-measure>`'s shadow; targets the
+ * `slot` and `:host` body/html stand-ins.
  *
- * This stylesheet restores those defaults on the slot. It is placed
- * first in the adopted stylesheet list so author body rules
- * (rewritten to slot rules by the BodyRewriter handler and appended
- * to the stylesheet list after processRules) override it by source
- * order.
+ * `UA_DEFAULTS_HOST_TEXT` concatenates into the document-level scoped
+ * sheet; targets `:scope` (the fragment-container host).
  */
 
 const UA_DEFAULTS = new CSSStyleSheet();
@@ -29,4 +26,10 @@ UA_DEFAULTS.replaceSync(`
     }
   `);
 
-export { UA_DEFAULTS };
+const UA_DEFAULTS_HOST_TEXT = `
+:scope { margin: 8px; }
+:scope:not([data-first]) { margin-block-start: 0 !important; }
+:scope:not([data-last])  { margin-block-end:   0 !important; }
+`;
+
+export { UA_DEFAULTS, UA_DEFAULTS_HOST_TEXT };

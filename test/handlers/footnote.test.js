@@ -37,7 +37,7 @@ test.describe("Footnotes in paged media (browser)", () => {
 			const el = elements[0];
 			document.body.appendChild(el);
 
-			const area = el.shadowRoot.querySelector(".footnote-area");
+			const area = el.querySelector(".footnote-area");
 			const areaExists = area !== null;
 			const childCount = area ? area.children.length : 0;
 			const hasMarker =
@@ -88,7 +88,7 @@ test.describe("Footnotes in paged media (browser)", () => {
 			const el = elements[0];
 			document.body.appendChild(el);
 
-			const call = el.shadowRoot.querySelector("[data-footnote-call]");
+			const call = el.querySelector("[data-footnote-call]");
 			const callExists = call !== null;
 			const tagName = call ? call.tagName : null;
 			el.remove();
@@ -136,7 +136,7 @@ test.describe("Footnotes in paged media (browser)", () => {
 			const el = elements[0];
 			document.body.appendChild(el);
 
-			const area = el.shadowRoot.querySelector(".footnote-area");
+			const area = el.querySelector(".footnote-area");
 			const areaExists = area !== null;
 			const childCount = area ? area.children.length : 0;
 			const text0 = area && area.children[0] ? area.children[0].textContent : "";
@@ -222,7 +222,7 @@ test.describe("Footnotes in paged media (browser)", () => {
 			const el = elements[0];
 			document.body.appendChild(el);
 
-			const area = el.shadowRoot.querySelector(".footnote-area");
+			const area = el.querySelector(".footnote-area");
 			const areaIsNull = area === null;
 			el.remove();
 			layout.destroy();
@@ -268,8 +268,8 @@ test.describe("Footnotes in paged media (browser)", () => {
 
 			for (let i = 0; i < elements.length; i++) {
 				document.body.appendChild(elements[i]);
-				const call = elements[i].shadowRoot.querySelector("[data-footnote-call]");
-				const area = elements[i].shadowRoot.querySelector(".footnote-area");
+				const call = elements[i].querySelector("[data-footnote-call]");
+				const area = elements[i].querySelector(".footnote-area");
 				if (call) pageWithCall = i;
 				if (area) pageWithBody = i;
 				elements[i].remove();

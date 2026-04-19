@@ -159,6 +159,7 @@ class EmulatePrintPixelRatio extends LayoutHandler {
 			const flooredLh = getLineHeight(defaultEl);
 			const ratio = flooredLh / slotFontSize;
 			rules.push(`slot { line-height: ${ratio}; }`);
+			rules.push(`:scope { line-height: ${ratio}; }`);
 		}
 
 		// Per-selector rules for elements with explicit font properties

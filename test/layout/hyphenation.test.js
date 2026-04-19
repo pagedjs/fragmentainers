@@ -200,7 +200,7 @@ test.describe("Inline break offset normalization", () => {
 			}
 
 			const page1 = pages[0];
-			const page1Text = (page1.shadowRoot || page1).textContent;
+			const page1Text = page1.textContent;
 
 			flow.destroy();
 
@@ -290,8 +290,8 @@ test.describe("Hyphenation rendering", () => {
 				pages.push(el);
 				if (pages.length > 20) break;
 			}
-			const page1Text = pages[0].shadowRoot.querySelector("p").textContent;
-			const page2Text = pages[1].shadowRoot.querySelector("p").textContent;
+			const page1Text = pages[0].querySelector("p").textContent;
+			const page2Text = pages[1].querySelector("p").textContent;
 			flow.destroy();
 			return { pageCount: pages.length, page1Text, page2Text };
 		});
@@ -322,8 +322,8 @@ test.describe("Hyphenation rendering", () => {
 				pages.push(el);
 				if (pages.length > 20) break;
 			}
-			const page1Text = pages[0].shadowRoot.querySelector("p").textContent;
-			const page2Text = pages[1].shadowRoot.querySelector("p").textContent;
+			const page1Text = pages[0].querySelector("p").textContent;
+			const page2Text = pages[1].querySelector("p").textContent;
 			flow.destroy();
 			return { pageCount: pages.length, page1Text, page2Text };
 		});
@@ -354,7 +354,7 @@ test.describe("Hyphenation rendering", () => {
 				pages.push(el);
 				if (pages.length > 20) break;
 			}
-			const page1Text = pages[0].shadowRoot.querySelector("p").textContent;
+			const page1Text = pages[0].querySelector("p").textContent;
 			flow.destroy();
 			return { pageCount: pages.length, page1Text };
 		});
@@ -380,7 +380,7 @@ test.describe("Hyphenation rendering", () => {
 				pages.push(el);
 				if (pages.length > 20) break;
 			}
-			const page1Text = pages[0].shadowRoot.querySelector("p").textContent;
+			const page1Text = pages[0].querySelector("p").textContent;
 			flow.destroy();
 			return { pageCount: pages.length, page1Text };
 		});

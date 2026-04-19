@@ -23,23 +23,25 @@ function wrap(ruleText, wrappers) {
 	return css;
 }
 
-const SLOT_SELECTOR = ":host(fragment-container) > slot, :host(content-measure) > slot";
-const HOST_SELECTOR = ":host(fragment-container), :host(content-measure)";
+const MEASURE_SLOT_SELECTOR = ":host(content-measure) > slot";
+const MEASURE_HOST_SELECTOR = ":host(content-measure)";
 
 /**
- * BodyRewriter — rewrites `body` and `html` selectors as `slot` and
- * `:host` equivalents for shadow DOM rendering.
+ * BodyRewriter — rewrites `body` and `html` selectors for the engine's
+ * two rendering contexts:
  *
- * In the shadow DOM used for measurement and fragment containers,
- * `body` and `html` selectors don't match. The `<slot>` stands in
- * for body and `:host` stands in for html. Background properties on
- * body propagate to the canvas, so they target `:host`.
+ * - `<content-measure>`'s shadow DOM (off-screen measurement). The
+ *   `<slot>` stands in for body; `:host` stands in for html.
+ * - `<fragment-container>` light-DOM children (visible output). The
+ *   host is the body stand-in. Rules emit as `:scope { ... }` and the
+ *   composite scoped sheet's `@scope (fragment-container)` wrap binds
+ *   `:scope` to the host.
  *
- * Selectors are scoped to `fragment-container` and `content-measure`
- * hosts so the generated rules only apply inside those elements.
+ * Both forms are emitted on every match; each is harmless in the other
+ * context. Visible-output backgrounds paint the host directly, so the
+ * measurer-side background rule is dropped.
  *
- * Only runs for page-based flows. On-screen column/region
- * fragmentation doesn't use shadow DOM slot/host substitution.
+ * Only runs for page-based flows.
  */
 export class BodyRewriter extends LayoutHandler {
 	#enabled = false;
@@ -71,13 +73,22 @@ export class BodyRewriter extends LayoutHandler {
 		if (!this.#enabled) return;
 		for (const { rule, matchesBody, matchesHtml, wrappers } of this.#matches) {
 			if (matchesBody) {
-				const slotRule = buildRule(SLOT_SELECTOR, rule.style, (p) => !BACKGROUND_PROPS.has(p));
-				const hostBgRule = buildRule(HOST_SELECTOR, rule.style, (p) => BACKGROUND_PROPS.has(p));
-				if (slotRule) rules.push(wrap(slotRule, wrappers));
-				if (hostBgRule) rules.push(wrap(hostBgRule, wrappers));
+				const measureSlot = buildRule(
+					MEASURE_SLOT_SELECTOR,
+					rule.style,
+					(p) => !BACKGROUND_PROPS.has(p),
+				);
+				if (measureSlot) rules.push(wrap(measureSlot, wrappers));
+
+				const scopeAll = buildRule(":scope", rule.style);
+				if (scopeAll) rules.push(wrap(scopeAll, wrappers));
 			}
 			if (matchesHtml && !matchesBody) {
-				rules.push(wrap(`${HOST_SELECTOR} { ${rule.style.cssText} }`, wrappers));
+				const measureHost = buildRule(MEASURE_HOST_SELECTOR, rule.style);
+				if (measureHost) rules.push(wrap(measureHost, wrappers));
+
+				const scopeAll = buildRule(":scope", rule.style);
+				if (scopeAll) rules.push(wrap(scopeAll, wrappers));
 			}
 		}
 	}

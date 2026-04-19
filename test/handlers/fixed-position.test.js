@@ -447,7 +447,7 @@ test.describe("position: fixed in paged media (browser)", () => {
 			const elements = [...flow];
 			for (const el of elements) {
 				document.body.appendChild(el);
-				const headerClone = el.shadowRoot.querySelector(".fixed-header");
+				const headerClone = el.querySelector(".fixed-header");
 				allHaveHeader.push(headerClone !== null);
 				el.remove();
 			}
@@ -490,7 +490,7 @@ test.describe("position: fixed in paged media (browser)", () => {
 			const elements = [...flow];
 			for (const el of elements) {
 				document.body.appendChild(el);
-				const footerClone = el.shadowRoot.querySelector(".fixed-footer");
+				const footerClone = el.querySelector(".fixed-footer");
 				footerData.push({
 					exists: footerClone !== null,
 					bottom: footerClone ? footerClone.style.bottom : null,
@@ -539,8 +539,8 @@ test.describe("position: fixed in paged media (browser)", () => {
 			for (const el of elements) {
 				document.body.appendChild(el);
 				pageData.push({
-					hasHeader: el.shadowRoot.querySelector(".header") !== null,
-					hasFooter: el.shadowRoot.querySelector(".footer") !== null,
+					hasHeader: el.querySelector(".header") !== null,
+					hasFooter: el.querySelector(".footer") !== null,
 				});
 				el.remove();
 			}

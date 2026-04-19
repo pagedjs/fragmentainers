@@ -44,7 +44,7 @@ test.describe("Footnote flow — split across pages (auto policy)", () => {
 			const readPage = (i) => {
 				if (!pages[i]) return null;
 				document.body.appendChild(pages[i]);
-				const area = pages[i].shadowRoot.querySelector(".footnote-area");
+				const area = pages[i].querySelector(".footnote-area");
 				const marker = area?.querySelector("[data-footnote-marker]") ?? null;
 				const cont = area?.querySelector("[data-footnote-continuation]") ?? null;
 				const out = {
@@ -109,8 +109,8 @@ test.describe("Footnote flow — policy fallback (line / block)", () => {
 
 			const read = (i) => {
 				document.body.appendChild(pages[i]);
-				const call = pages[i].shadowRoot.querySelector("[data-footnote-call]");
-				const area = pages[i].shadowRoot.querySelector(".footnote-area");
+				const call = pages[i].querySelector("[data-footnote-call]");
+				const area = pages[i].querySelector(".footnote-area");
 				const info = { hasCall: !!call, hasArea: !!area };
 				pages[i].remove();
 				return info;
@@ -161,7 +161,7 @@ test.describe("Footnote flow — --footnote-max-height cap", () => {
 			}
 
 			document.body.appendChild(pages[0]);
-			const area = pages[0].shadowRoot.querySelector(".footnote-area");
+			const area = pages[0].querySelector(".footnote-area");
 			const areaRect = area ? area.getBoundingClientRect() : null;
 			const out = {
 				hasArea: !!area,

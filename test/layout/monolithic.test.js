@@ -230,8 +230,7 @@ test.describe("Phase 4: Monolithic content", () => {
 			}
 
 			const probe = (p) => {
-				const container = p.shadowRoot || p;
-				const tall = container.querySelector("#tall");
+				const tall = p.querySelector("#tall");
 				if (!tall) return null;
 				const wrapper = tall.parentElement;
 				return {

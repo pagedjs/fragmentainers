@@ -1,18 +1,19 @@
 /**
- * Override stylesheet for fragment split boundaries.
+ * Override rules for fragment split boundaries.
  *
  * When the compositor clones elements for fragmented output, the browser
- * re-applies first-fragment/last-fragment CSS incorrectly. This stylesheet
- * neutralizes properties that should only appear on the first or last
+ * re-applies first-fragment/last-fragment CSS incorrectly. These rules
+ * neutralize properties that should only appear on the first or last
  * fragment of a split element.
  *
- * Adopted LAST in fragment-container shadow DOM for highest cascade priority.
+ * `OVERRIDES_TEXT` is the CSS string consumed by the composite scoped
+ * sheet. `OVERRIDES` is the pre-built CSSStyleSheet for standalone
+ * consumers that adopt it directly.
  *
  * Pattern from pagedjs (https://github.com/pagedjs/pagedjs).
  */
 
-const OVERRIDES = new CSSStyleSheet();
-OVERRIDES.replaceSync(`
+const OVERRIDES_TEXT = `
 [data-split-from] {
   text-indent: unset !important;
   margin-block-start: unset !important;
@@ -84,6 +85,9 @@ li[data-split-from] {
   display: none !important;
 }
 
-`);
+`;
 
-export { OVERRIDES };
+const OVERRIDES = new CSSStyleSheet();
+OVERRIDES.replaceSync(OVERRIDES_TEXT);
+
+export { OVERRIDES, OVERRIDES_TEXT };

@@ -1,23 +1,27 @@
 /**
- * <fragment-container> — visible page container with Shadow DOM.
+ * <fragment-container> — visible page container.
  *
- * Wraps rendered fragment output to prevent CSS leakage from the
- * host page. Uses `all: initial` on :host to reset inherited CSS
- * properties to browser defaults. Body/html-targeting rules are
- * re-applied as :host overrides via the adopted stylesheet pipeline.
+ * Custom element that hosts the rendered output of one fragmentainer as
+ * light-DOM children, projected through a `<slot>` in its shadow root.
+ * Anchor link targets remain in the document tree, so hash navigation
+ * and PDF link annotations resolve natively.
  *
- * Content is appended to a <slot> element as fallback content,
- * keeping it inside the shadow DOM where only adopted stylesheets apply.
+ * The shadow root holds only the structural scaffold (host CSS +
+ * `<slot>`). Author/handler/override stylesheets adopt at the document
+ * level via the engine's composite scoped sheet. Each fragment's
+ * counter snapshot is set as inline `style.counterSet`; style
+ * containment isolates the counter scope per container.
+ *
+ * Observers target the inner `<slot>` (whose flow size reflects the
+ * projected content) — the host is size-contained and fixed-size.
  */
 
-import { OVERRIDES } from "../styles/overrides.js";
-import { prepareAuthorSheetsForFragment } from "../styles/strip-structural-pseudos.js";
-
-const CONTAINER_HOST_STYLES = `
+const HOST_STYLES = `
   :host {
     display: block;
-		overflow: hidden;
-		contain: strict;
+    overflow: clip;
+    contain: size style;
+    block-size: 100%;
   }
   slot {
     display: block;
@@ -26,9 +30,8 @@ const CONTAINER_HOST_STYLES = `
 `;
 
 export class FragmentContainerElement extends HTMLElement {
-	#shadow = null;
-	#shadowMode = "open";
-	#slot = null;
+	#shadow;
+	#slot;
 	#fragmentIndex = -1;
 	#resizeObserver = null;
 	#mutationObserver = null;
@@ -41,49 +44,16 @@ export class FragmentContainerElement extends HTMLElement {
 
 	constructor() {
 		super();
+		this.#shadow = this.attachShadow({ mode: "open" });
+		const style = document.createElement("style");
+		style.textContent = HOST_STYLES;
+		this.#shadow.appendChild(style);
+		this.#slot = document.createElement("slot");
+		this.#shadow.appendChild(this.#slot);
 	}
 
 	connectedCallback() {
 		this.setAttribute("role", "none");
-		this.#ensureSetup();
-	}
-
-	/**
-	 * Shadow DOM mode — "closed" (default, for pages) or "open"
-	 * (for regions/columns). Must be set before setupForRendering().
-	 */
-	get shadowMode() {
-		return this.#shadowMode;
-	}
-	set shadowMode(mode) {
-		this.#shadowMode = mode;
-	}
-
-	/**
-	 * Build the one-time shadow DOM structure (host styles + slot).
-	 * Called lazily — safe to invoke before or after connection.
-	 */
-	#ensureSetup() {
-		if (this.#slot) return;
-		if (!this.#shadow) {
-			this.#shadow = this.attachShadow({ mode: this.#shadowMode });
-		}
-		const style = document.createElement("style");
-		style.textContent = CONTAINER_HOST_STYLES;
-		this.#shadow.appendChild(style);
-		this.#slot = document.createElement("slot");
-		this.#shadow.appendChild(this.#slot);
-		this.#syncLang();
-	}
-
-	#syncLang() {
-		if (!this.#slot) return;
-		const lang = this.getAttribute("lang") || document.documentElement.lang || "";
-		if (lang) {
-			this.#slot.setAttribute("lang", lang);
-		} else {
-			this.#slot.removeAttribute("lang");
-		}
 	}
 
 	get fragmentIndex() {
@@ -91,6 +61,7 @@ export class FragmentContainerElement extends HTMLElement {
 	}
 	set fragmentIndex(idx) {
 		this.#fragmentIndex = idx;
+		this.dataset.fragment = idx;
 	}
 
 	get namedPage() {
@@ -158,9 +129,9 @@ export class FragmentContainerElement extends HTMLElement {
 	}
 
 	/**
-	 * Attach ResizeObserver and MutationObserver on the content slot.
-	 * Deferred via requestAnimationFrame to skip the initial
-	 * ResizeObserver notification.
+	 * Attach ResizeObserver on the slot (tracks projected content's
+	 * natural height) and MutationObserver on the host (where slotted
+	 * children live).
 	 */
 	startObserving() {
 		if (this.#resizeObserver) return;
@@ -175,7 +146,7 @@ export class FragmentContainerElement extends HTMLElement {
 				this.#mutationBuffer.push(...mutations);
 				this.#scheduleNotify();
 			});
-			this.#mutationObserver.observe(this.#slot, {
+			this.#mutationObserver.observe(this, {
 				childList: true,
 				subtree: true,
 				characterData: true,
@@ -184,9 +155,6 @@ export class FragmentContainerElement extends HTMLElement {
 		});
 	}
 
-	/**
-	 * Disconnect all observers.
-	 */
 	stopObserving() {
 		this.#resizeObserver?.disconnect();
 		this.#resizeObserver = null;
@@ -212,56 +180,6 @@ export class FragmentContainerElement extends HTMLElement {
 	}
 
 	/**
-	 * Adopt content styles and prepare the slot for rendering.
-	 *
-	 * When contentStyles is provided (from ContentMeasureElement.getContentStyles())
-	 * uses those cached styles. Clears any existing content in the slot.
-	 *
-	 * @param {Object} [contentStyles] — from ContentMeasureElement.getContentStyles()
-	 * @param {Object} [counterSnapshot] — counter state from previous fragmentainer
-	 * @returns {Element} slot element to append rendered content into
-	 */
-	setupForRendering(contentStyles, counterSnapshot = null) {
-		this.#ensureSetup();
-		this.#slot.innerHTML = "";
-		this.#syncLang();
-
-		this.dataset.fragment = this.#fragmentIndex;
-
-		if (contentStyles.sheets.length > 0) {
-			const fragmentSheets = prepareAuthorSheetsForFragment(contentStyles.sheets);
-			this.#shadow.adoptedStyleSheets = [...fragmentSheets, OVERRIDES];
-		} else {
-			this.#shadow.adoptedStyleSheets = [OVERRIDES];
-		}
-
-		// Seed counter values from the previous fragmentainer's snapshot.
-		// Inserted before OVERRIDES so OVERRIDES has higher cascade priority.
-		if (counterSnapshot && Object.keys(counterSnapshot).length > 0) {
-			const counterSheet = new CSSStyleSheet();
-			const pairs = Object.entries(counterSnapshot)
-				.map(([name, value]) => `${name} ${value}`)
-				.join(" ");
-			counterSheet.replaceSync(`slot { counter-set: ${pairs}; }`);
-			const sheets = this.#shadow.adoptedStyleSheets;
-			this.#shadow.adoptedStyleSheets = [
-				...sheets.slice(0, -1),
-				counterSheet,
-				sheets[sheets.length - 1],
-			];
-		}
-
-		return this.#slot;
-	}
-
-	/**
-	 * The slot element inside the shadow root — content container.
-	 */
-	get contentRoot() {
-		return this.#slot;
-	}
-
-	/**
 	 * Set the expected block size from layout. The ResizeObserver
 	 * compares the rendered content height against this value to
 	 * detect when rendering diverges from the layout computation.
@@ -280,17 +198,6 @@ export class FragmentContainerElement extends HTMLElement {
 	 */
 	set overflowThreshold(threshold) {
 		this.#overflowThreshold = threshold;
-	}
-
-	/**
-	 * Adopt a handler-contributed override stylesheet. Inserted before
-	 * OVERRIDES so OVERRIDES retains highest priority.
-	 *
-	 * @param {CSSStyleSheet} sheet
-	 */
-	adoptHandlerSheet(sheet) {
-		const sheets = this.#shadow.adoptedStyleSheets;
-		this.#shadow.adoptedStyleSheets = [...sheets.slice(0, -1), sheet, sheets[sheets.length - 1]];
 	}
 }
 

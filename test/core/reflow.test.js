@@ -373,10 +373,9 @@ test.describe("FragmentContainerElement observers (browser)", () => {
 
 			await new Promise((resolve) => {
 				requestAnimationFrame(() => {
-					const wrapper = fragEl.contentRoot;
 					const div = document.createElement("div");
 					div.style.height = "50px";
-					wrapper.appendChild(div);
+					fragEl.appendChild(div);
 
 					queueMicrotask(() => {
 						queueMicrotask(() => {
@@ -427,8 +426,7 @@ test.describe("FragmentContainerElement observers (browser)", () => {
 				requestAnimationFrame(() => {
 					fragEl.stopObserving();
 
-					const wrapper = fragEl.contentRoot;
-					wrapper.appendChild(document.createElement("div"));
+					fragEl.appendChild(document.createElement("div"));
 
 					queueMicrotask(() => {
 						queueMicrotask(() => {
