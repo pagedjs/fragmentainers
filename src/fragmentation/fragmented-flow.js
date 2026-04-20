@@ -18,7 +18,7 @@ import { Measurer } from "../measurement/measure.js";
 import { setTargetDevicePixelRatio } from "../measurement/line-box.js";
 import { handlers } from "../handlers/registry.js";
 import { UA_DEFAULTS } from "../styles/ua-defaults.js";
-import { buildCompositeSheet } from "../styles/composite-sheet.js";
+import { buildCompositeText } from "../styles/composite-sheet.js";
 import "../handlers/index.js";
 
 const MAX_ZERO_PROGRESS = 5;
@@ -165,7 +165,8 @@ export class FragmentedFlow extends Iterator {
 	#contentStyles = null;
 	#prevFragment = null;
 	#fragments = [];
-	#docSheet = null;
+	#styleSheet = null;
+	#ownsStyleSheet = false;
 
 	// Iterator state
 	#context = null;
@@ -186,10 +187,18 @@ export class FragmentedFlow extends Iterator {
 	 *   Defaults to window.devicePixelRatio.
 	 * @param {boolean} [options.emulatePrintPixelRatio=true] - Whether to normalize
 	 *   line-height for screen rendering to match DPR 1 layout.
+	 * @param {CSSStyleSheet} [options.styleSheet] - Sheet to write the composite
+	 *   scoped rules into. The caller adopts it where needed (`document` or any
+	 *   `ShadowRoot`). When omitted, the flow creates its own sheet and adopts
+	 *   it on `document.adoptedStyleSheets`.
 	 */
 	constructor(content, options = {}) {
 		super();
 		this.#options = options;
+
+		if (options.styleSheet) {
+			this.#styleSheet = options.styleSheet;
+		}
 
 		// Normalize Element → DocumentFragment (clone into fragment)
 		if (content.nodeType === 1 /* ELEMENT_NODE */) {
@@ -719,7 +728,7 @@ export class FragmentedFlow extends Iterator {
 			this.#tree = new DOMLayoutNode(contentRoot);
 			this.#measureElement = { applyConstraintSpace: () => {} };
 			this.#contentStyles = this.#measurer.getContentStyles();
-			this.#installDocSheet();
+			this.#installStyleSheet();
 
 			// If segmented, override root's children with the first segment
 			const initialChildren = this.#measurer.initialChildren;
@@ -882,29 +891,36 @@ export class FragmentedFlow extends Iterator {
 			this.#measureElement.remove();
 		}
 		this.#measureElement = null;
-		this.#removeDocSheet();
+		this.#teardownStyleSheet();
 	}
 
 	/**
-	 * Build the document-level scoped stylesheet from contentStyles +
-	 * per-flow handler sheets, and adopt it on `document.adoptedStyleSheets`.
-	 * Idempotent — replaces any previously installed sheet.
+	 * Append the composite scoped CSS as a rule on the output sheet. When the
+	 * caller supplied a sheet via `options.styleSheet`, the engine coexists
+	 * with whatever other rules are there. Otherwise the flow creates a sheet
+	 * and adopts it on `document.adoptedStyleSheets`. Reflow appends a fresh
+	 * rule; later rules win source-order tiebreaks.
 	 */
-	#installDocSheet() {
-		this.#removeDocSheet();
-		this.#docSheet = buildCompositeSheet(
+	#installStyleSheet() {
+		const text = buildCompositeText(
 			this.#contentStyles,
 			handlers.getAdoptedSheets(),
 			handlers.getInjectedSheet(),
 		);
-		document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.#docSheet];
+		if (!this.#styleSheet) {
+			this.#styleSheet = new CSSStyleSheet();
+			this.#ownsStyleSheet = true;
+			document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.#styleSheet];
+		}
+		this.#styleSheet.insertRule(text, this.#styleSheet.cssRules.length);
 	}
 
-	#removeDocSheet() {
-		if (!this.#docSheet) return;
+	#teardownStyleSheet() {
+		if (!this.#styleSheet || !this.#ownsStyleSheet) return;
 		document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
-			(s) => s !== this.#docSheet,
+			(s) => s !== this.#styleSheet,
 		);
-		this.#docSheet = null;
+		this.#styleSheet = null;
+		this.#ownsStyleSheet = false;
 	}
 }

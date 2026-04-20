@@ -12,7 +12,7 @@ function sheetText(sheet) {
 }
 
 /**
- * Build the document-level scoped stylesheet for a FragmentedFlow.
+ * Build the composite scoped stylesheet text for a FragmentedFlow.
  *
  * The original author sheets in `document.styleSheets` already cascade
  * to fragment-container content. The composite layers on top, scoped via
@@ -32,9 +32,9 @@ function sheetText(sheet) {
  *   handlers.getAdoptedSheets() (StyleResolver, EmulatePrintPixelRatio)
  * @param {CSSStyleSheet|null} injectedSheet — handler-rule sheet appended
  *   by registry.processRules(); included verbatim, not neutralized
- * @returns {CSSStyleSheet}
+ * @returns {string}
  */
-export function buildCompositeSheet(contentStyles, handlerSheets, injectedSheet) {
+export function buildCompositeText(contentStyles, handlerSheets, injectedSheet) {
 	const authorSheets = (contentStyles?.sheets ?? []).filter(
 		(s) => s !== UA_DEFAULTS && s !== injectedSheet,
 	);
@@ -54,7 +54,18 @@ export function buildCompositeSheet(contentStyles, handlerSheets, injectedSheet)
 
 	parts.push(OVERRIDES_TEXT);
 
+	return `@scope (fragment-container) {\n${parts.join("\n")}\n}`;
+}
+
+/**
+ * Build the composite scoped stylesheet as a fresh CSSStyleSheet.
+ * Convenience wrapper around `buildCompositeText` for callers that
+ * don't already own a sheet.
+ *
+ * @returns {CSSStyleSheet}
+ */
+export function buildCompositeSheet(contentStyles, handlerSheets, injectedSheet) {
 	const sheet = new CSSStyleSheet();
-	sheet.replaceSync(`@scope (fragment-container) {\n${parts.join("\n")}\n}`);
+	sheet.replaceSync(buildCompositeText(contentStyles, handlerSheets, injectedSheet));
 	return sheet;
 }
