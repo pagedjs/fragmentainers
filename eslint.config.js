@@ -35,6 +35,8 @@ export default [
         Element: "readonly",
         FontFace: "readonly",
         Image: "readonly",
+        AbortSignal: "readonly",
+        DOMException: "readonly",
         devicePixelRatio: "readonly",
         navigator: "readonly",
         // Node.js test globals

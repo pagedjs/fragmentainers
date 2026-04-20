@@ -23,6 +23,60 @@ import "../handlers/index.js";
 
 const MAX_ZERO_PROGRESS = 5;
 
+const DEFAULT_PRELOAD_TIMEOUT = 10000;
+
+// Combine a caller-supplied AbortSignal with a default timeout signal so
+// font/image preloads can't hang indefinitely if a resource never loads.
+function preloadSignal({ signal, timeout = DEFAULT_PRELOAD_TIMEOUT } = {}) {
+	const signals = [];
+	if (signal) signals.push(signal);
+	if (timeout > 0) signals.push(AbortSignal.timeout(timeout));
+	if (signals.length === 0) return null;
+	if (signals.length === 1) return signals[0];
+	return AbortSignal.any(signals);
+}
+
+// Race a promise against an abort signal. The underlying load isn't
+// cancellable; this just lets the caller stop waiting.
+function abortable(promise, signal) {
+	if (!signal) return promise;
+	return new Promise((resolve, reject) => {
+		const onAbort = () => reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+		if (signal.aborted) { onAbort(); return; }
+		signal.addEventListener("abort", onAbort, { once: true });
+		promise.then(
+			(v) => { signal.removeEventListener("abort", onAbort); resolve(v); },
+			(e) => { signal.removeEventListener("abort", onAbort); reject(e); },
+		);
+	});
+}
+
+function loadImageProbe(img, signal) {
+	return new Promise((resolve) => {
+		const probe = new Image();
+		const cleanup = () => {
+			probe.onload = null;
+			probe.onerror = null;
+			signal?.removeEventListener("abort", onAbort);
+		};
+		const onAbort = () => { probe.src = ""; cleanup(); resolve(); };
+		if (signal?.aborted) { onAbort(); return; }
+		signal?.addEventListener("abort", onAbort, { once: true });
+		probe.onload = () => {
+			img.width = probe.naturalWidth;
+			img.height = probe.naturalHeight;
+			cleanup();
+			resolve();
+		};
+		probe.onerror = () => {
+			img.remove();
+			cleanup();
+			resolve();
+		};
+		probe.src = img.src;
+	});
+}
+
 /**
  * Walk the layout tree for the deepest DOMLayoutNode whose element
  * contains `target`. Sets `breakBefore = "page"` on it so the next
@@ -691,19 +745,22 @@ export class FragmentedFlow extends Iterator {
 	 * Optional — call before iterating if you need fonts and images
 	 * to be fully loaded for accurate measurement.
 	 *
+	 * @param {{ signal?: AbortSignal, timeout?: number }} [options]
 	 * @returns {Promise<void>}
 	 */
-	async preload() {
-		await Promise.all([this.preloadFonts(), this.preloadImages()]);
+	async preload(options = {}) {
+		await Promise.all([this.preloadFonts(options), this.preloadImages(options)]);
 	}
 
 	/**
 	 * Preload fonts declared in the content stylesheets.
 	 * Registers @font-face rules from this.#styles into document.fonts
 	 * so they load without needing the measurer in the DOM.
+	 *
+	 * @param {{ signal?: AbortSignal, timeout?: number }} [options]
 	 * @returns {Promise<string[]>}
 	 */
-	preloadFonts() {
+	preloadFonts(options = {}) {
 		const styles = this.#styles;
 		for (const sheet of styles) {
 			let rules;
@@ -732,15 +789,14 @@ export class FragmentedFlow extends Iterator {
 			}
 		}
 
+		const signal = preloadSignal(options);
 		const promises = [];
 		document.fonts.forEach((fontFace) => {
 			if (fontFace.status !== "loaded") {
-				promises.push(
-					fontFace.load().then(
-						() => fontFace.family,
-						() => fontFace.family,
-					),
-				);
+				promises.push(abortable(fontFace.load(), signal).then(
+					() => fontFace.family,
+					() => fontFace.family,
+				));
 			}
 		});
 		return Promise.all(promises);
@@ -750,28 +806,17 @@ export class FragmentedFlow extends Iterator {
 	 * Preload images in the content that don't have explicit dimensions.
 	 * Works on a detached DocumentFragment — uses Image() objects to
 	 * trigger loading. Removes images that fail to load.
+	 *
+	 * @param {{ signal?: AbortSignal, timeout?: number }} [options]
 	 * @returns {Promise<void[]>}
 	 */
-	preloadImages() {
+	preloadImages(options = {}) {
 		const images = this.#content.querySelectorAll("img:not([width][height])");
+		const signal = preloadSignal(options);
 		const promises = [];
 		for (const img of images) {
 			if (img.complete && img.naturalWidth > 0) continue;
-			promises.push(
-				new Promise((resolve) => {
-					const probe = new Image();
-					probe.onload = () => {
-						img.width = probe.naturalWidth;
-						img.height = probe.naturalHeight;
-						resolve();
-					};
-					probe.onerror = () => {
-						img.remove();
-						resolve();
-					};
-					probe.src = img.src;
-				}),
-			);
+			promises.push(loadImageProbe(img, signal));
 		}
 		return Promise.all(promises);
 	}
