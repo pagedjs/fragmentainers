@@ -2,10 +2,10 @@
 
 `<fragment-container>` is the visible output of the fragmentation engine. Each
 fragmentainer produced by `FragmentedFlow` — one page, one column, or one
-region — becomes a `<fragment-container>` custom element. It owns a shadow
-root that hosts the composed DOM, isolates the rendered content from host
-page styles, and exposes the page-level values and constraints that fed the
-layout.
+region — becomes a `<fragment-container>` custom element. It hosts the
+composed DOM as light-DOM children (so anchor links, `document.getElementById`,
+and PDF link annotations resolve natively) and exposes the page-level values
+and constraints that fed the layout.
 
 **Source:** `src/components/fragment-container.js`
 
@@ -19,10 +19,10 @@ table see [api-reference.md § FragmentContainerElement](api-reference.md#fragme
 ## Table of Contents
 
 1. [Role in the Pipeline](#1-role-in-the-pipeline)
-2. [Shadow DOM Structure](#2-shadow-dom-structure)
+2. [Shadow Scaffold and Light-DOM Content](#2-shadow-scaffold-and-light-dom-content)
 3. [Creation via FragmentationContext](#3-creation-via-fragmentationcontext)
 4. [Page Values: `namedPage` and `constraints`](#4-page-values-namedpage-and-constraints)
-5. [`setupForRendering()` and the Stylesheet Pipeline](#5-setupforrendering-and-the-stylesheet-pipeline)
+5. [Stylesheet Pipeline](#5-stylesheet-pipeline)
 6. [Counter State Continuity](#6-counter-state-continuity)
 7. [Observer Lifecycle and Events](#7-observer-lifecycle-and-events)
 8. [Overflow Detection](#8-overflow-detection)
@@ -47,12 +47,10 @@ FragmentedFlow.next()
         │
         ├── document.createElement("fragment-container")
         ├── assign fragmentIndex, constraints, namedPage
-        ├── setupForRendering(contentStyles, counterSnapshot)
-        │     └── adopt stylesheets into shadow root
-        ├── wrapper.appendChild(fragment.build(prevBreakToken))
-        ├── fragment.map(prevBreakToken, wrapper)
-        ├── run each fragment.afterRender(wrapper, contentStyles)
-        ├── adopt per-fragment nth-selector sheets
+        ├── style.counterSet = (previous fragment's counter snapshot)
+        ├── el.appendChild(fragment.build(prevBreakToken))
+        ├── fragment.map(prevBreakToken, el)
+        ├── run each fragment.afterRender(el, contentStyles)
         └── set expectedBlockSize + overflowThreshold
 ```
 
@@ -60,41 +58,43 @@ The consumer gets a fully-composed element and appends it to the page.
 
 ---
 
-## 2. Shadow DOM Structure
+## 2. Shadow Scaffold and Light-DOM Content
 
-Each element has a shadow root with a single `<slot>` as the content anchor:
+The element has a thin shadow root that holds only structural CSS and a
+`<slot>`. The composed fragment DOM lives in the **light DOM** as direct
+children of the host, projected through the slot.
 
 ```
 <fragment-container>
-  #shadow-root
+  #shadow-root (open)
     <style>
-      :host { display: block; overflow: hidden; }
-      slot   { display: block; height: 100%; }
+      :host { display: block; overflow: clip; contain: size style; block-size: 100%; }
+      slot  { display: block; height: 100%; }
     </style>
-    <slot>
-      ... composed fragment DOM ...
-    </slot>
-  (light DOM is empty — content is appended into the slot inside the shadow)
+    <slot></slot>
+  <!-- light-DOM children below; the slot above projects them -->
+  <section>... composed fragment DOM ...</section>
 ```
 
-The slot is used as the content anchor, not for light-DOM projection. Host
-page light-DOM children are not forwarded; rendered content is appended
-directly to the slot, keeping it inside the shadow tree where only the
-adopted stylesheets apply.
+Because content is in the document tree, hash navigation
+(`<a href="#fn:1">`), `document.getElementById`, and Chromium's PDF link
+annotations all resolve natively across fragments.
 
 ### CSS isolation
 
-Isolation comes from three sources layered together:
+Isolation comes from two layers:
 
-1. **Shadow boundary.** Host page stylesheets do not cross into the shadow
-   root. The only styles that apply are the sheets adopted into the root.
-2. **Adopted stylesheets.** The shadow root's `adoptedStyleSheets` is set to
-   the content sheets (from the measurer), then any handler-contributed
-   sheets, then `OVERRIDES` last so it always wins the cascade.
-3. **`body`/`html` rewriting.** The built-in `BodyRewriter` handler rewrites
-   rules targeting `body` and `html` in content sheets so they target
-   `:host`/`slot` inside the shadow DOM, preserving the author's intent
-   without leaking from the host page.
+1. **`@scope (fragment-container) { ... }`** — author/handler/override
+   stylesheets are wrapped in an `@scope` block when adopted on
+   `document.adoptedStyleSheets`, so engine-generated rules don't leak
+   onto the host page.
+2. **`BodyRewriter`** — rewrites rules targeting `body`/`html` in content
+   sheets to `:scope` for the fragment-container side and
+   `:host(content-measure) > slot` for the off-screen measurer.
+
+Page-side styles (everything in `document.styleSheets`) cascade naturally
+to the light-DOM content; they're not duplicated into the engine's
+composite sheet.
 
 ---
 
@@ -113,11 +113,10 @@ Key points:
   or a page-renderer component) uses `constraints.pageBoxSize` to
   produce the full page box including margins. When `pageBoxSize` is
   absent (region/column mode), the host box is sized to `contentArea`
-  directly.
+  directly via inline `width`/`height`.
 - **Counter snapshot comes from the previous fragment.** See §6.
-- **Handler-contributed per-fragment sheets** (`#adoptedSheets`) and the
-  per-fragment `afterRender` callbacks are applied after
-  `setupForRendering` but before `expectedBlockSize` is set.
+- **Per-fragment `afterRender` callbacks** run after content is appended
+  but before `expectedBlockSize` is set.
 
 ---
 
@@ -240,66 +239,45 @@ for (const el of flow) {
 
 ---
 
-## 5. `setupForRendering()` and the Stylesheet Pipeline
+## 5. Stylesheet Pipeline
 
-`setupForRendering(contentStyles, counterSnapshot?)` prepares the shadow
-root for a new render and returns the slot element to append content into.
-It is idempotent — calling it again clears the slot and re-applies sheets.
+The fragment-container itself doesn't adopt any per-instance stylesheets.
+The engine builds **one composite scoped sheet per `FragmentedFlow`** and
+adopts it on `document.adoptedStyleSheets` (see
+`src/styles/composite-sheet.js`). Inside `@scope (fragment-container)`,
+the sheet layers:
 
 ```
-setupForRendering(contentStyles, counterSnapshot)
-  │
-  ├── ensure shadow root + slot exist
-  ├── clear slot.innerHTML
-  ├── set data-fragment = fragmentIndex
-  ├── adoptedStyleSheets =
-  │     [ ...contentStyles.sheets,
-  │       (optional) counterSet sheet,
-  │       OVERRIDES ]
-  └── return slot
-```
-
-### `contentStyles`
-
-The first argument is the measurer's content-style snapshot from
-`ContentMeasureElement.getContentStyles()`:
-
-```js
-// src/components/content-measure.js
-getContentStyles() {
-  return { sheets: [...this.#shadow.adoptedStyleSheets] };
+@scope (fragment-container) {
+  @layer { UA defaults }            ← :scope { margin: 8px }, etc.
+  body-rewriter rules               ← :scope { ... } from `body { ... }`
+  neutralize structural pseudos     ← `tr:nth-child(odd) { ...: unset !important }`
+  StyleResolver per-element rules   ← `tr.foo[data-ref="N"] { ... !important }`
+  OVERRIDES                         ← `[data-split-from] { ... !important }`
 }
 ```
 
-The returned `sheets` array is a shallow copy — any author CSS, handler
-contributions, and the measurer's UA sheet are all captured. Every
-fragment-container shares the same `contentStyles` object by reference, so
-author stylesheets are re-adopted rather than cloned. When the flow is
-re-laid-out (`FragmentedFlow.reflow()`), a fresh snapshot is taken.
+- **UA defaults** (`src/styles/ua-defaults.js`) — restore `body`'s 8px
+  margin on the host, in their own anonymous `@layer` so author rules win.
+- **Body-rewriter rules** rewrite `body`/`html` rules from author sheets
+  to target `:scope` (the fragment-container host).
+- **Neutralize** (`src/styles/neutralize-structural-pseudos.js`) — for
+  every author rule whose selector contains a structural pseudo
+  (`:nth-child`, `:first-child`, etc.), emit per-property `unset !important`
+  on the same selector. Prevents cloned-position incorrect matches from
+  the original sheet.
+- **StyleResolver** (`src/handlers/style-resolver.js`) — re-emits each
+  matched rule with the structural-pseudo segment replaced by
+  `[data-ref="N"]` (stamped on the source element during measurement, then
+  carried through `cloneNode`). Source-position-correct values reapply
+  per element.
+- **OVERRIDES** (`src/styles/overrides.js`) — split-edge neutralization
+  rules (suppress `text-indent`, `::first-letter`, etc. on continuation
+  fragments). Last in source order so it wins source-order tiebreaks
+  among `!important` rules.
 
-### OVERRIDES (last)
-
-`OVERRIDES` (`src/styles/overrides.js`) is a shared `CSSStyleSheet` adopted
-_last_ into every fragment-container's shadow DOM. It suppresses the
-properties that should only appear on the first or last fragment of a
-split element (`text-indent`, `::first-letter`, `::before`, counter reset,
-etc.). Because it is last, it always wins the cascade.
-
-### Handler-contributed sheets
-
-After `setupForRendering` returns, `FragmentationContext` calls
-`adoptHandlerSheet(sheet)` for each sheet returned by
-`handlers.getAdoptedSheets()`. The method inserts the new sheet
-immediately before `OVERRIDES` so `OVERRIDES` retains highest priority.
-
-`StyleResolver` (`src/handlers/style-resolver.js`) uses this path to
-adopt a single shared sheet wrapped in `@layer nth`. Author stylesheets
-are first piped through `prepareAuthorSheetsForFragment`
-(`src/styles/strip-structural-pseudos.js`) which removes structural-pseudo
-rules (whose selectors would misfire against clones) and wraps the
-survivors in an anonymous `@layer`. The named `@layer nth` is declared
-later so it wins by layer order — the stamped `[data-ref="N"]` overrides
-beat any author rule that matched the element in the source cascade.
+The original author sheets in `document.styleSheets` cascade naturally to
+the light-DOM content; the composite supplements them.
 
 ---
 
@@ -307,31 +285,23 @@ beat any author rule that matched the element in the source cascade.
 
 CSS counters must flow across fragments: a `counter-increment` on page 1
 needs to be visible on page 2. `FragmentationContext` snapshots each
-fragment's counter state during composition and hands the previous
-fragment's snapshot to the next one via `setupForRendering`'s
-`counterSnapshot` argument.
+fragment's counter state during composition and seeds the next fragment
+via inline `style.counterSet` on the host:
 
 ```js
 // fragmentation-context.js
 const counterSnapshot = index > 0 ? this.#fragments[index - 1].counterState : null;
-el.setupForRendering(this.#contentStyles, counterSnapshot);
-```
-
-When the snapshot is non-empty, `setupForRendering` inserts a generated
-stylesheet immediately before `OVERRIDES`:
-
-```css
-slot {
-	counter-set: counter-a 12 counter-b 3;
+if (counterSnapshot && Object.keys(counterSnapshot).length > 0) {
+	el.style.counterSet = formatCounterSet(counterSnapshot);
 }
 ```
 
-This seeds the root scope so that any `counter()`/`counters()` function in
-the continuation fragment sees the correct starting value before the
-fragment's own increments take effect. Because the sheet is inserted before
-`OVERRIDES`, and `OVERRIDES` also suppresses `counter-set` on
-`[data-split-from]` elements, the seed applies at the slot scope without
-being clobbered on elements that span the break.
+The host's `contain: style` (part of the `contain: size style` declaration
+in the host CSS) gives each fragment-container its own counter scope, so
+sibling fragments don't contaminate each other. The inline `counter-set`
+seeds the host with the values the author's content would have had at the
+break boundary; descendants inherit the scope and `counter-increment` /
+`counter()` resolve correctly.
 
 See `src/fragmentation/counter-state.js` for the snapshot format and the
 accumulator that produces it.
@@ -347,7 +317,7 @@ change measurement.
 
 | Method                  | Purpose                                                                                                    |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `startObserving()`      | Attach `ResizeObserver` and `MutationObserver` on the slot.                                                |
+| `startObserving()`      | Attach `ResizeObserver` on the slot (tracks projected content size) and `MutationObserver` on the host.    |
 | `stopObserving()`       | Disconnect both observers. Called from `disconnectedCallback`.                                             |
 | `takeMutationRecords()` | Drain the internal mutation buffer plus any pending records from the observer. Returns `MutationRecord[]`. |
 
@@ -357,7 +327,7 @@ one event:
 
 | Event             | `detail`                                                    | Fires when                                                                            |
 | ----------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `fragment-change` | `{ index }`                                                 | The slot's DOM or size changed.                                                       |
+| `fragment-change` | `{ index }`                                                 | Light-DOM children mutated or the slot's projected size changed.                      |
 | `overflow`        | `{ index, expectedBlockSize, renderedBlockSize, overflow }` | Rendered content height exceeds `expectedBlockSize` by more than `overflowThreshold`. |
 
 `ResizeObserver` attachment is deferred one frame via
@@ -385,9 +355,11 @@ browser actually rendered:
   `fragment.constraints.contentArea.blockSize`. This is what layout
   reserved for the fragmentainer.
 
-When the `ResizeObserver` entry's `contentBoxSize.blockSize` exceeds
-`expectedBlockSize + overflowThreshold`, an `overflow` event fires with
-the delta. Consumers can respond by calling
+The `ResizeObserver` watches the slot inside the shadow scaffold; the
+slot's `contentBoxSize.blockSize` reflects the projected content's
+natural height (the host itself is size-contained and won't grow). When
+that exceeds `expectedBlockSize + overflowThreshold`, an `overflow` event
+fires with the delta. Consumers can respond by calling
 `FragmentedFlow.reflow(index, { rebuild: true })` or by flagging the page
 for manual intervention — the engine itself does not auto-reflow on
 overflow.
@@ -396,17 +368,17 @@ overflow.
 
 ## 9. Data Attributes
 
-`FragmentationContext` and `setupForRendering` set these attributes during
-composition. They are stable integration points for CSS authors and for
-downstream tools (e.g. print renderers).
+`FragmentationContext` sets these attributes during composition. They are
+stable integration points for CSS authors and for downstream tools (e.g.
+print renderers).
 
-| Attribute         | Value     | Set by                 | Meaning                                                                    |
-| ----------------- | --------- | ---------------------- | -------------------------------------------------------------------------- |
-| `data-fragment`   | `{index}` | `setupForRendering`    | Zero-based fragmentainer index.                                            |
-| `data-page-name`  | `{name}`  | `namedPage` setter     | CSS `page` name for this fragmentainer. Absent when `namedPage` is `null`. |
-| `data-first`      | present   | `FragmentationContext` | This is the first fragmentainer (`fragment.isFirst`).                      |
-| `data-last`       | present   | `FragmentationContext` | This is the last fragmentainer (`fragment.isLast`).                        |
-| `data-blank-page` | present   | `FragmentationContext` | A blank page inserted for `:left`/`:right`/`recto`/`verso`. No content.    |
+| Attribute         | Value     | Set by                            | Meaning                                                                    |
+| ----------------- | --------- | --------------------------------- | -------------------------------------------------------------------------- |
+| `data-fragment`   | `{index}` | `fragmentIndex` setter            | Zero-based fragmentainer index.                                            |
+| `data-page-name`  | `{name}`  | `namedPage` setter                | CSS `page` name for this fragmentainer. Absent when `namedPage` is `null`. |
+| `data-first`      | present   | `FragmentationContext`            | This is the first fragmentainer (`fragment.isFirst`).                      |
+| `data-last`       | present   | `FragmentationContext`            | This is the last fragmentainer (`fragment.isLast`).                        |
+| `data-blank-page` | present   | `FragmentationContext`            | A blank page inserted for `:left`/`:right`/`recto`/`verso`. No content.    |
 
 The element also has `role="none"` set in `connectedCallback()` — the
 fragment-container is a presentational wrapper, not a semantic landmark.
@@ -430,8 +402,7 @@ contract:
 - **Column mode** (multicol). Each column is a fragmentainer inside the
   containing block's multicol layout; the multicol algorithm produces
   column fragment-containers via `MulticolAlgorithm`. Their
-  `hese were discernible (though faintly) e` is a fixed `ConstraintSpace` and `namedPage` is
-  `null`.
+  `constraints` is a fixed `ConstraintSpace` and `namedPage` is `null`.
 
 Because all three modes produce the same element type, consumers can write
 code that works across modes by branching on the shape of

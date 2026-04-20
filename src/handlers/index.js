@@ -1,8 +1,6 @@
 import { handlers } from "./registry.js";
-import { PageFloat } from "./page-float.js";
 import { RepeatedTableHeader } from "./repeated-header.js";
 import { FixedPosition } from "./fixed-position.js";
-import { Footnote } from "./footnote.js";
 import { StyleResolver } from "./style-resolver.js";
 import { EmulatePrintPixelRatio } from "./normalize.js";
 import { BodyRewriter } from "./body-rewriter.js";

@@ -61,7 +61,7 @@ FragmentedFlow
                                                    DOM output
                                                    (<fragment-container>
                                                     elements with
-                                                    shadow DOM)
+                                                    light-DOM content)
 ```
 
 **Layout phase.** `FragmentedFlow` accepts a `DocumentFragment` or `Element`
@@ -75,10 +75,12 @@ iteration produces one `<fragment-container>` element. Call
 
 **Fragmentation phase.** `Fragment.build()` (`src/fragmentation/fragment.js`) walks each
 fragment tree and clones DOM elements into visible DOM. For pages,
-this produces `<fragment-container>` custom elements with shadow DOM. For
-regions, the caller composes each fragment into the target region element
-directly. `Fragment.map()` registers clone→source mappings for handlers
-that need to resolve composed elements back to their source.
+this produces `<fragment-container>` custom elements that host the cloned
+content as light-DOM children (projected through a `<slot>` in a thin
+shadow scaffold). For regions, the caller composes each fragment into the
+target region element directly. `Fragment.map()` registers clone→source
+mappings for handlers that need to resolve composed elements back to their
+source.
 
 **Resolver pattern.** The engine supports multiple fragmentation modes through
 resolvers -- objects with a `resolve(index, ...)` method that returns
@@ -717,10 +719,14 @@ text nodes is needed.
 ### Fragment containers
 
 `FragmentationContext.createFragmentainer(index)` creates a `<fragment-container>`
-custom element with a shadow DOM root. The shadow root adopts the content
-stylesheets and `OVERRIDES`, then `fragment.build()` produces the composed DOM
-and `fragment.map()` registers the clone→source mappings. Each
-`<fragment-container>` represents one page or column in the output.
+custom element. `fragment.build()` produces the composed DOM, which is
+appended as light-DOM children of the host (projected visually through the
+`<slot>` in the host's shadow scaffold), and `fragment.map()` registers the
+clone→source mappings. Stylesheets aren't adopted per-instance — the engine
+builds one composite scoped sheet per `FragmentedFlow` and adopts it on
+`document.adoptedStyleSheets` (see [§ Composite scoped sheet](#composite-scoped-sheet)
+below). Each `<fragment-container>` represents one page or column in the
+output.
 
 ### Split attributes
 
@@ -736,11 +742,35 @@ These attributes serve two purposes: they allow CSS authors to style split
 elements differently, and they drive the `OVERRIDES` stylesheet's suppression
 rules.
 
-### OVERRIDES stylesheet
+### Composite scoped sheet
 
-`OVERRIDES` (in `src/styles/overrides.js`) is a shared `CSSStyleSheet`
-adopted last in every fragment container's shadow DOM. It contains rules that
-fix visual artifacts at break boundaries:
+`buildCompositeSheet` (in `src/styles/composite-sheet.js`) assembles one
+`CSSStyleSheet` per `FragmentedFlow` and adopts it on
+`document.adoptedStyleSheets`. It's wrapped in
+`@scope (fragment-container) { ... }` so engine-generated rules style only
+fragment-container subtrees and don't leak onto the host page. In source
+order:
+
+1. **`@layer { UA defaults }`** — restore `body`'s 8px margin on the host
+   (see `src/styles/ua-defaults.js`).
+2. **Body-rewriter rules** — `body`/`html` author rules rewritten to
+   `:scope` for the fragment-container side.
+3. **Neutralization** — for every author rule whose selector contains a
+   structural pseudo (`:nth-child`, `:first-child`, etc.), per-property
+   `unset !important` on the same selector (see
+   `src/styles/neutralize-structural-pseudos.js`). Suppresses cloned-position
+   incorrect matches from the originals in `document.styleSheets`.
+4. **StyleResolver per-element rules** — re-emit each matched rule with
+   its structural-pseudo segment swapped for `[data-ref="N"]`, so the
+   source-position-correct value reapplies on the clone.
+5. **OVERRIDES** — split-edge neutralization (see
+   `src/styles/overrides.js`); last in source order so it wins source-order
+   tiebreaks among `!important` rules.
+
+### OVERRIDES rules
+
+`OVERRIDES_TEXT` (in `src/styles/overrides.js`) holds rules that fix
+visual artifacts at break boundaries:
 
 - **`text-indent`** -- suppressed on `[data-split-from]` elements (continuation
   fragments should not re-indent)
@@ -802,8 +832,9 @@ Handlers interact with the engine at these hook points, listed in lifecycle orde
    Handlers can probe elements and build internal state (e.g., generated
    stylesheets). Must not modify the measurer's adopted stylesheets.
 
-8. **`getAdoptedSheets()`** — returns `CSSStyleSheet[]` to be adopted on each
-   fragment-container's shadow DOM. Called when creating a `FragmentationContext`.
+8. **`getAdoptedSheets()`** — returns `CSSStyleSheet[]` to fold into the
+   composite scoped sheet (`document.adoptedStyleSheets`). Called once per
+   `FragmentedFlow` initialization.
 
 9. **`layout(rootNode, constraintSpace, breakToken, layoutChild)`** — called
    before the normal layout pass for each fragmentainer. Scans root children,

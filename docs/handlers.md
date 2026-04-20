@@ -178,16 +178,22 @@ class EmulatePrintPixelRatio extends LayoutHandler {
 
 ## Built-in Handlers
 
-Built-in handlers (in `src/handlers/`) are registered by default:
+Built-in handlers (in `src/handlers/`) registered by default:
 
 | Handler                  | Purpose                                                                   | Page-only? |
 | ------------------------ | ------------------------------------------------------------------------- | :--------: |
 | `PageFloat`              | Page-relative floats (`--float-reference: page`)                          |     —      |
 | `RepeatedTableHeader`    | Repeat `<thead>` on continuation pages                                    |     —      |
 | `FixedPosition`          | Repeat `position: fixed` elements on every page                           |     —      |
-| `Footnote`               | CSS footnotes (`float: footnote`)                                         |     —      |
-| `StyleResolver`          | Replays structural-pseudo selector matches across fragment shadow roots   |     —      |
+| `StyleResolver`          | Per-element overrides for structural-pseudo rules                         |     —      |
 | `EmulatePrintPixelRatio` | Line-height normalization so screen rendering matches DPR-1 layout        |    yes     |
-| `BodyRewriter`           | Rewrites `body`/`html` selectors to `slot`/`:host` for the shadow DOM     |    yes     |
+| `BodyRewriter`           | Rewrites `body`/`html` rules to `:scope` and `:host(content-measure) > slot` |    yes     |
 
-To add a built-in handler, register it from `src/handlers/index.js` -- it will be registered automatically at import time.
+Opt-in handlers (register explicitly via `FragmentedFlow.register(Handler)`):
+
+| Handler        | Import                                                       | Purpose                                                          |
+| -------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `Footnote`     | `import { Footnote } from "fragmentainers/handlers"`         | CSS footnotes (`float: footnote`) with iterative layout          |
+| `MutationSync` | `import { MutationSync } from "fragmentainers"`              | Sync mutations from fragment-container clones back to source     |
+
+To add a built-in default handler, register it from `src/handlers/index.js` -- it will be registered automatically at import time.

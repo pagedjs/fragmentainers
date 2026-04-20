@@ -189,7 +189,7 @@ The containing `INLINE_TEXT` item carries the computed `hyphens` and `hyphenate-
 - `hyphens: manual` — flags only when U+00AD sits at `textOffset - 1`
 - `hyphens: auto` — flags on a soft-hyphen break OR a mid-word dictionary break (non-whitespace chars on both sides of the offset)
 
-When flagged, the token carries `isHyphenated: true` and the resolved `hyphenateCharacter` (U+2010 HYPHEN by default, or the parsed CSS value). The render layer in `Fragment.buildInlineContent` strips any trailing U+00AD from page N's last text node and appends `hyphenateCharacter`, producing the visible hyphen that the source-text slice alone would not trigger in the shadow DOM.
+When flagged, the token carries `isHyphenated: true` and the resolved `hyphenateCharacter` (U+2010 HYPHEN by default, or the parsed CSS value). The render layer in `Fragment.buildInlineContent` strips any trailing U+00AD from page N's last text node and appends `hyphenateCharacter`, producing the visible hyphen that the source-text slice alone would not trigger after relayout.
 
 The CSS `hyphenate-limit-*` properties are honored by the browser's own line-breaking decisions (which our algorithm observes via `offsetAtLine`); we do not re-implement them.
 
