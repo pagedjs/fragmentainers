@@ -1,26 +1,26 @@
 import { LayoutHandler } from "./handler.js";
 import { walkRules } from "../styles/walk-rules.js";
+import {
+	splitSelectorList,
+	tokenizeSelector,
+	STRUCTURAL_PSEUDO_RE,
+} from "../styles/selector-utils.js";
 
 /**
- * Replays structural-pseudo matches across fragment shadow roots.
+ * Replays structural-pseudo matches per element after fragmentation.
  *
- * During afterMeasurementSetup, walks the source DOM once and stamps
+ * During `afterMeasurementSetup`, walks the source DOM once and stamps
  * `data-ref="N"` on every element whose source cascade matches a rule
- * containing `:nth-child`, `:last-of-type`, etc. cloneNode carries the
- * attribute into each fragment. A single `@layer nth` sheet adopted
- * into every fragment shadow re-applies the author declarations to the
- * stamped elements.
+ * containing `:nth-child`, `:last-of-type`, etc. `cloneNode` carries
+ * the attribute into each fragment.
  *
- * Pairs with `prepareAuthorSheetsForFragment` in
- * `src/styles/strip-structural-pseudos.js`, which removes the author's
- * position-based rules before adoption so they can't misfire against
- * clones whose sibling indexes differ from their source.
+ * The per-element override sheet emits the original rule's selector
+ * with the structural-pseudo segment swapped for `[data-ref="N"]`, so
+ * the source-position-correct value re-applies on the clone via the
+ * composite scoped sheet. Pairs with `emitNeutralizationCss`, which
+ * unsets the original structural-pseudo rules so cloned-only matches
+ * can't leak through.
  */
-
-const NTH_PSEUDO_RE =
-	/:(nth-child|nth-of-type|nth-last-child|nth-last-of-type|first-child|last-child|first-of-type|last-of-type|only-child|only-of-type)\b(\([^)]*\))?/g;
-
-const WHITESPACE_RE = /\s/;
 
 /**
  * Parse a CSS An+B expression into { a, b } coefficients.
@@ -130,116 +130,13 @@ function matchesAllParts(pos, nthParts) {
 	return true;
 }
 
-/**
- * Split a selector list on top-level commas, honoring ()/[]/string depth.
- */
-export function splitSelectorList(selectorText) {
-	const results = [];
-	let depth = 0;
-	let bracket = 0;
-	let inString = null;
-	let start = 0;
-	for (let i = 0; i < selectorText.length; i++) {
-		const ch = selectorText[i];
-		if (inString) {
-			if (ch === "\\") { i++; continue; }
-			if (ch === inString) inString = null;
-			continue;
-		}
-		if (ch === '"' || ch === "'") { inString = ch; continue; }
-		if (ch === "(") depth++;
-		else if (ch === ")") depth--;
-		else if (ch === "[") bracket++;
-		else if (ch === "]") bracket--;
-		else if (ch === "," && depth === 0 && bracket === 0) {
-			const s = selectorText.slice(start, i).trim();
-			if (s) results.push(s);
-			start = i + 1;
-		}
-	}
-	const tail = selectorText.slice(start).trim();
-	if (tail) results.push(tail);
-	return results;
-}
-
-/**
- * Tokenize a selector into compound tokens. `combinator` is the
- * combinator linking the compound to the next one on its right
- * (" ", ">", "+", "~"); the rightmost token has combinator = null.
- */
-export function tokenizeSelector(selector) {
-	const tokens = [];
-	let depth = 0;
-	let bracket = 0;
-	let inString = null;
-	let buf = "";
-	const flush = (combinator) => {
-		const t = buf.trim();
-		if (t) tokens.push({ compound: t, combinator });
-		buf = "";
-	};
-	let i = 0;
-	while (i < selector.length) {
-		const ch = selector[i];
-		if (inString) {
-			buf += ch;
-			if (ch === "\\" && i + 1 < selector.length) { buf += selector[i + 1]; i += 2; continue; }
-			if (ch === inString) inString = null;
-			i++;
-			continue;
-		}
-		if (ch === '"' || ch === "'") { inString = ch; buf += ch; i++; continue; }
-		if (depth > 0 || bracket > 0) {
-			if (ch === "(") depth++;
-			else if (ch === ")") depth--;
-			else if (ch === "[") bracket++;
-			else if (ch === "]") bracket--;
-			buf += ch;
-			i++;
-			continue;
-		}
-		if (ch === "(") { depth++; buf += ch; i++; continue; }
-		if (ch === "[") { bracket++; buf += ch; i++; continue; }
-		if (WHITESPACE_RE.test(ch)) {
-			let j = i + 1;
-			while (j < selector.length && WHITESPACE_RE.test(selector[j])) j++;
-			const next = j < selector.length ? selector[j] : "";
-			if (next === ">" || next === "+" || next === "~") {
-				let k = j + 1;
-				while (k < selector.length && WHITESPACE_RE.test(selector[k])) k++;
-				flush(next);
-				i = k;
-				continue;
-			}
-			if (!next) { i = j; continue; }
-			if (buf.trim()) {
-				flush(" ");
-				i = j;
-				continue;
-			}
-			i = j;
-			continue;
-		}
-		if (ch === ">" || ch === "+" || ch === "~") {
-			let k = i + 1;
-			while (k < selector.length && WHITESPACE_RE.test(selector[k])) k++;
-			flush(ch);
-			i = k;
-			continue;
-		}
-		buf += ch;
-		i++;
-	}
-	flush(null);
-	return tokens;
-}
-
 // Returns null if the compound has an nth pseudo nested inside `()`
 // (e.g. `:not(:first-child)`); those selectors can't be cleanly rewritten.
 function extractCompoundNth(compoundText) {
 	const nthParts = [];
 	let nested = false;
-	const stripped = compoundText.replace(NTH_PSEUDO_RE, (match, pseudo, args, offset) => {
+	STRUCTURAL_PSEUDO_RE.lastIndex = 0;
+	const stripped = compoundText.replace(STRUCTURAL_PSEUDO_RE, (match, pseudo, args, offset) => {
 		let d = 0;
 		for (let i = 0; i < offset; i++) {
 			const c = compoundText[i];
@@ -331,6 +228,35 @@ function matchesSingleCompound(el, comp) {
 	return !!pos && matchesAllParts(pos, comp.nthParts);
 }
 
+// Serialize a CSSStyleDeclaration as `prop: value !important;` text.
+// `!important` is needed so the per-element override beats unlayered
+// author rules in the document cascade.
+function declarationsAsImportant(style) {
+	const parts = [];
+	for (let i = 0; i < style.length; i++) {
+		const prop = style[i];
+		const value = style.getPropertyValue(prop);
+		parts.push(`${prop}: ${value} !important;`);
+	}
+	return parts.join(" ");
+}
+
+// Rebuild a selector from `strippedCompound` parts joined by their
+// combinators, with `[data-ref="N"]` appended to the subject (rightmost)
+// compound so the rule pins to one element rather than re-evaluating
+// position on the clone.
+function buildRefSelector(compounds, ref) {
+	let out = "";
+	const last = compounds.length - 1;
+	for (let i = 0; i <= last; i++) {
+		const c = compounds[i];
+		const compound = i === last ? `${c.strippedCompound}[data-ref="${ref}"]` : c.strippedCompound;
+		out += compound;
+		if (i < last) out += c.combinator === " " ? " " : ` ${c.combinator} `;
+	}
+	return out;
+}
+
 /**
  * Extract compound-aware descriptors from stylesheets. Exposed for tests.
  */
@@ -345,7 +271,7 @@ export function extractNthDescriptors(sheets) {
 				if (!compiled) continue;
 				descriptors.push({
 					compounds: compiled.compounds,
-					cssText: rule.style.cssText,
+					declarations: declarationsAsImportant(rule.style),
 					wrappers: [...wrappers],
 				});
 			}
@@ -373,7 +299,7 @@ class StyleResolver extends LayoutHandler {
 			if (!compiled) continue;
 			this.#descriptors.push({
 				compounds: compiled.compounds,
-				cssText: rule.style.cssText,
+				declarations: declarationsAsImportant(rule.style),
 				wrappers: [...context.wrappers],
 				refs: new Set(),
 			});
@@ -418,8 +344,8 @@ class StyleResolver extends LayoutHandler {
 		const ruleTexts = [];
 		for (const desc of this.#descriptors) {
 			if (desc.refs.size === 0) continue;
-			const sel = [...desc.refs].map((r) => `[data-ref="${r}"]`).join(",");
-			let rt = `${sel} { ${desc.cssText} }`;
+			const sel = [...desc.refs].map((r) => buildRefSelector(desc.compounds, r)).join(", ");
+			let rt = `${sel} { ${desc.declarations} }`;
 			for (let i = desc.wrappers.length - 1; i >= 0; i--) {
 				rt = `${desc.wrappers[i]} { ${rt} }`;
 			}
@@ -428,7 +354,7 @@ class StyleResolver extends LayoutHandler {
 		if (ruleTexts.length === 0) return null;
 		const sheet = new CSSStyleSheet();
 		try {
-			sheet.replaceSync(`@layer nth {\n${ruleTexts.join("\n")}\n}`);
+			sheet.replaceSync(ruleTexts.join("\n"));
 		} catch {
 			/* invalid declaration */
 		}

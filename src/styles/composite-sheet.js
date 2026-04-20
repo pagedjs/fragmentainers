@@ -1,8 +1,9 @@
 import { OVERRIDES_TEXT } from "./overrides.js";
-import { UA_DEFAULTS_HOST_TEXT } from "./ua-defaults.js";
-import { prepareAuthorSheetsForFragment } from "./strip-structural-pseudos.js";
+import { UA_DEFAULTS, UA_DEFAULTS_HOST_TEXT } from "./ua-defaults.js";
+import { emitNeutralizationCss } from "./neutralize-structural-pseudos.js";
 
 function sheetText(sheet) {
+	if (!sheet) return "";
 	try {
 		return [...sheet.cssRules].map((r) => r.cssText).join("\n");
 	} catch {
@@ -13,30 +14,42 @@ function sheetText(sheet) {
 /**
  * Build the document-level scoped stylesheet for a FragmentedFlow.
  *
- * Concatenates UA defaults, the prepared author rules, per-flow handler
- * sheets, and OVERRIDES, wrapped in `@scope (fragment-container) { ... }`
- * so rules apply to fragment-container hosts and their slotted
- * descendants without leaking onto the rest of the page.
+ * The original author sheets in `document.styleSheets` already cascade
+ * to fragment-container content. The composite layers on top, scoped via
+ * `@scope (fragment-container) { ... }`:
  *
- * UA defaults sit in their own anonymous `@layer` so author and handler
- * rules — declared in later layers — win the layer-priority tiebreak.
- * OVERRIDES stays unlayered (with `!important`) and wins regardless.
+ *   `@layer { UA defaults }`             — lowest priority
+ *   body-rewriter rules                  — unlayered, normal
+ *   neutralize structural-pseudo rules   — unlayered, !important
+ *   StyleResolver per-element overrides  — unlayered, !important
+ *   OVERRIDES                            — unlayered, !important, last
+ *
+ * Source order within `!important` rules decides cascade tiebreaks; OVERRIDES
+ * sits last so split-edge neutralization wins over StyleResolver replays.
  *
  * @param {{ sheets: CSSStyleSheet[] }} contentStyles
  * @param {CSSStyleSheet[]} handlerSheets — per-flow sheets from
- *   handlers.getAdoptedSheets() not already in contentStyles.sheets
+ *   handlers.getAdoptedSheets() (StyleResolver, EmulatePrintPixelRatio)
+ * @param {CSSStyleSheet|null} injectedSheet — handler-rule sheet appended
+ *   by registry.processRules(); included verbatim, not neutralized
  * @returns {CSSStyleSheet}
  */
-export function buildCompositeSheet(contentStyles, handlerSheets) {
+export function buildCompositeSheet(contentStyles, handlerSheets, injectedSheet) {
+	const authorSheets = (contentStyles?.sheets ?? []).filter(
+		(s) => s !== UA_DEFAULTS && s !== injectedSheet,
+	);
+
 	const parts = [`@layer {\n${UA_DEFAULTS_HOST_TEXT}\n}`];
 
-	const prepared = prepareAuthorSheetsForFragment(contentStyles?.sheets ?? []);
-	for (const sheet of prepared) {
-		parts.push(sheetText(sheet));
-	}
+	const injectedText = sheetText(injectedSheet);
+	if (injectedText) parts.push(injectedText);
+
+	const neutralizeText = emitNeutralizationCss(authorSheets);
+	if (neutralizeText) parts.push(neutralizeText);
 
 	for (const sheet of handlerSheets ?? []) {
-		parts.push(sheetText(sheet));
+		const text = sheetText(sheet);
+		if (text) parts.push(text);
 	}
 
 	parts.push(OVERRIDES_TEXT);

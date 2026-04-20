@@ -85,7 +85,7 @@ test.describe("computeOriginalPosition", () => {
 test.describe("splitSelectorList", () => {
 	test("splits on top-level commas", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { splitSelectorList } = await import("/src/handlers/style-resolver.js");
+			const { splitSelectorList } = await import("/src/styles/selector-utils.js");
 			return splitSelectorList("a, b, c");
 		});
 		expect(result).toEqual(["a", "b", "c"]);
@@ -93,7 +93,7 @@ test.describe("splitSelectorList", () => {
 
 	test("ignores commas inside parens", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { splitSelectorList } = await import("/src/handlers/style-resolver.js");
+			const { splitSelectorList } = await import("/src/styles/selector-utils.js");
 			return splitSelectorList(":is(a, b), c");
 		});
 		expect(result).toEqual([":is(a, b)", "c"]);
@@ -101,7 +101,7 @@ test.describe("splitSelectorList", () => {
 
 	test("ignores commas inside attribute brackets", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { splitSelectorList } = await import("/src/handlers/style-resolver.js");
+			const { splitSelectorList } = await import("/src/styles/selector-utils.js");
 			return splitSelectorList('[data-x="a,b"], p');
 		});
 		expect(result).toEqual(['[data-x="a,b"]', "p"]);
@@ -111,7 +111,7 @@ test.describe("splitSelectorList", () => {
 test.describe("tokenizeSelector", () => {
 	test("tokenizes a single compound", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { tokenizeSelector } = await import("/src/handlers/style-resolver.js");
+			const { tokenizeSelector } = await import("/src/styles/selector-utils.js");
 			return tokenizeSelector("li.foo");
 		});
 		expect(result).toEqual([{ compound: "li.foo", combinator: null }]);
@@ -119,7 +119,7 @@ test.describe("tokenizeSelector", () => {
 
 	test("tokenizes descendant chain", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { tokenizeSelector } = await import("/src/handlers/style-resolver.js");
+			const { tokenizeSelector } = await import("/src/styles/selector-utils.js");
 			return tokenizeSelector("table tr td");
 		});
 		expect(result).toEqual([
@@ -131,7 +131,7 @@ test.describe("tokenizeSelector", () => {
 
 	test("tokenizes mixed combinators", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { tokenizeSelector } = await import("/src/handlers/style-resolver.js");
+			const { tokenizeSelector } = await import("/src/styles/selector-utils.js");
 			return tokenizeSelector("table tr:last-of-type > td.tdr");
 		});
 		expect(result).toEqual([
@@ -143,7 +143,7 @@ test.describe("tokenizeSelector", () => {
 
 	test("keeps parens in a compound", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { tokenizeSelector } = await import("/src/handlers/style-resolver.js");
+			const { tokenizeSelector } = await import("/src/styles/selector-utils.js");
 			return tokenizeSelector("li:is(a, b)");
 		});
 		expect(result).toEqual([{ compound: "li:is(a, b)", combinator: null }]);
@@ -151,7 +151,7 @@ test.describe("tokenizeSelector", () => {
 
 	test("handles sibling combinators", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { tokenizeSelector } = await import("/src/handlers/style-resolver.js");
+			const { tokenizeSelector } = await import("/src/styles/selector-utils.js");
 			return tokenizeSelector("h1 + p ~ span");
 		});
 		expect(result).toEqual([
@@ -302,7 +302,7 @@ test.describe("StyleResolver — pre-stamping", () => {
 });
 
 test.describe("StyleResolver — emitted sheet", () => {
-	test("wraps rules in @layer nth", async ({ page }) => {
+	test("emits per-element selector with [data-ref] anchor", async ({ page }) => {
 		const cssText = await page.evaluate(async () => {
 			const { StyleResolver } = await import("/src/handlers/style-resolver.js");
 			const r = new StyleResolver();
@@ -318,9 +318,9 @@ test.describe("StyleResolver — emitted sheet", () => {
 			document.body.removeChild(root);
 			return out;
 		});
-		expect(cssText).toMatch(/^@layer nth\b/);
-		expect(cssText).toContain('[data-ref="0"]');
-		expect(cssText).toContain("color: red");
+		expect(cssText).toContain('p[data-ref="0"]');
+		expect(cssText).toContain("color: red !important");
+		expect(cssText).not.toContain(":first-child");
 	});
 
 	test("groups multiple matches under one descriptor", async ({ page }) => {
@@ -335,13 +335,12 @@ test.describe("StyleResolver — emitted sheet", () => {
 			root.innerHTML = "<ul><li>1</li><li>2</li><li>3</li><li>4</li></ul>";
 			document.body.appendChild(root);
 			r.afterMeasurementSetup(root);
-			const layer = r.getAdoptedSheets()[0].cssRules[0];
-			const innerRule = layer.cssRules[0].cssText;
+			const innerRule = r.getAdoptedSheets()[0].cssRules[0].cssText;
 			document.body.removeChild(root);
 			return innerRule;
 		});
-		expect(sel).toContain('[data-ref="0"]');
-		expect(sel).toContain('[data-ref="1"]');
+		expect(sel).toContain('li[data-ref="0"]');
+		expect(sel).toContain('li[data-ref="1"]');
 	});
 
 	test("preserves @media wrappers around emitted rules", async ({ page }) => {
@@ -364,76 +363,86 @@ test.describe("StyleResolver — emitted sheet", () => {
 			return out;
 		});
 		expect(cssText).toContain("@media print");
-		expect(cssText).toContain("color: red");
+		expect(cssText).toContain("color: red !important");
 	});
 });
 
-test.describe("prepareAuthorSheetsForFragment", () => {
-	test("wraps output in an anonymous @layer", async ({ page }) => {
-		const result = await page.evaluate(async () => {
-			const { prepareAuthorSheetsForFragment } =
-				await import("/src/styles/strip-structural-pseudos.js");
+test.describe("emitNeutralizationCss", () => {
+	test("emits per-property unset !important for structural-pseudo rules", async ({ page }) => {
+		const out = await page.evaluate(async () => {
+			const { emitNeutralizationCss } = await import("/src/styles/neutralize-structural-pseudos.js");
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync("tr:nth-child(odd) { color: red; background: blue; }");
+			return emitNeutralizationCss([sheet]);
+		});
+		expect(out).toMatch(/tr:nth-child\((odd|2n\+1)\)/);
+		expect(out).toContain("color: unset !important");
+		expect(out).toContain("background-color: unset !important");
+	});
+
+	test("skips rules without structural pseudos", async ({ page }) => {
+		const out = await page.evaluate(async () => {
+			const { emitNeutralizationCss } = await import("/src/styles/neutralize-structural-pseudos.js");
 			const sheet = new CSSStyleSheet();
 			sheet.replaceSync("p { color: red; }");
-			const [out] = prepareAuthorSheetsForFragment([sheet]);
-			const layer = out.cssRules[0];
-			return { name: layer.name, cssText: layer.cssText };
+			return emitNeutralizationCss([sheet]);
 		});
-		expect(result.name).toBe("");
-		expect(result.cssText).toMatch(/^@layer\b/);
-		expect(result.cssText).toContain("color: red");
+		expect(out).toBe("");
 	});
 
-	test("removes structural-pseudo rules", async ({ page }) => {
-		const inner = await page.evaluate(async () => {
-			const { prepareAuthorSheetsForFragment } =
-				await import("/src/styles/strip-structural-pseudos.js");
+	test("selector lists only neutralize the structural-pseudo branches", async ({ page }) => {
+		const out = await page.evaluate(async () => {
+			const { emitNeutralizationCss } = await import("/src/styles/neutralize-structural-pseudos.js");
 			const sheet = new CSSStyleSheet();
-			sheet.replaceSync(`
-				tr { color: black; }
-				tr:nth-child(even) { background: red; }
-				p { font-size: 14px; }
-				p:first-child { font-weight: bold; }
-				p:last-of-type { color: blue; }
-			`);
-			const [out] = prepareAuthorSheetsForFragment([sheet]);
-			const layer = out.cssRules[0];
-			return [...layer.cssRules].map((r) => r.selectorText);
+			sheet.replaceSync("p, tr:nth-child(even) { color: red; }");
+			return emitNeutralizationCss([sheet]);
 		});
-		expect(inner).toEqual(["tr", "p"]);
+		expect(out).toMatch(/tr:nth-child\((even|2n)\)/);
+		expect(out).not.toMatch(/^p\s/);
 	});
 
-	test("preserves @media wrappers around kept rules", async ({ page }) => {
-		const cssText = await page.evaluate(async () => {
-			const { prepareAuthorSheetsForFragment } =
-				await import("/src/styles/strip-structural-pseudos.js");
+	test("preserves @media wrappers", async ({ page }) => {
+		const out = await page.evaluate(async () => {
+			const { emitNeutralizationCss } = await import("/src/styles/neutralize-structural-pseudos.js");
 			const sheet = new CSSStyleSheet();
 			sheet.replaceSync(`
 				@media print {
-					tr { color: black; }
-					tr:first-child { background: blue; }
+					tr:first-child { color: blue; }
 				}
 			`);
-			const [out] = prepareAuthorSheetsForFragment([sheet]);
-			return out.cssRules[0].cssText;
+			return emitNeutralizationCss([sheet]);
 		});
-		expect(cssText).toMatch(/^@layer\b/);
-		expect(cssText).toContain("@media print");
-		expect(cssText).toContain("color: black");
-		expect(cssText).not.toContain("first-child");
+		expect(out).toContain("@media print");
+		expect(out).toContain("tr:first-child");
+		expect(out).toContain("color: unset !important");
 	});
+});
 
-	test("returns the same output sheet for repeated calls (cached)", async ({ page }) => {
-		const same = await page.evaluate(async () => {
-			const { prepareAuthorSheetsForFragment } =
-				await import("/src/styles/strip-structural-pseudos.js");
+test.describe("StyleResolver selector rewrite", () => {
+	test("substitutes structural pseudo with [data-ref] and keeps surrounding compounds", async ({ page }) => {
+		const ruleText = await page.evaluate(async () => {
+			const { StyleResolver } = await import("/src/handlers/style-resolver.js");
+			const r = new StyleResolver();
 			const sheet = new CSSStyleSheet();
-			sheet.replaceSync("p { color: red; }");
-			const [a] = prepareAuthorSheetsForFragment([sheet]);
-			const [b] = prepareAuthorSheetsForFragment([sheet]);
-			return a === b;
+			sheet.replaceSync("body tr.foo:nth-child(odd) { color: red; }");
+			for (const rule of sheet.cssRules) r.matchRule(rule, { wrappers: [] });
+			const root = document.createElement("div");
+			root.innerHTML = `<table><tbody>
+				<tr class="foo"><td>a</td></tr>
+				<tr class="foo"><td>b</td></tr>
+				<tr class="foo"><td>c</td></tr>
+			</tbody></table>`;
+			document.body.appendChild(root);
+			r.afterMeasurementSetup(root);
+			const [out] = r.getAdoptedSheets();
+			const text = out ? [...out.cssRules].map((rr) => rr.cssText).join("\n") : "";
+			document.body.removeChild(root);
+			return text;
 		});
-		expect(same).toBe(true);
+		// Two odd-position trs (1st and 3rd) → two refs.
+		expect(ruleText).toMatch(/tr\.foo\[data-ref="\d"\]/);
+		expect(ruleText).toContain("color: red !important");
+		expect(ruleText).not.toContain(":nth-child");
 	});
 });
 
@@ -442,34 +451,30 @@ test.describe("end-to-end cascade", () => {
 		return page.evaluate(
 			async ({ html, css }) => {
 				const { StyleResolver } = await import("/src/handlers/style-resolver.js");
-				const { prepareAuthorSheetsForFragment } =
-					await import("/src/styles/strip-structural-pseudos.js");
+				const { buildCompositeSheet } = await import("/src/styles/composite-sheet.js");
+				await import("/src/components/fragment-container.js");
 
-				const r = new StyleResolver();
 				const authorSheet = new CSSStyleSheet();
 				authorSheet.replaceSync(css);
+				document.adoptedStyleSheets = [...document.adoptedStyleSheets, authorSheet];
+
+				const r = new StyleResolver();
 				for (const rule of authorSheet.cssRules) r.matchRule(rule, { wrappers: [] });
 
-				const sourceHost = document.createElement("div");
-				sourceHost.attachShadow({ mode: "open" });
-				sourceHost.shadowRoot.adoptedStyleSheets = [authorSheet];
 				const source = document.createElement("div");
 				source.innerHTML = html;
-				sourceHost.shadowRoot.appendChild(source);
-				document.body.appendChild(sourceHost);
+				document.body.appendChild(source);
 				r.afterMeasurementSetup(source);
 
-				const wrapper = source.cloneNode(true);
-				const cloneHost = document.createElement("div");
-				cloneHost.attachShadow({ mode: "open" });
-				cloneHost.shadowRoot.adoptedStyleSheets = [
-					...prepareAuthorSheetsForFragment([authorSheet]),
-					...r.getAdoptedSheets(),
-				];
-				cloneHost.shadowRoot.appendChild(wrapper);
-				document.body.appendChild(cloneHost);
+				const wrapper = document.createElement("fragment-container");
+				const cloned = source.cloneNode(true);
+				while (cloned.firstChild) wrapper.appendChild(cloned.firstChild);
+				document.body.appendChild(wrapper);
 
-				window.cascadeProbe = { sourceHost, cloneHost, wrapper };
+				const composite = buildCompositeSheet({ sheets: [authorSheet] }, r.getAdoptedSheets(), null);
+				document.adoptedStyleSheets = [...document.adoptedStyleSheets, composite];
+
+				window.cascadeProbe = { source, wrapper, authorSheet, composite };
 				return { wrapperReady: true };
 			},
 			{ html, css },
@@ -478,9 +483,12 @@ test.describe("end-to-end cascade", () => {
 
 	async function teardownCascade(page) {
 		await page.evaluate(() => {
-			const { sourceHost, cloneHost } = window.cascadeProbe;
-			document.body.removeChild(sourceHost);
-			document.body.removeChild(cloneHost);
+			const { source, wrapper, authorSheet, composite } = window.cascadeProbe;
+			document.body.removeChild(source);
+			document.body.removeChild(wrapper);
+			document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+				(s) => s !== authorSheet && s !== composite,
+			);
 			delete window.cascadeProbe;
 		});
 	}
@@ -595,12 +603,7 @@ test.describe("end-to-end cascade", () => {
 		expect(observed.find((i) => i.text === "r2c2").color).toBe(red);
 	});
 
-	test("@layer nth wins over higher-specificity author rules in stripped cascade", async ({ page }) => {
-		// Author has `tr { color: black }` (specificity 0,0,1) and a more
-		// specific nth rule. After strip + layer, the atom selector
-		// `[data-ref="0"]` has specificity 0,1,0 — but the un-stripped
-		// `tr` rule sits in an anonymous author layer that loses to
-		// `@layer nth` regardless of specificity.
+	test("per-element override wins over the original nth rule", async ({ page }) => {
 		await setupCascade(
 			page,
 			"<table><tbody><tr><td>row1</td></tr><tr><td>row2</td></tr></tbody></table>",

@@ -6,6 +6,7 @@ class HandlerRegistry {
 	#created = [];
 	#handlers = [];
 	#cloneMap = new WeakMap();
+	#injectedSheet = null;
 
 	/**
 	 * Register a handler class. A fresh instance is created each time
@@ -134,13 +135,24 @@ class HandlerRegistry {
 		for (const handler of hs) {
 			handler.appendRules(rules);
 		}
+		this.#injectedSheet = null;
 		if (rules.length > 0) {
 			const sheet = new CSSStyleSheet();
 			for (const rule of rules) {
 				sheet.insertRule(rule, sheet.cssRules.length);
 			}
 			styles.push(sheet);
+			this.#injectedSheet = sheet;
 		}
+	}
+
+	/**
+	 * The CSSStyleSheet appended by the most recent processRules() call.
+	 * Holds rules emitted by handler appendRules() (e.g. body-rewriter
+	 * `:scope` overrides). Null when no handler emitted any rules.
+	 */
+	getInjectedSheet() {
+		return this.#injectedSheet;
 	}
 
 	/**

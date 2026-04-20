@@ -847,7 +847,11 @@ export class FragmentedFlow extends Iterator {
 	 */
 	#installDocSheet() {
 		this.#removeDocSheet();
-		this.#docSheet = buildCompositeSheet(this.#contentStyles, handlers.getAdoptedSheets());
+		this.#docSheet = buildCompositeSheet(
+			this.#contentStyles,
+			handlers.getAdoptedSheets(),
+			handlers.getInjectedSheet(),
+		);
 		document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.#docSheet];
 	}
 
