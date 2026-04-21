@@ -2,6 +2,7 @@ import { ConstraintSpace, FRAGMENTATION_PAGE } from "../fragmentation/constraint
 import { BREAK_TOKEN_INLINE } from "../fragmentation/tokens.js";
 import { cssValue, parseNumeric } from "../styles/css-values.js";
 import { walkRules } from "../styles/walk-rules.js";
+import { parseAnPlusB, matchesAnPlusB } from "../styles/an-plus-b.js";
 
 // Named page sizes from CSS Paged Media Level 3 §3.1
 // (CSS pixels at 96 DPI, rounded to match resolveSize)
@@ -40,15 +41,17 @@ export class PageRule {
 	 * @param {object} opts
 	 * @param {string|null} [opts.name] - Named page type ('chapter', 'cover'), or null for universal
 	 * @param {string[]} [opts.pseudoClasses] - Subset of 'first', 'left', 'right', 'blank'
+	 * @param {{a: number, b: number}|null} [opts.nth] - `:nth(An+B)` coefficients, or null
 	 * @param {string|number[]|null} [opts.size] - 'a4', 'letter landscape', [width, height], or null
 	 * @param {object|null} [opts.margin] - { top, right, bottom, left } in CSS px
 	 * @param {string|null} [opts.pageOrientation] - 'rotate-left', 'rotate-right', or null
 	 * @param {CSSUnitValue[]|null} [opts.rawSize] - [inline, block] as CSSUnitValues with original units
 	 * @param {object|null} [opts.rawMargin] - { top, right, bottom, left } as CSSUnitValues
 	 */
-	constructor({ name, pseudoClasses, size, margin, pageOrientation, rawSize, rawMargin } = {}) {
+	constructor({ name, pseudoClasses, nth, size, margin, pageOrientation, rawSize, rawMargin } = {}) {
 		this.name = name || null;
 		this.pseudoClasses = pseudoClasses ?? [];
+		this.nth = nth ?? null;
 		this.size = size ?? null;
 		this.margin = margin ?? null;
 		this.pageOrientation = pageOrientation ?? null;
@@ -60,7 +63,7 @@ export class PageRule {
 /**
  * Compute CSS Paged Media §3.4 specificity as a tuple [f, g, h]:
  *   f — 1 if a page type name is present, else 0
- *   g — count of :first / :blank pseudo-classes
+ *   g — count of :first / :blank / :nth pseudo-classes
  *   h — count of :left / :right pseudo-classes
  * Compared lexicographically; higher wins.
  *
@@ -74,6 +77,7 @@ export function pageRuleSpecificity(rule) {
 		if (pc === "first" || pc === "blank") g++;
 		else if (pc === "left" || pc === "right") h++;
 	}
+	if (rule.nth) g++;
 	return [rule.name ? 1 : 0, g, h];
 }
 
@@ -247,6 +251,8 @@ export class PageResolver {
 				if (pc === "blank" && !isBlank) return false;
 			}
 
+			if (rule.nth && !matchesAnPlusB(pageIndex + 1, rule.nth)) return false;
+
 			return true;
 		});
 	}
@@ -384,32 +390,74 @@ export function collectPageRules(cssRules, out = []) {
 	return out;
 }
 
-const VALID_PAGE_PSEUDOS = new Set(["first", "left", "right", "blank"]);
+const BARE_PAGE_PSEUDOS = new Set(["first", "left", "right", "blank"]);
 
 /**
- * Parse an @page selector into an optional name and pseudo-class list.
- * Returns null if any pseudo is outside the CSS Paged Media allowlist
- * (matches the spec's "invalid rule dropped" behavior).
+ * Parse an @page selector into an optional name, the bare pseudo-class
+ * list, and `:nth()`'s An+B coefficients if present.
+ *
+ * Returns null for any selector the spec would drop as invalid: unknown
+ * pseudo, missing/empty `:nth()` argument, argument on a bare pseudo, or
+ * a malformed An+B expression.
  *
  * @param {string} selectorText
- * @returns {{ name: string|null, pseudoClasses: string[] }|null}
+ * @returns {{ name: string|null, pseudoClasses: string[], nth: {a: number, b: number}|null }|null}
  */
 export function parsePageSelector(selectorText) {
-	const trimmed = (selectorText || "").trim();
-	if (!trimmed) return { name: null, pseudoClasses: [] };
+	const s = (selectorText || "").trim();
+	if (!s) return { name: null, pseudoClasses: [], nth: null };
 
-	const parts = trimmed.split(":");
-	const name = parts[0] || null;
+	let i = 0;
+	let name = null;
+	if (s[i] !== ":") {
+		let j = i;
+		while (j < s.length && s[j] !== ":") j++;
+		name = s.slice(i, j).trim() || null;
+		i = j;
+	}
+
 	const seen = new Set();
 	const pseudoClasses = [];
-	for (const raw of parts.slice(1)) {
-		const pc = raw.toLowerCase();
-		if (!VALID_PAGE_PSEUDOS.has(pc)) return null;
-		if (seen.has(pc)) continue;
-		seen.add(pc);
-		pseudoClasses.push(pc);
+	let nth = null;
+	while (i < s.length) {
+		if (s[i] !== ":") return null;
+		i++;
+		let j = i;
+		while (j < s.length && s[j] !== ":" && s[j] !== "(") j++;
+		const pc = s.slice(i, j).trim().toLowerCase();
+		i = j;
+
+		let arg = null;
+		if (s[i] === "(") {
+			let depth = 1;
+			const start = ++i;
+			while (i < s.length && depth > 0) {
+				if (s[i] === "(") depth++;
+				else if (s[i] === ")") depth--;
+				if (depth > 0) i++;
+			}
+			if (depth !== 0) return null;
+			arg = s.slice(start, i);
+			i++;
+		}
+
+		if (pc === "nth") {
+			if (arg === null || !arg.trim()) return null;
+			if (nth !== null) return null;
+			const { a, b } = parseAnPlusB(arg);
+			if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+			nth = { a, b };
+		} else if (BARE_PAGE_PSEUDOS.has(pc)) {
+			if (arg !== null) return null;
+			if (seen.has(pc)) continue;
+			seen.add(pc);
+			pseudoClasses.push(pc);
+		} else {
+			return null;
+		}
 	}
-	return { name, pseudoClasses };
+
+	return { name, pseudoClasses, nth };
 }
 
 /**
@@ -433,6 +481,7 @@ function parseOnePageRule(rule) {
 	return new PageRule({
 		name: parsed.name,
 		pseudoClasses: parsed.pseudoClasses,
+		nth: parsed.nth,
 		size,
 		margin,
 		pageOrientation,

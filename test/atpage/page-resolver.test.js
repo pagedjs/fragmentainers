@@ -348,16 +348,94 @@ test.describe("PageResolver", () => {
 				mixedInvalid: parsePageSelector("artsy:first:bogus"),
 			};
 		});
-		expect(result.empty).toEqual({ name: null, pseudoClasses: [] });
-		expect(result.namedOnly).toEqual({ name: "artsy", pseudoClasses: [] });
-		expect(result.pseudoOnly).toEqual({ name: null, pseudoClasses: ["first"] });
-		expect(result.namedPseudo).toEqual({ name: "artsy", pseudoClasses: ["first"] });
-		expect(result.multiPseudo).toEqual({ name: null, pseudoClasses: ["blank", "left"] });
-		expect(result.namedMulti).toEqual({ name: "artsy", pseudoClasses: ["first", "left"] });
-		expect(result.dedup).toEqual({ name: null, pseudoClasses: ["first", "left"] });
-		expect(result.caseInsensitive).toEqual({ name: null, pseudoClasses: ["first", "left"] });
+		expect(result.empty).toEqual({ name: null, pseudoClasses: [], nth: null });
+		expect(result.namedOnly).toEqual({ name: "artsy", pseudoClasses: [], nth: null });
+		expect(result.pseudoOnly).toEqual({ name: null, pseudoClasses: ["first"], nth: null });
+		expect(result.namedPseudo).toEqual({ name: "artsy", pseudoClasses: ["first"], nth: null });
+		expect(result.multiPseudo).toEqual({ name: null, pseudoClasses: ["blank", "left"], nth: null });
+		expect(result.namedMulti).toEqual({ name: "artsy", pseudoClasses: ["first", "left"], nth: null });
+		expect(result.dedup).toEqual({ name: null, pseudoClasses: ["first", "left"], nth: null });
+		expect(result.caseInsensitive).toEqual({ name: null, pseudoClasses: ["first", "left"], nth: null });
 		expect(result.invalid).toBeNull();
 		expect(result.mixedInvalid).toBeNull();
+	});
+
+	test("selector parser: :nth() argument forms", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { parsePageSelector } = await import("/src/resolvers/page-resolver.js");
+			return {
+				integer: parsePageSelector(":nth(2)"),
+				everyTwo: parsePageSelector(":nth(2n)"),
+				odd: parsePageSelector(":nth(2n+1)"),
+				oddKeyword: parsePageSelector(":nth(odd)"),
+				evenKeyword: parsePageSelector(":nth(even)"),
+				negative: parsePageSelector(":nth(-n+3)"),
+				named: parsePageSelector("chapter:nth(2)"),
+				combined: parsePageSelector(":nth(2):first"),
+				whitespace: parsePageSelector(":nth( 2n + 1 )"),
+				caseInsensitive: parsePageSelector(":NTH(2)"),
+				missingArg: parsePageSelector(":nth"),
+				emptyArg: parsePageSelector(":nth()"),
+				bareWithArg: parsePageSelector(":first(2)"),
+				bogusArg: parsePageSelector(":nth(abc)"),
+				duplicateNth: parsePageSelector(":nth(2):nth(3)"),
+				spacedName: parsePageSelector("chapter :first"),
+			};
+		});
+		expect(result.integer).toEqual({ name: null, pseudoClasses: [], nth: { a: 0, b: 2 } });
+		expect(result.everyTwo).toEqual({ name: null, pseudoClasses: [], nth: { a: 2, b: 0 } });
+		expect(result.odd).toEqual({ name: null, pseudoClasses: [], nth: { a: 2, b: 1 } });
+		expect(result.oddKeyword).toEqual({ name: null, pseudoClasses: [], nth: { a: 2, b: 1 } });
+		expect(result.evenKeyword).toEqual({ name: null, pseudoClasses: [], nth: { a: 2, b: 0 } });
+		expect(result.negative).toEqual({ name: null, pseudoClasses: [], nth: { a: -1, b: 3 } });
+		expect(result.named).toEqual({ name: "chapter", pseudoClasses: [], nth: { a: 0, b: 2 } });
+		expect(result.combined).toEqual({ name: null, pseudoClasses: ["first"], nth: { a: 0, b: 2 } });
+		expect(result.whitespace).toEqual({ name: null, pseudoClasses: [], nth: { a: 2, b: 1 } });
+		expect(result.caseInsensitive).toEqual({ name: null, pseudoClasses: [], nth: { a: 0, b: 2 } });
+		expect(result.missingArg).toBeNull();
+		expect(result.emptyArg).toBeNull();
+		expect(result.bareWithArg).toBeNull();
+		expect(result.bogusArg).toBeNull();
+		expect(result.duplicateNth).toBeNull();
+		expect(result.spacedName).toEqual({ name: "chapter", pseudoClasses: ["first"], nth: null });
+	});
+
+	test("matchRules: :nth(2n) fires on every even page", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const rule = new PageRule({ nth: { a: 2, b: 0 }, margin: { top: 50, right: 0, bottom: 0, left: 0 } });
+			const resolver = new PageResolver([new PageRule({ size: [600, 800] }), rule]);
+			return [0, 1, 2, 3, 4].map(
+				(i) => resolver.matchRules(i, null, false).includes(rule),
+			);
+		});
+		expect(result).toEqual([false, true, false, true, false]);
+	});
+
+	test("matchRules: :nth(-n+3) matches only the first three pages", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const rule = new PageRule({ nth: { a: -1, b: 3 } });
+			const resolver = new PageResolver([new PageRule({ size: [600, 800] }), rule]);
+			return [0, 1, 2, 3, 4].map(
+				(i) => resolver.matchRules(i, null, false).includes(rule),
+			);
+		});
+		expect(result).toEqual([true, true, true, false, false]);
+	});
+
+	test("specificity: :nth() bumps the g component like :first", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageRule, pageRuleSpecificity } = await import("/src/resolvers/page-resolver.js");
+			return {
+				bare: pageRuleSpecificity(new PageRule()),
+				nth: pageRuleSpecificity(new PageRule({ nth: { a: 0, b: 2 } })),
+				first: pageRuleSpecificity(new PageRule({ pseudoClasses: ["first"] })),
+			};
+		});
+		expect(result.bare).toEqual([0, 0, 0]);
+		expect(result.nth).toEqual([0, 1, 0]);
+		expect(result.first).toEqual([0, 1, 0]);
 	});
 
 	test("page-orientation: rotate-left swaps dimensions", async ({ page }) => {

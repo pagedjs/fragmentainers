@@ -205,13 +205,14 @@ Parsed representation of a CSS `@page` rule.
 #### Constructor
 
 ```js
-new PageRule({ name, pseudoClasses, size, margin, pageOrientation });
+new PageRule({ name, pseudoClasses, nth, size, margin, pageOrientation });
 ```
 
 | Property          | Type                                   | Description                                                       |
 | ----------------- | -------------------------------------- | ----------------------------------------------------------------- |
 | `name`            | `string \| null`                       | Named page type (`"chapter"`, `"cover"`), or `null` for universal |
 | `pseudoClasses`   | `string[]`                             | Any combination of `"first"`, `"left"`, `"right"`, `"blank"`      |
+| `nth`             | `{ a: number, b: number } \| null`     | Coefficients from `:nth(<An+B>)`, matched against the 1-based page index |
 | `size`            | `string \| number[] \| null`           | `"a4"`, `"letter landscape"`, `[width, height]`, or `null`        |
 | `margin`          | `{ top, right, bottom, left } \| null` | Margins in CSS px                                                 |
 | `pageOrientation` | `string \| null`                       | `"rotate-left"`, `"rotate-right"`, or `null`                      |
