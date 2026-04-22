@@ -1,6 +1,6 @@
 import { ConstraintSpace, FRAGMENTATION_PAGE } from "../fragmentation/constraint-space.js";
 import { BREAK_TOKEN_INLINE } from "../fragmentation/tokens.js";
-import { cssValue, parseNumeric } from "../styles/css-values.js";
+import { parseNumeric } from "../styles/css-values.js";
 import { walkRules } from "../styles/walk-rules.js";
 import { parseAnPlusB, matchesAnPlusB } from "../styles/an-plus-b.js";
 
@@ -19,76 +19,56 @@ export const NAMED_SIZES = {
 	LEDGER: { inlineSize: 1056, blockSize: 1632 },
 };
 
-// Named page sizes in original CSS units (for subpixel-accurate rendering)
-export const NAMED_SIZES_CSS = {
-	A5: { inline: [148, "mm"], block: [210, "mm"] },
-	A4: { inline: [210, "mm"], block: [297, "mm"] },
-	A3: { inline: [297, "mm"], block: [420, "mm"] },
-	B5: { inline: [176, "mm"], block: [250, "mm"] },
-	B4: { inline: [250, "mm"], block: [353, "mm"] },
-	"JIS-B5": { inline: [182, "mm"], block: [257, "mm"] },
-	"JIS-B4": { inline: [257, "mm"], block: [364, "mm"] },
-	LETTER: { inline: [8.5, "in"], block: [11, "in"] },
-	LEGAL: { inline: [8.5, "in"], block: [14, "in"] },
-	LEDGER: { inline: [11, "in"], block: [17, "in"] },
-};
+const MARGIN_SIDES = ["top", "right", "bottom", "left"];
 
 /**
- * Parsed representation of a CSS `@page` rule.
+ * Structured form of a single `@page` at-rule.
+ *
+ * @property {string|null} name - Named page type ('chapter', 'cover'), or null for universal
+ * @property {string[]} pseudo - Page pseudo-classes: 'first', 'left', 'right', 'blank'
+ * @property {{a: number, b: number}|null} nth - `:nth(An+B)` coefficients, or null
+ * @property {string|null} size - CSS size value ("A4", "210mm 297mm", ...), or null
+ * @property {{ top: string|null, right: string|null, bottom: string|null, left: string|null }|null} margin - CSS lengths, or null
+ * @property {string|null} pageOrientation - 'rotate-left', 'rotate-right', or null
  */
 export class PageRule {
-	/**
-	 * @param {object} opts
-	 * @param {string|null} [opts.name] - Named page type ('chapter', 'cover'), or null for universal
-	 * @param {string[]} [opts.pseudoClasses] - Subset of 'first', 'left', 'right', 'blank'
-	 * @param {{a: number, b: number}|null} [opts.nth] - `:nth(An+B)` coefficients, or null
-	 * @param {string|number[]|null} [opts.size] - 'a4', 'letter landscape', [width, height], or null
-	 * @param {object|null} [opts.margin] - { top, right, bottom, left } in CSS px
-	 * @param {string|null} [opts.pageOrientation] - 'rotate-left', 'rotate-right', or null
-	 * @param {CSSUnitValue[]|null} [opts.rawSize] - [inline, block] as CSSUnitValues with original units
-	 * @param {object|null} [opts.rawMargin] - { top, right, bottom, left } as CSSUnitValues
-	 */
-	constructor({ name, pseudoClasses, nth, size, margin, pageOrientation, rawSize, rawMargin } = {}) {
+	constructor({ name, pseudo, nth, size, margin, pageOrientation } = {}) {
 		this.name = name || null;
-		this.pseudoClasses = pseudoClasses ?? [];
+		this.pseudo = pseudo ?? [];
 		this.nth = nth ?? null;
 		this.size = size ?? null;
 		this.margin = margin ?? null;
 		this.pageOrientation = pageOrientation ?? null;
-		this.rawSize = rawSize ?? null;
-		this.rawMargin = rawMargin ?? null;
 	}
-}
 
-/**
- * Compute CSS Paged Media §3.4 specificity as a tuple [f, g, h]:
- *   f — 1 if a page type name is present, else 0
- *   g — count of :first / :blank / :nth pseudo-classes
- *   h — count of :left / :right pseudo-classes
- * Compared lexicographically; higher wins.
- *
- * @param {PageRule} rule
- * @returns {[number, number, number]}
- */
-export function pageRuleSpecificity(rule) {
-	let g = 0;
-	let h = 0;
-	for (const pc of rule.pseudoClasses) {
-		if (pc === "first" || pc === "blank") g++;
-		else if (pc === "left" || pc === "right") h++;
+	/**
+	 * CSS Paged Media §3.4 specificity as [f, g, h]:
+	 *   f — 1 if a page type name is present, else 0
+	 *   g — count of :first / :blank / :nth pseudo-classes
+	 *   h — count of :left / :right pseudo-classes
+	 * @returns {[number, number, number]}
+	 */
+	get specificity() {
+		let g = 0;
+		let h = 0;
+		for (const pc of this.pseudo) {
+			if (pc === "first" || pc === "blank") g++;
+			else if (pc === "left" || pc === "right") h++;
+		}
+		if (this.nth) g++;
+		return [this.name ? 1 : 0, g, h];
 	}
-	if (rule.nth) g++;
-	return [rule.name ? 1 : 0, g, h];
-}
 
-/**
- * Lexicographic comparator over [f, g, h] tuples.
- * @param {[number, number, number]} a
- * @param {[number, number, number]} b
- * @returns {number}
- */
-export function compareSpecificity(a, b) {
-	return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+	/**
+	 * Lexicographic specificity comparison.
+	 * @param {PageRule} other
+	 * @returns {number} negative if this < other, 0 if equal, positive if this > other
+	 */
+	compareSpecificity(other) {
+		const a = this.specificity;
+		const b = other.specificity;
+		return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+	}
 }
 
 /**
@@ -107,7 +87,6 @@ export class PageConstraints {
 	 * @param {boolean} opts.isRecto
 	 * @param {boolean} [opts.isBlank]
 	 * @param {PageRule[]} [opts.matchedRules] - The @page rules that matched this page
-	 * @param {object|null} [opts.cssText] - Original CSS unit values for rendering
 	 */
 	constructor({
 		pageIndex,
@@ -120,7 +99,6 @@ export class PageConstraints {
 		isRecto,
 		isBlank = false,
 		matchedRules = [],
-		cssText = null,
 	}) {
 		this.pageIndex = pageIndex;
 		this.namedPage = namedPage;
@@ -132,7 +110,6 @@ export class PageConstraints {
 		this.isRecto = isRecto;
 		this.isBlank = isBlank;
 		this.matchedRules = matchedRules;
-		this.cssText = cssText;
 	}
 
 	/** Build a ConstraintSpace for layout from these page constraints. */
@@ -152,11 +129,12 @@ export class PageConstraints {
  */
 export class PageResolver {
 	/**
-	 * @param {PageRule[]} pageRules - Parsed @page rules (document order)
+	 * @param {(PageRule | object)[]} rules - @page rules in document order.
+	 *   Plain objects are passed to the `PageRule` constructor.
 	 * @param {{ inlineSize: number, blockSize: number }} [size] - Fallback size (default: US Letter)
 	 */
-	constructor(pageRules, size = NAMED_SIZES.LETTER) {
-		this.pageRules = pageRules;
+	constructor(rules, size = NAMED_SIZES.LETTER) {
+		this.pageRules = rules.map((r) => (r instanceof PageRule ? r : new PageRule(r)));
 		this.size = size;
 	}
 
@@ -167,21 +145,14 @@ export class PageResolver {
 	 * @returns {PageResolver}
 	 */
 	static fromDocument(size) {
-		const rules = [];
-		if (typeof document !== "undefined" && document.styleSheets) {
-			for (const sheet of document.styleSheets) {
-				try {
-					collectPageRules(sheet.cssRules, rules);
-				} catch {
-					/* cross-origin sheet */
-				}
-			}
-		}
-		return new PageResolver(rules, size);
+		const sheets =
+			typeof document !== "undefined" && document.styleSheets ? [...document.styleSheets] : [];
+		return PageResolver.fromStyleSheets(sheets, size);
 	}
 
 	/**
 	 * Create a resolver by collecting @page rules from an array of CSSStyleSheets.
+	 * Cross-origin sheets whose `cssRules` throw are silently skipped.
 	 *
 	 * @param {CSSStyleSheet[]} sheets - Stylesheets to scan for @page rules
 	 * @param {{ inlineSize: number, blockSize: number }} [size] - Fallback size (default: US Letter)
@@ -193,7 +164,7 @@ export class PageResolver {
 			try {
 				collectPageRules(sheet.cssRules, rules);
 			} catch {
-				/* cross-origin sheet */
+				// cross-origin sheet
 			}
 		}
 		return new PageResolver(rules, size);
@@ -231,7 +202,6 @@ export class PageResolver {
 			isRecto: !verso,
 			isBlank,
 			matchedRules: matchingRules,
-			cssText: {},
 		});
 	}
 
@@ -244,7 +214,7 @@ export class PageResolver {
 		return this.pageRules.filter((rule) => {
 			if (rule.name && rule.name !== namedPage) return false;
 
-			for (const pc of rule.pseudoClasses) {
+			for (const pc of rule.pseudo) {
 				if (pc === "first" && pageIndex !== 0) return false;
 				if (pc === "left" && !this.isVerso(pageIndex)) return false;
 				if (pc === "right" && this.isVerso(pageIndex)) return false;
@@ -267,22 +237,22 @@ export class PageResolver {
 			size: null,
 			margin: null,
 			pageOrientation: null,
-			rawSize: null,
-			rawMargin: null,
 		};
 
-		const sorted = [...matchingRules].sort((a, b) =>
-			compareSpecificity(pageRuleSpecificity(a), pageRuleSpecificity(b)),
-		);
+		const sorted = [...matchingRules].sort((a, b) => a.compareSpecificity(b));
 
 		for (const rule of sorted) {
 			if (rule.size != null) {
 				result.size = rule.size;
-				result.rawSize = rule.rawSize;
 			}
 			if (rule.margin != null) {
-				result.margin = { ...result.margin, ...rule.margin };
-				result.rawMargin = { ...result.rawMargin, ...rule.rawMargin };
+				if (!result.margin) {
+					result.margin = { ...rule.margin };
+				} else {
+					for (const side of MARGIN_SIDES) {
+						if (rule.margin[side] != null) result.margin[side] = rule.margin[side];
+					}
+				}
 			}
 			if (rule.pageOrientation != null) result.pageOrientation = rule.pageOrientation;
 		}
@@ -290,38 +260,28 @@ export class PageResolver {
 		return result;
 	}
 
-	/** Resolve CSS size property to physical dimensions in CSS pixels. */
+	/** Resolve a CSS `size` string to physical dimensions in CSS pixels. */
 	resolveSize(sizeValue) {
+		if (!sizeValue || sizeValue === "auto") return { ...this.size };
+
+		const parts = sizeValue.toLowerCase().split(/\s+/);
+		const name = parts.find((p) => NAMED_SIZES[p.toUpperCase()]);
+		const orientation = parts.find((p) => p === "landscape" || p === "portrait");
+
 		let inlineSize, blockSize;
-
-		if (!sizeValue || sizeValue === "auto") {
-			({ inlineSize, blockSize } = this.size);
-		} else if (typeof sizeValue === "string") {
-			const parts = sizeValue.toLowerCase().split(/\s+/);
-			const name = parts.find((p) => NAMED_SIZES[p.toUpperCase()]);
-			const orientation = parts.find((p) => p === "landscape" || p === "portrait");
-
-			if (name) {
-				const size = NAMED_SIZES[name.toUpperCase()];
-				inlineSize = orientation === "landscape" ? size.blockSize : size.inlineSize;
-				blockSize = orientation === "landscape" ? size.inlineSize : size.blockSize;
-			} else if (sizeValue === "landscape") {
-				inlineSize = this.size.blockSize;
-				blockSize = this.size.inlineSize;
-			} else if (sizeValue === "portrait") {
-				({ inlineSize, blockSize } = this.size);
-			} else {
-				const size = parts
-					.map((s) => parseNumeric(s)?.to("px").value ?? null)
-					.filter((v) => v !== null);
-				inlineSize = size[0] ?? this.size.inlineSize;
-				blockSize = size[1] ?? size[0] ?? this.size.blockSize;
-			}
-		} else if (Array.isArray(sizeValue)) {
-			inlineSize = sizeValue[0];
-			blockSize = sizeValue[1] ?? sizeValue[0];
+		if (name) {
+			const size = NAMED_SIZES[name.toUpperCase()];
+			inlineSize = orientation === "landscape" ? size.blockSize : size.inlineSize;
+			blockSize = orientation === "landscape" ? size.inlineSize : size.blockSize;
+		} else if (orientation === "landscape") {
+			inlineSize = this.size.blockSize;
+			blockSize = this.size.inlineSize;
+		} else if (orientation === "portrait") {
+			return { ...this.size };
 		} else {
-			({ inlineSize, blockSize } = this.size);
+			const px = parts.map((s) => parseNumeric(s)?.to("px").value ?? null).filter((v) => v !== null);
+			inlineSize = px[0] ?? this.size.inlineSize;
+			blockSize = px[1] ?? px[0] ?? this.size.blockSize;
 		}
 
 		return { inlineSize: Math.round(inlineSize), blockSize: Math.round(blockSize) };
@@ -335,12 +295,17 @@ export class PageResolver {
 		return size;
 	}
 
-	/** Resolve margin declarations to pixel values. */
+	/** Resolve CSS margin strings to pixel values. */
 	resolveMargins(marginDecl) {
-		const SIDES = ["top", "right", "bottom", "left"];
 		const margins = {};
-		for (const side of SIDES) {
-			margins[side] = Math.round(marginDecl?.[side] ?? 0);
+		for (const side of MARGIN_SIDES) {
+			const raw = marginDecl?.[side];
+			if (raw) {
+				const parsed = parseNumeric(String(raw).trim());
+				margins[side] = Math.round(parsed?.to("px").value ?? 0);
+			} else {
+				margins[side] = 0;
+			}
 		}
 		return margins;
 	}
@@ -373,8 +338,8 @@ export function parsePageRulesFromCSS(cssTexts) {
 }
 
 /**
- * Recursively collect CSSPageRule instances from a rule list,
- * descending into grouping rules like @layer, @supports, @media.
+ * Recursively collect PageRules from a CSSRuleList, descending into
+ * grouping rules like @layer, @supports, @media.
  *
  * @param {CSSRuleList} cssRules
  * @param {PageRule[]} [out] - accumulator (created if omitted)
@@ -383,7 +348,7 @@ export function parsePageRulesFromCSS(cssTexts) {
 export function collectPageRules(cssRules, out = []) {
 	walkRules(cssRules, (rule) => {
 		if (rule instanceof CSSPageRule) {
-			const parsed = parseOnePageRule(rule);
+			const parsed = pageRuleFromCSSPageRule(rule);
 			if (parsed) out.push(parsed);
 		}
 	});
@@ -401,11 +366,11 @@ const BARE_PAGE_PSEUDOS = new Set(["first", "left", "right", "blank"]);
  * a malformed An+B expression.
  *
  * @param {string} selectorText
- * @returns {{ name: string|null, pseudoClasses: string[], nth: {a: number, b: number}|null }|null}
+ * @returns {{ name: string|null, pseudo: string[], nth: {a: number, b: number}|null }|null}
  */
 export function parsePageSelector(selectorText) {
 	const s = (selectorText || "").trim();
-	if (!s) return { name: null, pseudoClasses: [], nth: null };
+	if (!s) return { name: null, pseudo: [], nth: null };
 
 	let i = 0;
 	let name = null;
@@ -417,7 +382,7 @@ export function parsePageSelector(selectorText) {
 	}
 
 	const seen = new Set();
-	const pseudoClasses = [];
+	const pseudo = [];
 	let nth = null;
 	while (i < s.length) {
 		if (s[i] !== ":") return null;
@@ -451,187 +416,76 @@ export function parsePageSelector(selectorText) {
 			if (arg !== null) return null;
 			if (seen.has(pc)) continue;
 			seen.add(pc);
-			pseudoClasses.push(pc);
+			pseudo.push(pc);
 		} else {
 			return null;
 		}
 	}
 
-	return { name, pseudoClasses, nth };
+	return { name, pseudo, nth };
 }
 
 /**
- * Extract a PageRule from a CSSPageRule instance, or null if the
- * selector contains an unknown pseudo-class.
- * @param {CSSPageRule} rule
- * @returns {PageRule|null}
+ * Create a `PageRule` from a `CSSPageRule` instance. Returns `null` when
+ * the selector contains an unknown pseudo-class.
+ *
+ * @param {CSSPageRule} cssPageRule
+ * @returns {PageRule | null}
  */
-function parseOnePageRule(rule) {
-	const parsed = parsePageSelector(rule.selectorText);
+function pageRuleFromCSSPageRule(cssPageRule) {
+	const parsed = parsePageSelector(cssPageRule.selectorText);
 	if (!parsed) return null;
 
-	const size = parsePageSize(rule.style);
-	const margin = parsePageMargins(rule.style);
-	const pageOrientation = rule.style.getPropertyValue("page-orientation").trim() || null;
-
-	// Extract original CSS unit values from the specified style
-	const rawSize = parseRawPageSize(rule.style);
-	const rawMargin = parseRawPageMargins(rule.style);
+	const style = cssPageRule.style;
+	const margin = parseMargins(style);
+	const hasMargin = MARGIN_SIDES.some((s) => margin[s]);
 
 	return new PageRule({
 		name: parsed.name,
-		pseudoClasses: parsed.pseudoClasses,
+		pseudo: parsed.pseudo,
 		nth: parsed.nth,
-		size,
-		margin,
-		pageOrientation,
-		rawSize,
-		rawMargin,
+		size: style.getPropertyValue("size").trim() || null,
+		margin: hasMargin ? margin : null,
+		pageOrientation: style.getPropertyValue("page-orientation").trim() || null,
 	});
 }
 
 /**
- * Extract the `size` descriptor from a CSSPageRule's style.
+ * Extract margin longhands from a CSSStyleDeclaration.
+ * (Firefox doesn't always expand the shorthand in @page rules).
+ *
  * @param {CSSStyleDeclaration} style
- * @returns {string|number[]|null}
+ * @returns {{ top: string|null, right: string|null, bottom: string|null, left: string|null }}
  */
-function parsePageSize(style) {
-	const sizeStr = style.getPropertyValue("size").trim();
-	if (!sizeStr) return null;
+function parseMargins(style) {
+	let top = style.getPropertyValue("margin-top").trim() || null;
+	let right = style.getPropertyValue("margin-right").trim() || null;
+	let bottom = style.getPropertyValue("margin-bottom").trim() || null;
+	let left = style.getPropertyValue("margin-left").trim() || null;
 
-	const parts = sizeStr.split(/\s+/);
-	const hasNamedSize = parts.some((p) => NAMED_SIZES[p.toUpperCase()]);
-	const hasOrientation = parts.some((p) => p === "landscape" || p === "portrait");
-
-	if (hasNamedSize || hasOrientation) {
-		return sizeStr.toLowerCase();
-	}
-
-	const size = parts.map((s) => parseNumeric(s)?.to("px").value ?? null).filter((v) => v !== null);
-	if (size.length === 1) return [size[0], size[0]];
-	if (size.length >= 2) return [size[0], size[1]];
-
-	return null;
-}
-
-/**
- * Extract resolved margin values from a CSSPageRule's style.
- * The browser handles shorthand expansion, so we only read longhands.
- * @param {CSSStyleDeclaration} style
- * @returns {{ top: number, right: number, bottom: number, left: number }|null}
- */
-function parsePageMargins(style) {
-	const SIDES = ["top", "right", "bottom", "left"];
-	let margin = null;
-
-	for (const side of SIDES) {
-		const raw = style.getPropertyValue(`margin-${side}`).trim();
-		if (raw) {
-			const val = parseNumeric(raw)?.to("px").value;
-			if (val != null) {
-				if (!margin) margin = { top: 0, right: 0, bottom: 0, left: 0 };
-				margin[side] = val;
-			}
-		}
-	}
-
-	// Firefox may not expand the margin shorthand to longhands in @page rules.
-	// Fall back to parsing the shorthand directly.
-	if (!margin) {
+	if (!top && !right && !bottom && !left) {
 		const shorthand = style.getPropertyValue("margin").trim();
 		if (shorthand) {
-			const parts = shorthand
-				.split(/\s+/)
-				.map((s) => parseNumeric(s)?.to("px").value ?? null)
-				.filter((v) => v !== null);
+			const parts = shorthand.split(/\s+/);
 			if (parts.length === 1) {
-				margin = { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] };
+				top = right = bottom = left = parts[0];
 			} else if (parts.length === 2) {
-				margin = { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] };
+				top = bottom = parts[0];
+				right = left = parts[1];
 			} else if (parts.length === 3) {
-				margin = { top: parts[0], right: parts[1], bottom: parts[2], left: parts[1] };
+				top = parts[0];
+				right = left = parts[1];
+				bottom = parts[2];
 			} else if (parts.length >= 4) {
-				margin = { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] };
+				top = parts[0];
+				right = parts[1];
+				bottom = parts[2];
+				left = parts[3];
 			}
 		}
 	}
 
-	return margin;
-}
-
-/**
- * Extract the `size` descriptor as a typed [inline, block] pair
- * preserving original CSS units for cssText generation.
- * Returns null for unparseable values.
- * @param {CSSStyleDeclaration} style
- */
-function parseRawPageSize(style) {
-	const sizeStr = style.getPropertyValue("size").trim();
-	if (!sizeStr) return null;
-
-	const parts = sizeStr.split(/\s+/);
-
-	// Handle named sizes (a4, letter, etc.) with optional orientation
-	const namePart = parts.find((p) => NAMED_SIZES_CSS[p.toUpperCase()]);
-	if (namePart) {
-		const css = NAMED_SIZES_CSS[namePart.toUpperCase()];
-		const orientation = parts.find((p) => p === "landscape" || p === "portrait");
-		let inlineVal = cssValue(css.inline[0], css.inline[1]);
-		let blockVal = cssValue(css.block[0], css.block[1]);
-		if (orientation === "landscape") {
-			[inlineVal, blockVal] = [blockVal, inlineVal];
-		}
-		return [inlineVal, blockVal];
-	}
-
-	const values = parts.map(parseNumeric).filter((v) => v !== null);
-	if (values.length === 1) return [values[0], values[0]];
-	if (values.length >= 2) return [values[0], values[1]];
-	return null;
-}
-
-/**
- * Extract margin longhands as typed values preserving original units.
- * Returns null if no margins are specified.
- * @param {CSSStyleDeclaration} style
- */
-function parseRawPageMargins(style) {
-	const SIDES = ["top", "right", "bottom", "left"];
-	let rawMargin = null;
-	const zero = cssValue(0, "px");
-
-	for (const side of SIDES) {
-		const raw = style.getPropertyValue(`margin-${side}`).trim();
-		if (raw) {
-			const val = parseNumeric(raw);
-			if (val !== null) {
-				if (!rawMargin) rawMargin = { top: zero, right: zero, bottom: zero, left: zero };
-				rawMargin[side] = val;
-			}
-		}
-	}
-
-	// Shorthand fallback (Firefox may not expand margin to longhands in @page)
-	if (!rawMargin) {
-		const shorthand = style.getPropertyValue("margin").trim();
-		if (shorthand) {
-			const parts = shorthand
-				.split(/\s+/)
-				.map(parseNumeric)
-				.filter((v) => v !== null);
-			if (parts.length === 1) {
-				rawMargin = { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] };
-			} else if (parts.length === 2) {
-				rawMargin = { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] };
-			} else if (parts.length === 3) {
-				rawMargin = { top: parts[0], right: parts[1], bottom: parts[2], left: parts[1] };
-			} else if (parts.length >= 4) {
-				rawMargin = { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] };
-			}
-		}
-	}
-
-	return rawMargin;
+	return { top, right, bottom, left };
 }
 
 /**

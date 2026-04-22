@@ -29,8 +29,8 @@ test.describe("PageResolver", () => {
 	test("universal @page with explicit size", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
-			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
-			const resolver = new PageResolver([new PageRule({ size: [600, 800], margin: M0 })], {
+			const M0 = { top: "0px", right: "0px", bottom: "0px", left: "0px" };
+			const resolver = new PageResolver([new PageRule({ size: "600px 800px", margin: M0 })], {
 				inlineSize: 816,
 				blockSize: 1056,
 			});
@@ -85,7 +85,7 @@ test.describe("PageResolver", () => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver(
-				[new PageRule({ size: [800, 1000], margin: { top: 50, right: 40, bottom: 50, left: 40 } })],
+				[new PageRule({ size: "800px 1000px", margin: { top: "50px", right: "40px", bottom: "50px", left: "40px" } })],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
 			const c = resolver.resolve(0, null, null);
@@ -98,11 +98,11 @@ test.describe("PageResolver", () => {
 	test(":first pseudo-class matches only page 0", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
-			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
+			const M0 = { top: "0px", right: "0px", bottom: "0px", left: "0px" };
 			const resolver = new PageResolver(
 				[
-					new PageRule({ size: [600, 800], margin: M0 }),
-					new PageRule({ pseudoClasses: ["first"], size: [400, 500] }),
+					new PageRule({ size: "600px 800px", margin: M0 }),
+					new PageRule({ pseudo: ["first"], size: "400px 500px" }),
 				],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
@@ -120,12 +120,12 @@ test.describe("PageResolver", () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver(
 				[
-					new PageRule({ size: [600, 800] }),
+					new PageRule({ size: "600px 800px" }),
 					new PageRule({
-						pseudoClasses: ["right"],
-						margin: { top: 0, right: 100, bottom: 0, left: 0 },
+						pseudo: ["right"],
+						margin: { top: "0px", right: "100px", bottom: "0px", left: "0px" },
 					}),
-					new PageRule({ pseudoClasses: ["left"], margin: { top: 0, right: 0, bottom: 0, left: 100 } }),
+					new PageRule({ pseudo: ["left"], margin: { top: "0px", right: "0px", bottom: "0px", left: "100px" } }),
 				],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
@@ -150,9 +150,9 @@ test.describe("PageResolver", () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
-			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
+			const M0 = { top: "0px", right: "0px", bottom: "0px", left: "0px" };
 			const resolver = new PageResolver(
-				[new PageRule({ size: [600, 800], margin: M0 }), new PageRule({ name: "chapter", size: [500, 700], margin: M0 })],
+				[new PageRule({ size: "600px 800px", margin: M0 }), new PageRule({ name: "chapter", size: "500px 700px", margin: M0 })],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
 
@@ -175,13 +175,13 @@ test.describe("PageResolver", () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
-			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
+			const M0 = { top: "0px", right: "0px", bottom: "0px", left: "0px" };
 				const resolver = new PageResolver(
 				[
-					new PageRule({ size: [100, 100], margin: M0 }),
-					new PageRule({ pseudoClasses: ["first"], size: [200, 200], margin: M0 }),
-					new PageRule({ name: "cover", size: [300, 300], margin: M0 }),
-					new PageRule({ name: "cover", pseudoClasses: ["first"], size: [400, 400], margin: M0 }),
+					new PageRule({ size: "100px 100px", margin: M0 }),
+					new PageRule({ pseudo: ["first"], size: "200px 200px", margin: M0 }),
+					new PageRule({ name: "cover", size: "300px 300px", margin: M0 }),
+					new PageRule({ name: "cover", pseudo: ["first"], size: "400px 400px", margin: M0 }),
 				],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
@@ -200,8 +200,8 @@ test.describe("PageResolver", () => {
 
 			const resolver = new PageResolver(
 				[
-					new PageRule({ size: [600, 800], margin: { top: 10, right: 10, bottom: 10, left: 10 } }),
-					new PageRule({ name: "wide", margin: { left: 50, right: 50 } }),
+					new PageRule({ size: "600px 800px", margin: { top: "10px", right: "10px", bottom: "10px", left: "10px" } }),
+					new PageRule({ name: "wide", margin: { left: "50px", right: "50px" } }),
 				],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
@@ -218,11 +218,11 @@ test.describe("PageResolver", () => {
 	test("specificity: :first (0,1,0) beats :right (0,0,1) on first-right page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
-			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
+			const M0 = { top: "0px", right: "0px", bottom: "0px", left: "0px" };
 			const resolver = new PageResolver(
 				[
-					new PageRule({ pseudoClasses: ["right"], size: [200, 200], margin: M0 }),
-					new PageRule({ pseudoClasses: ["first"], size: [400, 400], margin: M0 }),
+					new PageRule({ pseudo: ["right"], size: "200px 200px", margin: M0 }),
+					new PageRule({ pseudo: ["first"], size: "400px 400px", margin: M0 }),
 				],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
@@ -235,11 +235,11 @@ test.describe("PageResolver", () => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
-			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
+			const M0 = { top: "0px", right: "0px", bottom: "0px", left: "0px" };
 			const resolver = new PageResolver(
 				[
-					new PageRule({ pseudoClasses: ["blank", "right"], size: [200, 200], margin: M0 }),
-					new PageRule({ name: "cover", size: [400, 400], margin: M0 }),
+					new PageRule({ pseudo: ["blank", "right"], size: "200px 200px", margin: M0 }),
+					new PageRule({ name: "cover", size: "400px 400px", margin: M0 }),
 				],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
@@ -253,25 +253,23 @@ test.describe("PageResolver", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, pageRuleSpecificity, compareSpecificity } = await import(
-				"/src/resolvers/page-resolver.js"
-			);
-			const rA = new PageRule({ name: "artsy", pseudoClasses: ["left"] });
-			const rB = new PageRule({ name: "artsy", pseudoClasses: ["first"] });
-			const rC = new PageRule({ name: "artsy", pseudoClasses: ["first", "left"] });
+			const { PageRule } = await import("/src/resolvers/page-resolver.js");
+			const rA = new PageRule({ name: "artsy", pseudo: ["left"] });
+			const rB = new PageRule({ name: "artsy", pseudo: ["first"] });
+			const rC = new PageRule({ name: "artsy", pseudo: ["first", "left"] });
 			const rD = new PageRule({ name: "artsy" });
-			const rE = new PageRule({ pseudoClasses: ["blank", "left"] });
+			const rE = new PageRule({ pseudo: ["blank", "left"] });
 			return {
-				specA: pageRuleSpecificity(rA),
-				specB: pageRuleSpecificity(rB),
-				specC: pageRuleSpecificity(rC),
-				specD: pageRuleSpecificity(rD),
-				specE: pageRuleSpecificity(rE),
-				cBeatsA: compareSpecificity(pageRuleSpecificity(rC), pageRuleSpecificity(rA)) > 0,
-				cBeatsB: compareSpecificity(pageRuleSpecificity(rC), pageRuleSpecificity(rB)) > 0,
-				bBeatsA: compareSpecificity(pageRuleSpecificity(rB), pageRuleSpecificity(rA)) > 0,
-				aBeatsD: compareSpecificity(pageRuleSpecificity(rA), pageRuleSpecificity(rD)) > 0,
-				dBeatsE: compareSpecificity(pageRuleSpecificity(rD), pageRuleSpecificity(rE)) > 0,
+				specA: rA.specificity,
+				specB: rB.specificity,
+				specC: rC.specificity,
+				specD: rD.specificity,
+				specE: rE.specificity,
+				cBeatsA: rC.compareSpecificity(rA) > 0,
+				cBeatsB: rC.compareSpecificity(rB) > 0,
+				bBeatsA: rB.compareSpecificity(rA) > 0,
+				aBeatsD: rA.compareSpecificity(rD) > 0,
+				dBeatsE: rD.compareSpecificity(rE) > 0,
 			};
 		});
 		expect(result.specA).toEqual([1, 0, 1]);
@@ -290,7 +288,7 @@ test.describe("PageResolver", () => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver(
-				[new PageRule({ pseudoClasses: ["blank", "left"], size: [400, 400] })],
+				[new PageRule({ pseudo: ["blank", "left"], size: "400px 400px" })],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
 			const blankLeft = resolver.resolve(1, null, null, true).contentArea.inlineSize;
@@ -306,11 +304,11 @@ test.describe("PageResolver", () => {
 	test("document-order tiebreak: later rule wins at equal specificity", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
-			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
+			const M0 = { top: "0px", right: "0px", bottom: "0px", left: "0px" };
 			const resolver = new PageResolver(
 				[
-					new PageRule({ size: [300, 300], margin: M0 }),
-					new PageRule({ size: [500, 500], margin: M0 }),
+					new PageRule({ size: "300px 300px", margin: M0 }),
+					new PageRule({ size: "500px 500px", margin: M0 }),
 				],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
@@ -326,10 +324,10 @@ test.describe("PageResolver", () => {
 				"@page :unknown { size: 300px 300px; }",
 				"@page { size: 500px 500px; }",
 			]);
-			return rules.map((r) => ({ name: r.name, pseudoClasses: r.pseudoClasses }));
+			return rules.map((r) => ({ name: r.name, pseudo: r.pseudo }));
 		});
 		expect(result).toHaveLength(1);
-		expect(result[0]).toEqual({ name: null, pseudoClasses: [] });
+		expect(result[0]).toEqual({ name: null, pseudo: [] });
 	});
 
 	test("selector parser: multi-pseudo tokenizer", async ({ page }) => {
@@ -348,14 +346,14 @@ test.describe("PageResolver", () => {
 				mixedInvalid: parsePageSelector("artsy:first:bogus"),
 			};
 		});
-		expect(result.empty).toEqual({ name: null, pseudoClasses: [], nth: null });
-		expect(result.namedOnly).toEqual({ name: "artsy", pseudoClasses: [], nth: null });
-		expect(result.pseudoOnly).toEqual({ name: null, pseudoClasses: ["first"], nth: null });
-		expect(result.namedPseudo).toEqual({ name: "artsy", pseudoClasses: ["first"], nth: null });
-		expect(result.multiPseudo).toEqual({ name: null, pseudoClasses: ["blank", "left"], nth: null });
-		expect(result.namedMulti).toEqual({ name: "artsy", pseudoClasses: ["first", "left"], nth: null });
-		expect(result.dedup).toEqual({ name: null, pseudoClasses: ["first", "left"], nth: null });
-		expect(result.caseInsensitive).toEqual({ name: null, pseudoClasses: ["first", "left"], nth: null });
+		expect(result.empty).toEqual({ name: null, pseudo: [], nth: null });
+		expect(result.namedOnly).toEqual({ name: "artsy", pseudo: [], nth: null });
+		expect(result.pseudoOnly).toEqual({ name: null, pseudo: ["first"], nth: null });
+		expect(result.namedPseudo).toEqual({ name: "artsy", pseudo: ["first"], nth: null });
+		expect(result.multiPseudo).toEqual({ name: null, pseudo: ["blank", "left"], nth: null });
+		expect(result.namedMulti).toEqual({ name: "artsy", pseudo: ["first", "left"], nth: null });
+		expect(result.dedup).toEqual({ name: null, pseudo: ["first", "left"], nth: null });
+		expect(result.caseInsensitive).toEqual({ name: null, pseudo: ["first", "left"], nth: null });
 		expect(result.invalid).toBeNull();
 		expect(result.mixedInvalid).toBeNull();
 	});
@@ -382,29 +380,29 @@ test.describe("PageResolver", () => {
 				spacedName: parsePageSelector("chapter :first"),
 			};
 		});
-		expect(result.integer).toEqual({ name: null, pseudoClasses: [], nth: { a: 0, b: 2 } });
-		expect(result.everyTwo).toEqual({ name: null, pseudoClasses: [], nth: { a: 2, b: 0 } });
-		expect(result.odd).toEqual({ name: null, pseudoClasses: [], nth: { a: 2, b: 1 } });
-		expect(result.oddKeyword).toEqual({ name: null, pseudoClasses: [], nth: { a: 2, b: 1 } });
-		expect(result.evenKeyword).toEqual({ name: null, pseudoClasses: [], nth: { a: 2, b: 0 } });
-		expect(result.negative).toEqual({ name: null, pseudoClasses: [], nth: { a: -1, b: 3 } });
-		expect(result.named).toEqual({ name: "chapter", pseudoClasses: [], nth: { a: 0, b: 2 } });
-		expect(result.combined).toEqual({ name: null, pseudoClasses: ["first"], nth: { a: 0, b: 2 } });
-		expect(result.whitespace).toEqual({ name: null, pseudoClasses: [], nth: { a: 2, b: 1 } });
-		expect(result.caseInsensitive).toEqual({ name: null, pseudoClasses: [], nth: { a: 0, b: 2 } });
+		expect(result.integer).toEqual({ name: null, pseudo: [], nth: { a: 0, b: 2 } });
+		expect(result.everyTwo).toEqual({ name: null, pseudo: [], nth: { a: 2, b: 0 } });
+		expect(result.odd).toEqual({ name: null, pseudo: [], nth: { a: 2, b: 1 } });
+		expect(result.oddKeyword).toEqual({ name: null, pseudo: [], nth: { a: 2, b: 1 } });
+		expect(result.evenKeyword).toEqual({ name: null, pseudo: [], nth: { a: 2, b: 0 } });
+		expect(result.negative).toEqual({ name: null, pseudo: [], nth: { a: -1, b: 3 } });
+		expect(result.named).toEqual({ name: "chapter", pseudo: [], nth: { a: 0, b: 2 } });
+		expect(result.combined).toEqual({ name: null, pseudo: ["first"], nth: { a: 0, b: 2 } });
+		expect(result.whitespace).toEqual({ name: null, pseudo: [], nth: { a: 2, b: 1 } });
+		expect(result.caseInsensitive).toEqual({ name: null, pseudo: [], nth: { a: 0, b: 2 } });
 		expect(result.missingArg).toBeNull();
 		expect(result.emptyArg).toBeNull();
 		expect(result.bareWithArg).toBeNull();
 		expect(result.bogusArg).toBeNull();
 		expect(result.duplicateNth).toBeNull();
-		expect(result.spacedName).toEqual({ name: "chapter", pseudoClasses: ["first"], nth: null });
+		expect(result.spacedName).toEqual({ name: "chapter", pseudo: ["first"], nth: null });
 	});
 
 	test("matchRules: :nth(2n) fires on every even page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
-			const rule = new PageRule({ nth: { a: 2, b: 0 }, margin: { top: 50, right: 0, bottom: 0, left: 0 } });
-			const resolver = new PageResolver([new PageRule({ size: [600, 800] }), rule]);
+			const rule = new PageRule({ nth: { a: 2, b: 0 }, margin: { top: "50px", right: "0px", bottom: "0px", left: "0px" } });
+			const resolver = new PageResolver([new PageRule({ size: "600px 800px" }), rule]);
 			return [0, 1, 2, 3, 4].map(
 				(i) => resolver.matchRules(i, null, false).includes(rule),
 			);
@@ -416,7 +414,7 @@ test.describe("PageResolver", () => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const rule = new PageRule({ nth: { a: -1, b: 3 } });
-			const resolver = new PageResolver([new PageRule({ size: [600, 800] }), rule]);
+			const resolver = new PageResolver([new PageRule({ size: "600px 800px" }), rule]);
 			return [0, 1, 2, 3, 4].map(
 				(i) => resolver.matchRules(i, null, false).includes(rule),
 			);
@@ -426,11 +424,11 @@ test.describe("PageResolver", () => {
 
 	test("specificity: :nth() bumps the g component like :first", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { PageRule, pageRuleSpecificity } = await import("/src/resolvers/page-resolver.js");
+			const { PageRule } = await import("/src/resolvers/page-resolver.js");
 			return {
-				bare: pageRuleSpecificity(new PageRule()),
-				nth: pageRuleSpecificity(new PageRule({ nth: { a: 0, b: 2 } })),
-				first: pageRuleSpecificity(new PageRule({ pseudoClasses: ["first"] })),
+				bare: new PageRule().specificity,
+				nth: new PageRule({ nth: { a: 0, b: 2 } }).specificity,
+				first: new PageRule({ pseudo: ["first"] }).specificity,
 			};
 		});
 		expect(result.bare).toEqual([0, 0, 0]);
@@ -438,11 +436,11 @@ test.describe("PageResolver", () => {
 		expect(result.first).toEqual([0, 1, 0]);
 	});
 
-	test("page-orientation: rotate-left swaps dimensions", async ({ page }) => {
+	test("pageOrientation: rotate-left swaps dimensions", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver(
-				[new PageRule({ size: [600, 800], pageOrientation: "rotate-left" })],
+				[new PageRule({ size: "600px 800px", pageOrientation: "rotate-left" })],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
 			const c = resolver.resolve(0, null, null);
@@ -456,7 +454,7 @@ test.describe("PageResolver", () => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver(
-				[new PageRule({ size: [600, 800], margin: { top: 20, right: 20, bottom: 20, left: 20 } })],
+				[new PageRule({ size: "600px 800px", margin: { top: "20px", right: "20px", bottom: "20px", left: "20px" } })],
 				{ inlineSize: 816, blockSize: 1056 },
 			);
 
@@ -500,6 +498,243 @@ test.describe("PageResolver", () => {
 		expect(result.c1First).toBe(false);
 		expect(result.c1Verso).toBe(true);
 		expect(result.c1Recto).toBe(false);
+	});
+});
+
+test.describe("PageResolver constructor with plain objects", () => {
+	test("empty array falls back to default size", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const DEFAULT_SIZE = { inlineSize: 816, blockSize: 1056 };
+			const resolver = new PageResolver([], DEFAULT_SIZE);
+			const c = resolver.resolve(0, null, null);
+			return { contentArea: c.contentArea, margins: c.margins };
+		});
+		expect(result.margins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+		expect(result.contentArea).toEqual({ inlineSize: 816, blockSize: 1056 });
+	});
+
+	test("universal rule with named size 'A4'", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver(
+				[{ size: "A4" }],
+				{ inlineSize: 816, blockSize: 1056 },
+			);
+			const c = resolver.resolve(0, null, null);
+			return { inlineSize: c.pageBoxSize.inlineSize, blockSize: c.pageBoxSize.blockSize };
+		});
+		expect(result.inlineSize).toBe(794);
+		expect(result.blockSize).toBe(1123);
+	});
+
+	test("named page + node.page lookup", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver(
+				[
+					{ size: "210mm 297mm" },
+					{ name: "chapter", size: "148mm 210mm" },
+				],
+				{ inlineSize: 816, blockSize: 1056 },
+			);
+			const rootNode = { children: [{ page: "chapter", children: [] }] };
+			const c = resolver.resolve(0, rootNode, null);
+			return { namedPage: c.namedPage, inlineSize: c.pageBoxSize.inlineSize };
+		});
+		expect(result.namedPage).toBe("chapter");
+		expect(result.inlineSize).toBe(559);
+	});
+
+	test(":first pseudo matches only page 0", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([
+				{ size: "500px 500px" },
+				{
+					pseudo: ["first"],
+					size: "300px 300px",
+				},
+			]);
+			const p0 = resolver.resolve(0, null, null).pageBoxSize.inlineSize;
+			const p1 = resolver.resolve(1, null, null).pageBoxSize.inlineSize;
+			return { p0, p1 };
+		});
+		expect(result.p0).toBe(300);
+		expect(result.p1).toBe(500);
+	});
+
+	test(":nth(2n+1) matches odd pages", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { parseAnPlusB } = await import("/src/styles/an-plus-b.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([
+				{ size: "500px 500px" },
+				{
+					nth: parseAnPlusB("2n+1"),
+					size: "300px 300px",
+				},
+			]);
+			return [0, 1, 2, 3].map(
+				(i) => resolver.resolve(i, null, null).pageBoxSize.inlineSize,
+			);
+		});
+		expect(result).toEqual([300, 500, 300, 500]);
+	});
+
+	test(":blank pseudo matches only blank pages", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([
+				{ size: "500px 500px" },
+				{
+					pseudo: ["blank"],
+					size: "200px 200px",
+				},
+			]);
+			const blank = resolver.resolve(0, null, null, true).pageBoxSize.inlineSize;
+			const normal = resolver.resolve(0, null, null, false).pageBoxSize.inlineSize;
+			return { blank, normal };
+		});
+		expect(result.blank).toBe(200);
+		expect(result.normal).toBe(500);
+	});
+
+	test("mixed margin longhands — unset sides default to 0", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([
+				{
+					size: "800px 1000px",
+					margin: { top: "50px", left: "40px" },
+				},
+			]);
+			const c = resolver.resolve(0, null, null);
+			return c.margins;
+		});
+		expect(result).toEqual({ top: 50, right: 0, bottom: 0, left: 40 });
+	});
+
+	test("CSS length units resolve to px", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([
+				{
+					size: "210mm 297mm",
+					margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
+				},
+			]);
+			const c = resolver.resolve(0, null, null);
+			return {
+				pageBoxSize: c.pageBoxSize,
+				margins: c.margins,
+			};
+		});
+		expect(result.pageBoxSize).toEqual({ inlineSize: 794, blockSize: 1123 });
+		// 10mm at 96 DPI ≈ 37.795 → rounds to 38
+		expect(result.margins).toEqual({ top: 38, right: 38, bottom: 38, left: 38 });
+	});
+
+	test("mixed input: PageRule + plain object in the same array", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver(
+				[
+					new PageRule({ size: "600px 800px" }),
+					{ name: "chapter", size: "400px 500px" },
+				],
+				{ inlineSize: 816, blockSize: 1056 },
+			);
+			const universal = resolver.resolve(0, null, null).pageBoxSize;
+			const rootNode = { children: [{ page: "chapter", children: [] }] };
+			const named = resolver.resolve(0, rootNode, null).pageBoxSize;
+			return { universal, named };
+		});
+		expect(result.universal).toEqual({ inlineSize: 600, blockSize: 800 });
+		expect(result.named).toEqual({ inlineSize: 400, blockSize: 500 });
+	});
+
+	test("parity: fromStyleSheets vs plain objects produce identical PageConstraints", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+
+			const css = `
+				@page { size: 210mm 297mm; margin: 20mm; }
+				@page :first { margin-top: 40mm; }
+				@page :left { margin-left: 30mm; }
+			`;
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync(css);
+			const fromSheet = PageResolver.fromStyleSheets([sheet]);
+
+			const fromData = new PageResolver([
+				{
+					size: "210mm 297mm",
+					margin: { top: "20mm", right: "20mm", bottom: "20mm", left: "20mm" },
+				},
+				{
+					pseudo: ["first"],
+					margin: { top: "40mm" },
+				},
+				{
+					pseudo: ["left"],
+					margin: { left: "30mm" },
+				},
+			]);
+
+			const snapshot = (r, i) => {
+				const c = r.resolve(i, null, null);
+				return {
+					pageBoxSize: c.pageBoxSize,
+					margins: c.margins,
+					contentArea: c.contentArea,
+					isFirst: c.isFirst,
+					isVerso: c.isVerso,
+				};
+			};
+
+			return [0, 1, 2, 3].map((i) => ({
+				sheet: snapshot(fromSheet, i),
+				data: snapshot(fromData, i),
+			}));
+		});
+		for (const row of result) {
+			expect(row.data).toEqual(row.sheet);
+		}
+	});
+
+	test("plain objects are accepted by the constructor", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([
+				{ name: null, pseudo: ["first"], size: "500px 500px" },
+			]);
+			return resolver.pageRules.map((r) => r.size);
+		});
+		expect(result).toEqual(["500px 500px"]);
+	});
+});
+
+test.describe("PageResolver.fromStyleSheets", () => {
+	test("extracts PageRules from a CSSStyleSheet", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync(`
+				@page chapter:first { size: A4; margin: 10mm 20mm; }
+				@page :left { margin-left: 30mm; }
+			`);
+			return PageResolver.fromStyleSheets([sheet]).pageRules;
+		});
+		expect(result).toHaveLength(2);
+		expect(result[0].name).toBe("chapter");
+		expect(result[0].pseudo).toEqual(["first"]);
+		expect(result[0].size).toBe("a4");
+		expect(result[0].margin.top).toBe("10mm");
+		expect(result[0].margin.left).toBe("20mm");
+		expect(result[1].name).toBe(null);
+		expect(result[1].pseudo).toEqual(["left"]);
+		expect(result[1].margin.left).toBe("30mm");
 	});
 });
 
@@ -846,8 +1081,8 @@ test.describe("createFragments with PageResolver", () => {
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const DEFAULT_SIZE = { inlineSize: 600, blockSize: 1000 };
-			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
-			const resolver = new PageResolver([new PageRule({ size: [600, 1000], margin: M0 })], DEFAULT_SIZE);
+			const M0 = { top: "0px", right: "0px", bottom: "0px", left: "0px" };
+			const resolver = new PageResolver([new PageRule({ size: "600px 1000px", margin: M0 })], DEFAULT_SIZE);
 
 			const root = blockNode({
 				children: [blockNode({ blockSize: 800 }), blockNode({ blockSize: 800 })],
@@ -871,9 +1106,9 @@ test.describe("createFragments with PageResolver", () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
-			const M0 = { top: 0, right: 0, bottom: 0, left: 0 };
+			const M0 = { top: "0px", right: "0px", bottom: "0px", left: "0px" };
 				const resolver = new PageResolver(
-				[new PageRule({ size: [600, 200], margin: M0 }), new PageRule({ name: "wide", size: [800, 200], margin: M0 })],
+				[new PageRule({ size: "600px 200px", margin: M0 }), new PageRule({ name: "wide", size: "800px 200px", margin: M0 })],
 				{ inlineSize: 600, blockSize: 200 },
 			);
 

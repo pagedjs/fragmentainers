@@ -185,7 +185,6 @@ Defined in `src/resolvers/page-resolver.js`.
 | `isRecto`      | `boolean`                      | True on recto (right) pages. Inverse of `isVerso`.                                    |
 | `isBlank`      | `boolean`                      | A blank page inserted to satisfy `break-before: left`/`right`/`recto`/`verso`.        |
 | `matchedRules` | `PageRule[]`                   | The `@page` rules that matched (in cascade order).                                    |
-| `cssText`      | `object \| null`               | Original CSS unit strings for rendering.                                              |
 
 `PageConstraints` also exposes `toConstraintSpace()`, which the layout
 driver uses to convert the resolver output into a layout `ConstraintSpace`

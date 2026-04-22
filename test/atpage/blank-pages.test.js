@@ -501,7 +501,7 @@ test.describe(":blank pseudo-class matching", () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 
 			const resolver = new PageResolver(
-				[new PageRule({ pseudoClasses: ["blank"], margin: { top: 100 } })],
+				[new PageRule({ pseudo: ["blank"], margin: { top: "100px" } })],
 				{ inlineSize: 600, blockSize: 1000 },
 			);
 
@@ -522,7 +522,7 @@ test.describe(":blank pseudo-class matching", () => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver(
-				[new PageRule({ pseudoClasses: ["blank", "left"], margin: { top: 50 } })],
+				[new PageRule({ pseudo: ["blank", "left"], margin: { top: "50px" } })],
 				{ inlineSize: 600, blockSize: 1000 },
 			);
 			return {
@@ -541,7 +541,7 @@ test.describe(":blank pseudo-class matching", () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 
 			const resolver = new PageResolver(
-				[new PageRule({ pseudoClasses: ["blank"], size: [400, 400] })],
+				[new PageRule({ pseudo: ["blank"], size: "400px 400px" })],
 				{ inlineSize: 600, blockSize: 1000 },
 			);
 

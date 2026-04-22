@@ -166,13 +166,26 @@ cascade. Implements CSS specificity ordering: universal (0) < pseudo-class (1)
 #### Constructor
 
 ```js
-new PageResolver(pageRules, size);
+new PageResolver(rules, size);
 ```
 
-| Parameter   | Type                                        | Description                            |
-| ----------- | ------------------------------------------- | -------------------------------------- |
-| `pageRules` | `PageRule[]`                                | Parsed `@page` rules in document order |
-| `size`      | `{ inlineSize: number, blockSize: number }` | Fallback page size                     |
+| Parameter | Type                                        | Description                                                                    |
+| --------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| `rules`   | `(PageRule \| object)[]`                    | `@page` rules in document order. Plain objects are passed to the `PageRule` constructor. |
+| `size`    | `{ inlineSize: number, blockSize: number }` | Fallback page size                                                             |
+
+Plain objects use the same shape as `PageRule`:
+
+```js
+{
+  name: string | null,
+  pseudo: string[],                                          // 'first', 'left', 'right', 'blank'
+  nth: { a: number, b: number } | null,                     // :nth(An+B) coefficients
+  size: string | null,                                       // CSS size value ("A4", "210mm 297mm", ...)
+  margin: { top, right, bottom, left } | null,               // CSS lengths ("10mm", "1in", ...)
+  pageOrientation: string | null,                            // 'rotate-left', 'rotate-right'
+}
+```
 
 #### Static Methods
 
@@ -1125,7 +1138,7 @@ Used in `breakToken.algorithmData.type`.
 
 ### Named Page Sizes
 
-`import { NAMED_SIZES, NAMED_SIZES_CSS } from "fragmentainers/src/resolvers/page-resolver.js"`
+`import { NAMED_SIZES } from "fragmentainers/src/resolvers/page-resolver.js"`
 
 All dimensions are in CSS pixels at 96 DPI.
 
@@ -1141,8 +1154,6 @@ All dimensions are in CSS pixels at 96 DPI.
 | `LETTER`  | 816        | 1056      |
 | `LEGAL`   | 816        | 1344      |
 | `LEDGER`  | 1056       | 1632      |
-
-`NAMED_SIZES_CSS` provides the same set as `[value, unit]` pairs (e.g. `[210, "mm"]`) preserving original CSS units for subpixel-accurate rendering.
 
 ---
 
