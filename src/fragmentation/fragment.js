@@ -104,11 +104,7 @@ export class Fragment {
 				return;
 			}
 			parentEl.appendChild(el);
-		} else if (
-			this.childFragments.length === 0 &&
-			this.breakToken &&
-			node.children?.length > 0
-		) {
+		} else if (this.childFragments.length === 0 && this.breakToken && node.children?.length > 0) {
 			// Empty container shell — all children pushed to next fragmentainer.
 			// Don't build; content will appear on the next page/column.
 			return;
@@ -147,7 +143,9 @@ export class Fragment {
 		}
 
 		const startOffset =
-			inputBreakToken && inputBreakToken.type === BREAK_TOKEN_INLINE ? inputBreakToken.textOffset : 0;
+			inputBreakToken && inputBreakToken.type === BREAK_TOKEN_INLINE
+				? inputBreakToken.textOffset
+				: 0;
 		const endOffset =
 			this.breakToken && this.breakToken.type === BREAK_TOKEN_INLINE
 				? this.breakToken.textOffset
@@ -233,7 +231,9 @@ export class Fragment {
 		const wrapper = document.createElement("div");
 		wrapper.style.height = `${this.blockSize}px`;
 		wrapper.style.overflow = "hidden";
-		if (consumed > 0) el.style.marginTop = `-${consumed}px`;
+		if (consumed > 0) {
+			el.style.setProperty("margin-top", `-${consumed}px`, "important");
+		}
 		wrapper.appendChild(el);
 		parentEl.appendChild(wrapper);
 	}
@@ -351,7 +351,10 @@ export class Fragment {
 			if (this.node.children[i].element?.tagName === "LI") itemCount++;
 		}
 
-		if (!firstChildToken.isBreakBefore && this.node.children[childIndex]?.element?.tagName === "LI") {
+		if (
+			!firstChildToken.isBreakBefore &&
+			this.node.children[childIndex]?.element?.tagName === "LI"
+		) {
 			const hadVisibleContent =
 				firstChildToken.type === BREAK_TOKEN_INLINE
 					? firstChildToken.textOffset > 0
@@ -393,7 +396,8 @@ export class Fragment {
 			if (childFrag.node.isInlineFormattingContext) {
 				const data = childFrag.node.inlineItemsData;
 				if (data?.items?.length > 0) {
-					const startOffset = childBT && childBT.type === BREAK_TOKEN_INLINE ? childBT.textOffset : 0;
+					const startOffset =
+						childBT && childBT.type === BREAK_TOKEN_INLINE ? childBT.textOffset : 0;
 					const endOffset =
 						childFrag.breakToken && childFrag.breakToken.type === BREAK_TOKEN_INLINE
 							? childFrag.breakToken.textOffset

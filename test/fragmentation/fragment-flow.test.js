@@ -20,7 +20,7 @@ test.describe("FragmentFlow", () => {
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:400px";
-			container.innerHTML = '<div style="height:80px;margin:0;padding:0">A</div>';
+			container.innerHTML = '<div style="height:80px;overflow:hidden;margin:0;padding:0">A</div>';
 			document.body.appendChild(container);
 
 			const flow = new FragmentFlow();
@@ -47,8 +47,8 @@ test.describe("FragmentFlow", () => {
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:400px";
 			container.innerHTML =
-				'<div style="height:200px;margin:0;padding:0">A</div>' +
-				'<div style="height:200px;margin:0;padding:0">B</div>';
+				'<div style="height:200px;overflow:hidden;margin:0;padding:0">A</div>' +
+				'<div style="height:200px;overflow:hidden;margin:0;padding:0">B</div>';
 			document.body.appendChild(container);
 
 			const flow = new FragmentFlow();
@@ -111,7 +111,7 @@ test.describe("FragmentFlow", () => {
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:400px";
-			container.innerHTML = '<div style="height:200px;margin:0;padding:0">A</div>';
+			container.innerHTML = '<div style="height:200px;overflow:hidden;margin:0;padding:0">A</div>';
 			document.body.appendChild(container);
 
 			const flow = new FragmentFlow();

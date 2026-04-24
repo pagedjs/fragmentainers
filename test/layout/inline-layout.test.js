@@ -241,7 +241,7 @@ test.describe("Inline content layout (browser)", () => {
 		expect(result.firstPageChildCount).toBeGreaterThan(0);
 	});
 
-	test("respects explicit CSS height on an IFC element", async ({ page }) => {
+	test("respects explicit CSS height on a monolithic IFC element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
@@ -251,7 +251,7 @@ test.describe("Inline content layout (browser)", () => {
 			container.style.cssText = "position:absolute;left:-9999px;width:400px";
 			container.innerHTML = `
 				<div>
-					<h3 style="height:200px;margin:0;padding:0;font:16px/18px monospace">Short</h3>
+					<h3 style="height:200px;overflow:hidden;margin:0;padding:0;font:16px/18px monospace">Short</h3>
 				</div>
 			`;
 			document.body.appendChild(container);
@@ -279,7 +279,7 @@ test.describe("Inline content layout (browser)", () => {
 		expect(result.h3BlockSize).toBe(200);
 	});
 
-	test("explicit-height IFC element breaks across fragmentainers", async ({ page }) => {
+	test("monolithic explicit-height IFC element breaks across fragmentainers", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { createFragments } = await import("/src/layout/layout-driver.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
@@ -289,9 +289,9 @@ test.describe("Inline content layout (browser)", () => {
 			container.style.cssText = "position:absolute;left:-9999px;width:400px";
 			container.innerHTML = `
 				<div>
-					<div style="height:150px;margin:0;padding:0"></div>
-					<h3 style="height:200px;margin:0;padding:0;font:16px/18px monospace">Short</h3>
-					<div style="height:100px;margin:0;padding:0"></div>
+					<div style="height:150px;overflow:hidden;margin:0;padding:0"></div>
+					<h3 style="height:200px;overflow:hidden;margin:0;padding:0;font:16px/18px monospace">Short</h3>
+					<div style="height:100px;overflow:hidden;margin:0;padding:0"></div>
 				</div>
 			`;
 			document.body.appendChild(container);

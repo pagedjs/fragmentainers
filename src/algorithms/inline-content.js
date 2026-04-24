@@ -4,6 +4,7 @@ import { BreakScore } from "../fragmentation/break-scoring.js";
 import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../measurement/collect-inlines.js";
 import { DEFAULT_OVERFLOW_THRESHOLD } from "../fragmentation/fragmentation-context.js";
 import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
+import { isMonolithic } from "../layout/layout-helpers.js";
 
 /**
  * Given a flat textContent offset, find the kText item that contains it
@@ -156,10 +157,7 @@ export class InlineContentAlgorithm {
 		// Guard: only non-content items (empty element with pseudo-content) → monolithic
 		if (!hasContentItems(inlineItems.items)) return this.#buildMonolithicFragment();
 
-		// Explicit CSS height: box size is authoritative (not line count).
-		// Fragment by box height, slicing at fragmentainer boundaries — the
-		// element's own content positions itself within each slice.
-		if (this.#node.element && this.#node.computedBlockSize() != null) {
+		if (this.#node.element && isMonolithic(this.#node)) {
 			return this.#layoutExplicitHeight();
 		}
 
@@ -365,11 +363,7 @@ export class InlineContentAlgorithm {
 			return false;
 		}
 		const breakLineIndex = this.#consumedLines + linesToPlace;
-		let breakFlatOffset = measurer.offsetAtLine(
-			inlineItems.items,
-			measured.tops,
-			breakLineIndex,
-		);
+		let breakFlatOffset = measurer.offsetAtLine(inlineItems.items, measured.tops, breakLineIndex);
 		if (breakFlatOffset == null) {
 			throw new Error(
 				`offsetAtLine failed to resolve break offset (breakLineIndex=${breakLineIndex}, lineCount=${measured.tops.length})`,

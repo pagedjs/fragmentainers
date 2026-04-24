@@ -1,7 +1,10 @@
 import { collectInlineItems } from "../measurement/collect-inlines.js";
-import { measureElementBlockSize, measureCellIntrinsicBlockSize } from "../measurement/block-size.js";
+import {
+	measureElementBlockSize,
+	measureCellIntrinsicBlockSize,
+} from "../measurement/block-size.js";
 import { getLineHeight, getSharedMeasurer, measureLines } from "../measurement/line-box.js";
-import { computedStyleMap } from "../styles/computed-style-map.js";
+import { computedStyleMap, HAS_TYPED_OM } from "../styles/computed-style-map.js";
 import { buildCumulativeHeights } from "./layout-helpers.js";
 import { AnonymousBlockNode } from "./anonymous-block-node.js";
 import { LayoutNode } from "./layout-node-base.js";
@@ -124,13 +127,18 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	get hasOverflowHidden() {
-		return cssKeyword(this.#getStyleMap().get("overflow"), "visible") === "hidden";
+		const map = this.#getStyleMap();
+		if (cssKeyword(map.get("overflow"), "visible") === "hidden") return true;
+		if (cssKeyword(map.get("overflow-y"), "visible") === "hidden") return true;
+		if (cssKeyword(map.get("overflow-block"), "visible") === "hidden") return true;
+		return false;
 	}
 
 	get hasExplicitBlockSize() {
+		if (!HAS_TYPED_OM) return false;
 		const h = this.#getStyleMap().get("height");
 		if (!h) return false;
-		if (h.unit === "px") return h.value !== 0;
+		if (h.unit) return true;
 		return cssKeyword(h, "auto") !== "auto";
 	}
 
@@ -617,4 +625,3 @@ function isSignificantInlineNode(node) {
 	}
 	return false;
 }
-

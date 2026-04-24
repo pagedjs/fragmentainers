@@ -13,7 +13,7 @@
 
 import { UnitValue } from "./css-values.js";
 
-const HAS_TYPED_OM =
+export const HAS_TYPED_OM =
 	typeof HTMLElement !== "undefined" &&
 	typeof HTMLElement.prototype.computedStyleMap === "function";
 

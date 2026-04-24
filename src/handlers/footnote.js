@@ -201,6 +201,8 @@ class Footnote extends LayoutHandler {
 		area.style.setProperty("bottom", "0");
 		area.style.setProperty("left", "0");
 		area.style.setProperty("right", "0");
+		area.style.setProperty("height", `${flowFragment.blockSize}px`);
+		area.style.setProperty("overflow", "hidden");
 
 		const docFragment = flowFragment.build(flowInputBreakToken);
 		decorateForFootnoteArea(docFragment);
