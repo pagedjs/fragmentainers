@@ -126,7 +126,7 @@ async function run() {
 
 		const response = await fetch(url);
 		const content = await response.text();
-		const baseURL = url.substring(0, url.lastIndexOf("/") + 1);
+		const baseURL = response.url.substring(0, response.url.lastIndexOf("/") + 1);
 		const parsed = await ContentParser.fromString(content, baseURL);
 
 		const resolver = PageResolver.fromStyleSheets(parsed.styles);

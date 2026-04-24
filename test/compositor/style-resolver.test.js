@@ -456,7 +456,7 @@ test.describe("end-to-end cascade", () => {
 
 				const authorSheet = new CSSStyleSheet();
 				authorSheet.replaceSync(css);
-				document.adoptedStyleSheets = [...document.adoptedStyleSheets, authorSheet];
+				document.adoptedStyleSheets.push(authorSheet);
 
 				const r = new StyleResolver();
 				for (const rule of authorSheet.cssRules) r.matchRule(rule, { wrappers: [] });
@@ -472,7 +472,7 @@ test.describe("end-to-end cascade", () => {
 				document.body.appendChild(wrapper);
 
 				const composite = buildCompositeSheet({ sheets: [authorSheet] }, r.getAdoptedSheets(), null);
-				document.adoptedStyleSheets = [...document.adoptedStyleSheets, composite];
+				document.adoptedStyleSheets.push(composite);
 
 				window.cascadeProbe = { source, wrapper, authorSheet, composite };
 				return { wrapperReady: true };

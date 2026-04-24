@@ -163,7 +163,7 @@ export class ContentParser {
 			}
 		}
 
-		document.adoptedStyleSheets = [...document.adoptedStyleSheets, ...sheets];
+		document.adoptedStyleSheets.push(...sheets);
 		return sheets;
 	}
 

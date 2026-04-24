@@ -42,11 +42,20 @@ function abortable(promise, signal) {
 	if (!signal) return promise;
 	return new Promise((resolve, reject) => {
 		const onAbort = () => reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
-		if (signal.aborted) { onAbort(); return; }
+		if (signal.aborted) {
+			onAbort();
+			return;
+		}
 		signal.addEventListener("abort", onAbort, { once: true });
 		promise.then(
-			(v) => { signal.removeEventListener("abort", onAbort); resolve(v); },
-			(e) => { signal.removeEventListener("abort", onAbort); reject(e); },
+			(v) => {
+				signal.removeEventListener("abort", onAbort);
+				resolve(v);
+			},
+			(e) => {
+				signal.removeEventListener("abort", onAbort);
+				reject(e);
+			},
 		);
 	});
 }
@@ -59,8 +68,15 @@ function loadImageProbe(img, signal) {
 			probe.onerror = null;
 			signal?.removeEventListener("abort", onAbort);
 		};
-		const onAbort = () => { probe.src = ""; cleanup(); resolve(); };
-		if (signal?.aborted) { onAbort(); return; }
+		const onAbort = () => {
+			probe.src = "";
+			cleanup();
+			resolve();
+		};
+		if (signal?.aborted) {
+			onAbort();
+			return;
+		}
 		signal?.addEventListener("abort", onAbort, { once: true });
 		probe.onload = () => {
 			img.width = probe.naturalWidth;
@@ -216,7 +232,7 @@ export class FragmentedFlow extends Iterator {
 		}
 
 		if (options.styles) {
-			this.#styles = Array.isArray(options.styles) ? options.styles : [options.styles];
+			this.#styles = this.#adoptStyles(options.styles);
 		} else if (document.adoptedStyleSheets.length > 0) {
 			this.#styles = [...document.adoptedStyleSheets];
 		} else {
@@ -544,8 +560,7 @@ export class FragmentedFlow extends Iterator {
 				flowInputTokens[i] = flowResult.inputBreakToken;
 			}
 
-			const settled =
-				flowsSettled && !pushedForward && legacyReserved === postLayoutReserved;
+			const settled = flowsSettled && !pushedForward && legacyReserved === postLayoutReserved;
 			postLayoutReserved = legacyReserved;
 			postLayoutCallbacks = legacyCallbacks;
 			if (settled) break;
@@ -802,10 +817,12 @@ export class FragmentedFlow extends Iterator {
 		const promises = [];
 		document.fonts.forEach((fontFace) => {
 			if (fontFace.status !== "loaded") {
-				promises.push(abortable(fontFace.load(), signal).then(
-					() => fontFace.family,
-					() => fontFace.family,
-				));
+				promises.push(
+					abortable(fontFace.load(), signal).then(
+						() => fontFace.family,
+						() => fontFace.family,
+					),
+				);
 			}
 		});
 		return Promise.all(promises);
@@ -895,6 +912,30 @@ export class FragmentedFlow extends Iterator {
 	}
 
 	/**
+	 * Normalize styles into an array, and adopt any CSSStyleSheet entries that
+	 * aren't already on adopted.
+	 *
+	 * @param {CSSStyleSheet|CSSStyleSheet[]} styles
+	 * @returns {CSSStyleSheet[]}
+	 */
+	#adoptStyles(styles) {
+		const sheets = Array.isArray(styles) ? styles : [styles];
+		for (const sheet of sheets) {
+			if (sheet instanceof CSSStyleSheet) {
+				if (!document.adoptedStyleSheets.includes(sheet)) {
+					document.adoptedStyleSheets.push(sheet);
+				}
+			} else if (sheet instanceof CSSRule) {
+				const parent = sheet.parentStyleSheet;
+				if (parent && !document.adoptedStyleSheets.includes(parent)) {
+					document.adoptedStyleSheets.push(parent);
+				}
+			}
+		}
+		return sheets;
+	}
+
+	/**
 	 * Append the composite scoped CSS as a rule on the output sheet. When the
 	 * caller supplied a sheet via `options.styleSheet`, the engine coexists
 	 * with whatever other rules are there. Otherwise the flow creates a sheet
@@ -910,16 +951,14 @@ export class FragmentedFlow extends Iterator {
 		if (!this.#styleSheet) {
 			this.#styleSheet = new CSSStyleSheet();
 			this.#ownsStyleSheet = true;
-			document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.#styleSheet];
+			document.adoptedStyleSheets.push(this.#styleSheet);
 		}
 		this.#styleSheet.insertRule(text, this.#styleSheet.cssRules.length);
 	}
 
 	#teardownStyleSheet() {
 		if (!this.#styleSheet || !this.#ownsStyleSheet) return;
-		document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
-			(s) => s !== this.#styleSheet,
-		);
+		document.adoptedStyleSheets = document.adoptedStyleSheets.filter((s) => s !== this.#styleSheet);
 		this.#styleSheet = null;
 		this.#ownsStyleSheet = false;
 	}
