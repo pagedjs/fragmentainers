@@ -43,6 +43,13 @@ function cssKeyword(value, fallback) {
 	return typeof value.value === "string" ? value.value : value.toString();
 }
 
+// Chrome's CSS TypedOM resolves `border-*-width` even when `border-style` is `none`.
+function cssBorderWidth(map, edge) {
+	const style = cssKeyword(map.get(`border-${edge}-style`), "none");
+	if (style === "none" || style === "hidden") return 0;
+	return cssPx(map.get(`border-${edge}-width`));
+}
+
 export class DOMLayoutNode extends LayoutNode {
 	#element;
 	#styleMap = null;
@@ -96,8 +103,8 @@ export class DOMLayoutNode extends LayoutNode {
 			this.#marginBlockEnd = cssPx(map.get("margin-block-end"));
 			this.#paddingBlockStart = cssPx(map.get("padding-block-start"));
 			this.#paddingBlockEnd = cssPx(map.get("padding-block-end"));
-			this.#borderBlockStart = cssPx(map.get("border-block-start-width"));
-			this.#borderBlockEnd = cssPx(map.get("border-block-end-width"));
+			this.#borderBlockStart = cssBorderWidth(map, "block-start");
+			this.#borderBlockEnd = cssBorderWidth(map, "block-end");
 		}
 		return this.#styleMap || computedStyleMap(this.element);
 	}
