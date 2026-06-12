@@ -60,6 +60,23 @@ class HandlerRegistry {
 	}
 
 	/**
+	 * Destroy the current handler instances and reset shared state.
+	 * The registry is a module singleton — only one FragmentedFlow's
+	 * handlers are active at a time — so this is called from
+	 * FragmentedFlow.destroy(). Registered classes are kept; the next
+	 * init() creates fresh instances.
+	 */
+	destroy() {
+		for (const handler of this.#created) {
+			handler.destroy();
+		}
+		this.#created = [];
+		this.#handlers = [];
+		this.#cloneMap = new WeakMap();
+		this.#injectedSheet = null;
+	}
+
+	/**
 	 * Return the current instance of a registered handler class.
 	 * Returns null if the class isn't registered or init() hasn't
 	 * been called yet.

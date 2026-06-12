@@ -877,6 +877,7 @@ export class FragmentedFlow extends Iterator {
 			this.#measurer = null;
 		}
 		this.#measureElement = null;
+		handlers.destroy();
 		this.#teardownStyleSheet();
 	}
 
