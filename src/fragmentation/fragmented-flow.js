@@ -99,13 +99,17 @@ function loadImageProbe(img, signal) {
  * main-flow iteration pushes that block to the next page. Returns
  * true when a push was actually applied.
  *
+ * The prior value is recorded in `pushedBreaks` so reflow() can undo
+ * pushes that may no longer apply.
+ *
  * `target` may be a LayoutNode (with `.element`) or an Element.
  */
-function pushBlockAncestorToNextPage(rootNode, target) {
+function pushBlockAncestorToNextPage(rootNode, target, pushedBreaks) {
 	const targetEl = target instanceof Element ? target : (target?.element ?? null);
 	if (!targetEl) return false;
 	const ancestor = findBlockAncestor(rootNode, targetEl);
 	if (!ancestor || ancestor.breakBefore === "page") return false;
+	pushedBreaks.push({ node: ancestor, breakBefore: ancestor.breakBefore });
 	ancestor.breakBefore = "page";
 	return true;
 }
@@ -188,6 +192,7 @@ export class FragmentedFlow extends Iterator {
 	#context = null;
 	#done = false;
 	#zeroProgressCount = 0;
+	#pushedBreaks = [];
 
 	/**
 	 * @param {DocumentFragment|Element|object} content - Content to fragment
@@ -369,6 +374,13 @@ export class FragmentedFlow extends Iterator {
 		this.#context = null;
 		this.#zeroProgressCount = 0;
 
+		// Undo handler-driven break pushes — re-layout re-applies any
+		// that are still needed.
+		for (const { node, breakBefore } of this.#pushedBreaks) {
+			node.breakBefore = breakBefore;
+		}
+		this.#pushedBreaks.length = 0;
+
 		// Re-run layout to completion
 		const newFragments = [];
 		while (!this.#done) {
@@ -524,7 +536,9 @@ export class FragmentedFlow extends Iterator {
 						cap,
 					);
 					for (const el of pushForward) {
-						if (pushBlockAncestorToNextPage(rootNode, el)) pushedForward = true;
+						if (pushBlockAncestorToNextPage(rootNode, el, this.#pushedBreaks)) {
+							pushedForward = true;
+						}
 					}
 					if (pushedForward) {
 						flowsSettled = false;
@@ -539,7 +553,11 @@ export class FragmentedFlow extends Iterator {
 
 				if (flowResult.rejectedNode) {
 					flow.restore(save);
-					const pushed = pushBlockAncestorToNextPage(rootNode, flowResult.rejectedNode);
+					const pushed = pushBlockAncestorToNextPage(
+						rootNode,
+						flowResult.rejectedNode,
+						this.#pushedBreaks,
+					);
 					if (pushed) pushedForward = true;
 					flowsSettled = false;
 					continue;
