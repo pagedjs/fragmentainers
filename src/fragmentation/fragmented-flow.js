@@ -294,6 +294,20 @@ export class FragmentedFlow extends Iterator {
 	}
 
 	/**
+	 * Iterator protocol cleanup — called when iteration stops early
+	 * (breaking out of for...of, Iterator helpers, etc.). Releases the
+	 * measurement container without marking the flow done, so iteration
+	 * can resume later; destroy() remains the full-teardown path.
+	 *
+	 * @param {*} [value]
+	 * @returns {{ value: *, done: true }}
+	 */
+	return(value) {
+		this.releaseMeasurer();
+		return { value, done: true };
+	}
+
+	/**
 	 * Run fragmentation to completion and return a FragmentationContext.
 	 *
 	 * Use flow() when you need a specific range of elements, or when
