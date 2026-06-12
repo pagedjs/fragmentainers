@@ -667,27 +667,20 @@ export class FragmentedFlow extends Iterator {
 		if (this.#tree && this.#measureElement && !forceUpdate) return;
 		const content = this.#content;
 		const styles = this.#styles;
-		if (
-			this.#tree &&
-			!this.#measureElement &&
-			typeof DocumentFragment !== "undefined" &&
-			content instanceof DocumentFragment
-		) {
-			// Measurer was released — recreate it without rebuilding tree.
+		if (this.#tree && !this.#measureElement && this.#measurer) {
+			// Measurer was released — reattach it without rebuilding the tree.
 			// The tree's DOMLayoutNode wrappers still reference the same
 			// element objects; moving them back into the measurer restores
 			// live measurement capability.
-			const isPageBased =
-				this.#resolver instanceof PageResolver || (!this.#resolver && !this.#constraintSpace);
-			const layoutStyles = isPageBased ? [UA_DEFAULTS, ...styles] : styles;
-			const measurer = document.createElement("content-measure");
-			measurer.injectFragment(content, layoutStyles);
-			document.body.appendChild(measurer);
-			void measurer.offsetHeight;
-			this.#measureElement = measurer;
-			this.#contentStyles = measurer.getContentStyles();
+			const contentRoot = this.#measurer.reattach();
+			this.#measureElement = { applyConstraintSpace: () => {} };
+			this.#contentStyles = this.#measurer.getContentStyles();
 			if (forceUpdate) {
-				this.#tree = new DOMLayoutNode(measurer.contentRoot);
+				this.#tree = new DOMLayoutNode(contentRoot);
+			}
+			const initialChildren = this.#measurer.initialChildren;
+			if (initialChildren) {
+				this.#tree.setChildren(initialChildren);
 			}
 			return;
 		}
@@ -828,26 +821,9 @@ export class FragmentedFlow extends Iterator {
 	 * layout() recreates the measurer from the saved fragment.
 	 */
 	releaseMeasurer() {
-		if (this.#measurer) {
-			const result = this.#measurer.release();
-			this.#content = result.content;
-			this.#measureElement = null;
-			return;
-		}
-
-		if (!this.#measureElement) return;
-
-		// Move content from slot back to a DocumentFragment.
-		// The tree is preserved — DOMLayoutNode wrappers still reference
-		// the same element objects, and break tokens remain valid.
-		const frag = document.createDocumentFragment();
-		const slot = this.#measureElement.contentRoot;
-		while (slot.firstChild) {
-			frag.appendChild(slot.firstChild);
-		}
-		this.#content = frag;
-
-		this.#measureElement.remove();
+		if (!this.#measurer) return;
+		const result = this.#measurer.release();
+		this.#content = result.content;
 		this.#measureElement = null;
 	}
 
@@ -860,9 +836,6 @@ export class FragmentedFlow extends Iterator {
 		if (this.#measurer?.contentRoot) {
 			return this.#measurer.contentRoot;
 		}
-		if (this.#measureElement) {
-			return this.#measureElement.contentRoot;
-		}
 		return this.#content;
 	}
 
@@ -871,13 +844,10 @@ export class FragmentedFlow extends Iterator {
 	 * Call when the layout is no longer needed.
 	 */
 	destroy() {
-		if (this.#measurer?.isActive) {
-			this.#measurer.release();
+		if (this.#measurer) {
+			const result = this.#measurer.release();
+			this.#content = result.content;
 			this.#measurer = null;
-		}
-		// Mock-node path stubs #measureElement with a plain object, so guard remove().
-		if (typeof this.#measureElement?.remove === "function") {
-			this.#measureElement.remove();
 		}
 		this.#measureElement = null;
 		this.#teardownStyleSheet();

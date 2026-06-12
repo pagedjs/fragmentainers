@@ -375,7 +375,8 @@ export class Measurer {
 
 	/**
 	 * Release measurement, returning all content as a DocumentFragment.
-	 * Removes the measurer from the DOM.
+	 * Removes the measurer from the DOM. Idempotent — calling again
+	 * returns the already-released content.
 	 *
 	 * @returns {{ content: DocumentFragment }}
 	 */
@@ -404,8 +405,39 @@ export class Measurer {
 
 		this.#measureElement.remove();
 		this.#measureElement = null;
+		this.#content = frag;
 
 		return { content: frag };
+	}
+
+	/**
+	 * Recreate the measurement container from released content and move
+	 * the content back in. Node identity is preserved — existing
+	 * DOMLayoutNode wrappers and break tokens remain valid. Segmented
+	 * flows restart at the first segment.
+	 *
+	 * @returns {Element} the content root (slot element)
+	 */
+	reattach() {
+		if (this.#measureElement) return this.#measureElement.contentRoot;
+
+		if (this.#segments) {
+			this.#finished = document.createDocumentFragment();
+			this.#pending = document.createDocumentFragment();
+			const firstEnd = this.#segments[0].end;
+			for (let i = this.#flowElements.length - 1; i >= firstEnd; i--) {
+				this.#pending.insertBefore(this.#flowElements[i], this.#pending.firstChild);
+			}
+			this.#currentSegment = 0;
+		}
+
+		const measurer = this.#createMeasurer();
+		measurer.injectFragment(this.#content, this.#styles);
+		document.body.appendChild(measurer);
+		void measurer.offsetHeight;
+
+		this.#measureElement = measurer;
+		return measurer.contentRoot;
 	}
 
 	/** Sync the measurement container's inline size with the constraint space. */
