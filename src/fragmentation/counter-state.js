@@ -121,7 +121,9 @@ export function walkFragmentTree(fragment, inputBreakToken, counterState) {
 	const node = fragment.node;
 	if (!node) return;
 
-	const isContinuation = inputBreakToken !== null;
+	// A break-before token means the node produced no fragment on the
+	// previous page — its counters haven't been counted yet.
+	const isContinuation = inputBreakToken !== null && !inputBreakToken.isBreakBefore;
 
 	if (!isContinuation) {
 		const resets = parseCounterDirective(node.counterReset);
