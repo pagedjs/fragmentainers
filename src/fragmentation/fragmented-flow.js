@@ -443,14 +443,24 @@ export class FragmentedFlow extends Iterator {
 
 		const MAX_POST_LAYOUT_ITERATIONS = 3;
 		const flowEntries = handlers.getFlows();
+		const flowSnapshots = flowEntries.map(({ flow }) => flow.snapshot());
 		const flowReservations = flowEntries.map(() => 0);
-		let flowFragments = flowEntries.map(() => null);
-		let flowInputTokens = flowEntries.map(() => null);
+		const flowFragments = flowEntries.map(() => null);
+		const flowInputTokens = flowEntries.map(() => null);
 		let postLayoutReserved = 0;
 		let postLayoutCallbacks = [];
 		let result;
 
 		for (let iter = 0; iter <= MAX_POST_LAYOUT_ITERATIONS; iter++) {
+			// Roll every flow back to its page-start state so repeated passes
+			// don't re-lay settled flows against already-advanced queues and tokens.
+			if (iter > 0) {
+				for (let i = 0; i < flowEntries.length; i++) {
+					flowEntries[i].flow.restore(flowSnapshots[i]);
+					flowFragments[i] = null;
+					flowInputTokens[i] = null;
+				}
+			}
 			const flowTotal = flowReservations.reduce((s, n) => s + n, 0);
 			const totalReservedEnd = reservedBlockEnd + postLayoutReserved + flowTotal;
 			let adjustedSpace = constraintSpace;
