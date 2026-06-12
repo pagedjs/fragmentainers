@@ -239,8 +239,11 @@ export class FragmentedFlow extends Iterator {
 
 		// Add lazy loading to images with explicit dimensions so the browser
 		// doesn't fetch them eagerly before they're needed for layout.
-		for (const img of this.#content.querySelectorAll("img[width][height]")) {
-			img.setAttribute("loading", "lazy");
+		// Mock nodes (unit tests) may not implement querySelectorAll.
+		if (typeof this.#content.querySelectorAll === "function") {
+			for (const img of this.#content.querySelectorAll("img[width][height]")) {
+				img.setAttribute("loading", "lazy");
+			}
 		}
 
 		if (options.styles) {
