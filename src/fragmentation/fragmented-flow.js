@@ -589,6 +589,9 @@ export class FragmentedFlow extends Iterator {
 					blankFragment.isBlank = true;
 					blankFragment.constraints = blankConstraints;
 					blankFragment.breakToken = this.#breakToken;
+					if (!this.#counterState.isEmpty()) {
+						blankFragment.counterState = this.#counterState.snapshot();
+					}
 					this.#prevFragment = blankFragment;
 					this.#fragmentainerIndex++;
 					this.#fragments.push(blankFragment);
