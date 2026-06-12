@@ -60,6 +60,10 @@ function abortable(promise, signal) {
 	});
 }
 
+function normalizeFontFamily(family) {
+	return family.trim().replace(/^["']|["']$/g, "").toLowerCase();
+}
+
 function loadImageProbe(img, signal) {
 	return new Promise((resolve) => {
 		const probe = new Image();
@@ -187,6 +191,9 @@ export class FragmentedFlow extends Iterator {
 	#fragments = [];
 	#styleSheet = null;
 	#ownsStyleSheet = false;
+	#adoptedSheets = [];
+	#preloadedFonts = [];
+	#fontDisplayEdits = [];
 
 	// Iterator state
 	#context = null;
@@ -796,6 +803,14 @@ export class FragmentedFlow extends Iterator {
 	 */
 	preloadFonts(options = {}) {
 		const styles = this.#styles;
+		const families = new Set();
+		const addFamilies = (value) => {
+			if (!value) return;
+			for (const part of value.split(",")) {
+				const family = normalizeFontFamily(part);
+				if (family) families.add(family);
+			}
+		};
 		for (const sheet of styles) {
 			let rules;
 			try {
@@ -808,17 +823,25 @@ export class FragmentedFlow extends Iterator {
 					const family = rule.style.getPropertyValue("font-family");
 					const src = rule.style.getPropertyValue("src");
 					if (!family || !src) continue;
+					addFamilies(family);
 					try {
 						const face = new FontFace(family, src, {
 							style: rule.style.getPropertyValue("font-style") || undefined,
 							weight: rule.style.getPropertyValue("font-weight") || undefined,
 							display: "block",
 						});
+						this.#fontDisplayEdits.push({
+							style: rule.style,
+							fontDisplay: rule.style.getPropertyValue("font-display"),
+						});
 						rule.style.setProperty("font-display", "block");
 						document.fonts.add(face);
+						this.#preloadedFonts.push(face);
 					} catch {
 						// Invalid src or already registered
 					}
+				} else if (rule.style) {
+					addFamilies(rule.style.getPropertyValue("font-family"));
 				}
 			}
 		}
@@ -826,7 +849,7 @@ export class FragmentedFlow extends Iterator {
 		const signal = preloadSignal(options);
 		const promises = [];
 		document.fonts.forEach((fontFace) => {
-			if (fontFace.status !== "loaded") {
+			if (fontFace.status !== "loaded" && families.has(normalizeFontFamily(fontFace.family))) {
 				promises.push(
 					abortable(fontFace.load(), signal).then(
 						() => fontFace.family,
@@ -897,6 +920,29 @@ export class FragmentedFlow extends Iterator {
 		this.#measureElement = null;
 		handlers.destroy();
 		this.#teardownStyleSheet();
+
+		for (const face of this.#preloadedFonts) {
+			document.fonts.delete(face);
+		}
+		this.#preloadedFonts.length = 0;
+
+		// Restore in reverse so repeated preloads unwind to the original value
+		for (let i = this.#fontDisplayEdits.length - 1; i >= 0; i--) {
+			const { style, fontDisplay } = this.#fontDisplayEdits[i];
+			if (fontDisplay) {
+				style.setProperty("font-display", fontDisplay);
+			} else {
+				style.removeProperty("font-display");
+			}
+		}
+		this.#fontDisplayEdits.length = 0;
+
+		if (this.#adoptedSheets.length > 0) {
+			document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+				(sheet) => !this.#adoptedSheets.includes(sheet),
+			);
+			this.#adoptedSheets.length = 0;
+		}
 	}
 
 	/**
@@ -912,11 +958,13 @@ export class FragmentedFlow extends Iterator {
 			if (sheet instanceof CSSStyleSheet) {
 				if (!document.adoptedStyleSheets.includes(sheet)) {
 					document.adoptedStyleSheets.push(sheet);
+					this.#adoptedSheets.push(sheet);
 				}
 			} else if (sheet instanceof CSSRule) {
 				const parent = sheet.parentStyleSheet;
 				if (parent && !document.adoptedStyleSheets.includes(parent)) {
 					document.adoptedStyleSheets.push(parent);
+					this.#adoptedSheets.push(parent);
 				}
 			}
 		}
