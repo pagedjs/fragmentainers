@@ -344,7 +344,8 @@ export class Fragment {
 	 * were built in previous fragments.
 	 */
 	#applyListContinuation(el, inputBreakToken) {
-		const originalStart = parseInt(this.node.element.getAttribute("start"), 10) || 1;
+		const parsedStart = parseInt(this.node.element.getAttribute("start"), 10);
+		const originalStart = Number.isNaN(parsedStart) ? 1 : parsedStart;
 		const firstChildToken = inputBreakToken.childBreakTokens?.[0];
 		if (!firstChildToken) return;
 
