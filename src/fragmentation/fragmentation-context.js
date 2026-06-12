@@ -88,7 +88,6 @@ export class FragmentationContext extends Array {
 
 		const prevBreakToken = index > 0 ? this.#fragments[index - 1].breakToken : null;
 		el.appendChild(fragment.build(prevBreakToken));
-		fragment.map(prevBreakToken, el);
 
 		if (fragment.afterRender) {
 			for (const callback of fragment.afterRender) {

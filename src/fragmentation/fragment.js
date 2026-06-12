@@ -103,6 +103,7 @@ export class Fragment {
 			if (el.childNodes.length === 0 && this.breakToken) {
 				return;
 			}
+			handlers.trackClone(el, node.element);
 			parentEl.appendChild(el);
 		} else if (this.childFragments.length === 0 && this.breakToken && node.children?.length > 0) {
 			// Empty container shell — all children pushed to next fragmentainer.
@@ -114,6 +115,7 @@ export class Fragment {
 			this.#applySplitAttributes(el, inputBreakToken);
 			if (this.truncateMarginBlockStart) el.setAttribute("data-truncate-margin", "");
 			if (this.truncateMarginBlockEnd) el.setAttribute("data-truncate-margin-end", "");
+			Fragment.#trackCloneDeep(el, node.element);
 			if (this.needsBlockClip) {
 				this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
 			} else {
@@ -137,6 +139,7 @@ export class Fragment {
 				const el = node.element.cloneNode(false);
 				if (this.truncateMarginBlockStart) el.setAttribute("data-truncate-margin", "");
 				if (this.truncateMarginBlockEnd) el.setAttribute("data-truncate-margin-end", "");
+				handlers.trackClone(el, node.element);
 				parentEl.appendChild(el);
 			}
 			return;
@@ -211,6 +214,7 @@ export class Fragment {
 				el,
 				options,
 			);
+			handlers.trackClone(el, node.element);
 			if (this.needsBlockClip) {
 				this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
 			} else {
@@ -248,6 +252,7 @@ export class Fragment {
 		const { columnWidth, columnGap } = this.multicolData;
 
 		const el = node.element.cloneNode(false);
+		handlers.trackClone(el, node.element);
 		el.style.columns = "auto";
 		el.style.columnCount = "auto";
 		el.style.columnWidth = "auto";
@@ -368,99 +373,16 @@ export class Fragment {
 	}
 
 	/**
-	 * Walk the fragment tree and composed DOM in parallel, registering
-	 * each clone→source pair in the handler registry's shared map.
-	 *
-	 * Called once after build() to create the mapping that handlers
-	 * (NthSelectors, MutationSync) use to resolve clone elements back to
-	 * their source elements.
-	 *
-	 * @param {import("./tokens.js").BreakToken|null} inputBreakToken
-	 * @param {Element} composedParent
+	 * Register a deep clone and its descendants in the handler registry's
+	 * shared clone→source map, used by handlers (NthSelectors, MutationSync)
+	 * to resolve clone elements back to their source elements.
 	 */
-	map(inputBreakToken, composedParent) {
-		let childIdx = 0;
-		for (const childFrag of this.childFragments) {
-			if (!childFrag.node) continue;
-			const childBT = findChildBreakToken(inputBreakToken, childFrag.node);
-
-			// Skip empty container shells (same logic as #buildInto)
-			if (
-				childFrag.childFragments.length === 0 &&
-				childFrag.breakToken &&
-				childFrag.node.children?.length > 0
-			)
-				continue;
-
-			// Skip empty inline fragments that were suppressed
-			if (childFrag.node.isInlineFormattingContext) {
-				const data = childFrag.node.inlineItemsData;
-				if (data?.items?.length > 0) {
-					const startOffset =
-						childBT && childBT.type === BREAK_TOKEN_INLINE ? childBT.textOffset : 0;
-					const endOffset =
-						childFrag.breakToken && childFrag.breakToken.type === BREAK_TOKEN_INLINE
-							? childFrag.breakToken.textOffset
-							: data.textContent.length;
-					if (startOffset >= endOffset && childFrag.breakToken) continue;
-				}
-			}
-
-			// Skip blocks whose built children were all empty (build skips these)
-			if (childFrag.hasBlockChildren) {
-				// Check if this would produce an empty shell after building
-				// We can't know for sure without checking the composed DOM,
-				// so just try to match and handle mismatches gracefully
-			}
-
-			const clone = composedParent.children[childIdx];
-			if (!clone) break;
-
-			if (childFrag.node.element) {
-				// For sliced monolithic content, the builder wraps in a clip div.
-				// The actual clone is inside the wrapper.
-				const consumed = childBT?.consumedBlockSize || 0;
-				if (
-					!childFrag.hasBlockChildren &&
-					!childFrag.node.isInlineFormattingContext &&
-					!childFrag.multicolData &&
-					(consumed > 0 || childFrag.breakToken) &&
-					childFrag.childFragments.length === 0
-				) {
-					// Monolithic with clip wrapper — the clone is inside
-					const inner = clone.firstElementChild;
-					if (inner) {
-						Fragment.#mapDeep(inner, childFrag.node.element);
-					}
-				} else if (childFrag.multicolData) {
-					handlers.trackClone(clone, childFrag.node.element);
-					// Multicol children are synthetic — don't recurse into columns
-				} else {
-					handlers.trackClone(clone, childFrag.node.element);
-					if (childFrag.hasBlockChildren) {
-						childFrag.map(childBT, clone);
-					} else if (childFrag.node.isInlineFormattingContext) {
-						// Inline fragments rebuild content from items — map the container only
-					} else {
-						// Leaf deep clone
-						Fragment.#mapDeep(clone, childFrag.node.element);
-					}
-				}
-			}
-
-			childIdx++;
-		}
-	}
-
-	/**
-	 * Recursively map a deep clone's children to their source counterparts.
-	 */
-	static #mapDeep(clone, source) {
+	static #trackCloneDeep(clone, source) {
 		handlers.trackClone(clone, source);
 		const sourceChildren = source.children;
 		const cloneChildren = clone.children;
 		for (let i = 0; i < sourceChildren.length && i < cloneChildren.length; i++) {
-			Fragment.#mapDeep(cloneChildren[i], sourceChildren[i]);
+			Fragment.#trackCloneDeep(cloneChildren[i], sourceChildren[i]);
 		}
 	}
 
