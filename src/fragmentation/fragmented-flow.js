@@ -279,39 +279,7 @@ export class FragmentedFlow extends Iterator {
 			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles);
 		}
 
-		const fragment = this.#nextFragment();
-
-		if (this.#fragments.length === 1) {
-			fragment.isFirst = true;
-		}
-
-		// Segment advancement (sync)
-		if (this.#measurer) {
-			this.#measurer.advance(fragment.breakToken, this.#tree);
-		}
-
-		// Zero-progress guard
-		if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
-			this.#zeroProgressCount++;
-			if (this.#zeroProgressCount >= MAX_ZERO_PROGRESS) {
-				console.warn(
-					`FragmentedFlow: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers`,
-				);
-				this.#done = true;
-			}
-		} else {
-			this.#zeroProgressCount = 0;
-		}
-
-		// Check if this is the last fragment. Main-flow completion is tracked
-		// separately from overall completion because parallel flows may
-		// emit additional pages to drain their carryover.
-		if (fragment.breakToken === null) this.#mainDone = true;
-		const pendingFlow = handlers.getFlows().some(({ flow }) => flow.breakToken !== null);
-		if (fragment.breakToken === null && !pendingFlow && !fragment.isBlank) {
-			this.#done = true;
-			fragment.isLast = true;
-		}
+		const fragment = this.#step();
 
 		// Create element and push to internal context (if contentStyles available)
 		let el;
@@ -340,39 +308,9 @@ export class FragmentedFlow extends Iterator {
 	flow({ start, stop } = {}) {
 		this.#layout();
 
-		let zeroProgressCount = 0;
-		let fragment;
-
-		do {
-			fragment = this.#nextFragment();
-
-			if (this.#fragments.length === 1) {
-				fragment.isFirst = true;
-			}
-
-			if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
-				zeroProgressCount++;
-				if (zeroProgressCount >= MAX_ZERO_PROGRESS) {
-					console.warn(
-						`FragmentedFlow: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers`,
-					);
-					break;
-				}
-			} else {
-				zeroProgressCount = 0;
-			}
-
-			// Let the measurer swap to the next segment if at a boundary
-			if (this.#measurer) {
-				this.#measurer.advance(fragment.breakToken, this.#tree);
-			}
-		} while (
-			fragment.breakToken !== null ||
-			fragment.isBlank ||
-			handlers.getFlows().some(({ flow }) => flow.breakToken !== null)
-		);
-
-		fragment.isLast = true;
+		while (!this.#done) {
+			this.#step();
+		}
 
 		// Layout is done — release the measurer. Composition only needs
 		// cloneNode/getAttribute/tagName, which work on detached elements.
@@ -406,46 +344,80 @@ export class FragmentedFlow extends Iterator {
 		const prev = fromIndex > 0 ? this.#fragments[fromIndex - 1] : null;
 		this.#breakToken = prev?.breakToken ?? null;
 		this.#fragmentainerIndex = fromIndex;
-		this.#prevFragment = null;
+		this.#prevFragment = prev;
 		this.#counterState = new CounterState();
 		if (prev?.counterState) {
 			this.#counterState.restore(prev.counterState);
 		}
 		this.#fragments.length = fromIndex;
+		this.#mainDone = false;
+		this.#done = false;
+		this.#context = null;
+		this.#zeroProgressCount = 0;
 
 		// Re-run layout to completion
 		const newFragments = [];
-		let zeroProgressCount = 0;
-		let fragment;
-		do {
-			fragment = this.#nextFragment();
-			newFragments.push(fragment);
-
-			if (this.#fragments.length === 1) {
-				fragment.isFirst = true;
-			}
-
-			if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
-				if (++zeroProgressCount >= MAX_ZERO_PROGRESS) break;
-			} else {
-				zeroProgressCount = 0;
-			}
-
-			if (this.#measurer) {
-				this.#measurer.advance(fragment.breakToken, this.#tree);
-			}
-		} while (
-			fragment.breakToken !== null ||
-			fragment.isBlank ||
-			handlers.getFlows().some(({ flow }) => flow.breakToken !== null)
-		);
-
-		fragment.isLast = true;
+		while (!this.#done) {
+			newFragments.push(this.#step());
+		}
 
 		// Layout is done — release the measurer before composition.
 		this.releaseMeasurer();
 
 		return new FragmentationContext(newFragments, this.#contentStyles);
+	}
+
+	/**
+	 * Shared iteration step for next()/flow()/reflow(): lay out the next
+	 * fragment, track completion state, apply the zero-progress guard,
+	 * and advance the measurer's segment.
+	 *
+	 * Main-flow completion (#mainDone) is tracked separately from overall
+	 * completion (#done) because parallel flows may emit additional pages
+	 * to drain their carryover.
+	 *
+	 * @returns {import('./fragment.js').Fragment}
+	 */
+	#step() {
+		const fragment = this.#nextFragment();
+
+		if (this.#fragments.length === 1) {
+			fragment.isFirst = true;
+		}
+
+		// Blank pages skip layout, so their break token says nothing
+		// about main-flow progress.
+		if (fragment.breakToken === null && !fragment.isBlank) {
+			this.#mainDone = true;
+		}
+
+		// Segment advancement (sync)
+		if (this.#measurer) {
+			this.#measurer.advance(fragment.breakToken, this.#tree);
+		}
+
+		// Zero-progress guard
+		if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
+			this.#zeroProgressCount++;
+			if (this.#zeroProgressCount >= MAX_ZERO_PROGRESS) {
+				console.warn(
+					`FragmentedFlow: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers`,
+				);
+				this.#done = true;
+				fragment.isLast = true;
+				return fragment;
+			}
+		} else {
+			this.#zeroProgressCount = 0;
+		}
+
+		const pendingFlow = handlers.getFlows().some(({ flow }) => flow.breakToken !== null);
+		if (fragment.breakToken === null && !pendingFlow && !fragment.isBlank) {
+			this.#done = true;
+			fragment.isLast = true;
+		}
+
+		return fragment;
 	}
 
 	/**
