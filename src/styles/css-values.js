@@ -95,6 +95,26 @@ export function parseNumeric(str) {
  * @param {{ rootFontSize?: number, percentBase?: number|null }} [options]
  * @returns {number|null}
  */
+/**
+ * Resolve a Typed OM length (from a computedStyleMap) to pixels, or null when
+ * it cannot be resolved at this layer. Percent and relative units (em/rem)
+ * need a containing block / font context and return null; bare CSSStyleValues
+ * — Chromium under-reifies some properties (e.g. `border-block-*-width`) —
+ * carry a px length string, which is parsed.
+ *
+ * @param {CSSNumericValue|CSSStyleValue|null} value
+ * @returns {number|null}
+ */
+export function typedLengthToPx(value) {
+	if (!value) return null;
+	if (value.unit === "px") return value.value;
+	if (value.unit) return null;
+	const str = value.toString();
+	if (str.includes("%")) return null;
+	const parsed = parseFloat(str);
+	return Number.isNaN(parsed) ? null : parsed;
+}
+
 export function toPx(value, { rootFontSize = 16, percentBase = null } = {}) {
 	const v = typeof value === "string" ? parseNumeric(value) : value;
 	if (!v) return null;

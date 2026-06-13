@@ -113,6 +113,44 @@ test.describe("DOMLayoutNode", () => {
 			expect(result.hasExplicitBlockSize).toBe(false);
 		});
 
+		test("percentage height is not an explicit px length", async ({ page }) => {
+			const result = await page.evaluate(async () => {
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+				const container = document.createElement("div");
+				container.style.height = "400px";
+				document.body.appendChild(container);
+				const div = document.createElement("div");
+				div.style.height = "50%";
+				container.appendChild(div);
+				const node = new DOMLayoutNode(div);
+				const out = {
+					hasExplicitBlockSize: node.hasExplicitBlockSize,
+					computedBlockSize: node.computedBlockSize(),
+				};
+				container.remove();
+				return out;
+			});
+			expect(result.hasExplicitBlockSize).toBe(false);
+			expect(result.computedBlockSize).toBe(null);
+		});
+
+		test("percentage margin does not resolve to a bare pixel value", async ({ page }) => {
+			const result = await page.evaluate(async () => {
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+				const container = document.createElement("div");
+				container.style.width = "400px";
+				document.body.appendChild(container);
+				const div = document.createElement("div");
+				div.style.marginBlockStart = "10%";
+				container.appendChild(div);
+				const node = new DOMLayoutNode(div);
+				const margin = node.marginBlockStart;
+				container.remove();
+				return { margin };
+			});
+			expect(result.margin).toBe(0);
+		});
+
 		test("display: flex is a flex container", async ({ page }) => {
 			const result = await page.evaluate(async () => {
 				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");

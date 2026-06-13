@@ -1,5 +1,6 @@
 import { measureLines, getLineHeight } from "./line-box.js";
 import { computedStyleMap } from "../styles/computed-style-map.js";
+import { typedLengthToPx } from "../styles/css-values.js";
 
 /**
  * Measure the rendered block size (height) of a DOM element.
@@ -82,8 +83,7 @@ export function measureCellIntrinsicBlockSize(element) {
 	// computedStyleMap returns the computed value — distinguishes explicit
 	// lengths from `auto`, so it's safe to use for detecting authored height.
 	const styleMap = computedStyleMap(element);
-	const h = styleMap.get("height");
-	const explicit = h && h.unit && h.unit !== "percent" ? h.value : 0;
+	const explicit = typedLengthToPx(styleMap.get("height")) ?? 0;
 	const minHeight = parsePx(cs.minHeight);
 	return Math.max(contentHeight + insets, explicit, minHeight);
 }

@@ -5,6 +5,7 @@ import {
 } from "../measurement/block-size.js";
 import { getLineHeight, getSharedMeasurer, measureLines } from "../measurement/line-box.js";
 import { computedStyleMap, HAS_TYPED_OM } from "../styles/computed-style-map.js";
+import { typedLengthToPx } from "../styles/css-values.js";
 import { buildCumulativeHeights } from "./layout-helpers.js";
 import { AnonymousBlockNode } from "./anonymous-block-node.js";
 import { LayoutNode } from "./layout-node-base.js";
@@ -33,9 +34,7 @@ const INLINE_DISPLAYS = new Set([
 // `.toString()` fallback covers properties Chromium under-reifies (e.g.
 // `border-block-*-width`), which come back as bare CSSStyleValue.
 function cssPx(value) {
-	if (!value) return 0;
-	if (value.unit === "px") return value.value;
-	return parseFloat(value.toString()) || 0;
+	return typedLengthToPx(value) ?? 0;
 }
 
 function cssKeyword(value, fallback) {
@@ -143,10 +142,9 @@ export class DOMLayoutNode extends LayoutNode {
 
 	get hasExplicitBlockSize() {
 		if (!HAS_TYPED_OM) return false;
-		const h = this.#getStyleMap().get("height");
-		if (!h) return false;
-		if (h.unit) return true;
-		return cssKeyword(h, "auto") !== "auto";
+		// A resolvable px length is an explicit height; percent (auto-behaving)
+		// and `auto` are not.
+		return typedLengthToPx(this.#getStyleMap().get("height")) != null;
 	}
 
 	get display() {
@@ -480,15 +478,9 @@ export class DOMLayoutNode extends LayoutNode {
 			return measureElementBlockSize(this.element);
 		}
 
-		const map = this.#getStyleMap();
-		const h = map.get("height");
-		if (h && h.unit) {
-			// Resolved length — use directly
-			return h.value;
-		}
-
-		// height: auto (keyword) — return null to let layout compute from content
-		return null;
+		// A resolvable px length is used directly; percent/auto return null so
+		// layout computes the size from content.
+		return typedLengthToPx(this.#getStyleMap().get("height"));
 	}
 
 	/**
