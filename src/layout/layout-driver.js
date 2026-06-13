@@ -13,6 +13,7 @@ import { GridAlgorithm } from "../algorithms/grid-container.js";
 import { InlineContentAlgorithm } from "../algorithms/inline-content.js";
 import { MulticolAlgorithm } from "../algorithms/multicol-container.js";
 import { TableRowAlgorithm } from "../algorithms/table-row.js";
+import "../handlers/register-defaults.js";
 
 const MAX_ZERO_PROGRESS = 5;
 

@@ -1,0 +1,14 @@
+import { handlers } from "./registry.js";
+import { RepeatedTableHeader } from "./repeated-header.js";
+import { FixedPosition } from "./fixed-position.js";
+import { StyleResolver } from "./style-resolver.js";
+import { EmulatePrintPixelRatio } from "./normalize.js";
+import { BodyRewriter } from "./body-rewriter.js";
+import { PseudoElements } from "./pseudo-elements.js";
+
+handlers.register(RepeatedTableHeader);
+handlers.register(FixedPosition);
+handlers.register(StyleResolver);
+handlers.register(EmulatePrintPixelRatio);
+handlers.register(BodyRewriter);
+handlers.register(PseudoElements);
