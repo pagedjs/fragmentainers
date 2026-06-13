@@ -68,7 +68,7 @@ export class GridAlgorithm {
 			this.#blockOffset += rowResult.fragment.blockSize;
 
 			if (rowResult.anyBroke) {
-				this.#buildContainerBreakToken(rowIdx);
+				this.#buildContainerBreakToken(rowIdx, rowResult.breakToken?.childBreakTokens ?? []);
 				break;
 			}
 
@@ -152,11 +152,12 @@ export class GridAlgorithm {
 		return { fragment: rowFragment, breakToken: rowToken, anyBroke };
 	}
 
-	#buildContainerBreakToken(rowIndex) {
+	#buildContainerBreakToken(rowIndex, childBreakTokens = []) {
 		const token = new BlockBreakToken(this.#node);
 		token.consumedBlockSize = (this.#breakToken?.consumedBlockSize || 0) + this.#blockOffset;
 		token.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
 		token.hasSeenAllChildren = false;
+		token.childBreakTokens = childBreakTokens;
 		token.algorithmData = {
 			type: ALGORITHM_GRID,
 			rowIndex,

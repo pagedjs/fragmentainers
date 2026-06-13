@@ -282,4 +282,65 @@ test.describe("layoutGridContainer", () => {
 		expect(result.rowCount).toBe(2);
 		expect(result.blockSize).toBe(100);
 	});
+
+	test("container break token carries per-item tokens for a broken row", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator } = await import("/src/layout/layout-driver.js");
+			const { GridAlgorithm } = await import("/src/algorithms/grid-container.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { gridNode, gridItemNode } = await import("/test/fixtures/nodes.js");
+
+			const root = gridNode({
+				children: [
+					gridItemNode({ blockSize: 160, gridRowStart: 1, gridRowEnd: 2 }),
+					gridItemNode({ blockSize: 40, gridRowStart: 1, gridRowEnd: 2 }),
+				],
+			});
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 100,
+				fragmentainerBlockSize: 100,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "page",
+			});
+			const r = runLayoutGenerator(new GridAlgorithm(root, cs, null));
+			return { childTokenCount: r.breakToken?.childBreakTokens.length ?? 0 };
+		});
+		expect(result.childTokenCount).toBe(2);
+	});
+
+	test("a broken grid row resumes its items instead of re-laying from scratch", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { gridNode, gridItemNode } = await import("/test/fixtures/nodes.js");
+
+			const root = gridNode({
+				children: [
+					gridItemNode({ blockSize: 160, gridRowStart: 1, gridRowEnd: 2 }),
+					gridItemNode({ blockSize: 40, gridRowStart: 1, gridRowEnd: 2 }),
+				],
+			});
+			const pages = createFragments(
+				root,
+				new ConstraintSpace({
+					availableInlineSize: 600,
+					availableBlockSize: 100,
+					fragmentainerBlockSize: 100,
+					blockOffsetInFragmentainer: 0,
+					fragmentationType: "page",
+				}),
+			);
+			return {
+				length: pages.length,
+				p1TallSlice: pages[1]?.childFragments[0]?.childFragments[0]?.blockSize ?? null,
+				p1ShortSlice: pages[1]?.childFragments[0]?.childFragments[1]?.blockSize ?? null,
+			};
+		});
+		expect(result.length).toBe(2);
+		// The tall item emits only its 60px remainder, and the completed short
+		// item emits nothing — no re-lay of already-rendered content.
+		expect(result.p1TallSlice).toBe(60);
+		expect(result.p1ShortSlice).toBe(0);
+	});
 });
