@@ -273,7 +273,6 @@ if (ref && pdf.enabled) {
 	}
 
 	const ms = Date.now() - t0;
-	let output;
 
 	if (pdf.enabled) {
 		const outPath = resolve(pdf.path || "output.pdf");

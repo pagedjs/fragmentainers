@@ -23,8 +23,8 @@
 	},
 	"scripts": {
 		"test": "playwright test --config test/playwright.config.js",
-		"lint": "eslint src/ test/",
-		"lint:fix": "eslint --fix src/ test/",
+		"lint": "eslint src/ test/ specs/ debug/",
+		"lint:fix": "eslint --fix src/ test/ specs/ debug/",
 		"serve": "serve .",
 		"specs": "playwright test --config specs/playwright.config.js",
 		"view": "node debug/viewer.js"

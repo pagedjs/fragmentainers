@@ -312,7 +312,7 @@ export function buildFragmentOverlay(pageFragment, contentArea, margins) {
 		const usedLabel = document.createElement("span");
 		usedLabel.setAttribute("data-frag-label", "");
 		usedLabel.textContent = `used ${used.toFixed(1)}`;
-		usedLabel.style.cssText = `bottom: 2px; right: 2px; top: auto; left: auto; color: hsl(200, 80%, 50%);`;
+		usedLabel.style.cssText = "bottom: 2px; right: 2px; top: auto; left: auto; color: hsl(200, 80%, 50%);";
 		usedBox.appendChild(usedLabel);
 		container.appendChild(usedBox);
 	}
@@ -332,7 +332,7 @@ export function buildFragmentOverlay(pageFragment, contentArea, margins) {
 		const remLabel = document.createElement("span");
 		remLabel.setAttribute("data-frag-label", "");
 		remLabel.textContent = `remaining ${remaining.toFixed(1)}`;
-		remLabel.style.cssText = `top: 2px; right: 2px; color: hsl(0, 60%, 45%);`;
+		remLabel.style.cssText = "top: 2px; right: 2px; color: hsl(0, 60%, 45%);";
 		remBox.appendChild(remLabel);
 		container.appendChild(remBox);
 	}

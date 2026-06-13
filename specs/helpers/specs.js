@@ -34,8 +34,6 @@ export function createSpecSuite(
 					test.skip(true, typeof skip === "string" ? skip : undefined);
 				}
 
-				const refPath = path.join(suiteDir, `${name}-ref.html`);
-
 				await page.goto(`/specs/${suiteName}/${name}.html`, {
 					waitUntil: "load",
 				});
