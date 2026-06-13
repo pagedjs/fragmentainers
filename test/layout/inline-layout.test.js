@@ -325,4 +325,31 @@ test.describe("Inline content layout (browser)", () => {
 		expect(total).toBeGreaterThanOrEqual(445);
 		expect(total).toBeLessThanOrEqual(455);
 	});
+
+	test("an IFC resumed with an isAtBlockEnd done token emits nothing", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator } = await import("/src/layout/layout-driver.js");
+			const { InlineContentAlgorithm } = await import("/src/algorithms/inline-content.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { inlineNode, textToInlineItems } = await import("/test/fixtures/nodes.js");
+
+			const node = inlineNode({ inlineItemsData: textToInlineItems("Hi"), lineHeight: 20 });
+			const doneToken = new BlockBreakToken(node);
+			doneToken.isAtBlockEnd = true;
+			doneToken.hasSeenAllChildren = true;
+
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 100,
+				fragmentainerBlockSize: 100,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "page",
+			});
+			const r = runLayoutGenerator(new InlineContentAlgorithm(node, cs, doneToken));
+			return { blockSize: r.fragment.blockSize, childCount: r.fragment.childFragments.length };
+		});
+		expect(result.blockSize).toBe(0);
+		expect(result.childCount).toBe(0);
+	});
 });

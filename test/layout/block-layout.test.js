@@ -697,3 +697,32 @@ test.describe("box-decoration-break: clone layout", () => {
 		expect(result.p1FirstChildSize).toBe(100);
 	});
 });
+
+test.describe("Done-token leaf resume", () => {
+	test("a leaf resumed with an isAtBlockEnd token emits a zero-height fragment", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator, getLayoutAlgorithm } = await import("/src/layout/layout-driver.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			const leaf = blockNode({ blockSize: 80 });
+			const doneToken = new BlockBreakToken(leaf);
+			doneToken.isAtBlockEnd = true;
+			doneToken.hasSeenAllChildren = true;
+
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 100,
+				fragmentainerBlockSize: 100,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "page",
+			});
+			const Algo = getLayoutAlgorithm(leaf);
+			const r = runLayoutGenerator(new Algo(leaf, cs, doneToken));
+			return { blockSize: r.fragment.blockSize, hasBreakToken: r.breakToken !== null };
+		});
+		expect(result.blockSize).toBe(0);
+		expect(result.hasBreakToken).toBe(false);
+	});
+});

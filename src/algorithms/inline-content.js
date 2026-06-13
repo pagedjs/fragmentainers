@@ -1,4 +1,9 @@
-import { BlockBreakToken, InlineBreakToken, DEFAULT_HYPHEN } from "../fragmentation/tokens.js";
+import {
+	BlockBreakToken,
+	InlineBreakToken,
+	BREAK_TOKEN_BLOCK,
+	DEFAULT_HYPHEN,
+} from "../fragmentation/tokens.js";
 import { Fragment } from "../fragmentation/fragment.js";
 import { BreakScore } from "../fragmentation/break-scoring.js";
 import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../measurement/collect-inlines.js";
@@ -149,6 +154,13 @@ export class InlineContentAlgorithm {
 
 	// eslint-disable-next-line require-yield
 	*layout() {
+		// A block-level done token (isAtBlockEnd) marks an inline formatting
+		// context that finished on an earlier fragmentainer in a parallel flow
+		// (e.g. a completed table cell); emit nothing on the continuation.
+		if (this.#breakToken?.type === BREAK_TOKEN_BLOCK && this.#breakToken.isAtBlockEnd) {
+			return this.#buildEmptyFragment();
+		}
+
 		const inlineItems = this.#node.inlineItemsData;
 
 		// Guard: no inline data at all → empty fragment

@@ -109,6 +109,15 @@ export class BlockContainerAlgorithm {
 		const consumed = breakToken?.consumedBlockSize || 0;
 		const remaining = intrinsicBlockSize - consumed;
 
+		// A done token (isAtBlockEnd) marks a leaf that finished on an earlier
+		// fragmentainer in a parallel flow; emit a zero-height fragment so its
+		// content is not re-laid on the continuation.
+		if (breakToken?.isAtBlockEnd) {
+			const fragment = new Fragment(node, 0);
+			fragment.inlineSize = constraintSpace.availableInlineSize;
+			return { fragment, breakToken: null };
+		}
+
 		// Monolithic elements are normally placed whole or pushed by parent.
 		// Last resort (CSS Fragmentation §4.4): in page mode, slice at the
 		// fragmentainer boundary when the element exceeds the full page.

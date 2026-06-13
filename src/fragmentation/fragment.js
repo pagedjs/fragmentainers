@@ -75,6 +75,13 @@ export class Fragment {
 	#buildInto(inputBreakToken, parentEl) {
 		if (!this.node) return;
 
+		// A done token (isAtBlockEnd) means this subtree finished on an earlier
+		// fragmentainer in a parallel flow (e.g. a completed table cell); it must
+		// not be re-rendered on the continuation.
+		if (inputBreakToken?.type === BREAK_TOKEN_BLOCK && inputBreakToken.isAtBlockEnd) {
+			return;
+		}
+
 		const node = this.node;
 
 		if (this.multicolData) {

@@ -199,3 +199,47 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 		expect(result.blockSize).toBe(150);
 	});
 });
+
+test.describe("Completed cell rendering across pages", () => {
+	test("a short cell's text is not re-rendered on the row's continuation", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
+
+			const template = document.createElement("template");
+			template.innerHTML = `<div style="margin:0;padding:0">
+				<table style="margin:0;padding:0;border-collapse:collapse;border-spacing:0">
+					<tbody style="margin:0;padding:0">
+						<tr style="margin:0;padding:0">
+							<td style="margin:0;padding:0;vertical-align:top">SHORTCELL</td>
+							<td style="margin:0;padding:0;vertical-align:top"><div style="height:300px;margin:0;padding:0"></div></td>
+						</tr>
+					</tbody>
+				</table>
+			</div>`;
+
+			const layout = new FragmentedFlow(template.content, {
+				constraintSpace: new ConstraintSpace({
+					availableInlineSize: 400,
+					availableBlockSize: 200,
+					fragmentainerBlockSize: 200,
+					fragmentationType: FRAGMENTATION_PAGE,
+				}),
+			});
+
+			const elements = [...layout];
+			let occurrences = 0;
+			for (const el of elements) {
+				document.body.appendChild(el);
+				occurrences += (el.textContent.match(/SHORTCELL/g) || []).length;
+				el.remove();
+			}
+			layout.destroy();
+			return { pages: elements.length, occurrences };
+		});
+
+		expect(result.pages).toBeGreaterThan(1);
+		expect(result.occurrences).toBe(1);
+	});
+});
