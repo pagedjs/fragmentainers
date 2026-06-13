@@ -568,9 +568,11 @@ export class BlockContainerAlgorithm {
 			// Track Class A breakpoint score (between siblings).
 			this.#updateBestEarlyBreak(i);
 
-			// Forced break-before: break-before: page|column|always
+			// Forced break-before: break-before: page|column|always. Checks the
+			// raw token so a child already carrying a break-before token here is
+			// laid out rather than pushed forward again.
 			if (
-				this.#shouldForceBreakBefore(child, effectiveChildBreakToken, blockOffsetBeforeMargin)
+				this.#shouldForceBreakBefore(child, childBreakToken, blockOffsetBeforeMargin)
 			) {
 				this.#childBreakTokens.push(
 					BlockBreakToken.createBreakBefore(child, true, child.breakBefore),

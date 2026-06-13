@@ -652,4 +652,48 @@ test.describe("box-decoration-break: clone layout", () => {
 		expect(result.f0blockSize).toBe(190);
 		expect(result.f1blockSize).toBe(80);
 	});
+
+	test("lays out a break-before child on the continuation instead of re-breaking", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `
+        <div style="padding:10px 0;margin:0;box-decoration-break:clone">
+          <div style="height:100px;margin:0;padding:0"></div>
+          <div style="height:100px;margin:0;padding:0;break-before:page"></div>
+        </div>
+      `;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			const fragments = createFragments(
+				root,
+				new ConstraintSpace({
+					availableInlineSize: 600,
+					availableBlockSize: 800,
+					fragmentainerBlockSize: 800,
+					fragmentationType: "page",
+				}),
+			);
+
+			const out = {
+				length: fragments.length,
+				p0ChildCount: fragments[0].childFragments.length,
+				p1ChildCount: fragments[1]?.childFragments.length ?? 0,
+				p1FirstChildSize: fragments[1]?.childFragments[0]?.blockSize ?? null,
+			};
+
+			container.remove();
+			return out;
+		});
+
+		expect(result.length).toBe(2);
+		expect(result.p0ChildCount).toBe(1);
+		expect(result.p1ChildCount).toBe(1);
+		expect(result.p1FirstChildSize).toBe(100);
+	});
 });
