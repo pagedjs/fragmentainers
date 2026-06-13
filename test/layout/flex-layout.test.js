@@ -332,4 +332,40 @@ test.describe("layoutFlexContainer", () => {
 
 		expect(result.hasFragment).toBe(true);
 	});
+
+	test("a broken flex line resumes its items instead of re-laying from scratch", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator } = await import("/src/layout/layout-driver.js");
+			const { FlexAlgorithm } = await import("/src/algorithms/flex-container.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { flexNode, blockNode } = await import("/test/fixtures/nodes.js");
+
+			const root = flexNode({
+				flexDirection: "row",
+				children: [blockNode({ blockSize: 160 }), blockNode({ blockSize: 40 })],
+			});
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 100,
+				fragmentainerBlockSize: 100,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "page",
+			});
+
+			const page0 = runLayoutGenerator(new FlexAlgorithm(root, cs, null));
+			const page1 = runLayoutGenerator(new FlexAlgorithm(root, cs, page0.breakToken));
+
+			const line1 = page1.fragment.childFragments[0];
+			return {
+				tallSlice: line1?.childFragments[0]?.blockSize ?? null,
+				shortSlice: line1?.childFragments[1]?.blockSize ?? null,
+				resolvedDone: page1.breakToken === null,
+			};
+		});
+		// The tall item resumes and emits only its 60px remainder; the completed
+		// short item emits nothing — no re-lay of already-rendered content.
+		expect(result.tallSlice).toBe(60);
+		expect(result.shortSlice).toBe(0);
+		expect(result.resolvedDone).toBe(true);
+	});
 });

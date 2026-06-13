@@ -70,8 +70,14 @@ export class FlexAlgorithm {
 		for (let lineIdx = this.#startLine; lineIdx < flexLines.length; lineIdx++) {
 			const lineItems = flexLines[lineIdx];
 
+			// The container token nests the broken line's per-item tokens under a
+			// single line wrapper (childBreakTokens[0]); only the resumed line has
+			// saved item tokens, so later lines start fresh.
+			const lineBreakToken =
+				lineIdx === this.#startLine ? (this.#breakToken?.childBreakTokens?.[0] ?? null) : null;
+
 			// Lay out this flex line as parallel flows (table-row pattern)
-			const lineResult = yield* this.layoutFlexLine(lineItems, this.#blockOffset);
+			const lineResult = yield* this.layoutFlexLine(lineItems, this.#blockOffset, lineBreakToken);
 
 			this.#lineFragments.push(lineResult.fragment);
 			this.#blockOffset += lineResult.fragment.blockSize;
@@ -98,7 +104,7 @@ export class FlexAlgorithm {
 		}
 	}
 
-	*layoutFlexLine(lineItems, blockOffset) {
+	*layoutFlexLine(lineItems, blockOffset, lineBreakToken = null) {
 		const itemFragments = [];
 		const itemBreakTokens = [];
 		let maxItemBlockSize = 0;
@@ -109,7 +115,7 @@ export class FlexAlgorithm {
 
 		for (let i = 0; i < itemCount; i++) {
 			const item = lineItems[i];
-			const itemBreakToken = findChildBreakToken(this.#breakToken, item);
+			const itemBreakToken = findChildBreakToken(lineBreakToken, item);
 			const effectiveItemBreakToken = itemBreakToken?.isBreakBefore ? null : itemBreakToken;
 
 			const itemConstraint = new ConstraintSpace({
