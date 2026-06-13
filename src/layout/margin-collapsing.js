@@ -49,6 +49,26 @@ export function collapseMargins(a, b) {
 }
 
 /**
+ * CSS2 §8.3.1 §3.4: a box "self-collapses" (its block-start and block-end
+ * margins collapse through each other and join its neighbors' collapsing set)
+ * when it has zero used block-size and no block-start/end border or padding —
+ * i.e. nothing separates its two margins. `laidOutBlockSize` is the child
+ * fragment's measured blockSize, known only after layout. A non-zero height,
+ * non-zero min-height, or border/padding all yield blockSize > 0 or fail the
+ * border/padding test here. BFC roots are excluded by the caller.
+ *
+ * @param {Object} node
+ * @param {number} laidOutBlockSize
+ * @returns {boolean}
+ */
+export function isSelfCollapsing(node, laidOutBlockSize) {
+	if (laidOutBlockSize !== 0) return false;
+	if ((node.borderBlockStart || 0) !== 0 || (node.borderBlockEnd || 0) !== 0) return false;
+	if ((node.paddingBlockStart || 0) !== 0 || (node.paddingBlockEnd || 0) !== 0) return false;
+	return true;
+}
+
+/**
  * Walk the through-collapse chain starting from `node`, collecting margins
  * from first children that escape through nodes with no border/padding.
  *
@@ -62,18 +82,72 @@ export function collapseMargins(a, b) {
  * @param {Object} node - LayoutNode to walk
  * @returns {number[]} Margins from the through-collapse chain (may be empty)
  */
+function firstInFlowChild(node) {
+	const children = node.children;
+	if (!children) return null;
+	for (const c of children) {
+		if (c.isOutOfFlow) continue;
+		return c;
+	}
+	return null;
+}
+
+function lastInFlowChild(node) {
+	const children = node.children;
+	if (!children) return null;
+	for (let i = children.length - 1; i >= 0; i--) {
+		if (children[i].isOutOfFlow) continue;
+		return children[i];
+	}
+	return null;
+}
+
 export function collectThroughMargins(node) {
+	// A BFC root does not margin-collapse with its in-flow children, so nothing
+	// collapses up through it (CSS2 §8.3.1, §4.2).
+	if (node.establishesBlockFormattingContext) return [];
 	const margins = [];
 	let current = node;
-	while (current.paddingBlockStart === 0 && current.borderBlockStart === 0) {
-		const children = current.children;
-		const first = children && children.length > 0 ? children[0] : null;
+	while ((current.paddingBlockStart || 0) === 0 && (current.borderBlockStart || 0) === 0) {
+		const first = firstInFlowChild(current);
 		if (!first) break;
 		const m = first.marginBlockStart || 0;
 		if (m !== 0) margins.push(m);
+		// The first child's own margin collapses up, but if it establishes a
+		// BFC we must not descend into its subtree.
+		if (first.establishesBlockFormattingContext) break;
 		current = first;
 	}
 	return margins;
+}
+
+/**
+ * End-side mirror of collectThroughMargins: the block-end margin that collapses
+ * up through `node` via its last in-flow child chain (CSS2 §8.3.1 §3.3). At
+ * each level requires auto block-size, min-height 0, no block-end
+ * border/padding, and a non-BFC node; a BFC last child's own margin-end is
+ * collected but its subtree is not descended into.
+ *
+ * @param {Object} node
+ * @returns {number} The collapsed end margin (max positives + min negatives)
+ */
+export function collectThroughMarginEnd(node) {
+	if (node.establishesBlockFormattingContext) return 0;
+	let result = 0;
+	let current = node;
+	while (
+		(current.paddingBlockEnd || 0) === 0 &&
+		(current.borderBlockEnd || 0) === 0 &&
+		current.hasAutoBlockSize &&
+		!current.hasMinBlockSize
+	) {
+		const last = lastInFlowChild(current);
+		if (!last) break;
+		result = collapseMargins(result, last.marginBlockEnd || 0);
+		if (last.establishesBlockFormattingContext) break;
+		current = last;
+	}
+	return result;
 }
 
 /**
@@ -150,6 +224,10 @@ export class MarginState {
 		}
 
 		let marginDelta = 0;
+		// The previous sibling's end margin that this child's start collapses
+		// with — captured before it is zeroed so a self-collapsing child can
+		// re-fold it into the carried set (CSS2 §8.3.1 §3.5).
+		let consumedPrevMarginEnd = 0;
 
 		if (isFirstInLoop && isFirstFragment) {
 			// First child on first fragment. The body margin (slot margin from
@@ -162,6 +240,7 @@ export class MarginState {
 			marginDelta = strut.resolve();
 		} else if (!isFirstInLoop) {
 			// Adjacent siblings: collapse margins via strut
+			consumedPrevMarginEnd = this.#prevMarginEnd;
 			strut.append(this.#prevMarginEnd);
 			marginDelta = strut.resolve();
 			this.#prevMarginEnd = 0; // consumed by collapsing
@@ -176,7 +255,7 @@ export class MarginState {
 		// else: continuation after Class C (unforced) break → marginDelta stays 0
 		//       (truncation marked by compositor via truncateMarginBlockStart)
 
-		return { marginDelta, collapsedThrough };
+		return { marginDelta, collapsedThrough, consumedPrevMarginEnd };
 	}
 
 	/**
@@ -202,9 +281,14 @@ export class MarginState {
 	 * @param {number} collapsedThrough - from computeMarginBefore result
 	 * @param {boolean} isResumingChild - true if the child had an effective break token
 	 * @param {boolean} [childBroke=false] - true if the child produced a break token
+	 * @param {Object} [ctx={}] - self-collapse context
+	 * @param {boolean} [ctx.selfCollapsing=false] - child self-collapsed (zero height, no border/padding)
+	 * @param {number} [ctx.appliedMarginStart=0] - the marginDelta the caller already added for this child
+	 * @param {number} [ctx.consumedPrevMarginEnd=0] - the previous sibling's end margin this child's start collapsed with
 	 * @returns {number} amount to subtract from blockOffset (through-collapse compensation)
 	 */
-	applyAfterLayout(child, collapsedThrough, isResumingChild, childBroke = false) {
+	applyAfterLayout(child, collapsedThrough, isResumingChild, childBroke = false, ctx = {}) {
+		const { selfCollapsing = false, appliedMarginStart = 0, consumedPrevMarginEnd = 0 } = ctx;
 		const ownMarginEnd = child.marginBlockEnd || 0;
 		// CSS2 §8.3.1: last child's margin-end collapses through the parent
 		// when the parent has no block-end border/padding. Only applies when
@@ -212,7 +296,27 @@ export class MarginState {
 		// trailing margins.
 		const throughMarginEnd = !childBroke ? (child.collapsedMarginBlockEnd || 0) : 0;
 
-		this.#prevMarginEnd = Math.max(ownMarginEnd, throughMarginEnd);
+		if (selfCollapsing) {
+			// CSS2 §8.3.1 §3.4/§3.5: the box occupies no space; its block-start
+			// and block-end margins collapse through and join the set already
+			// carried from the previous sibling. Resolve {prevEnd, start, end} as
+			// one strut so the NEXT sibling collapses against the full set once,
+			// and back out the start margin the caller advanced (the box adds no
+			// layout extent — caller applies `blockOffset -= return`).
+			const strut = new MarginStrut();
+			strut.append(consumedPrevMarginEnd);
+			strut.append(child.marginBlockStart || 0);
+			strut.append(ownMarginEnd);
+			strut.append(throughMarginEnd);
+			const set = strut.resolve();
+			this.#prevMarginEnd = set;
+			this.#lastPlacedMarginEnd = set;
+			return appliedMarginStart;
+		}
+
+		// Fold own + through end margins into one collapsing-set value
+		// (max positives + min negatives), not a bare max — CSS2 §8.3.1 §5.
+		this.#prevMarginEnd = collapseMargins(ownMarginEnd, throughMarginEnd);
 		this.#lastPlacedMarginEnd = this.#prevMarginEnd;
 
 		let subtract = 0;
@@ -223,7 +327,10 @@ export class MarginState {
 		// Bottom through-collapse: trailingMargin already added the last
 		// child's margin to blockSize inside the parent. Subtract it here
 		// so it's only counted via prevMarginEnd for the next sibling.
-		if (throughMarginEnd > 0) {
+		// Sign-agnostic: a negative through-margin must be backed out too —
+		// the caller applies `#blockOffset -= subtract`, so subtracting a
+		// negative correctly re-adds it.
+		if (throughMarginEnd !== 0) {
 			subtract += throughMarginEnd;
 		}
 		return subtract;

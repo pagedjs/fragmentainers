@@ -60,6 +60,27 @@ export class LayoutNode {
 	get hasExplicitBlockSize() {
 		return false;
 	}
+	// CSS2 §8.3.1 / §4.2: a box that establishes a new block formatting
+	// context does not margin-collapse with its in-flow children.
+	get establishesBlockFormattingContext() {
+		return false;
+	}
+	get isFloating() {
+		return false;
+	}
+	get isOutOfFlow() {
+		return this.isFloating || this.position === "absolute" || this.position === "fixed";
+	}
+	// Block-size is "auto" (does not block last-child margin collapse) unless an
+	// explicit non-auto block-size is set.
+	get hasAutoBlockSize() {
+		return !this.hasExplicitBlockSize;
+	}
+	// A non-zero min-block-size blocks last-child margin collapse (CSS2 §8.3.1
+	// §3.3); the initial value 0 does not.
+	get hasMinBlockSize() {
+		return false;
+	}
 	get isTable() {
 		return false;
 	}

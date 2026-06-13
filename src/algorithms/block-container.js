@@ -22,7 +22,7 @@ import {
 	EARLY_BREAK_INSIDE,
 } from "../fragmentation/break-scoring.js";
 import { BOX_DECORATION_CLONE } from "../layout/layout-node.js";
-import { MarginState } from "../layout/margin-collapsing.js";
+import { MarginState, isSelfCollapsing } from "../layout/margin-collapsing.js";
 import { handlers } from "../handlers/registry.js";
 
 // Skip break scoring when cumulative child content fills less than
@@ -560,7 +560,7 @@ export class BlockContainerAlgorithm {
 
 			// Margin collapsing: sibling collapse and through-collapse —
 			// delegated to MarginState.
-			const { marginDelta, collapsedThrough } = this.#margins.computeMarginBefore(child, {
+			const { marginDelta, collapsedThrough, consumedPrevMarginEnd } = this.#margins.computeMarginBefore(child, {
 				isFirstInLoop: i === this.#startIndex,
 				isFirstFragment: !breakToken,
 				isForcedBreak: !!childBreakToken?.isForcedBreak,
@@ -658,11 +658,23 @@ export class BlockContainerAlgorithm {
 			this.#childFragments.push(result.fragment);
 			this.#blockOffset += result.fragment.blockSize;
 
+			// CSS2 §8.3.1 §3.4: an in-flow, zero-height box with no border/padding
+			// that does not establish a BFC self-collapses — its start+end margins
+			// fold into the neighbours' set instead of advancing layout. Restricted
+			// to collapsedThrough === 0 so the top through-collapse compensation
+			// path stays the sole owner of that case.
+			const selfCollapsing =
+				!result.breakToken &&
+				!effectiveChildBreakToken &&
+				collapsedThrough === 0 &&
+				!child.establishesBlockFormattingContext &&
+				isSelfCollapsing(child, result.fragment.blockSize);
 			this.#blockOffset -= this.#margins.applyAfterLayout(
 				child,
 				collapsedThrough,
 				!!effectiveChildBreakToken,
 				!!result.breakToken,
+				{ selfCollapsing, appliedMarginStart: marginDelta, consumedPrevMarginEnd },
 			);
 
 			// Table border-spacing: gap between adjacent rows/sections.

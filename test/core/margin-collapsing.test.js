@@ -772,4 +772,251 @@ test.describe("MarginState", () => {
 		expect(result.unforced).toBe(0);
 		expect(result.forcedPreserved).toBe(20);
 	});
+
+	// LAY-3: end-side collapse folds own + through end margins as a collapsing
+	// set (max positives + min negatives), not a bare max.
+	test("applyAfterLayout folds own+through end margins as a collapsing set (negative)", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
+			const margins = new MarginState();
+			const childA = { marginBlockStart: 0, marginBlockEnd: -10, paddingBlockStart: 0, borderBlockStart: 0, collapsedMarginBlockEnd: 0, children: [] };
+			margins.computeMarginBefore(childA, { isFirstInLoop: true, isFirstFragment: true });
+			margins.applyAfterLayout(childA, 0, false, false);
+			const childB = { marginBlockStart: 5, marginBlockEnd: 0, paddingBlockStart: 0, borderBlockStart: 0, collapsedMarginBlockEnd: 0, children: [] };
+			return margins.computeMarginBefore(childB, { isFirstInLoop: false, isFirstFragment: true });
+		});
+		// collapse({-10},{5}) = max(5) + min(-10) = -5
+		expect(result.marginDelta).toBe(-5);
+	});
+
+	test("applyAfterLayout backs out a negative through end margin (sign-agnostic)", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
+			const margins = new MarginState();
+			const child = {
+				marginBlockStart: 0, marginBlockEnd: 0,
+				paddingBlockStart: 0, borderBlockStart: 0,
+				collapsedMarginBlockEnd: -8,
+				children: [],
+			};
+			const subtract = margins.applyAfterLayout(child, 0, false, false);
+			const trailing = margins.trailingMargin(false, true);
+			return { subtract, trailing };
+		});
+		// throughMarginEnd = -8 → compensation subtract = -8 (caller does
+		// blockOffset -= subtract, i.e. ADDS 8 back, removing the double count).
+		expect(result.subtract).toBe(-8);
+		expect(result.trailing).toBe(-8);
+	});
+});
+
+test.describe("collectThroughMargins — BFC + out-of-flow (LAY-5)", () => {
+	test("returns [] when the node itself establishes a BFC", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { collectThroughMargins } = await import("/src/layout/margin-collapsing.js");
+			const grandchild = { marginBlockStart: 30, paddingBlockStart: 0, borderBlockStart: 0, children: [] };
+			const node = {
+				paddingBlockStart: 0, borderBlockStart: 0,
+				establishesBlockFormattingContext: true,
+				children: [grandchild],
+			};
+			return collectThroughMargins(node);
+		});
+		// flow-root / overflow:hidden node — descendants' margins stay contained.
+		expect(result).toEqual([]);
+	});
+
+	test("collects a BFC first child's own margin but does not descend into it", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { collectThroughMargins } = await import("/src/layout/margin-collapsing.js");
+			const grandchild = { marginBlockStart: 30, paddingBlockStart: 0, borderBlockStart: 0, children: [] };
+			const bfcChild = {
+				marginBlockStart: 12, paddingBlockStart: 0, borderBlockStart: 0,
+				establishesBlockFormattingContext: true, isOutOfFlow: false,
+				children: [grandchild],
+			};
+			const node = { paddingBlockStart: 0, borderBlockStart: 0, establishesBlockFormattingContext: false, children: [bfcChild] };
+			return collectThroughMargins(node);
+		});
+		// bfcChild's own 12 collapses up; the inner 30 stays inside the BFC.
+		expect(result).toEqual([12]);
+	});
+
+	test("skips an out-of-flow first child", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { collectThroughMargins } = await import("/src/layout/margin-collapsing.js");
+			const abspos = { marginBlockStart: 50, paddingBlockStart: 0, borderBlockStart: 0, isOutOfFlow: true, children: [] };
+			const inflow = { marginBlockStart: 10, paddingBlockStart: 5, borderBlockStart: 0, isOutOfFlow: false, children: [] };
+			const node = { paddingBlockStart: 0, borderBlockStart: 0, children: [abspos, inflow] };
+			return collectThroughMargins(node);
+		});
+		expect(result).toEqual([10]);
+	});
+});
+
+test.describe("collectThroughMarginEnd (LAY-5)", () => {
+	test("recurses through last in-flow child chain (auto height)", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { collectThroughMarginEnd } = await import("/src/layout/margin-collapsing.js");
+			const inner = { marginBlockEnd: 25, paddingBlockEnd: 0, borderBlockEnd: 0, hasAutoBlockSize: true, hasMinBlockSize: false, children: [] };
+			const mid = { marginBlockEnd: 0, paddingBlockEnd: 0, borderBlockEnd: 0, hasAutoBlockSize: true, hasMinBlockSize: false, children: [inner] };
+			const outer = { marginBlockEnd: 0, paddingBlockEnd: 0, borderBlockEnd: 0, hasAutoBlockSize: true, hasMinBlockSize: false, children: [mid] };
+			return collectThroughMarginEnd(outer);
+		});
+		expect(result).toBe(25);
+	});
+
+	test("stops when the parent has a fixed block-size", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { collectThroughMarginEnd } = await import("/src/layout/margin-collapsing.js");
+			const last = { marginBlockEnd: 40, paddingBlockEnd: 0, borderBlockEnd: 0, hasAutoBlockSize: true, hasMinBlockSize: false, children: [] };
+			const outer = { marginBlockEnd: 0, paddingBlockEnd: 0, borderBlockEnd: 0, hasAutoBlockSize: false, hasMinBlockSize: false, children: [last] };
+			return collectThroughMarginEnd(outer);
+		});
+		expect(result).toBe(0);
+	});
+
+	test("stops when the parent has a non-zero min-block-size", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { collectThroughMarginEnd } = await import("/src/layout/margin-collapsing.js");
+			const last = { marginBlockEnd: 40, paddingBlockEnd: 0, borderBlockEnd: 0, hasAutoBlockSize: true, hasMinBlockSize: false, children: [] };
+			const outer = { marginBlockEnd: 0, paddingBlockEnd: 0, borderBlockEnd: 0, hasAutoBlockSize: true, hasMinBlockSize: true, children: [last] };
+			return collectThroughMarginEnd(outer);
+		});
+		// min-height:200px parent → last child's bottom margin does not collapse out.
+		expect(result).toBe(0);
+	});
+
+	test("collects a BFC last child's own end margin but does not descend", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { collectThroughMarginEnd } = await import("/src/layout/margin-collapsing.js");
+			const inner = { marginBlockEnd: 99, paddingBlockEnd: 0, borderBlockEnd: 0, hasAutoBlockSize: true, hasMinBlockSize: false, children: [] };
+			const bfcLast = { marginBlockEnd: 35, paddingBlockEnd: 0, borderBlockEnd: 0, hasAutoBlockSize: true, hasMinBlockSize: false, establishesBlockFormattingContext: true, children: [inner] };
+			const outer = { marginBlockEnd: 0, paddingBlockEnd: 0, borderBlockEnd: 0, hasAutoBlockSize: true, hasMinBlockSize: false, children: [bfcLast] };
+			return collectThroughMarginEnd(outer);
+		});
+		// bfcLast's own 35 collapses up; the inner 99 stays inside the BFC.
+		expect(result).toBe(35);
+	});
+
+	test("end-side recursion through real DOM: last child's bottom margin hoists", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:200px";
+			container.innerHTML = "<div id=\"outer\" style=\"margin:0;padding:0\"><div id=\"mid\" style=\"margin:0;padding:0\"><div id=\"inner\" style=\"height:20px;margin:0 0 25px 0;padding:0\"></div></div></div>";
+			document.body.appendChild(container);
+			const outer = new DOMLayoutNode(container.firstElementChild);
+			const r = outer.collapsedMarginBlockEnd;
+			container.remove();
+			return r;
+		});
+		expect(result).toBe(25);
+	});
+
+	test("end-side recursion through real DOM: fixed-height parent does not collapse", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:200px";
+			container.innerHTML = "<div id=\"outer\" style=\"height:200px;margin:0;padding:0\"><div id=\"last\" style=\"height:20px;margin:0 0 40px 0;padding:0\"></div></div>";
+			document.body.appendChild(container);
+			const outer = new DOMLayoutNode(container.firstElementChild);
+			const r = outer.collapsedMarginBlockEnd;
+			container.remove();
+			return r;
+		});
+		expect(result).toBe(0);
+	});
+});
+
+test.describe("MarginState — self-collapsing boxes (LAY-4)", () => {
+	// Drive the block-container call sequence: previous sibling A, a
+	// self-collapsing empty box E, then the next sibling B. Returns B's
+	// marginDelta — the single collapsed gap that should result.
+	async function selfCollapseGap(page, { aEnd, eStart, eEnd, bStart }) {
+		return page.evaluate(async (args) => {
+			const { MarginState } = await import("/src/layout/margin-collapsing.js");
+			const margins = new MarginState();
+			const leaf = (start, end) => ({
+				marginBlockStart: start, marginBlockEnd: end,
+				paddingBlockStart: 0, paddingBlockEnd: 0,
+				borderBlockStart: 0, borderBlockEnd: 0,
+				collapsedMarginBlockEnd: 0, children: [],
+			});
+			// Sibling A.
+			const a = leaf(0, args.aEnd);
+			margins.computeMarginBefore(a, { isFirstInLoop: true, isFirstFragment: true });
+			margins.applyAfterLayout(a, 0, false, false);
+			// Self-collapsing empty box E.
+			const e = leaf(args.eStart, args.eEnd);
+			const before = margins.computeMarginBefore(e, { isFirstInLoop: false, isFirstFragment: true });
+			const backedOut = margins.applyAfterLayout(e, 0, false, false, {
+				selfCollapsing: true,
+				appliedMarginStart: before.marginDelta,
+				consumedPrevMarginEnd: before.consumedPrevMarginEnd,
+			});
+			// Next sibling B.
+			const b = leaf(args.bStart, 0);
+			const bBefore = margins.computeMarginBefore(b, { isFirstInLoop: false, isFirstFragment: true });
+			return { eMarginDelta: before.marginDelta, backedOut, bMarginDelta: bBefore.marginDelta };
+		}, { aEnd, eStart, eEnd, bStart });
+	}
+
+	test("symmetric all-positive set collapses to a single gap", async ({ page }) => {
+		const r = await selfCollapseGap(page, { aEnd: 20, eStart: 20, eEnd: 20, bStart: 20 });
+		// {20,20,20,20} → one 20px gap. E advances 20 then backs it all out;
+		// B then re-applies the single 20.
+		expect(r.eMarginDelta).toBe(20);
+		expect(r.backedOut).toBe(20);
+		expect(r.bMarginDelta).toBe(20);
+	});
+
+	test("preserves the dominant neighbour margin (the case the naive fold dropped)", async ({ page }) => {
+		const r = await selfCollapseGap(page, { aEnd: 50, eStart: 10, eEnd: 10, bStart: 10 });
+		// Full set {50,10,10,10} → 50. The previous sibling's 50 must survive the
+		// self-collapse fold; a naive collapse(0,e.start,e.end) would give 10.
+		expect(r.bMarginDelta).toBe(50);
+	});
+
+	test("empty box between two paragraphs yields one collapsed gap (integration)", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:200px";
+			container.innerHTML = `<div style="margin:0;padding:0">
+				<div id="p1" style="height:40px;margin:0 0 20px 0;padding:0"></div>
+				<div id="e" style="margin:20px 0;padding:0"></div>
+				<div id="p2" style="height:40px;margin:20px 0 0 0;padding:0"></div>
+			</div>`;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			const pages = createFragments(
+				root,
+				new ConstraintSpace({
+					availableInlineSize: 200,
+					availableBlockSize: 1000,
+					fragmentainerBlockSize: 1000,
+					fragmentationType: "page",
+				}),
+			);
+			const kids = pages[0].childFragments;
+			const r = {
+				pageCount: pages.length,
+				p2BlockOffset: kids[kids.length - 1].blockOffset,
+				containerBlockSize: pages[0].blockSize,
+			};
+			container.remove();
+			return r;
+		});
+		expect(result.pageCount).toBe(1);
+		// p1 height 40 + single 20px collapsed gap + e height 0 = 60
+		expect(result.p2BlockOffset).toBe(60);
+		// container = 40 + 20 + 0 + 40 = 100 (one collapsed gap, not two)
+		expect(result.containerBlockSize).toBe(100);
+	});
 });

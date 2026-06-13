@@ -9,6 +9,7 @@ import { typedLengthToPx } from "../styles/css-values.js";
 import { buildCumulativeHeights } from "./layout-helpers.js";
 import { AnonymousBlockNode } from "./anonymous-block-node.js";
 import { LayoutNode } from "./layout-node-base.js";
+import { collectThroughMarginEnd } from "./margin-collapsing.js";
 
 // Box decoration break (node.boxDecorationBreak)
 export const BOX_DECORATION_SLICE = "slice";
@@ -117,6 +118,52 @@ export class DOMLayoutNode extends LayoutNode {
 
 	get position() {
 		return cssKeyword(this.#getStyleMap().get("position"), "static");
+	}
+
+	get isFloating() {
+		const f = cssKeyword(this.#getStyleMap().get("float"), "none");
+		return f === "left" || f === "right" || f === "inline-start" || f === "inline-end";
+	}
+
+	/**
+	 * CSS2 §8.3.1 / §4.2: does this box establish a new block formatting
+	 * context? BFC roots do not margin-collapse with their in-flow children,
+	 * so the through-collapse walkers must stop at them.
+	 */
+	get establishesBlockFormattingContext() {
+		const d = this.display;
+		if (
+			d === "flex" || d === "inline-flex" ||
+			d === "grid" || d === "inline-grid" ||
+			d === "flow-root" ||
+			d === "table" || d === "inline-table" ||
+			d === "table-cell" || d === "table-caption" ||
+			INLINE_DISPLAYS.has(d)
+		) {
+			return true;
+		}
+		if (this.isFloating) return true;
+		const pos = this.position;
+		if (pos === "absolute" || pos === "fixed") return true;
+		const map = this.#getStyleMap();
+		const notFlow = (v) => v !== "visible" && v !== "clip";
+		if (
+			notFlow(cssKeyword(map.get("overflow"), "visible")) ||
+			notFlow(cssKeyword(map.get("overflow-y"), "visible")) ||
+			notFlow(cssKeyword(map.get("overflow-x"), "visible"))
+		) {
+			return true;
+		}
+		const contain = cssKeyword(map.get("contain"), "none");
+		if (/\b(layout|content|strict|paint)\b/.test(contain)) return true;
+		return false;
+	}
+
+	// A non-zero used min-block-size blocks last-child margin collapse
+	// (CSS2 §8.3.1 §3.3). Percent/auto resolve to null here → treated as 0.
+	get hasMinBlockSize() {
+		const v = typedLengthToPx(this.#getStyleMap().get("min-height"));
+		return v != null && v > 0;
 	}
 
 	// Layout classification
@@ -279,16 +326,13 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	/**
-	 * CSS2 §8.3.1: last child's margin-end that collapses through this
-	 * element when it has no block-end border or padding.
+	 * CSS2 §8.3.1 §3.3: the block-end margin that collapses up through this
+	 * element via its last in-flow child chain. Recurses while each level has
+	 * auto block-size, min-height 0, no block-end border/padding, and does not
+	 * establish a new BFC; stops at (but still collects) a BFC last child.
 	 */
 	get collapsedMarginBlockEnd() {
-		if (this.paddingBlockEnd === 0 && this.borderBlockEnd === 0) {
-			const children = this.children;
-			const last = children[children.length - 1];
-			if (last) return last.marginBlockEnd;
-		}
-		return 0;
+		return collectThroughMarginEnd(this);
 	}
 
 	get paddingBlockStart() {
