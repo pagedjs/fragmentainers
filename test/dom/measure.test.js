@@ -181,6 +181,32 @@ test.describe("measureLines", () => {
 		expect(result.firstLineHeight).toBe(0);
 	});
 
+	test("does not count sub/sup/small baseline shifts as extra lines", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { measureLines } = await import("/src/measurement/line-box.js");
+
+			function countLines(html) {
+				const div = document.createElement("div");
+				div.style.cssText = "font-size:16px;line-height:normal;width:120px";
+				div.innerHTML = html;
+				document.body.appendChild(div);
+				const m = measureLines(div);
+				div.remove();
+				return m.count;
+			}
+
+			// Same words and wrapping; the mixed version only shifts some runs'
+			// baselines, which must not inflate the line count.
+			const plain = countLines("alpha beta gamma delta epsilon zeta eta theta iota");
+			const mixed = countLines(
+				"alpha <sub>beta</sub> gamma <small>delta</small> epsilon <sup>zeta</sup> eta theta iota",
+			);
+			return { plain, mixed };
+		});
+		expect(result.plain).toBeGreaterThan(1);
+		expect(result.mixed).toBe(result.plain);
+	});
+
 	test("line height matches getLineHeight for multi-line normal element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { measureLines, getLineHeight, setTargetDevicePixelRatio } = await import("/src/measurement/line-box.js");

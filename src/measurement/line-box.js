@@ -45,7 +45,24 @@ export function getTargetDevicePixelRatio() {
 // Line measurement
 
 /**
- * Reduce a DOMRectList (one rect per rendered line-box) to line tops.
+ * Whether a rect belongs to the same line as a cluster anchored on the
+ * line's first rect. Rects on one visual line (main text plus `<sub>`,
+ * `<sup>`, `<small>` or smaller font-size runs) overlap vertically; a rect
+ * on the next line does not. Majority overlap (more than half the shorter
+ * box) tolerates baseline shifts without merging adjacent lines.
+ */
+function sharesLine(rect, line) {
+	const overlap = Math.min(rect.bottom, line.anchorBottom) - Math.max(rect.top, line.anchorTop);
+	const minHeight = Math.min(rect.bottom - rect.top, line.anchorBottom - line.anchorTop);
+	return minHeight > 0 && overlap > minHeight / 2;
+}
+
+/**
+ * Reduce a DOMRectList to per-line tops. getClientRects() can return several
+ * rects for one visual line when it mixes inline metrics, so rects are
+ * clustered into lines by vertical overlap rather than treating every
+ * distinct top as a new line.
+ *
  * `tops` lets callers read exact line positions rather than extrapolating
  * from a single lineHeight — extrapolation accumulates sub-pixel drift
  * across many lines. Line-height is taken from the gap between the last
@@ -55,13 +72,24 @@ export function getTargetDevicePixelRatio() {
 function reduceRectsToLines(rects) {
 	if (rects.length === 0) return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [] };
 
-	const tops = [rects[0].top];
-	for (let i = 1; i < rects.length; i++) {
-		if (rects[i].top > tops[tops.length - 1]) tops.push(rects[i].top);
+	const lines = [];
+	for (let i = 0; i < rects.length; i++) {
+		const rect = rects[i];
+		if (rect.width === 0 && rect.height === 0) continue;
+		const line = lines.length > 0 ? lines[lines.length - 1] : null;
+		if (line && sharesLine(rect, line)) {
+			line.bottom = Math.max(line.bottom, rect.bottom);
+		} else {
+			lines.push({ anchorTop: rect.top, anchorBottom: rect.bottom, bottom: rect.bottom });
+		}
 	}
 
+	if (lines.length === 0) return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [] };
+
+	const tops = lines.map((line) => line.anchorTop);
 	const lineHeight = tops.length >= 2 ? tops[tops.length - 1] - tops[tops.length - 2] : 0;
-	return { count: tops.length, lineHeight, firstLineHeight: rects[0].height, tops };
+	const firstLineHeight = lines[0].anchorBottom - lines[0].anchorTop;
+	return { count: lines.length, lineHeight, firstLineHeight, tops };
 }
 
 /**
