@@ -435,10 +435,14 @@ export class DOMLayoutNode extends LayoutNode {
 			return this.#children;
 		}
 
+		// Flatten display:contents boxes (CSS Display L3 §3.1) so their children
+		// participate in this element's flow instead of being lost.
+		const childNodes = flattenContents(this.element.childNodes);
+
 		// Check for mixed content (inline + block children)
 		let hasInline = false;
 		let hasBlock = false;
-		for (const child of this.element.childNodes) {
+		for (const child of childNodes) {
 			if (isBlockLevelNode(child)) {
 				hasBlock = true;
 			} else if (isSignificantInlineNode(child)) {
@@ -452,7 +456,7 @@ export class DOMLayoutNode extends LayoutNode {
 		if (hasInline && hasBlock) {
 			// Mixed content: wrap consecutive inline runs in anonymous blocks
 			let inlineGroup = [];
-			for (const child of this.element.childNodes) {
+			for (const child of childNodes) {
 				if (isBlockLevelNode(child)) {
 					if (inlineGroup.length > 0) {
 						this.#children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
@@ -467,13 +471,15 @@ export class DOMLayoutNode extends LayoutNode {
 				this.#children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
 			}
 		} else {
-			// Pure block children
-			for (const child of this.element.children) {
-				const tag = child.tagName.toLowerCase();
-				if (SKIP_TAGS.has(tag)) continue;
-				const display = getComputedStyle(child).display;
-				if (display === "none" || SKIP_DISPLAYS.has(display)) continue;
-				this.#children.push(new DOMLayoutNode(child));
+			// Pure block children. Push every non-skipped element — block-level,
+			// or inline-level that is not an IFC (e.g. ruby/math) — matching the
+			// prior element-only enumeration so nothing is dropped, over the
+			// flattened stream so display:contents children are promoted.
+			// Insignificant whitespace and display:none/skip classify as "skip".
+			for (const child of childNodes) {
+				if (child.nodeType === Node.ELEMENT_NODE && classifyNode(child) !== "skip") {
+					this.#children.push(new DOMLayoutNode(child));
+				}
 			}
 		}
 
@@ -566,7 +572,9 @@ export class DOMLayoutNode extends LayoutNode {
 		let hasInlineContent = false;
 		let hasBlockContent = false;
 
-		for (const child of this.element.childNodes) {
+		// Flatten display:contents so a contents box wrapping text/inline content
+		// is correctly seen as inline content of this element.
+		for (const child of flattenContents(this.element.childNodes)) {
 			if (child.nodeType === Node.TEXT_NODE) {
 				if (child.textContent.trim().length > 0) {
 					hasInlineContent = true;
@@ -598,7 +606,9 @@ export class DOMLayoutNode extends LayoutNode {
 	get inlineItemsData() {
 		if (this.#inlineItemsData !== null) return this.#inlineItemsData;
 		if (!this.isInlineFormattingContext) return null;
-		this.#inlineItemsData = collectInlineItems(this.element.childNodes);
+		// Collect from the flattened stream so display:contents-wrapped inline
+		// content is included.
+		this.#inlineItemsData = collectInlineItems(flattenContents(this.element.childNodes));
 		return this.#inlineItemsData;
 	}
 
@@ -628,10 +638,12 @@ export class DOMLayoutNode extends LayoutNode {
 
 const BLOCK_DISPLAYS = new Set([
 	"block",
+	"flow-root",
 	"flex",
 	"grid",
 	"table",
 	"list-item",
+	"flow-root list-item",
 	"table-row-group",
 	"table-header-group",
 	"table-footer-group",
@@ -647,24 +659,57 @@ const SKIP_DISPLAYS = new Set(["table-column", "table-column-group", "none"]);
 
 const SKIP_TAGS = new Set(["script", "style", "template"]);
 
-function isBlockLevelNode(node) {
-	if (node.nodeType !== Node.ELEMENT_NODE) return false;
+// Single classification so the two predicates stay exact complements: every
+// node is exactly one of "block" / "inline" / "skip". CSS Display L3 §2.5: a
+// flow-root computes to outer display block (still block-level); ruby/inline-*
+// are inline-level. SKIP covers display:none and styling-only boxes. Routing a
+// node through different classification bases here drops text nodes that sit
+// beside a non-listed block value (e.g. flow-root).
+function classifyNode(node) {
+	if (node.nodeType === Node.TEXT_NODE) {
+		return node.textContent.trim().length > 0 ? "inline" : "skip";
+	}
+	if (node.nodeType !== Node.ELEMENT_NODE) return "skip";
+	const tag = node.tagName.toLowerCase();
+	if (SKIP_TAGS.has(tag)) return "skip";
+	if (tag === "br") return "inline";
 	const display = getComputedStyle(node).display;
-	if (SKIP_DISPLAYS.has(display)) return false;
-	return BLOCK_DISPLAYS.has(display);
+	if (display === "none" || SKIP_DISPLAYS.has(display)) return "skip";
+	// display:contents elements are unwrapped by flattenContents before reaching
+	// here; the box itself generates nothing.
+	if (display === "contents") return "skip";
+	return BLOCK_DISPLAYS.has(display) ? "block" : "inline";
+}
+
+function isBlockLevelNode(node) {
+	return classifyNode(node) === "block";
 }
 
 function isSignificantInlineNode(node) {
-	if (node.nodeType === Node.TEXT_NODE) {
-		return node.textContent.trim().length > 0;
+	return classifyNode(node) === "inline";
+}
+
+// CSS Display L3 §3.1: display:contents removes the element's own box; its
+// children render as if they were children of the parent. Flatten one level
+// (recursively, since contents can nest) so significant content inside a
+// contents box is not dropped by the element-only enumeration paths. Returns a
+// plain array; falls back to a shallow copy when no contents box is present.
+function flattenContents(childNodes) {
+	let needsFlatten = false;
+	for (const n of childNodes) {
+		if (n.nodeType === Node.ELEMENT_NODE && getComputedStyle(n).display === "contents") {
+			needsFlatten = true;
+			break;
+		}
 	}
-	if (node.nodeType === Node.ELEMENT_NODE) {
-		const tag = node.tagName.toLowerCase();
-		if (SKIP_TAGS.has(tag)) return false;
-		if (tag === "br") return true;
-		const display = getComputedStyle(node).display;
-		if (display === "none" || SKIP_DISPLAYS.has(display)) return false;
-		return !BLOCK_DISPLAYS.has(display);
+	if (!needsFlatten) return [...childNodes];
+	const out = [];
+	for (const n of childNodes) {
+		if (n.nodeType === Node.ELEMENT_NODE && getComputedStyle(n).display === "contents") {
+			out.push(...flattenContents(n.childNodes));
+		} else {
+			out.push(n);
+		}
 	}
-	return false;
+	return out;
 }

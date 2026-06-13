@@ -358,6 +358,105 @@ test.describe("DOMLayoutNode", () => {
 			expect(result.child1IsDOMLayoutNode).toBe(true);
 			expect(result.child2IsAnonymousBlockNode).toBe(true);
 		});
+
+		// LAY-6a: a flow-root child is block-level, so adjacent text must be
+		// wrapped in an AnonymousBlockNode instead of silently dropped.
+		test("wraps inline text adjacent to a flow-root sibling (does not drop text)", async ({ page }) => {
+			const result = await page.evaluate(async () => {
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+				const { AnonymousBlockNode } = await import("/src/layout/anonymous-block-node.js");
+				const container = document.createElement("div");
+				document.body.appendChild(container);
+				const parent = document.createElement("div");
+				parent.innerHTML = 'Some text <div style="display:flow-root">FR</div>';
+				container.appendChild(parent);
+				const node = new DOMLayoutNode(parent);
+				const children = node.children;
+				const out = {
+					count: children.length,
+					hasAnon: children.some((c) => c instanceof AnonymousBlockNode),
+					lastIsDom: children[children.length - 1] instanceof DOMLayoutNode,
+				};
+				container.remove();
+				return out;
+			});
+			expect(result.hasAnon).toBe(true);
+			expect(result.count).toBe(2);
+			expect(result.lastIsDom).toBe(true);
+		});
+
+		test("classifies two flow-root siblings as pure block children", async ({ page }) => {
+			const result = await page.evaluate(async () => {
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+				const container = document.createElement("div");
+				document.body.appendChild(container);
+				const parent = document.createElement("div");
+				parent.innerHTML = '<div style="display:flow-root">A</div><div style="display:flow-root">B</div>';
+				container.appendChild(parent);
+				const node = new DOMLayoutNode(parent);
+				const count = node.children.length;
+				container.remove();
+				return { count };
+			});
+			expect(result.count).toBe(2);
+		});
+
+		// LAY-6b: display:contents removes the box; its children join the parent.
+		test("unwraps display:contents and promotes its block children", async ({ page }) => {
+			const result = await page.evaluate(async () => {
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+				const container = document.createElement("div");
+				document.body.appendChild(container);
+				const parent = document.createElement("div");
+				parent.innerHTML = '<span style="display:contents"><div>A</div><div>B</div></span>';
+				container.appendChild(parent);
+				const node = new DOMLayoutNode(parent);
+				const out = { count: node.children.length, names: node.children.map((c) => c.debugName) };
+				container.remove();
+				return out;
+			});
+			expect(result.count).toBe(2);
+			expect(result.names).toEqual(["div", "div"]);
+		});
+
+		// Regression: an inline-level element that is NOT an inline formatting
+		// context (e.g. display:ruby) sitting in a no-significant-text parent must
+		// still be enumerated, not dropped by the pure-block branch.
+		test("keeps a non-IFC inline-level child (display:ruby) in a pure-block parent", async ({ page }) => {
+			const result = await page.evaluate(async () => {
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+				const container = document.createElement("div");
+				document.body.appendChild(container);
+				const parent = document.createElement("div");
+				parent.innerHTML = '<span style="display:ruby">x</span>';
+				container.appendChild(parent);
+				const node = new DOMLayoutNode(parent);
+				const count = node.children.length;
+				container.remove();
+				return { count };
+			});
+			expect(result.count).toBe(1);
+		});
+
+		test("does not drop inline text inside a display:contents box", async ({ page }) => {
+			const result = await page.evaluate(async () => {
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+				const container = document.createElement("div");
+				document.body.appendChild(container);
+				const parent = document.createElement("div");
+				parent.innerHTML = '<span style="display:contents">hi there</span>';
+				container.appendChild(parent);
+				const node = new DOMLayoutNode(parent);
+				const out = {
+					ifc: node.isInlineFormattingContext,
+					text: node.inlineItemsData ? node.inlineItemsData.textContent.trim() : null,
+				};
+				container.remove();
+				return out;
+			});
+			expect(result.ifc).toBe(true);
+			expect(result.text).toBe("hi there");
+		});
 	});
 
 	test.describe("blockSize", () => {
