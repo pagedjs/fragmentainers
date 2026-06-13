@@ -35,6 +35,7 @@ export function runLayoutGenerator(algorithm) {
 			request.node,
 			request.constraintSpace,
 			request.breakToken,
+			request.earlyBreakTarget,
 		);
 		const childResult = runLayoutGenerator(childAlgo);
 

@@ -3,9 +3,10 @@
  * Represents a request to lay out a child node.
  */
 export class LayoutRequest {
-	constructor(node, constraintSpace, breakToken = null) {
+	constructor(node, constraintSpace, breakToken = null, earlyBreakTarget = null) {
 		this.node = node;
 		this.constraintSpace = constraintSpace;
 		this.breakToken = breakToken;
+		this.earlyBreakTarget = earlyBreakTarget;
 	}
 }

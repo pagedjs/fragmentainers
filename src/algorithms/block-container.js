@@ -377,6 +377,15 @@ export class BlockContainerAlgorithm {
 		);
 	}
 
+	#earlyBreakTargetForChild() {
+		// Forward the incoming target only when it names a descendant of this
+		// container. A target naming THIS container is already unwrapped into
+		// #earlyBreakForChild by #setup, so there is nothing left to forward.
+		const target = this.#earlyBreakTarget;
+		if (!target || target.node === this.#node) return null;
+		return target;
+	}
+
 	#shouldHonorEarlyBreakBefore(child) {
 		return (
 			this.#earlyBreakForChild &&
@@ -439,6 +448,10 @@ export class BlockContainerAlgorithm {
 	#maybeReturnEarlyBreak(child, nextChild) {
 		// Returns bare EarlyBreak target when a better earlier break exists,
 		// or null when space exhaustion here is the right break point.
+		// When an earlyBreakTarget is already set this is the second pass, whose
+		// retry is single-shot: re-emitting an early break would leave a null
+		// fragment unresolved, so break at exhaustion here instead.
+		if (this.#earlyBreakTarget) return null;
 		const exhaustionScore = scoreClassABreak(
 			child,
 			nextChild,
@@ -610,8 +623,16 @@ export class BlockContainerAlgorithm {
 			);
 			const childConstraint = this.#buildChildConstraint(remainingSpace, collapseAdj);
 
-			// Yield layout request — driver runs child generator and returns result
-			const result = yield new LayoutRequest(child, childConstraint, effectiveChildBreakToken);
+			// Yield layout request — driver runs child generator and returns result.
+			// A descendant-owned early-break target is forwarded so the owning
+			// block can honor it; #setup only acts on a target whose node matches,
+			// so forwarding to every child is safe.
+			const result = yield new LayoutRequest(
+				child,
+				childConstraint,
+				effectiveChildBreakToken,
+				this.#earlyBreakTargetForChild(),
+			);
 
 			if (
 				this.#margins.shouldTruncateChildMarginStart({

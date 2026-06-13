@@ -65,13 +65,16 @@ export class MulticolAlgorithm {
 	// Cross-iteration state (collected during the column loop, consumed in output)
 	#columnFragments = [];
 	#contentToken;
+	#earlyBreakTarget = null;
 
 	// Class A break scoring (earlyBreakTarget) is only implemented by
 	// BlockContainerAlgorithm — multicol fragments at column boundaries only.
-	constructor(node, constraintSpace, breakToken) {
+	// The target is forwarded to descendants so a nested block can honor it.
+	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
 		this.#node = node;
 		this.#constraintSpace = constraintSpace;
 		this.#breakToken = breakToken;
+		this.#earlyBreakTarget = earlyBreakTarget;
 	}
 
 	*layout() {
@@ -120,6 +123,7 @@ export class MulticolAlgorithm {
 				this.#flowThread,
 				this.#columnCS,
 				this.#contentToken,
+				this.#earlyBreakTarget,
 			);
 
 			this.#columnFragments.push(result.fragment);

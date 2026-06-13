@@ -243,3 +243,91 @@ test.describe("Phase 7: Break scoring & two-pass layout", () => {
 		expect(result.p0Children).toBe(2);
 	});
 });
+
+test.describe("Nested early-break targets", () => {
+	// A nested container that exhausts its fragmentainer with a better earlier
+	// break records an EarlyBreak naming itself. The two-pass retry only re-runs
+	// the root, so the target must be threaded down to the nested owner or the
+	// retry returns a null fragment and the driver dereferences it.
+	const OWNER_HTML = `
+		<div style="margin:0;padding:0">
+			<div style="height:100px;margin:0;padding:0"></div>
+			<div style="height:100px;margin:0;padding:0"></div>
+			<div style="break-before:avoid;height:100px;margin:0;padding:0"></div>
+		</div>`;
+
+	async function run(page, rootHtml) {
+		return page.evaluate(async (html) => {
+			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = html;
+			document.body.appendChild(container);
+
+			const out = { threw: null, length: 0, nestedChildrenP0: null };
+			try {
+				const root = new DOMLayoutNode(container.firstElementChild);
+				const pages = createFragments(
+					root,
+					new ConstraintSpace({
+						availableInlineSize: 600,
+						availableBlockSize: 200,
+						fragmentainerBlockSize: 200,
+						fragmentationType: "page",
+					}),
+				);
+				out.length = pages.length;
+				out.nestedChildrenP0 = pages[0].childFragments[0]?.childFragments.length ?? null;
+			} catch (e) {
+				out.threw = String((e && e.message) || e);
+			}
+			container.remove();
+			return out;
+		}, rootHtml);
+	}
+
+	test("honors a nested block container's early break", async ({ page }) => {
+		const result = await run(page, `<div style="margin:0;padding:0">${OWNER_HTML}</div>`);
+		expect(result.threw).toBe(null);
+		expect(result.length).toBe(2);
+		// The break is honored at the perfect boundary: the nested owner keeps
+		// only its first child on page 0, not all three.
+		expect(result.nestedChildrenP0).toBe(1);
+	});
+
+	test("does not crash when the owner is behind a flex boundary", async ({ page }) => {
+		const result = await run(
+			page,
+			`<div style="margin:0;padding:0"><div style="display:flex;flex-direction:column;margin:0;padding:0">${OWNER_HTML}</div></div>`,
+		);
+		expect(result.threw).toBe(null);
+		expect(result.length).toBeGreaterThan(1);
+	});
+
+	test("does not crash when the owner is behind a multicol boundary", async ({ page }) => {
+		const result = await run(
+			page,
+			`<div style="margin:0;padding:0"><div style="column-count:1;margin:0;padding:0">${OWNER_HTML}</div></div>`,
+		);
+		// Multicol fragmentation is incomplete (a separate limitation), so the
+		// split count is not asserted here — only that the retry no longer crashes.
+		expect(result.threw).toBe(null);
+		expect(result.length).toBeGreaterThanOrEqual(1);
+	});
+
+	test("does not crash when the owner is a table cell", async ({ page }) => {
+		const result = await run(
+			page,
+			`<div style="margin:0;padding:0"><div style="display:table;margin:0;padding:0"><div style="display:table-row;margin:0;padding:0"><div style="display:table-cell;margin:0;padding:0">
+				<div style="height:100px;margin:0;padding:0"></div>
+				<div style="height:100px;margin:0;padding:0"></div>
+				<div style="break-before:avoid;height:100px;margin:0;padding:0"></div>
+			</div></div></div></div>`,
+		);
+		expect(result.threw).toBe(null);
+		expect(result.length).toBeGreaterThan(1);
+	});
+});

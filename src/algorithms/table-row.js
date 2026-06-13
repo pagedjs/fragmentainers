@@ -26,13 +26,16 @@ export class TableRowAlgorithm {
 	#cellBreakTokens = [];
 	#maxCellBlockSize = 0;
 	#anyChildBroke = false;
+	#earlyBreakTarget = null;
 
 	// Class A break scoring (earlyBreakTarget) is only implemented by
 	// BlockContainerAlgorithm — table rows have no Class A breakpoints.
-	constructor(node, constraintSpace, breakToken) {
+	// The target is forwarded to descendants so a nested block can honor it.
+	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
 		this.#node = node;
 		this.#constraintSpace = constraintSpace;
 		this.#breakToken = breakToken;
+		this.#earlyBreakTarget = earlyBreakTarget;
 	}
 
 	*layout() {
@@ -62,7 +65,12 @@ export class TableRowAlgorithm {
 				fragmentationType: this.#constraintSpace.fragmentationType,
 			});
 
-			const result = yield new LayoutRequest(cell, cellConstraint, effectiveCellBreakToken);
+			const result = yield new LayoutRequest(
+				cell,
+				cellConstraint,
+				effectiveCellBreakToken,
+				this.#earlyBreakTarget,
+			);
 
 			this.#cellFragments.push(result.fragment);
 

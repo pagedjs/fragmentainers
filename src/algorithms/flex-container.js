@@ -30,13 +30,16 @@ export class FlexAlgorithm {
 	#blockOffset = 0;
 	#startLine = 0;
 	#containerBreakToken = null;
+	#earlyBreakTarget = null;
 
 	// Class A break scoring (earlyBreakTarget) is only implemented by
 	// BlockContainerAlgorithm — flex breaks at flex-line boundaries only.
-	constructor(node, constraintSpace, breakToken) {
+	// The target is forwarded to descendants so a nested block can honor it.
+	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
 		this.#node = node;
 		this.#constraintSpace = constraintSpace;
 		this.#breakToken = breakToken;
+		this.#earlyBreakTarget = earlyBreakTarget;
 		if (breakToken?.algorithmData?.type === ALGORITHM_FLEX) {
 			this.#startLine = breakToken.algorithmData.flexLineIndex;
 		}
@@ -118,7 +121,12 @@ export class FlexAlgorithm {
 				fragmentationType: this.#constraintSpace.fragmentationType,
 			});
 
-			const result = yield new LayoutRequest(item, itemConstraint, effectiveItemBreakToken);
+			const result = yield new LayoutRequest(
+				item,
+				itemConstraint,
+				effectiveItemBreakToken,
+				this.#earlyBreakTarget,
+			);
 
 			itemFragments.push(result.fragment);
 			maxItemBlockSize = Math.max(maxItemBlockSize, result.fragment.blockSize);
@@ -161,7 +169,12 @@ export class FlexAlgorithm {
 		const flowThread = new FlowThreadNode(this.#node);
 
 		const contentToken = this.#breakToken?.childBreakTokens?.[0] ?? null;
-		const result = yield new LayoutRequest(flowThread, this.#constraintSpace, contentToken);
+		const result = yield new LayoutRequest(
+			flowThread,
+			this.#constraintSpace,
+			contentToken,
+			this.#earlyBreakTarget,
+		);
 
 		const fragment = new Fragment(
 			this.#node,

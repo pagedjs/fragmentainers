@@ -28,13 +28,16 @@ export class GridAlgorithm {
 	#blockOffset = 0;
 	#startRow = 0;
 	#containerBreakToken = null;
+	#earlyBreakTarget = null;
 
 	// Class A break scoring (earlyBreakTarget) is only implemented by
 	// BlockContainerAlgorithm — grid breaks at row boundaries only.
-	constructor(node, constraintSpace, breakToken) {
+	// The target is forwarded to descendants so a nested block can honor it.
+	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
 		this.#node = node;
 		this.#constraintSpace = constraintSpace;
 		this.#breakToken = breakToken;
+		this.#earlyBreakTarget = earlyBreakTarget;
 		if (breakToken?.algorithmData?.type === ALGORITHM_GRID) {
 			this.#startRow = breakToken.algorithmData.rowIndex;
 		}
@@ -106,7 +109,12 @@ export class GridAlgorithm {
 				fragmentationType: this.#constraintSpace.fragmentationType,
 			});
 
-			const result = yield new LayoutRequest(item, itemConstraint, effectiveItemBreakToken);
+			const result = yield new LayoutRequest(
+				item,
+				itemConstraint,
+				effectiveItemBreakToken,
+				this.#earlyBreakTarget,
+			);
 
 			itemFragments.push(result.fragment);
 			maxItemBlockSize = Math.max(maxItemBlockSize, result.fragment.blockSize);
