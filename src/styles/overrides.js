@@ -59,7 +59,7 @@ li[data-split-from] {
   margin-block-end: unset !important;
 }
 
-/* === First fragments that continue (NOT the last) === */
+/* First fragments that continue (NOT the last) */
 
 [data-split-to] {
   margin-block-end: unset !important;

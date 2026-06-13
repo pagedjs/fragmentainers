@@ -120,7 +120,7 @@ export class DOMLayoutNode extends LayoutNode {
 		return cssKeyword(this.#getStyleMap().get("position"), "static");
 	}
 
-	//Layout classification
+	// Layout classification
 
 	get isReplacedElement() {
 		return REPLACED_ELEMENTS.has(this.element.tagName?.toLowerCase());
@@ -213,7 +213,7 @@ export class DOMLayoutNode extends LayoutNode {
 		return d === "grid" || d === "inline-grid";
 	}
 
-	//Flex/Grid properties
+	// Flex/Grid properties
 
 	get flexDirection() {
 		return cssKeyword(this.#getStyleMap().get("flex-direction"), "row");
@@ -240,7 +240,7 @@ export class DOMLayoutNode extends LayoutNode {
 		return Number.isFinite(n) ? n : null;
 	}
 
-	//Multicol properties
+	// Multicol properties
 
 	get isMulticolContainer() {
 		const map = this.#getStyleMap();
@@ -268,7 +268,7 @@ export class DOMLayoutNode extends LayoutNode {
 		return cssKeyword(this.#getStyleMap().get("column-fill"), "balance");
 	}
 
-	//Box model (margins, padding, border)
+	// Box model (margins, padding, border)
 
 	get marginBlockStart() {
 		if (this.#marginBlockStart === null) this.#getStyleMap();
@@ -313,7 +313,7 @@ export class DOMLayoutNode extends LayoutNode {
 		return this.#borderBlockEnd ?? 0;
 	}
 
-	//Fragmentation CSS
+	// Fragmentation CSS
 
 	get page() {
 		if (this.#pageOverride !== undefined) return this.#pageOverride;
@@ -361,7 +361,7 @@ export class DOMLayoutNode extends LayoutNode {
 		return v && v.unit ? v.value : 2;
 	}
 
-	//Counters
+	// Counters
 
 	get counterReset() {
 		return cssKeyword(this.#getStyleMap().get("counter-reset"), "none");
@@ -370,7 +370,7 @@ export class DOMLayoutNode extends LayoutNode {
 		return cssKeyword(this.#getStyleMap().get("counter-increment"), "none");
 	}
 
-	//Compositor-accessed styles (snapshot values so they survive detachment)
+	// Compositor-accessed styles (snapshot values so they survive detachment)
 
 	get textAlign() {
 		if (this.#textAlign === null) this.#getStyleMap();
@@ -382,7 +382,7 @@ export class DOMLayoutNode extends LayoutNode {
 		return this.#whiteSpace ?? "normal";
 	}
 
-	//Children
+	// Children
 
 	get children() {
 		if (this.#children !== null) return this.#children;
@@ -443,7 +443,7 @@ export class DOMLayoutNode extends LayoutNode {
 		this.#cumulativeHeights = null;
 	}
 
-	//Block size
+	// Block size
 
 	get blockSize() {
 		if (this.#blockSizeCache !== null) return this.#blockSizeCache;
@@ -515,7 +515,7 @@ export class DOMLayoutNode extends LayoutNode {
 		);
 	}
 
-	//Inline formatting context
+	// Inline formatting context
 
 	get isInlineFormattingContext() {
 		if (this.#isInlineFormattingContext !== null) return this.#isInlineFormattingContext;
@@ -580,7 +580,7 @@ export class DOMLayoutNode extends LayoutNode {
 		return measureLines(this.element);
 	}
 
-	//Table row support
+	// Table row support
 
 	get cells() {
 		if (!this.isTableRow) return [];

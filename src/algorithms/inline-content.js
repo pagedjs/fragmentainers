@@ -324,7 +324,7 @@ export class InlineContentAlgorithm {
 
 		// Orphans/widows clamping (CSS Fragmentation §4.4 Rule 3)
 		const contentWillBreak = linesToPlace < this.#remainingLines;
-		if (contentWillBreak && this.#constraintSpace.fragmentationType !== "none") {
+		if (contentWillBreak && this.#constraintSpace.fragmentationType !== FRAGMENTATION_NONE) {
 			const orphans = this.#node.orphans || 2;
 			const widows = this.#node.widows || 2;
 
@@ -453,7 +453,7 @@ export class InlineContentAlgorithm {
 			fragment.breakToken = inlineToken;
 
 			// Score the break for orphans/widows (CSS Fragmentation §4.4 Rule 3)
-			if (this.#constraintSpace.fragmentationType !== "none") {
+			if (this.#constraintSpace.fragmentationType !== FRAGMENTATION_NONE) {
 				const orphans = this.#node.orphans || 2;
 				const widows = this.#node.widows || 2;
 				const linesPlaced = this.#lineFragments.length;

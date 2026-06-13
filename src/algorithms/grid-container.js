@@ -1,9 +1,10 @@
-import { BlockBreakToken } from "../fragmentation/tokens.js";
-import { ConstraintSpace } from "../fragmentation/constraint-space.js";
+import { BlockBreakToken, findChildBreakToken } from "../fragmentation/tokens.js";
+import {
+	ConstraintSpace,
+	FRAGMENTATION_NONE,
+} from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
 import { LayoutRequest } from "../layout/layout-request.js";
-import { findChildBreakToken } from "../fragmentation/tokens.js";
-import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 
 export const ALGORITHM_GRID = "GridData";
 

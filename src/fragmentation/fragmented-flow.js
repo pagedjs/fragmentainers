@@ -1,17 +1,16 @@
 import { DOMLayoutNode } from "../layout/layout-node.js";
 import { runLayoutGenerator, getLayoutAlgorithm } from "../layout/layout-driver.js";
 import { FragmentationContext } from "./fragmentation-context.js";
-import { PageResolver } from "../resolvers/page-resolver.js";
-import { CounterState, walkFragmentTree } from "./counter-state.js";
-import { ConstraintSpace } from "./constraint-space.js";
-import { Fragment } from "./fragment.js";
-import { FRAGMENTATION_COLUMN } from "./constraint-space.js";
 import {
+	PageResolver,
 	resolveForcedBreakValue,
 	resolveNextPageBreakBefore,
 	requiredPageSide,
 	isSideSpecificBreak,
 } from "../resolvers/page-resolver.js";
+import { CounterState, walkFragmentTree } from "./counter-state.js";
+import { ConstraintSpace, FRAGMENTATION_COLUMN } from "./constraint-space.js";
+import { Fragment } from "./fragment.js";
 import "../components/content-measure.js";
 import "../components/fragment-container.js";
 import { Measurer } from "../measurement/measure.js";
