@@ -83,3 +83,28 @@ export function parseNumeric(str) {
 	if (!match) return null;
 	return cssValue(parseFloat(match[1]), match[2] || "px");
 }
+
+/**
+ * Resolve a CSS length to pixels without throwing on relative units.
+ * em/rem resolve against rootFontSize; percentages against percentBase
+ * (returns null when no base is supplied). Absolute units and calc()
+ * go through the typed .to("px") conversion. Returns null when the value
+ * is empty or cannot be resolved.
+ *
+ * @param {string|CSSNumericValue} value
+ * @param {{ rootFontSize?: number, percentBase?: number|null }} [options]
+ * @returns {number|null}
+ */
+export function toPx(value, { rootFontSize = 16, percentBase = null } = {}) {
+	const v = typeof value === "string" ? parseNumeric(value) : value;
+	if (!v) return null;
+	if (v.unit === "em" || v.unit === "rem") return v.value * rootFontSize;
+	if (v.unit === "percent") {
+		return percentBase == null ? null : (v.value / 100) * percentBase;
+	}
+	try {
+		return v.to("px").value;
+	} catch {
+		return null;
+	}
+}

@@ -95,6 +95,45 @@ test.describe("PageResolver", () => {
 		expect(result.blockSize).toBe(900);
 	});
 
+	test("resolves em margins against the root font size", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const em = { top: "2em", right: "2em", bottom: "2em", left: "2em" };
+			const resolver = new PageResolver([new PageRule({ size: "600px 800px", margin: em })], {
+				inlineSize: 816,
+				blockSize: 1056,
+			});
+			return resolver.resolve(0, null, null).margins;
+		});
+		expect(result).toEqual({ top: 32, right: 32, bottom: 32, left: 32 });
+	});
+
+	test("resolves percentage margins against the page inline size", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const pct = { top: "10%", right: "10%", bottom: "10%", left: "10%" };
+			const resolver = new PageResolver([new PageRule({ size: "600px 800px", margin: pct })], {
+				inlineSize: 816,
+				blockSize: 1056,
+			});
+			return resolver.resolve(0, null, null).margins;
+		});
+		expect(result).toEqual({ top: 60, right: 60, bottom: 60, left: 60 });
+	});
+
+	test("resolves an em page size without throwing", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([new PageRule({ size: "20em" })], {
+				inlineSize: 816,
+				blockSize: 1056,
+			});
+			const c = resolver.resolve(0, null, null);
+			return { inlineSize: c.pageBoxSize.inlineSize, blockSize: c.pageBoxSize.blockSize };
+		});
+		expect(result).toEqual({ inlineSize: 320, blockSize: 320 });
+	});
+
 	test(":first pseudo-class matches only page 0", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");

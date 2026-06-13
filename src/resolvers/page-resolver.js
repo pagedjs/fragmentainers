@@ -1,6 +1,6 @@
 import { ConstraintSpace, FRAGMENTATION_PAGE } from "../fragmentation/constraint-space.js";
 import { BREAK_TOKEN_INLINE } from "../fragmentation/tokens.js";
-import { parseNumeric } from "../styles/css-values.js";
+import { toPx } from "../styles/css-values.js";
 import { walkRules } from "../styles/walk-rules.js";
 import { parseAnPlusB, matchesAnPlusB } from "../styles/an-plus-b.js";
 
@@ -279,7 +279,7 @@ export class PageResolver {
 		} else if (orientation === "portrait") {
 			return { ...this.size };
 		} else {
-			const px = parts.map((s) => parseNumeric(s)?.to("px").value ?? null).filter((v) => v !== null);
+			const px = parts.map((s) => toPx(s)).filter((v) => v !== null);
 			inlineSize = px[0] ?? this.size.inlineSize;
 			blockSize = px[1] ?? px[0] ?? this.size.blockSize;
 		}
@@ -295,14 +295,17 @@ export class PageResolver {
 		return size;
 	}
 
-	/** Resolve CSS margin strings to pixel values. */
-	resolveMargins(marginDecl) {
+	/**
+	 * Resolve CSS margin strings to pixel values. Percentages resolve
+	 * against the page box inline size (CSS Paged Media §5.1).
+	 */
+	resolveMargins(marginDecl, pageSize) {
 		const margins = {};
+		const percentBase = pageSize?.inlineSize ?? null;
 		for (const side of MARGIN_SIDES) {
 			const raw = marginDecl?.[side];
 			if (raw) {
-				const parsed = parseNumeric(String(raw).trim());
-				margins[side] = Math.round(parsed?.to("px").value ?? 0);
+				margins[side] = Math.round(toPx(String(raw).trim(), { percentBase }) ?? 0);
 			} else {
 				margins[side] = 0;
 			}

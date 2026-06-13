@@ -282,3 +282,33 @@ test.describe("Footnotes in paged media (browser)", () => {
 		expect(result.pageWithCall).toBe(result.pageWithBody);
 	});
 });
+
+test.describe("Footnote max-height resolution", () => {
+	test("resolves a percentage cap against the available block size", async ({ page }) => {
+		const cap = await page.evaluate(async () => {
+			const { Footnote } = await import("/src/handlers/footnote.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const sheet = new CSSStyleSheet();
+			sheet.insertRule(":root { --footnote-max-height: 50%; }");
+			const handler = new Footnote();
+			handler.resetRules();
+			handler.matchRule(sheet.cssRules[0]);
+			return handler.getFlowCap(new ConstraintSpace({ availableBlockSize: 800 }));
+		});
+		expect(cap).toBe(400);
+	});
+
+	test("resolves an em cap without throwing", async ({ page }) => {
+		const cap = await page.evaluate(async () => {
+			const { Footnote } = await import("/src/handlers/footnote.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const sheet = new CSSStyleSheet();
+			sheet.insertRule(":root { --footnote-max-height: 10em; }");
+			const handler = new Footnote();
+			handler.resetRules();
+			handler.matchRule(sheet.cssRules[0]);
+			return handler.getFlowCap(new ConstraintSpace({ availableBlockSize: 800 }));
+		});
+		expect(cap).toBe(160);
+	});
+});

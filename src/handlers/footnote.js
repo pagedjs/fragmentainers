@@ -1,7 +1,7 @@
 import { LayoutHandler } from "./handler.js";
 import { FragmentFlow } from "../fragmentation/fragment-flow.js";
 import { DOMLayoutNode } from "../layout/layout-node.js";
-import { parseNumeric } from "../styles/css-values.js";
+import { parseNumeric, toPx } from "../styles/css-values.js";
 
 const FOOTNOTE_STYLES = `
 [data-footnote-call] {
@@ -67,11 +67,13 @@ class Footnote extends LayoutHandler {
 	#defaultSheet = null;
 	#footnoteSelectors = [];
 	#footnoteMaxHeight = null;
+	#footnoteMaxHeightPercent = null;
 	styles = null;
 
 	resetRules() {
 		this.#footnoteSelectors = [];
 		this.#footnoteMaxHeight = null;
+		this.#footnoteMaxHeightPercent = null;
 	}
 
 	matchRule(rule) {
@@ -84,8 +86,13 @@ class Footnote extends LayoutHandler {
 		if (sel === ":root" || sel === "html") {
 			const raw = rule.style.getPropertyValue("--footnote-max-height").trim();
 			if (raw) {
-				const val = parseNumeric(raw)?.to("px").value;
-				if (val != null) this.#footnoteMaxHeight = val;
+				const parsed = parseNumeric(raw);
+				if (parsed?.unit === "percent") {
+					this.#footnoteMaxHeightPercent = parsed.value / 100;
+				} else {
+					const val = toPx(raw);
+					if (val != null) this.#footnoteMaxHeight = val;
+				}
 			}
 		}
 	}
@@ -158,7 +165,13 @@ class Footnote extends LayoutHandler {
 		return this.#flow;
 	}
 
-	getFlowCap() {
+	getFlowCap(constraintSpace) {
+		if (this.#footnoteMaxHeightPercent != null) {
+			const base = constraintSpace?.availableBlockSize;
+			if (Number.isFinite(base) && base > 0) {
+				return base * this.#footnoteMaxHeightPercent;
+			}
+		}
 		return this.#footnoteMaxHeight ?? Infinity;
 	}
 
