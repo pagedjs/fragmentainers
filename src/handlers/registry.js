@@ -1,5 +1,5 @@
 import { LayoutHandler } from "./handler.js";
-import { walkSheets } from "../styles/walk-rules.js";
+import { walkSheets, insertWrappedRule } from "../styles/walk-rules.js";
 
 class HandlerRegistry {
 	#classes = [];
@@ -156,7 +156,7 @@ class HandlerRegistry {
 		if (rules.length > 0) {
 			const sheet = new CSSStyleSheet();
 			for (const rule of rules) {
-				sheet.insertRule(rule, sheet.cssRules.length);
+				insertWrappedRule(sheet, rule, []);
 			}
 			styles.push(sheet);
 			this.#injectedSheet = sheet;

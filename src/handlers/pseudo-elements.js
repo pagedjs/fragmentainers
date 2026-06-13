@@ -18,6 +18,7 @@
 
 import { LayoutHandler } from "./handler.js";
 import { handlers } from "./registry.js";
+import { splitSelectorList } from "../styles/selector-utils.js";
 
 const PSEUDO_TAG = "FRAG-PSEUDO";
 
@@ -96,7 +97,7 @@ export class PseudoElements extends LayoutHandler {
 	matchRule(rule, context) {
 		if (!/::(before|after)/.test(rule.selectorText)) return;
 
-		const selectors = rule.selectorText.split(",").map((s) => s.trim());
+		const selectors = splitSelectorList(rule.selectorText);
 		const styleSelectors = [];
 		const relocateSelectors = [];
 
