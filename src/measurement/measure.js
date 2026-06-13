@@ -1,7 +1,7 @@
 import { DOMLayoutNode } from "../layout/layout-node.js";
 import { isForcedBreakValue } from "../fragmentation/tokens.js";
 import { handlers } from "../handlers/registry.js";
-import { walkSheets } from "../styles/walk-rules.js";
+import { walkSheets, wrappersActive } from "../styles/walk-rules.js";
 import "../components/content-measure.js";
 
 export { measureElementBlockSize, measureCellIntrinsicBlockSize } from "./block-size.js";
@@ -15,47 +15,154 @@ export { measureElementBlockSize, measureCellIntrinsicBlockSize } from "./block-
  * @param {CSSStyleSheet[]} styles — adopted stylesheets
  * @returns {{ breakBefore: string, breakAfter: string, page: string|null }[]}
  */
-function resolveBreakProperties(elements, styles) {
-	const breakRules = [];
-	for (const sheet of styles) {
-		let rules;
-		try {
-			rules = sheet.cssRules;
-		} catch {
-			continue;
-		}
-		for (const rule of rules) {
-			if (!rule.style) continue;
-			const bb = rule.style.getPropertyValue("break-before").trim();
-			const ba = rule.style.getPropertyValue("break-after").trim();
-			const pg = rule.style.getPropertyValue("page").trim();
-			if (bb || ba || pg) {
-				breakRules.push({
-					selector: rule.selectorText,
-					breakBefore: bb,
-					breakAfter: ba,
-					page: pg,
-				});
-			}
+// Split a selector list on top-level commas only (not commas inside :is()/
+// :not()/:where()/:has() or [attr~="a,b"]).
+function splitSelectorList(selectorText) {
+	const out = [];
+	let depth = 0;
+	let start = 0;
+	for (let i = 0; i < selectorText.length; i++) {
+		const ch = selectorText[i];
+		if (ch === "(" || ch === "[") depth++;
+		else if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
+		else if (ch === "," && depth === 0) {
+			out.push(selectorText.slice(start, i));
+			start = i + 1;
 		}
 	}
+	out.push(selectorText.slice(start));
+	return out.map((s) => s.trim()).filter(Boolean);
+}
+
+function compareSpecificity(a, b) {
+	if (a[0] !== b[0]) return a[0] - b[0];
+	if (a[1] !== b[1]) return a[1] - b[1];
+	return a[2] - b[2];
+}
+
+/**
+ * Approximate CSS Selectors L4 §17 specificity as [a,b,c] for one complex
+ * selector (no top-level comma). a = #id, b = .class/[attr]/:pseudo-class,
+ * c = type/::pseudo-element. :where() contributes 0; :is()/:not()/:has()
+ * contribute their most-specific argument. Used to order measure-time cascade
+ * matches for detached elements where getComputedStyle is unavailable.
+ */
+function selectorSpecificity(selector) {
+	const spec = [0, 0, 0];
+	let s = selector;
+	const fnRe = /:(is|where|not|has)\(/i;
+	let m;
+	while ((m = fnRe.exec(s)) !== null) {
+		const name = m[1].toLowerCase();
+		const open = m.index + m[0].length - 1;
+		let depth = 1;
+		let j = open + 1;
+		for (; j < s.length && depth > 0; j++) {
+			if (s[j] === "(") depth++;
+			else if (s[j] === ")") depth--;
+		}
+		const inner = s.slice(open + 1, j - 1);
+		if (name !== "where") {
+			let best = [0, 0, 0];
+			for (const arg of splitSelectorList(inner)) {
+				const a = selectorSpecificity(arg);
+				if (compareSpecificity(a, best) > 0) best = a;
+			}
+			spec[0] += best[0];
+			spec[1] += best[1];
+			spec[2] += best[2];
+		}
+		s = `${s.slice(0, m.index)} ${s.slice(j)}`;
+	}
+	s = s.replace(/\s*[>+~]\s*/g, " ");
+	spec[0] += (s.match(/#[\w-]+/g) || []).length;
+	s = s.replace(/#[\w-]+/g, " ");
+	spec[1] += (s.match(/\.[\w-]+/g) || []).length;
+	s = s.replace(/\.[\w-]+/g, " ");
+	spec[1] += (s.match(/\[[^\]]*\]/g) || []).length;
+	s = s.replace(/\[[^\]]*\]/g, " ");
+	spec[2] += (s.match(/::[\w-]+/g) || []).length;
+	s = s.replace(/::[\w-]+/g, " ");
+	spec[1] += (s.match(/:[\w-]+(?:\([^)]*\))?/g) || []).length;
+	s = s.replace(/:[\w-]+(?:\([^)]*\))?/g, " ");
+	spec[2] += (s.match(/[a-zA-Z][\w-]*/g) || []).length;
+	return spec;
+}
+
+// Ascending cascade order: higher specificity / later source wins (sorts last).
+function cascadeLess(x, y) {
+	const c = compareSpecificity(x.spec, y.spec);
+	if (c !== 0) return c;
+	return x.order - y.order;
+}
+
+function resolveBreakProperties(elements, styles) {
+	const breakRules = [];
+	let order = 0;
+	walkSheets(styles, (rule, wrappers) => {
+		if (!rule.style || !rule.selectorText) return;
+		if (!wrappersActive(wrappers)) return;
+		const st = rule.style;
+		const bb = st.getPropertyValue("break-before").trim();
+		const ba = st.getPropertyValue("break-after").trim();
+		const pg = st.getPropertyValue("page").trim();
+		if (!bb && !ba && !pg) return;
+		for (const selector of splitSelectorList(rule.selectorText)) {
+			breakRules.push({
+				selector,
+				spec: selectorSpecificity(selector),
+				order: order++,
+				breakBefore: bb,
+				breakAfter: ba,
+				page: pg,
+				bbImp: st.getPropertyPriority("break-before") === "important",
+				baImp: st.getPropertyPriority("break-after") === "important",
+				pgImp: st.getPropertyPriority("page") === "important",
+			});
+		}
+	});
 
 	return elements.map((el) => {
-		let breakBefore = el.style.breakBefore || "auto";
-		let breakAfter = el.style.breakAfter || "auto";
-		let page = el.style.page || null;
-		for (const rule of breakRules) {
+		const matched = breakRules.filter((r) => {
 			try {
-				if (!el.matches(rule.selector)) continue;
+				return el.matches(r.selector);
 			} catch {
-				continue;
+				return false;
 			}
-			if (rule.breakBefore) breakBefore = rule.breakBefore;
-			if (rule.breakAfter) breakAfter = rule.breakAfter;
-			if (rule.page && rule.page !== "auto") page = rule.page;
+		});
+		matched.sort(cascadeLess);
+
+		const inlineBB = el.style.breakBefore;
+		const inlineBA = el.style.breakAfter;
+		const inlinePG = el.style.page;
+		const inlineBBImp = el.style.getPropertyPriority("break-before") === "important";
+		const inlineBAImp = el.style.getPropertyPriority("break-after") === "important";
+		const inlinePGImp = el.style.getPropertyPriority("page") === "important";
+
+		let breakBefore = "auto";
+		let breakAfter = "auto";
+		let page = null;
+		// Normal-importance cascade (ascending → last wins), then inline normal,
+		// then !important cascade, then inline !important — CSS Cascade L4 §6.3.
+		for (const r of matched) {
+			if (r.breakBefore && !r.bbImp) breakBefore = r.breakBefore;
+			if (r.breakAfter && !r.baImp) breakAfter = r.breakAfter;
+			if (r.page && !r.pgImp) page = r.page;
 		}
-		if (page === "auto") page = null;
-		return { breakBefore, breakAfter, page };
+		if (inlineBB && !inlineBBImp) breakBefore = inlineBB;
+		if (inlineBA && !inlineBAImp) breakAfter = inlineBA;
+		if (inlinePG && !inlinePGImp) page = inlinePG;
+		for (const r of matched) {
+			if (r.breakBefore && r.bbImp) breakBefore = r.breakBefore;
+			if (r.breakAfter && r.baImp) breakAfter = r.breakAfter;
+			if (r.page && r.pgImp) page = r.page;
+		}
+		if (inlineBB && inlineBBImp) breakBefore = inlineBB;
+		if (inlineBA && inlineBAImp) breakAfter = inlineBA;
+		if (inlinePG && inlinePGImp) page = inlinePG;
+
+		if (page === "auto" || !page) page = null;
+		return { breakBefore: breakBefore || "auto", breakAfter: breakAfter || "auto", page };
 	});
 }
 
@@ -65,22 +172,34 @@ function resolveBreakProperties(elements, styles) {
  */
 function resolveDisplayValues(elements, styles) {
 	const displayRules = [];
-	walkSheets(styles, (rule) => {
-		if (!rule.style) return;
+	let order = 0;
+	walkSheets(styles, (rule, wrappers) => {
+		if (!rule.style || !rule.selectorText) return;
+		if (!wrappersActive(wrappers)) return;
 		const d = rule.style.getPropertyValue("display").trim();
-		if (d) displayRules.push({ selector: rule.selectorText, display: d });
+		if (!d) return;
+		const imp = rule.style.getPropertyPriority("display") === "important";
+		for (const selector of splitSelectorList(rule.selectorText)) {
+			displayRules.push({ selector, spec: selectorSpecificity(selector), order: order++, display: d, imp });
+		}
 	});
 
 	return elements.map((el) => {
-		let display = el.style.display || null;
-		for (const rule of displayRules) {
+		const matched = displayRules.filter((r) => {
 			try {
-				if (!el.matches(rule.selector)) continue;
+				return el.matches(r.selector);
 			} catch {
-				continue;
+				return false;
 			}
-			display = rule.display;
-		}
+		});
+		matched.sort(cascadeLess);
+		const inlineD = el.style.display;
+		const inlineImp = el.style.getPropertyPriority("display") === "important";
+		let display = null;
+		for (const r of matched) if (!r.imp) display = r.display;
+		if (inlineD && !inlineImp) display = inlineD;
+		for (const r of matched) if (r.imp) display = r.display;
+		if (inlineD && inlineImp) display = inlineD;
 		return display;
 	});
 }
