@@ -54,6 +54,7 @@ function cssBorderWidth(map, edge) {
 export class DOMLayoutNode extends LayoutNode {
 	#element;
 	#styleMap = null;
+	#disconnectedStyleMap = null;
 	#children = null;
 	#inlineItemsData = null;
 	#isInlineFormattingContext = null;
@@ -100,7 +101,15 @@ export class DOMLayoutNode extends LayoutNode {
 		// without caching, so a later connected read still takes the real
 		// snapshot and the cached scalars (#display, margins, …) stay null →
 		// their getters report documented defaults rather than stale values.
-		if (!this.element.isConnected) return computedStyleMap(this.element);
+		if (!this.element.isConnected) {
+			// Cache the fallback so repeated disconnected reads don't re-allocate a
+			// computed-style map; it is dropped on the first connected read below.
+			if (!this.#disconnectedStyleMap) {
+				this.#disconnectedStyleMap = computedStyleMap(this.element);
+			}
+			return this.#disconnectedStyleMap;
+		}
+		this.#disconnectedStyleMap = null;
 		this.#styleMap = computedStyleMap(this.element);
 		const map = this.#styleMap;
 		this.#display = cssKeyword(map.get("display"), "block");

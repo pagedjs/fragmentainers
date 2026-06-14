@@ -948,6 +948,13 @@ export class FragmentedFlow extends Iterator {
 			);
 			this.#adoptedSheets.length = 0;
 		}
+
+		// Release retained layout state so a destroyed flow doesn't pin fragment
+		// trees and the layout node graph in memory.
+		this.#fragments = [];
+		this.#tree = null;
+		this.#prevFragment = null;
+		this.#context = null;
 	}
 
 	/**

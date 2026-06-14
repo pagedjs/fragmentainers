@@ -16,6 +16,7 @@ export class AnonymousBlockNode extends LayoutNode {
 	#parentElement;
 	#childNodes;
 	#inlineItemsData = null;
+	#lineHeightCache = null;
 
 	constructor(parentElement, childNodes) {
 		super();
@@ -39,7 +40,12 @@ export class AnonymousBlockNode extends LayoutNode {
 	}
 
 	get lineHeight() {
-		return getLineHeight(this.#parentElement);
+		// `line-height: normal` resolves via Range getClientRects (a forced
+		// layout); cache it like DOMLayoutNode since it's read repeatedly per pass.
+		if (this.#lineHeightCache === null) {
+			this.#lineHeightCache = getLineHeight(this.#parentElement);
+		}
+		return this.#lineHeightCache;
 	}
 
 	get measurer() {
