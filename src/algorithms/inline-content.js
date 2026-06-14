@@ -40,11 +40,18 @@ function hasTrailingCollapsibleSpace(items, textContent, flatOffset) {
 }
 
 function skipLeadingCollapsibleSpace(items, textContent, flatOffset) {
+	let item = null;
 	while (flatOffset < textContent.length) {
 		if (textContent.charCodeAt(flatOffset) !== 0x20) return flatOffset;
-		const loc = findItemAtOffset(items, flatOffset);
-		if (!loc) return flatOffset;
-		if (!COLLAPSING_WHITE_SPACE.has(loc.item.whiteSpace || "normal")) return flatOffset;
+		// Reuse the current text item while the offset stays within it; only
+		// rescan when the run crosses into the next item (avoids an O(items)
+		// findItemAtOffset per space char).
+		if (!item || flatOffset < item.startOffset || flatOffset >= item.endOffset) {
+			const loc = findItemAtOffset(items, flatOffset);
+			if (!loc) return flatOffset;
+			item = loc.item;
+		}
+		if (!COLLAPSING_WHITE_SPACE.has(item.whiteSpace || "normal")) return flatOffset;
 		flatOffset += 1;
 	}
 	return flatOffset;

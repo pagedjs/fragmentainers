@@ -19,11 +19,23 @@ export function collectInlineItems(nodes) {
 	const textParts = [];
 	let offset = 0;
 
+	// Sibling text nodes share a parent, so cache computed styles for the
+	// duration of this walk rather than re-reading getComputedStyle per node.
+	const styleCache = new Map();
+	const styleOf = (el) => {
+		let style = styleCache.get(el);
+		if (!style) {
+			style = getComputedStyle(el);
+			styleCache.set(el, style);
+		}
+		return style;
+	};
+
 	function walk(node) {
 		if (node.nodeType === Node.TEXT_NODE) {
 			const content = node.textContent;
 			if (content.length > 0) {
-				const parentStyle = getComputedStyle(node.parentElement);
+				const parentStyle = styleOf(node.parentElement);
 				items.push({
 					type: INLINE_TEXT,
 					startOffset: offset,
@@ -56,7 +68,7 @@ export function collectInlineItems(nodes) {
 			return;
 		}
 
-		const display = getComputedStyle(el).display;
+		const display = styleOf(el).display;
 		if (display === "none") return;
 
 		const isInline = display === "inline";
