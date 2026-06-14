@@ -323,8 +323,8 @@ test.describe("StyleResolver — emitted sheet", () => {
 		expect(cssText).not.toContain(":first-child");
 	});
 
-	test("groups multiple matches under one descriptor", async ({ page }) => {
-		const sel = await page.evaluate(async () => {
+	test("shares one ref among elements with identical structural matches", async ({ page }) => {
+		const result = await page.evaluate(async () => {
 			const { StyleResolver } = await import("/src/handlers/style-resolver.js");
 			const r = new StyleResolver();
 			const sheet = new CSSStyleSheet();
@@ -335,12 +335,17 @@ test.describe("StyleResolver — emitted sheet", () => {
 			root.innerHTML = "<ul><li>1</li><li>2</li><li>3</li><li>4</li></ul>";
 			document.body.appendChild(root);
 			r.afterMeasurementSetup(root);
+			const refs = [...root.querySelectorAll("li")].map((li) => li.getAttribute("data-ref"));
 			const innerRule = r.getAdoptedSheets()[0].cssRules[0].cssText;
 			document.body.removeChild(root);
-			return innerRule;
+			return { refs, innerRule };
 		});
-		expect(sel).toContain('li[data-ref="0"]');
-		expect(sel).toContain('li[data-ref="1"]');
+		// The two odd <li>s match identically, so they share one ref; the even
+		// ones don't match at all.
+		expect(result.refs).toEqual(["0", null, "0", null]);
+		// The descriptor emits a single shared selector clause, not one per match.
+		expect(result.innerRule).toContain('li[data-ref="0"]');
+		expect(result.innerRule).not.toContain('data-ref="1"');
 	});
 
 	test("preserves @media wrappers around emitted rules", async ({ page }) => {

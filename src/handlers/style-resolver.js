@@ -302,18 +302,30 @@ class StyleResolver extends LayoutHandler {
 			}
 			return;
 		}
+		// Elements that match the same set of descriptors share one ref (and thus
+		// one selector clause) instead of minting a unique ref each — a zebra
+		// table collapses from one rule-clause per row to a single shared one.
+		const refByDescriptorSet = new Map();
 		for (const el of contentRoot.querySelectorAll("*")) {
-			let ref;
-			for (const desc of this.#descriptors) {
-				if (!matchesCompoundChain(el, desc.compounds)) continue;
-				if (ref === undefined) ref = String(this.#nextRefId++);
-				desc.refs.add(ref);
+			let key = "";
+			const matched = [];
+			for (let d = 0; d < this.#descriptors.length; d++) {
+				if (matchesCompoundChain(el, this.#descriptors[d].compounds)) {
+					matched.push(d);
+					key += `${d},`;
+				}
 			}
-			if (ref !== undefined) {
-				el.setAttribute("data-ref", ref);
-			} else if (el.hasAttribute("data-ref")) {
-				el.removeAttribute("data-ref");
+			if (matched.length === 0) {
+				if (el.hasAttribute("data-ref")) el.removeAttribute("data-ref");
+				continue;
 			}
+			let ref = refByDescriptorSet.get(key);
+			if (ref === undefined) {
+				ref = String(this.#nextRefId++);
+				refByDescriptorSet.set(key, ref);
+				for (const d of matched) this.#descriptors[d].refs.add(ref);
+			}
+			el.setAttribute("data-ref", ref);
 		}
 		this.#sheet = this.#buildSheet();
 	}
