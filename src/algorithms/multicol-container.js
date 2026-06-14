@@ -129,8 +129,11 @@ export class MulticolAlgorithm {
 			this.#columnFragments.push(result.fragment);
 			this.#contentToken = result.breakToken;
 
-			// column-fill: auto — stop at column count limit
-			if (this.#node.columnFill === "auto" && this.#columnFragments.length >= this.#count) {
+			// Cap at the used column count in both fill modes. Overflow content
+			// continues on the next outer fragmentainer via the multicol break
+			// token rather than spilling into unbounded extra columns.
+			// column-fill: balance height-balancing is not modeled here.
+			if (this.#columnFragments.length >= this.#count) {
 				break;
 			}
 		} while (this.#contentToken !== null);
@@ -152,10 +155,11 @@ export class MulticolAlgorithm {
 	}
 
 	#buildOutput() {
-		const multicolBlockSize =
-			this.#columnHeight === Infinity
-				? Math.max(...this.#columnFragments.map((f) => f.blockSize), 0)
-				: this.#columnHeight;
+		// Size to the tallest column, not the full available block space. When
+		// the columns overflow (content remains), the filled columns already
+		// equal the column height, so the multicol fills the fragmentainer; when
+		// the content is short, the multicol only occupies what it uses.
+		const multicolBlockSize = Math.max(...this.#columnFragments.map((f) => f.blockSize), 0);
 
 		const fragment = new Fragment(this.#node, multicolBlockSize, this.#columnFragments);
 		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
