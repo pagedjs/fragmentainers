@@ -212,6 +212,54 @@ test.describe("Phase 4: Monolithic content", () => {
 		expect(result.p0ChildCount).toBe(2);
 	});
 
+	test("a monolithic element with block children is not fragmented", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			// overflow:hidden + explicit height ⇒ monolithic. It has two block
+			// children summing to 300px; they must NOT be fragmented across pages.
+			container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="overflow:hidden;height:300px;margin:0;padding:0">
+          <div style="height:150px;margin:0;padding:0"></div>
+          <div style="height:150px;margin:0;padding:0"></div>
+        </div>
+      </div>`;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			const pages = createFragments(
+				root,
+				new ConstraintSpace({
+					availableInlineSize: 600,
+					availableBlockSize: 200,
+					fragmentainerBlockSize: 200,
+					fragmentationType: "page",
+				}),
+			);
+
+			const monoP0 = pages[0].childFragments[0];
+			const out = {
+				pageCount: pages.length,
+				p0MonoChildFragments: monoP0.childFragments.length,
+				p0MonoBlockSize: monoP0.blockSize,
+				p1MonoBlockSize: pages[1]?.childFragments[0]?.blockSize ?? null,
+			};
+			container.remove();
+			return out;
+		});
+
+		// The monolithic node is sliced as a unit (200px then 100px), never
+		// descended into — so it has no child fragments of its own.
+		expect(result.p0MonoChildFragments).toBe(0);
+		expect(result.p0MonoBlockSize).toBe(200);
+		expect(result.pageCount).toBe(2);
+		expect(result.p1MonoBlockSize).toBe(100);
+	});
+
 	test("sliced monolithic element clips each fragment to its blockSize", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");

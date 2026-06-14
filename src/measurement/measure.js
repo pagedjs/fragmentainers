@@ -4,7 +4,11 @@ import { handlers } from "../handlers/registry.js";
 import { walkSheets, wrappersActive } from "../styles/walk-rules.js";
 import "../components/content-measure.js";
 
-export { measureElementBlockSize, measureCellIntrinsicBlockSize } from "./block-size.js";
+export {
+	measureElementBlockSize,
+	measureElementInlineSize,
+	measureCellIntrinsicBlockSize,
+} from "./block-size.js";
 
 /**
  * Resolve break-before, break-after, and page values for top-level

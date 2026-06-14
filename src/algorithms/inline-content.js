@@ -262,7 +262,11 @@ export class InlineContentAlgorithm {
 		// box model — mirrors block-container.js handling.
 		const boxStart = (this.#node.paddingBlockStart || 0) + (this.#node.borderBlockStart || 0);
 		const boxEnd = (this.#node.paddingBlockEnd || 0) + (this.#node.borderBlockEnd || 0);
-		const isFirstFragment = !this.#breakToken;
+		// Base "first fragment" on consumed progress, not token presence: a
+		// zero-height insufficient-space continuation carries a break token but
+		// has advanced no text, so the block-start decorations still belong to
+		// the next fragment that actually places content.
+		const isFirstFragment = this.#textOffset === 0;
 
 		// Get the element's rendered height from the browser.
 		// Anonymous blocks (from mixed-content wrapping) have no element;

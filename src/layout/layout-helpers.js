@@ -38,7 +38,11 @@ export function isMonolithic(node) {
  * @returns {number}
  */
 export function getMonolithicBlockSize(node, constraintSpace) {
-	return node.computedBlockSize(constraintSpace.availableInlineSize);
+	// computedBlockSize is null for auto-height scrollables (overflow scroll/auto
+	// with no explicit height); fall back to the browser-measured border-box size
+	// so the parent can still decide whether the element fits.
+	const computed = node.computedBlockSize(constraintSpace.availableInlineSize);
+	return computed != null ? computed : node.blockSize;
 }
 
 /**

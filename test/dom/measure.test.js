@@ -34,6 +34,32 @@ test.describe("measureElementBlockSize", () => {
 	});
 });
 
+test.describe("measureCellIntrinsicBlockSize", () => {
+	test("includes text nodes and excludes out-of-flow children", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { measureCellIntrinsicBlockSize } = await import("/src/measurement/measure.js");
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:300px";
+			// A cell with leading text (a bare text node), a 40px block child, and a
+			// 500px absolutely-positioned child that must not inflate the height.
+			container.innerHTML =
+				'<div style="position:relative;line-height:20px;font-size:16px;margin:0;padding:0">' +
+				"leading text" +
+				'<div style="height:40px;margin:0;padding:0"></div>' +
+				'<div style="position:absolute;top:0;height:500px;width:10px"></div>' +
+				"</div>";
+			document.body.appendChild(container);
+			const measured = measureCellIntrinsicBlockSize(container.firstElementChild);
+			container.remove();
+			return measured;
+		});
+		// One 20px text line + a 40px block = 60px. >50 proves the text node is
+		// counted; <90 proves the 500px out-of-flow child is excluded.
+		expect(result).toBeGreaterThan(50);
+		expect(result).toBeLessThan(90);
+	});
+});
+
 test.describe("getLineHeight", () => {
 	test("returns an explicit pixel line-height", async ({ page }) => {
 		const result = await page.evaluate(async () => {

@@ -50,33 +50,36 @@ export function measureCellIntrinsicBlockSize(element) {
 	const insets = insetStart + insetEnd;
 
 	let contentHeight = 0;
-	let firstVisible = null;
-	let lastVisible = null;
+	let spanTop = Infinity;
+	let spanBottom = -Infinity;
 	let hasBlockChild = false;
-	for (const child of element.children) {
-		const childCs = getComputedStyle(child);
-		if (childCs.display === "none") continue;
-		if (!firstVisible) firstVisible = child;
-		lastVisible = child;
-		if (BLOCK_DISPLAYS_FOR_INTRINSIC.has(childCs.display)) {
-			hasBlockChild = true;
+	for (const child of element.childNodes) {
+		if (child.nodeType === Node.ELEMENT_NODE) {
+			const childCs = getComputedStyle(child);
+			if (childCs.display === "none") continue;
+			// Out-of-flow children don't contribute to the in-flow content span.
+			if (childCs.position === "absolute" || childCs.position === "fixed") continue;
+			const rect = child.getBoundingClientRect();
+			// Margins render inside the cell's BFC, so extend the span to the
+			// child's margin box. min-top→max-bottom reproduces the browser's
+			// collapsed sibling-margin layout.
+			spanTop = Math.min(spanTop, rect.top - parsePx(childCs.marginTop));
+			spanBottom = Math.max(spanBottom, rect.bottom + parsePx(childCs.marginBottom));
+			if (BLOCK_DISPLAYS_FOR_INTRINSIC.has(childCs.display)) hasBlockChild = true;
+		} else if (child.nodeType === Node.TEXT_NODE && child.textContent.trim()) {
+			// Text outside any block child still contributes to the content span.
+			const range = document.createRange();
+			range.selectNodeContents(child);
+			const rect = range.getBoundingClientRect();
+			if (rect.height > 0) {
+				spanTop = Math.min(spanTop, rect.top);
+				spanBottom = Math.max(spanBottom, rect.bottom);
+			}
 		}
 	}
 
-	if (hasBlockChild && firstVisible && lastVisible) {
-		// Use rendered positions: the browser already performed sibling margin
-		// collapsing when it laid out the children. firstChild.top→lastChild.bottom
-		// captures the collapsed content span; add outer margins since they
-		// render inside the cell (cell establishes a BFC, so they don't collapse
-		// through the cell boundary).
-		const firstRect = firstVisible.getBoundingClientRect();
-		const lastRect = lastVisible.getBoundingClientRect();
-		const firstCs = getComputedStyle(firstVisible);
-		const lastCs = getComputedStyle(lastVisible);
-		contentHeight =
-			(lastRect.bottom - firstRect.top) +
-			parsePx(firstCs.marginTop) +
-			parsePx(lastCs.marginBottom);
+	if (hasBlockChild && spanTop !== Infinity) {
+		contentHeight = spanBottom - spanTop;
 	} else if (!hasBlockChild) {
 		const measured = measureLines(element);
 		if (measured.count > 0) {

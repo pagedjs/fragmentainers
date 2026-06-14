@@ -477,6 +477,22 @@ test.describe("DOMLayoutNode", () => {
 		});
 	});
 
+	test.describe("display", () => {
+		test("falls back to block for a disconnected element without throwing", async ({ page }) => {
+			const result = await page.evaluate(async () => {
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+				// Never appended to the document — styles are unresolvable, so the
+				// snapshot is skipped and display reports its documented default.
+				const table = document.createElement("table");
+				table.style.display = "table";
+				const node = new DOMLayoutNode(table);
+				return { connected: table.isConnected, display: node.display };
+			});
+			expect(result.connected).toBe(false);
+			expect(result.display).toBe("block");
+		});
+	});
+
 	test.describe("isInlineFormattingContext", () => {
 		test("is true for a paragraph with text", async ({ page }) => {
 			const result = await page.evaluate(async () => {

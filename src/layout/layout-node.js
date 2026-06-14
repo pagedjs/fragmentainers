@@ -94,20 +94,25 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	#getStyleMap() {
-		if (!this.#styleMap && this.element.isConnected) {
-			this.#styleMap = computedStyleMap(this.element);
-			const map = this.#styleMap;
-			this.#display = cssKeyword(map.get("display"), "block");
-			this.#textAlign = cssKeyword(map.get("text-align"), "start");
-			this.#whiteSpace = cssKeyword(map.get("white-space"), "normal");
-			this.#marginBlockStart = cssPx(map.get("margin-block-start"));
-			this.#marginBlockEnd = cssPx(map.get("margin-block-end"));
-			this.#paddingBlockStart = cssPx(map.get("padding-block-start"));
-			this.#paddingBlockEnd = cssPx(map.get("padding-block-end"));
-			this.#borderBlockStart = cssBorderWidth(map, "block-start");
-			this.#borderBlockEnd = cssBorderWidth(map, "block-end");
-		}
-		return this.#styleMap || computedStyleMap(this.element);
+		if (this.#styleMap) return this.#styleMap;
+		// Snapshot only while connected: computed styles are unresolved
+		// off-document. A disconnected read returns a live (default-valued) map
+		// without caching, so a later connected read still takes the real
+		// snapshot and the cached scalars (#display, margins, …) stay null →
+		// their getters report documented defaults rather than stale values.
+		if (!this.element.isConnected) return computedStyleMap(this.element);
+		this.#styleMap = computedStyleMap(this.element);
+		const map = this.#styleMap;
+		this.#display = cssKeyword(map.get("display"), "block");
+		this.#textAlign = cssKeyword(map.get("text-align"), "start");
+		this.#whiteSpace = cssKeyword(map.get("white-space"), "normal");
+		this.#marginBlockStart = cssPx(map.get("margin-block-start"));
+		this.#marginBlockEnd = cssPx(map.get("margin-block-end"));
+		this.#paddingBlockStart = cssPx(map.get("padding-block-start"));
+		this.#paddingBlockEnd = cssPx(map.get("padding-block-end"));
+		this.#borderBlockStart = cssBorderWidth(map, "block-start");
+		this.#borderBlockEnd = cssBorderWidth(map, "block-end");
+		return this.#styleMap;
 	}
 
 	getCustomProperty(name) {

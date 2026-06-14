@@ -112,9 +112,16 @@ export class Fragment {
 			}
 			handlers.trackClone(el, node.element);
 			parentEl.appendChild(el);
-		} else if (this.childFragments.length === 0 && this.breakToken && node.children?.length > 0) {
+		} else if (
+			this.childFragments.length === 0 &&
+			this.breakToken &&
+			node.children?.length > 0 &&
+			!this.needsBlockClip
+		) {
 			// Empty container shell — all children pushed to next fragmentainer.
-			// Don't build; content will appear on the next page/column.
+			// Don't build; content will appear on the next page/column. A block-clip
+			// slice (monolithic node taller than the page) is not a shell: it falls
+			// through to the deep-clone path below so the visible slice still renders.
 			return;
 		} else {
 			const el = node.element.cloneNode(true);

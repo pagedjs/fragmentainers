@@ -352,4 +352,51 @@ test.describe("Inline content layout (browser)", () => {
 		expect(result.blockSize).toBe(0);
 		expect(result.childCount).toBe(0);
 	});
+
+	test("applies block-start padding after a zero-progress insufficient-space break", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			// The 90px block leaves 10px (< line-height) for the paragraph, so on
+			// page 1 it produces a zero-height insufficient-space continuation that
+			// advances no text. Its 30px padding-top must therefore still apply on
+			// page 2 — the first fragment that actually places content.
+			container.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:90px;margin:0;padding:0"></div>
+        <p style="padding-top:30px;line-height:20px;margin:0">Hi</p>
+      </div>`;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			const pages = createFragments(
+				root,
+				new ConstraintSpace({
+					availableInlineSize: 600,
+					availableBlockSize: 100,
+					fragmentainerBlockSize: 100,
+					fragmentationType: "page",
+				}),
+			);
+
+			const out = {
+				pageCount: pages.length,
+				p0ParagraphBlockSize: pages[0].childFragments[1]?.blockSize ?? null,
+				p1ParagraphBlockSize: pages[1]?.childFragments[0]?.blockSize ?? null,
+			};
+			container.remove();
+			return out;
+		});
+
+		expect(result.pageCount).toBe(2);
+		// Page 1: zero-progress continuation (no content placed).
+		expect(result.p0ParagraphBlockSize).toBe(0);
+		// Page 2: 30px padding-top + one 20px line.
+		expect(result.p1ParagraphBlockSize).toBe(50);
+	});
 });

@@ -81,7 +81,12 @@ export class BlockContainerAlgorithm {
 	}
 
 	*layout() {
-		if (this.#node.children.length === 0) return this.#layoutLeaf();
+		// Monolithic nodes are placed (or sliced) whole — never descend into and
+		// fragment their children, even when they have some. Childless nodes also
+		// take the leaf path.
+		if (this.#node.children.length === 0 || isMonolithic(this.#node)) {
+			return this.#layoutLeaf();
+		}
 		this.#setup();
 		yield* this.runBeforeChildren();
 		// `yield*` evaluates to the inner generator's return value. `layoutChildren`
