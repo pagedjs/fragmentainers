@@ -275,7 +275,7 @@ export class Measurer {
 	 *
 	 * @returns {Element} the content root (slot element)
 	 */
-	setup() {
+	setup(constraintSpace = null) {
 		// Walk CSS rules and let handlers accumulate state, then claim elements.
 		// The PseudoElements handler contributes ::before/::after companion,
 		// relocation, and suppression rules via matchRule/appendRules.
@@ -295,12 +295,21 @@ export class Measurer {
 		const boundaries = findSegmentBoundaries(this.#breakProps);
 
 		if (boundaries.length <= 1) {
-			return this.#setupSingle();
+			return this.#setupSingle(constraintSpace);
 		}
-		return this.#setupSegmented(boundaries, flowElements);
+		return this.#setupSegmented(boundaries, flowElements, constraintSpace);
 	}
 
-	#setupSingle() {
+	// Apply the target width before the measurement reflow (when known) so the
+	// browser lays out once at the real width instead of once at the contained
+	// 0px host size and again when the per-fragment width is applied.
+	// applyConstraintSpace forces its own reflow, so it replaces the bare one.
+	#reflowAtWidth(measurer, constraintSpace) {
+		if (constraintSpace) measurer.applyConstraintSpace(constraintSpace);
+		else void measurer.offsetHeight;
+	}
+
+	#setupSingle(constraintSpace) {
 		const measurer = this.#createMeasurer();
 		measurer.injectFragment(this.#content, this.#styles);
 		document.body.appendChild(measurer);
@@ -308,7 +317,7 @@ export class Measurer {
 		// Let handlers mutate the DOM (pseudo-element materialization
 		// happens here). Reflow so the changes are reflected in styles.
 		handlers.beforeMeasurement(measurer.contentRoot);
-		void measurer.offsetHeight;
+		this.#reflowAtWidth(measurer, constraintSpace);
 
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
@@ -318,7 +327,7 @@ export class Measurer {
 		return measurer.contentRoot;
 	}
 
-	#setupSegmented(boundaries, flowElements) {
+	#setupSegmented(boundaries, flowElements, constraintSpace) {
 		this.#segments = [];
 		for (let i = 0; i < boundaries.length; i++) {
 			const start = boundaries[i];
@@ -365,7 +374,7 @@ export class Measurer {
 		document.body.appendChild(measurer);
 
 		handlers.beforeMeasurement(measurer.contentRoot);
-		void measurer.offsetHeight;
+		this.#reflowAtWidth(measurer, constraintSpace);
 
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();

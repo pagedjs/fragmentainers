@@ -760,7 +760,10 @@ export class FragmentedFlow extends Iterator {
 			}
 			handlers.init({ ...this.#options, isPageBased });
 			this.#measurer = new Measurer(content, layoutStyles);
-			const contentRoot = this.#measurer.setup();
+			// Pass the known constraint (set for explicit-size / constraintSpace
+			// flows) so measurement reflows at the real width, not 0px.
+			// Resolver-based @page flows resolve width per fragment, so it stays null.
+			const contentRoot = this.#measurer.setup(this.#constraintSpace);
 
 			this.#tree = new DOMLayoutNode(contentRoot);
 			this.#measureElement = { applyConstraintSpace: () => {} };
