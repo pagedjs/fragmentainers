@@ -60,6 +60,7 @@ export class BlockContainerAlgorithm {
 	#blockOffset = 0;
 	#margins;
 	#bestEarlyBreak = null;
+	#breakScore = BreakScore.PERFECT;
 	#earlyBreakForChild = null;
 	#startIndex = 0;
 	#prependedFragments = 0;
@@ -293,7 +294,14 @@ export class BlockContainerAlgorithm {
 			fragment.breakToken = containerToken;
 		}
 
-		return { fragment, breakToken: fragment.breakToken || null };
+		// Report the quality of the break this container produced so an ancestor
+		// can push the whole container to the next fragmentainer when it scored
+		// worse than an earlier breakpoint of its own (orphans/widows two-pass).
+		return {
+			fragment,
+			breakToken: fragment.breakToken || null,
+			breakScore: fragment.breakToken ? this.#breakScore : BreakScore.PERFECT,
+		};
 	}
 
 	#setup() {
@@ -454,34 +462,32 @@ export class BlockContainerAlgorithm {
 		);
 	}
 
-	#maybeReturnEarlyBreak(child, nextChild) {
-		// Returns bare EarlyBreak target when a better earlier break exists,
-		// or null when space exhaustion here is the right break point.
-		// When an earlyBreakTarget is already set this is the second pass, whose
-		// retry is single-shot: re-emitting an early break would leave a null
-		// fragment unresolved, so break at exhaustion here instead.
+	#earlyBreakIfBetter(adjustedScore) {
+		// Return an EarlyBreak retry target when a better (lower-score) break was
+		// recorded earlier in this container; otherwise null to break at the
+		// current point. When an earlyBreakTarget is already set this is the
+		// second pass, whose retry is single-shot: re-emitting an early break
+		// would leave a null fragment unresolved, so break here instead.
 		if (this.#earlyBreakTarget) return null;
-		const exhaustionScore = scoreClassABreak(
-			child,
-			nextChild,
-			this.#constraintSpace.fragmentationType,
-		);
-		const adjustedScore = applyBreakInsideAvoid(
-			this.#node,
-			exhaustionScore,
-			this.#constraintSpace.fragmentationType,
-		);
-
-		if (this.#bestEarlyBreak && this.#bestEarlyBreak.score < adjustedScore) {
-			const earlyBreak = new EarlyBreak(
-				this.#node,
-				this.#bestEarlyBreak.score,
-				EARLY_BREAK_INSIDE,
-			);
-			earlyBreak.childEarlyBreak = this.#bestEarlyBreak;
-			return earlyBreak;
+		if (!this.#bestEarlyBreak || this.#bestEarlyBreak.score >= adjustedScore) {
+			return null;
 		}
-		return null;
+		const earlyBreak = new EarlyBreak(
+			this.#node,
+			this.#bestEarlyBreak.score,
+			EARLY_BREAK_INSIDE,
+		);
+		earlyBreak.childEarlyBreak = this.#bestEarlyBreak;
+		return earlyBreak;
+	}
+
+	#scoreBreakBetween(prevChild, nextChild) {
+		const fragType = this.#constraintSpace.fragmentationType;
+		return applyBreakInsideAvoid(
+			this.#node,
+			scoreClassABreak(prevChild, nextChild, fragType),
+			fragType,
+		);
 	}
 
 	#updateBestEarlyBreak(i) {
@@ -519,23 +525,16 @@ export class BlockContainerAlgorithm {
 		}
 	}
 
-	#recordChildBreak(child, result) {
-		// Track break quality from child (e.g. orphans/widows violation,
-		// or break-inside: avoid being violated)
-		if (result.breakScore != null && result.breakScore > BreakScore.PERFECT) {
-			const childScore = applyBreakInsideAvoid(
-				this.#node,
-				result.breakScore,
-				this.#constraintSpace.fragmentationType,
-			);
-			const candidate = new EarlyBreak(child, childScore, EARLY_BREAK_INSIDE);
-			if (isBetterBreak(candidate, this.#bestEarlyBreak)) {
-				this.#bestEarlyBreak = candidate;
-			}
-		}
-
-		// Child broke — record its break token
-		this.#childBreakTokens.push(result.breakToken);
+	#childBreakScore(result) {
+		// Quality of the break this child produced, as seen from this container:
+		// orphans/widows violations are reported by inline content and nested
+		// block containers; any break inside a break-inside:avoid container is
+		// itself a violation regardless of the child's own score.
+		return applyBreakInsideAvoid(
+			this.#node,
+			result.breakScore ?? BreakScore.PERFECT,
+			this.#constraintSpace.fragmentationType,
+		);
 	}
 
 	*layoutChildren() {
@@ -584,6 +583,7 @@ export class BlockContainerAlgorithm {
 			// Pass 2: if earlyBreakTarget says "break before this child", do it now
 			if (this.#shouldHonorEarlyBreakBefore(child)) {
 				this.#childBreakTokens.push(BlockBreakToken.createBreakBefore(child, false));
+				this.#breakScore = this.#earlyBreakForChild.score;
 				break;
 			}
 
@@ -683,7 +683,16 @@ export class BlockContainerAlgorithm {
 			}
 
 			if (result.breakToken) {
-				this.#recordChildBreak(child, result);
+				// A violating child break (orphans/widows, or any break inside a
+				// break-inside:avoid container) can be improved by breaking at an
+				// earlier Class A breakpoint — retry there when one scored better.
+				const childBreakScore = this.#childBreakScore(result);
+				const earlyBreak = this.#earlyBreakIfBetter(childBreakScore);
+				if (earlyBreak) {
+					return { fragment: null, breakToken: null, earlyBreak };
+				}
+				this.#childBreakTokens.push(result.breakToken);
+				this.#breakScore = childBreakScore;
 				break;
 			}
 
@@ -698,7 +707,8 @@ export class BlockContainerAlgorithm {
 
 			// Check if we've exceeded fragmentainer space
 			if (this.#fragmentainerExhausted() && nextChild) {
-				const earlyBreak = this.#maybeReturnEarlyBreak(child, nextChild);
+				const exhaustionScore = this.#scoreBreakBetween(child, nextChild);
+				const earlyBreak = this.#earlyBreakIfBetter(exhaustionScore);
 				if (earlyBreak) {
 					// Return shape matches the free-function contract: driver checks
 					// `result.earlyBreak` in `runLayoutGenerator`. `*layout()`
@@ -706,6 +716,7 @@ export class BlockContainerAlgorithm {
 					return { fragment: null, breakToken: null, earlyBreak };
 				}
 				this.#childBreakTokens.push(BlockBreakToken.createBreakBefore(nextChild, false));
+				this.#breakScore = exhaustionScore;
 				break;
 			}
 		}

@@ -244,6 +244,94 @@ test.describe("Phase 7: Break scoring & two-pass layout", () => {
 	});
 });
 
+test.describe("ALG-6: orphans/widows two-pass", () => {
+	const LOREM =
+		"Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod " +
+		"tempor incididunt ut labore et dolore magna aliqua ut enim ad minim " +
+		"veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea " +
+		"commodo consequat duis aute irure dolor in reprehenderit in voluptate";
+
+	async function run(page, html) {
+		return page.evaluate(
+			async ({ html, lorem }) => {
+				const { createFragments } = await import("/src/layout/layout-driver.js");
+				const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+				const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+				const container = document.createElement("div");
+				container.style.cssText = "position:absolute;left:-9999px;width:600px";
+				container.innerHTML = html.replace(/LOREM/g, lorem);
+				document.body.appendChild(container);
+
+				const root = new DOMLayoutNode(container.firstElementChild);
+				const pages = createFragments(
+					root,
+					new ConstraintSpace({
+						availableInlineSize: 600,
+						availableBlockSize: 200,
+						fragmentainerBlockSize: 200,
+						fragmentationType: "page",
+					}),
+				);
+
+				const r = {
+					length: pages.length,
+					p0Children: pages[0].childFragments.length,
+				};
+				container.remove();
+				return r;
+			},
+			{ html, lorem: LOREM },
+		);
+	}
+
+	// A 165px block leaves 35px — room for exactly one line. Placing one line of
+	// a multi-line paragraph violates orphans:2, so the two-pass retry breaks
+	// before the paragraph and pushes it whole to the next fragmentainer.
+	test("pushes a paragraph that would leave an orphan line", async ({ page }) => {
+		const result = await run(
+			page,
+			`<div style="margin:0;padding:0">
+				<div style="height:165px;margin:0;padding:0"></div>
+				<p style="orphans:2;widows:2;margin:0;padding:0;font-size:16px;line-height:25px">LOREM</p>
+			</div>`,
+		);
+		expect(result.length).toBe(2);
+		expect(result.p0Children).toBe(1);
+	});
+
+	// Control: with orphans:1/widows:1 the same break is PERFECT, so the
+	// paragraph splits normally and the retry must not over-fire.
+	test("splits normally when orphans/widows are satisfied", async ({ page }) => {
+		const result = await run(
+			page,
+			`<div style="margin:0;padding:0">
+				<div style="height:165px;margin:0;padding:0"></div>
+				<p style="orphans:1;widows:1;margin:0;padding:0;font-size:16px;line-height:25px">LOREM</p>
+			</div>`,
+		);
+		expect(result.p0Children).toBe(2);
+	});
+
+	// Part B: the paragraph is the only child of an inner block, so that block
+	// cannot retry internally (no earlier breakpoint). It must report the
+	// violating breakScore up through #finalize so the outer container pushes
+	// the whole inner block to the next fragmentainer.
+	test("propagates a nested block's violating break score upward", async ({ page }) => {
+		const result = await run(
+			page,
+			`<div style="margin:0;padding:0">
+				<div style="height:165px;margin:0;padding:0"></div>
+				<div style="margin:0;padding:0">
+					<p style="orphans:2;widows:2;margin:0;padding:0;font-size:16px;line-height:25px">LOREM</p>
+				</div>
+			</div>`,
+		);
+		expect(result.length).toBe(2);
+		expect(result.p0Children).toBe(1);
+	});
+});
+
 test.describe("Nested early-break targets", () => {
 	// A nested container that exhausts its fragmentainer with a better earlier
 	// break records an EarlyBreak naming itself. The two-pass retry only re-runs
