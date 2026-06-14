@@ -190,6 +190,7 @@ export class FragmentedFlow extends Iterator {
 	#fragments = [];
 	#styleSheet = null;
 	#ownsStyleSheet = false;
+	#compositeRuleIndex = null;
 	#adoptedSheets = [];
 	#preloadedFonts = [];
 	#fontDisplayEdits = [];
@@ -426,9 +427,11 @@ export class FragmentedFlow extends Iterator {
 			this.#mainDone = true;
 		}
 
-		// Segment advancement (sync)
-		if (this.#measurer) {
-			this.#measurer.advance(fragment.breakToken, this.#tree);
+		// Segment advancement (sync). A new segment re-stamps handler data-refs
+		// (StyleResolver) and rebuilds normalization sheets, so reinstall the
+		// composite sheet to keep those rules matching the new refs.
+		if (this.#measurer && this.#measurer.advance(fragment.breakToken, this.#tree)) {
+			this.#installStyleSheet();
 		}
 
 		// Zero-progress guard
@@ -991,10 +994,21 @@ export class FragmentedFlow extends Iterator {
 			this.#ownsStyleSheet = true;
 			document.adoptedStyleSheets.push(this.#styleSheet);
 		}
-		this.#styleSheet.insertRule(text, this.#styleSheet.cssRules.length);
+		// Replace the previously-installed composite rule rather than appending,
+		// so segment re-installs refresh the data-refs without duplicating rules
+		// (also bounds the rule count across segments rather than growing it).
+		if (
+			this.#compositeRuleIndex != null &&
+			this.#compositeRuleIndex < this.#styleSheet.cssRules.length
+		) {
+			this.#styleSheet.deleteRule(this.#compositeRuleIndex);
+		}
+		this.#compositeRuleIndex = this.#styleSheet.cssRules.length;
+		this.#styleSheet.insertRule(text, this.#compositeRuleIndex);
 	}
 
 	#teardownStyleSheet() {
+		this.#compositeRuleIndex = null;
 		if (!this.#styleSheet || !this.#ownsStyleSheet) return;
 		document.adoptedStyleSheets = document.adoptedStyleSheets.filter((s) => s !== this.#styleSheet);
 		this.#styleSheet = null;

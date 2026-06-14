@@ -385,8 +385,8 @@ export class Measurer {
 	 * @param {DOMLayoutNode} tree — root layout node
 	 */
 	advance(breakToken, tree) {
-		if (!this.#segments || this.#currentSegment >= this.#segments.length - 1) return;
-		if (!this.#isAtBoundary(breakToken)) return;
+		if (!this.#segments || this.#currentSegment >= this.#segments.length - 1) return false;
+		if (!this.#isAtBoundary(breakToken)) return false;
 
 		this.#currentSegment++;
 		const seg = this.#segments[this.#currentSegment];
@@ -432,6 +432,7 @@ export class Measurer {
 
 		// Rebuild root's children from the nodeMap
 		tree.setChildren(this.#buildSegmentChildren(this.#currentSegment));
+		return true;
 	}
 
 	/**
