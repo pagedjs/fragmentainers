@@ -58,7 +58,6 @@ export class DOMLayoutNode extends LayoutNode {
 	#children = null;
 	#inlineItemsData = null;
 	#isInlineFormattingContext = null;
-	#blockSizeCache = null;
 	#intrinsicBlockSizeCache = null;
 	#cumulativeHeights = null;
 	#display = null;
@@ -509,7 +508,6 @@ export class DOMLayoutNode extends LayoutNode {
 	// Block size
 
 	get blockSize() {
-		if (this.#blockSizeCache !== null) return this.#blockSizeCache;
 		return measureElementBlockSize(this.element);
 	}
 
@@ -520,10 +518,6 @@ export class DOMLayoutNode extends LayoutNode {
 	 */
 	get inlineSize() {
 		return measureElementInlineSize(this.element);
-	}
-
-	setBlockSizeCache(value) {
-		this.#blockSizeCache = value;
 	}
 
 	/**
