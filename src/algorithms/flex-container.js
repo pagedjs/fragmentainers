@@ -55,6 +55,7 @@ export class FlexAlgorithm {
 			this.#node.children,
 			this.#node.flexWrap,
 			this.#constraintSpace,
+			this.#node.columnGap ?? 0,
 		);
 		yield* this.layoutRowLines(flexLines);
 		return this.#buildOutput();
@@ -119,7 +120,7 @@ export class FlexAlgorithm {
 			const effectiveItemBreakToken = itemBreakToken?.isBreakBefore ? null : itemBreakToken;
 
 			const itemConstraint = new ConstraintSpace({
-				availableInlineSize: item.itemInlineSize || itemInlineSize,
+				availableInlineSize: item.inlineSize ?? itemInlineSize,
 				availableBlockSize: this.#constraintSpace.availableBlockSize - blockOffset,
 				fragmentainerBlockSize: this.#constraintSpace.fragmentainerBlockSize,
 				blockOffsetInFragmentainer:
@@ -229,26 +230,31 @@ export class FlexAlgorithm {
  * For nowrap: all items on one line.
  * For wrap: split when cumulative inline size exceeds available space.
  */
-function groupFlexLines(children, flexWrap, constraintSpace) {
+function groupFlexLines(children, flexWrap, constraintSpace, gap) {
 	if (flexWrap === "nowrap") {
 		return [children];
 	}
 
-	// Simple wrapping: items that don't fit start a new line
+	// Wrap when an item's used inline size (plus the column gap before it)
+	// overflows the line. Item widths come from the browser layout, so this
+	// reproduces native flex wrapping. A small tolerance absorbs sub-pixel
+	// rounding so an exactly-fitting line is not split.
 	const lines = [];
 	let currentLine = [];
 	let currentWidth = 0;
 	const available = constraintSpace.availableInlineSize;
 
 	for (const child of children) {
-		const itemWidth = child.itemInlineSize || available / children.length;
-		if (currentLine.length > 0 && currentWidth + itemWidth > available) {
+		const itemWidth = child.inlineSize ?? available / children.length;
+		const cumulative = currentLine.length > 0 ? currentWidth + gap + itemWidth : itemWidth;
+		if (currentLine.length > 0 && cumulative > available + 0.5) {
 			lines.push(currentLine);
-			currentLine = [];
-			currentWidth = 0;
+			currentLine = [child];
+			currentWidth = itemWidth;
+		} else {
+			currentLine.push(child);
+			currentWidth = cumulative;
 		}
-		currentLine.push(child);
-		currentWidth += itemWidth;
 	}
 
 	if (currentLine.length > 0) lines.push(currentLine);

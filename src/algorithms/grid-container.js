@@ -101,7 +101,7 @@ export class GridAlgorithm {
 			const effectiveItemBreakToken = itemBreakToken?.isBreakBefore ? null : itemBreakToken;
 
 			const itemConstraint = new ConstraintSpace({
-				availableInlineSize: item.itemInlineSize || itemInlineSize,
+				availableInlineSize: itemInlineSize,
 				availableBlockSize: this.#constraintSpace.availableBlockSize - blockOffset,
 				fragmentainerBlockSize: this.#constraintSpace.fragmentainerBlockSize,
 				blockOffsetInFragmentainer:

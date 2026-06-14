@@ -9,6 +9,13 @@ export function measureElementBlockSize(element) {
 	return element.getBoundingClientRect().height;
 }
 
+/**
+ * Measure the rendered inline size (width) of a DOM element's border box.
+ */
+export function measureElementInlineSize(element) {
+	return element.getBoundingClientRect().width;
+}
+
 const BLOCK_DISPLAYS_FOR_INTRINSIC = new Set([
 	"block",
 	"flex",

@@ -65,6 +65,84 @@ test.describe("layoutFlexContainer", () => {
 		expect(result.lineBlockSize).toBe(100);
 	});
 
+	test("flex-wrap: wrap splits overflowing items onto multiple lines", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator, getLayoutAlgorithm } =
+				await import("/src/layout/layout-driver.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			// Three 250px items in a 600px container: two fit on line 1, the third wraps.
+			container.innerHTML = `<div style="display:flex;flex-wrap:wrap;column-gap:0;margin:0;padding:0">
+        <div style="width:250px;flex-shrink:0;height:40px;margin:0;padding:0"></div>
+        <div style="width:250px;flex-shrink:0;height:40px;margin:0;padding:0"></div>
+        <div style="width:250px;flex-shrink:0;height:40px;margin:0;padding:0"></div>
+      </div>`;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 400,
+				fragmentainerBlockSize: 400,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "none",
+			});
+			const AlgoClass = getLayoutAlgorithm(root);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
+
+			const out = {
+				lineCount: result.fragment.childFragments.length,
+				lineItemCounts: result.fragment.childFragments.map((l) => l.childFragments.length),
+				totalBlockSize: result.fragment.blockSize,
+			};
+			container.remove();
+			return out;
+		});
+
+		expect(result.lineCount).toBe(2);
+		expect(result.lineItemCounts).toEqual([2, 1]);
+		// Two 40px lines stack to 80px.
+		expect(result.totalBlockSize).toBe(80);
+	});
+
+	test("flex-wrap: wrap keeps items on one line when they fit", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { runLayoutGenerator, getLayoutAlgorithm } =
+				await import("/src/layout/layout-driver.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			// Two 250px items fit within 600px — no wrap even though wrap is allowed.
+			container.innerHTML = `<div style="display:flex;flex-wrap:wrap;column-gap:0;margin:0;padding:0">
+        <div style="width:250px;flex-shrink:0;height:40px;margin:0;padding:0"></div>
+        <div style="width:250px;flex-shrink:0;height:40px;margin:0;padding:0"></div>
+      </div>`;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			const cs = new ConstraintSpace({
+				availableInlineSize: 600,
+				availableBlockSize: 400,
+				fragmentainerBlockSize: 400,
+				blockOffsetInFragmentainer: 0,
+				fragmentationType: "none",
+			});
+			const AlgoClass = getLayoutAlgorithm(root);
+			const result = runLayoutGenerator(new AlgoClass(root, cs, null));
+
+			const out = { lineCount: result.fragment.childFragments.length };
+			container.remove();
+			return out;
+		});
+
+		expect(result.lineCount).toBe(1);
+	});
+
 	test("items fragment independently (parallel flows)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator, getLayoutAlgorithm } =

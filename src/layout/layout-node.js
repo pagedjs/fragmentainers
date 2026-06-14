@@ -1,6 +1,7 @@
 import { collectInlineItems } from "../measurement/collect-inlines.js";
 import {
 	measureElementBlockSize,
+	measureElementInlineSize,
 	measureCellIntrinsicBlockSize,
 } from "../measurement/block-size.js";
 import { getLineHeight, getSharedMeasurer, measureLines } from "../measurement/line-box.js";
@@ -496,6 +497,15 @@ export class DOMLayoutNode extends LayoutNode {
 	get blockSize() {
 		if (this.#blockSizeCache !== null) return this.#blockSizeCache;
 		return measureElementBlockSize(this.element);
+	}
+
+	/**
+	 * Rendered inline size (border-box width) from the browser layout. Used by
+	 * flex line grouping to detect wraps and to size each item to its used main
+	 * size rather than an even split of the container.
+	 */
+	get inlineSize() {
+		return measureElementInlineSize(this.element);
 	}
 
 	setBlockSizeCache(value) {
