@@ -29,6 +29,10 @@ const HOST_STYLES = `
   }
 `;
 
+// One shared constructable sheet for every page's shadow root, so the host
+// styles are parsed once rather than per fragment-container instance.
+let hostSheet = null;
+
 export class FragmentContainerElement extends HTMLElement {
 	#shadow;
 	#slot;
@@ -45,9 +49,11 @@ export class FragmentContainerElement extends HTMLElement {
 	constructor() {
 		super();
 		this.#shadow = this.attachShadow({ mode: "open" });
-		const style = document.createElement("style");
-		style.textContent = HOST_STYLES;
-		this.#shadow.appendChild(style);
+		if (!hostSheet) {
+			hostSheet = new CSSStyleSheet();
+			hostSheet.replaceSync(HOST_STYLES);
+		}
+		this.#shadow.adoptedStyleSheets = [hostSheet];
 		this.#slot = document.createElement("slot");
 		this.#shadow.appendChild(this.#slot);
 	}
