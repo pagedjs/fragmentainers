@@ -284,7 +284,7 @@ export class FragmentedFlow extends Iterator {
 	 */
 	next() {
 		// Lazy initialization
-		if (!this.#tree) this.#layout();
+		if (!this.#done && (!this.#tree || !this.#measureElement)) this.#layout();
 
 		// Already exhausted
 		if (this.#done) return { value: undefined, done: true };
@@ -990,8 +990,8 @@ export class FragmentedFlow extends Iterator {
 	 * Append the composite scoped CSS as a rule on the output sheet. When the
 	 * caller supplied a sheet via `options.styleSheet`, the engine coexists
 	 * with whatever other rules are there. Otherwise the flow creates a sheet
-	 * and adopts it on `document.adoptedStyleSheets`. Reflow appends a fresh
-	 * rule; later rules win source-order tiebreaks.
+	 * and adopts it on `document.adoptedStyleSheets`. Reflow replaces the
+	 * previously-installed composite rule.
 	 */
 	#installStyleSheet() {
 		const text = buildCompositeText(

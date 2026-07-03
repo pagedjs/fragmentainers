@@ -85,17 +85,6 @@ export function parseNumeric(str) {
 }
 
 /**
- * Resolve a CSS length to pixels without throwing on relative units.
- * em/rem resolve against rootFontSize; percentages against percentBase
- * (returns null when no base is supplied). Absolute units and calc()
- * go through the typed .to("px") conversion. Returns null when the value
- * is empty or cannot be resolved.
- *
- * @param {string|CSSNumericValue} value
- * @param {{ rootFontSize?: number, percentBase?: number|null }} [options]
- * @returns {number|null}
- */
-/**
  * Resolve a Typed OM length (from a computedStyleMap) to pixels, or null when
  * it cannot be resolved at this layer. Percent and relative units (em/rem)
  * need a containing block / font context and return null; bare CSSStyleValues
@@ -115,6 +104,17 @@ export function typedLengthToPx(value) {
 	return Number.isNaN(parsed) ? null : parsed;
 }
 
+/**
+ * Resolve a CSS length to pixels without throwing on relative units.
+ * em/rem resolve against rootFontSize; percentages against percentBase
+ * (returns null when no base is supplied). Absolute units and calc()
+ * go through the typed .to("px") conversion. Returns null when the value
+ * is empty or cannot be resolved.
+ *
+ * @param {string|CSSNumericValue} value
+ * @param {{ rootFontSize?: number, percentBase?: number|null }} [options]
+ * @returns {number|null}
+ */
 export function toPx(value, { rootFontSize = 16, percentBase = null } = {}) {
 	const v = typeof value === "string" ? parseNumeric(value) : value;
 	if (!v) return null;

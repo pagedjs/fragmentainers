@@ -33,8 +33,6 @@ const INLINE_DISPLAYS = new Set([
  * the results. Does not mutate the DOM.
  */
 
-// `.toString()` fallback covers properties Chromium under-reifies (e.g.
-// `border-block-*-width`), which come back as bare CSSStyleValue.
 function cssPx(value) {
 	return typedLengthToPx(value) ?? 0;
 }

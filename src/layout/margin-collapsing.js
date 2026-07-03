@@ -68,20 +68,6 @@ export function isSelfCollapsing(node, laidOutBlockSize) {
 	return true;
 }
 
-/**
- * Walk the through-collapse chain starting from `node`, collecting margins
- * from first children that escape through nodes with no border/padding.
- *
- * CSS2 §8.3.1 / §3.2: a parent's margin-block-start collapses with its
- * first child's margin-block-start when the parent has no border-block-start
- * and no padding-block-start. This repeats recursively.
- *
- * Replaces the single-level `collapsedMarginBlockStart` getter that only
- * checked one level deep.
- *
- * @param {Object} node - LayoutNode to walk
- * @returns {number[]} Margins from the through-collapse chain (may be empty)
- */
 function firstInFlowChild(node) {
 	const children = node.children;
 	if (!children) return null;
@@ -102,6 +88,17 @@ function lastInFlowChild(node) {
 	return null;
 }
 
+/**
+ * Walk the through-collapse chain starting from `node`, collecting margins
+ * from first children that escape through nodes with no border/padding.
+ *
+ * CSS2 §8.3.1 / §3.2: a parent's margin-block-start collapses with its
+ * first child's margin-block-start when the parent has no border-block-start
+ * and no padding-block-start. This repeats recursively.
+ *
+ * @param {Object} node - LayoutNode to walk
+ * @returns {number[]} Margins from the through-collapse chain (may be empty)
+ */
 export function collectThroughMargins(node) {
 	// A BFC root does not margin-collapse with its in-flow children, so nothing
 	// collapses up through it (CSS2 §8.3.1, §4.2).

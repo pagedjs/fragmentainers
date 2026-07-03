@@ -1,6 +1,7 @@
 import { DOMLayoutNode } from "../layout/layout-node.js";
 import { isForcedBreakValue } from "../fragmentation/tokens.js";
 import { handlers } from "../handlers/registry.js";
+import { splitSelectorList } from "../styles/selector-utils.js";
 import { walkSheets, wrappersActive } from "../styles/walk-rules.js";
 import "../components/content-measure.js";
 
@@ -9,34 +10,6 @@ export {
 	measureElementInlineSize,
 	measureCellIntrinsicBlockSize,
 } from "./block-size.js";
-
-/**
- * Resolve break-before, break-after, and page values for top-level
- * elements by walking CSSStyleSheet rules and matching selectors.
- * Works on elements in a DocumentFragment (no live DOM needed).
- *
- * @param {Element[]} elements — top-level child elements
- * @param {CSSStyleSheet[]} styles — adopted stylesheets
- * @returns {{ breakBefore: string, breakAfter: string, page: string|null }[]}
- */
-// Split a selector list on top-level commas only (not commas inside :is()/
-// :not()/:where()/:has() or [attr~="a,b"]).
-function splitSelectorList(selectorText) {
-	const out = [];
-	let depth = 0;
-	let start = 0;
-	for (let i = 0; i < selectorText.length; i++) {
-		const ch = selectorText[i];
-		if (ch === "(" || ch === "[") depth++;
-		else if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
-		else if (ch === "," && depth === 0) {
-			out.push(selectorText.slice(start, i));
-			start = i + 1;
-		}
-	}
-	out.push(selectorText.slice(start));
-	return out.map((s) => s.trim()).filter(Boolean);
-}
 
 function compareSpecificity(a, b) {
 	if (a[0] !== b[0]) return a[0] - b[0];
@@ -100,6 +73,15 @@ function cascadeLess(x, y) {
 	return x.order - y.order;
 }
 
+/**
+ * Resolve break-before, break-after, and page values for top-level
+ * elements by walking CSSStyleSheet rules and matching selectors.
+ * Works on elements in a DocumentFragment (no live DOM needed).
+ *
+ * @param {Element[]} elements — top-level child elements
+ * @param {CSSStyleSheet[]} styles — adopted stylesheets
+ * @returns {{ breakBefore: string, breakAfter: string, page: string|null }[]}
+ */
 function resolveBreakProperties(elements, styles) {
 	const breakRules = [];
 	let order = 0;

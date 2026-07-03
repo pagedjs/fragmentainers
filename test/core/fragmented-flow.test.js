@@ -274,6 +274,36 @@ test.describe("FragmentedFlow iterator", () => {
 
 		expect(result.done).toBe(false);
 	});
+
+	test("next() resumes after iterator cleanup releases the measurer", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			await import("/src/components/fragment-container.js");
+
+			const template = document.createElement("template");
+			template.innerHTML = `<div style="margin:0;padding:0">
+        <div style="height:200px;margin:0;padding:0"></div>
+        <div style="height:200px;margin:0;padding:0"></div>
+        <div style="height:200px;margin:0;padding:0"></div>
+      </div>`;
+
+			const layout = new FragmentedFlow(template.content, { width: 600, height: 250 });
+			const first = layout.next();
+			layout.return();
+			const second = layout.next();
+			const r = {
+				firstDone: first.done,
+				secondDone: second.done,
+				secondHasValue: second.value !== undefined,
+			};
+			layout.destroy();
+			return r;
+		});
+
+		expect(result.firstDone).toBe(false);
+		expect(result.secondDone).toBe(false);
+		expect(result.secondHasValue).toBe(true);
+	});
 });
 
 test.describe("FragmentedFlow.flow() (browser)", () => {
