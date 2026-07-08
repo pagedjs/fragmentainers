@@ -60,6 +60,7 @@ export class DOMLayoutNode extends LayoutNode {
 	#cumulativeHeights = null;
 	#display = null;
 	#textAlign = null;
+	#textAlignLast = null;
 	#whiteSpace = null;
 	#marginBlockStart = null;
 	#marginBlockEnd = null;
@@ -111,6 +112,7 @@ export class DOMLayoutNode extends LayoutNode {
 		const map = this.#styleMap;
 		this.#display = cssKeyword(map.get("display"), "block");
 		this.#textAlign = cssKeyword(map.get("text-align"), "start");
+		this.#textAlignLast = cssKeyword(map.get("text-align-last"), "auto");
 		this.#whiteSpace = cssKeyword(map.get("white-space"), "normal");
 		this.#marginBlockStart = cssPx(map.get("margin-block-start"));
 		this.#marginBlockEnd = cssPx(map.get("margin-block-end"));
@@ -429,6 +431,11 @@ export class DOMLayoutNode extends LayoutNode {
 	get textAlign() {
 		if (this.#textAlign === null) this.#getStyleMap();
 		return this.#textAlign ?? "start";
+	}
+
+	get textAlignLast() {
+		if (this.#textAlignLast === null) this.#getStyleMap();
+		return this.#textAlignLast ?? "auto";
 	}
 
 	get whiteSpace() {

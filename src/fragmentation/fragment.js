@@ -340,14 +340,39 @@ export class Fragment {
 			(inputBreakToken.type === BREAK_TOKEN_INLINE
 				? inputBreakToken.textOffset > 0
 				: inputBreakToken.consumedBlockSize > 0)
-		)
+		) {
 			el.setAttribute("data-split-from", "");
+		}
 		if (this.breakToken) {
 			el.setAttribute("data-split-to", "");
-			if (this.node.textAlign === "justify") {
-				el.setAttribute("data-justify-last", "");
-			}
+			this.#applyTextAlignLast(el);
 		}
+	}
+
+	#isDeepestSplitElement() {
+		const childBreakTokens = this.breakToken?.childBreakTokens ?? [];
+		return !childBreakTokens.some((token) => !token.isAtBlockEnd);
+	}
+
+	#applyTextAlignLast(el) {
+		if (!this.#isDeepestSplitElement()) return;
+
+		const alignLast = this.#resolvedTextAlignLastForSplit();
+		if (!alignLast) return;
+
+		el.dataset.alignLastSplitElement = alignLast;
+		el.style.setProperty("text-align-last", alignLast, "important");
+		if (alignLast === "justify") {
+			el.setAttribute("data-justify-last", "");
+		}
+	}
+
+	#resolvedTextAlignLastForSplit() {
+		const alignLast = this.node.textAlignLast;
+		if (alignLast === "auto") {
+			return this.node.textAlign === "justify" ? "justify" : null;
+		}
+		return alignLast;
 	}
 
 	/**

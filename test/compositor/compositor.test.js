@@ -478,7 +478,9 @@ test.describe("Fragment.build", () => {
 		expect(result.hasSplitTo).toBe(true);
 	});
 
-	test("sets data-justify-last on split fragments with text-align: justify", async ({ page }) => {
+	test("applies resolved text-align-last on split fragments with text-align: justify", async ({
+		page,
+	}) => {
 		const result = await page.evaluate(async () => {
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
@@ -508,12 +510,135 @@ test.describe("Fragment.build", () => {
 			const out = {
 				hasSplitTo: composed.hasAttribute("data-split-to"),
 				hasJustifyLast: composed.hasAttribute("data-justify-last"),
+				alignLast: composed.dataset.alignLastSplitElement,
+				styleAlignLast: composed.style.getPropertyValue("text-align-last"),
+				stylePriority: composed.style.getPropertyPriority("text-align-last"),
 			};
 			container.remove();
 			return out;
 		});
 		expect(result.hasSplitTo).toBe(true);
 		expect(result.hasJustifyLast).toBe(true);
+		expect(result.alignLast).toBe("justify");
+		expect(result.styleAlignLast).toBe("justify");
+		expect(result.stylePriority).toBe("important");
+	});
+
+	test("applies explicit text-align-last on the deepest split element", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px";
+			document.body.appendChild(container);
+
+			const outer = document.createElement("div");
+			const child = document.createElement("div");
+			child.style.textAlign = "left";
+			child.style.textAlignLast = "center";
+			child.textContent = "Centered final split line";
+			outer.appendChild(child);
+			container.appendChild(outer);
+
+			const outerNode = new DOMLayoutNode(outer);
+			const childNodes = outerNode.children;
+
+			const childFrag = new Fragment(childNodes[0], 50);
+			childFrag.breakToken = new BlockBreakToken(childNodes[0]);
+			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
+
+			const docFrag = rootFragment.build(null);
+			const composed = docFrag.childNodes[0];
+
+			const out = {
+				hasSplitTo: composed.hasAttribute("data-split-to"),
+				hasJustifyLast: composed.hasAttribute("data-justify-last"),
+				alignLast: composed.dataset.alignLastSplitElement,
+				styleAlignLast: composed.style.getPropertyValue("text-align-last"),
+				stylePriority: composed.style.getPropertyPriority("text-align-last"),
+			};
+			container.remove();
+			return out;
+		});
+
+		expect(result.hasSplitTo).toBe(true);
+		expect(result.hasJustifyLast).toBe(false);
+		expect(result.alignLast).toBe("center");
+		expect(result.styleAlignLast).toBe("center");
+		expect(result.stylePriority).toBe("important");
+	});
+
+	test("sets data-justify-last only on the deepest split element", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px";
+			document.body.appendChild(container);
+
+			const root = document.createElement("div");
+			const section = document.createElement("section");
+			const wrapper = document.createElement("div");
+			const paragraph = document.createElement("p");
+			section.style.textAlign = "justify";
+			paragraph.textContent = "Justified content that breaks inside a nested element";
+			wrapper.appendChild(paragraph);
+			section.appendChild(wrapper);
+			root.appendChild(section);
+			container.appendChild(root);
+
+			const rootNode = new DOMLayoutNode(root);
+			const sectionNode = rootNode.children[0];
+			const wrapperNode = sectionNode.children[0];
+			const paragraphNode = wrapperNode.children[0];
+
+			const paragraphToken = new BlockBreakToken(paragraphNode);
+			const wrapperToken = new BlockBreakToken(wrapperNode);
+			wrapperToken.childBreakTokens = [paragraphToken];
+			const sectionToken = new BlockBreakToken(sectionNode);
+			sectionToken.childBreakTokens = [wrapperToken];
+
+			const paragraphFrag = new Fragment(paragraphNode, 50);
+			paragraphFrag.breakToken = paragraphToken;
+			const wrapperFrag = new Fragment(wrapperNode, 50, [paragraphFrag]);
+			wrapperFrag.breakToken = wrapperToken;
+			const sectionFrag = new Fragment(sectionNode, 50, [wrapperFrag]);
+			sectionFrag.breakToken = sectionToken;
+			const rootFragment = new Fragment(rootNode, 50, [sectionFrag]);
+
+			const docFrag = rootFragment.build(null);
+			const composedSection = docFrag.childNodes[0];
+			const composedWrapper = composedSection.firstElementChild;
+			const composedParagraph = composedWrapper.firstElementChild;
+
+			const out = {
+				sectionHasSplitTo: composedSection.hasAttribute("data-split-to"),
+				sectionHasJustifyLast: composedSection.hasAttribute("data-justify-last"),
+				sectionAlignLast: composedSection.dataset.alignLastSplitElement,
+				wrapperHasSplitTo: composedWrapper.hasAttribute("data-split-to"),
+				wrapperHasJustifyLast: composedWrapper.hasAttribute("data-justify-last"),
+				wrapperAlignLast: composedWrapper.dataset.alignLastSplitElement,
+				paragraphHasSplitTo: composedParagraph.hasAttribute("data-split-to"),
+				paragraphHasJustifyLast: composedParagraph.hasAttribute("data-justify-last"),
+				paragraphAlignLast: composedParagraph.dataset.alignLastSplitElement,
+			};
+			container.remove();
+			return out;
+		});
+
+		expect(result.sectionHasSplitTo).toBe(true);
+		expect(result.sectionHasJustifyLast).toBe(false);
+		expect(result.sectionAlignLast).toBe(undefined);
+		expect(result.wrapperHasSplitTo).toBe(true);
+		expect(result.wrapperHasJustifyLast).toBe(false);
+		expect(result.wrapperAlignLast).toBe(undefined);
+		expect(result.paragraphHasSplitTo).toBe(true);
+		expect(result.paragraphHasJustifyLast).toBe(true);
+		expect(result.paragraphAlignLast).toBe("justify");
 	});
 
 	test("does not set data-justify-last when text-align is not justify", async ({ page }) => {
@@ -546,12 +671,16 @@ test.describe("Fragment.build", () => {
 			const out = {
 				hasSplitTo: composed.hasAttribute("data-split-to"),
 				hasJustifyLast: composed.hasAttribute("data-justify-last"),
+				alignLast: composed.dataset.alignLastSplitElement,
+				styleAlignLast: composed.style.getPropertyValue("text-align-last"),
 			};
 			container.remove();
 			return out;
 		});
 		expect(result.hasSplitTo).toBe(true);
 		expect(result.hasJustifyLast).toBe(false);
+		expect(result.alignLast).toBe(undefined);
+		expect(result.styleAlignLast).toBe("");
 	});
 
 	test("sets data-justify-last after element is detached from DOM", async ({ page }) => {
@@ -589,12 +718,18 @@ test.describe("Fragment.build", () => {
 			const out = {
 				hasSplitTo: composed.hasAttribute("data-split-to"),
 				hasJustifyLast: composed.hasAttribute("data-justify-last"),
+				alignLast: composed.dataset.alignLastSplitElement,
+				styleAlignLast: composed.style.getPropertyValue("text-align-last"),
+				stylePriority: composed.style.getPropertyPriority("text-align-last"),
 			};
 			container.remove();
 			return out;
 		});
 		expect(result.hasSplitTo).toBe(true);
 		expect(result.hasJustifyLast).toBe(true);
+		expect(result.alignLast).toBe("justify");
+		expect(result.styleAlignLast).toBe("justify");
+		expect(result.stylePriority).toBe("important");
 	});
 
 	test("sets data-truncate-margin on fragment with truncateMarginBlockStart", async ({
