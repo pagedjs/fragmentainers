@@ -45,6 +45,10 @@ export class FlexAlgorithm {
 		}
 	}
 
+	get node() {
+		return this.#node;
+	}
+
 	*layout() {
 		const isRowDirection =
 			this.#node.flexDirection === "row" || this.#node.flexDirection === "row-reverse";

@@ -3,12 +3,12 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("MutationSync with shared clone map", () => {
 	test("populates the clone map via onClone during composition", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
 			await import("/src/components/content-measure.js");
 			await import("/src/components/fragment-container.js");
 
-			FragmentedFlow.register(MutationSync);
+			Fragmenter.handlers.push(MutationSync);
 
 			try {
 				const template = document.createElement("template");
@@ -17,10 +17,10 @@ test.describe("MutationSync with shared clone map", () => {
           <div id="b" style="height: 100px; margin: 0;"></div>
         </div>`;
 
-				const layout = new FragmentedFlow(template.content, { width: 400, height: 150 });
+				const layout = new Fragmenter(template.content, { width: 400, height: 150 });
 				const flow = layout.flow();
 
-				const syncHandler = FragmentedFlow.getHandler(MutationSync);
+				const syncHandler = layout.handlers.get(MutationSync);
 
 				const fragEl = flow[0];
 				document.body.appendChild(fragEl);
@@ -39,7 +39,7 @@ test.describe("MutationSync with shared clone map", () => {
 				layout?.destroy();
 				return { cloneExists, changed };
 			} finally {
-				FragmentedFlow.remove(MutationSync);
+				Fragmenter.handlers.splice(Fragmenter.handlers.indexOf(MutationSync), 1);
 			}
 		});
 
@@ -52,12 +52,14 @@ test.describe("MutationSync attribute sync", () => {
 	test("syncs attribute changes via clone map", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
-			const { handlers } = await import("/src/handlers/registry.js");
+			const { CloneMap } = await import("/src/fragmentation/clone-map.js");
 
+			const cloneMap = new CloneMap();
 			const sync = new MutationSync();
+			sync.init({}, { cloneMap });
 			const source = document.createElement("p");
 			const clone = document.createElement("p");
-			handlers.trackClone(clone, source);
+			cloneMap.track(clone, source);
 			clone.setAttribute("class", "highlight");
 
 			const mutation = {
@@ -77,12 +79,14 @@ test.describe("MutationSync attribute sync", () => {
 	test("skips compositor-managed attributes", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
-			const { handlers } = await import("/src/handlers/registry.js");
+			const { CloneMap } = await import("/src/fragmentation/clone-map.js");
 
+			const cloneMap = new CloneMap();
 			const sync = new MutationSync();
+			sync.init({}, { cloneMap });
 			const source = document.createElement("div");
 			const clone = document.createElement("div");
-			handlers.trackClone(clone, source);
+			cloneMap.track(clone, source);
 			clone.setAttribute("data-split-from", "");
 
 			const mutation = {
@@ -101,13 +105,15 @@ test.describe("MutationSync attribute sync", () => {
 	test("removes attribute from source when removed from clone", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
-			const { handlers } = await import("/src/handlers/registry.js");
+			const { CloneMap } = await import("/src/fragmentation/clone-map.js");
 
+			const cloneMap = new CloneMap();
 			const sync = new MutationSync();
+			sync.init({}, { cloneMap });
 			const source = document.createElement("div");
 			source.setAttribute("class", "old");
 			const clone = document.createElement("div");
-			handlers.trackClone(clone, source);
+			cloneMap.track(clone, source);
 
 			const mutation = {
 				type: "attributes",
@@ -125,8 +131,10 @@ test.describe("MutationSync attribute sync", () => {
 	test("ignores unmapped elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
+			const { CloneMap } = await import("/src/fragmentation/clone-map.js");
 
 			const sync = new MutationSync();
+			sync.init({}, { cloneMap: new CloneMap() });
 			const clone = document.createElement("div");
 			clone.setAttribute("class", "test");
 
@@ -148,9 +156,11 @@ test.describe("MutationSync element removal", () => {
 	test("removes source element when clone is removed", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
-			const { handlers } = await import("/src/handlers/registry.js");
+			const { CloneMap } = await import("/src/fragmentation/clone-map.js");
 
+			const cloneMap = new CloneMap();
 			const sync = new MutationSync();
+			sync.init({}, { cloneMap });
 			const sourceParent = document.createElement("div");
 			const sourceP1 = document.createElement("p");
 			sourceP1.textContent = "Keep";
@@ -160,7 +170,7 @@ test.describe("MutationSync element removal", () => {
 			sourceParent.appendChild(sourceP2);
 
 			const removedClone = document.createElement("p");
-			handlers.trackClone(removedClone, sourceP2);
+			cloneMap.track(removedClone, sourceP2);
 
 			const mutation = {
 				type: "childList",
@@ -186,9 +196,11 @@ test.describe("MutationSync element addition", () => {
 	test("inserts new element at correct position in source", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
-			const { handlers } = await import("/src/handlers/registry.js");
+			const { CloneMap } = await import("/src/fragmentation/clone-map.js");
 
+			const cloneMap = new CloneMap();
 			const sync = new MutationSync();
+			sync.init({}, { cloneMap });
 			const sourceDiv = document.createElement("div");
 			const sourceP1 = document.createElement("p");
 			sourceP1.textContent = "First";
@@ -198,11 +210,11 @@ test.describe("MutationSync element addition", () => {
 			sourceDiv.appendChild(sourceP2);
 
 			const mockParent = document.createElement("div");
-			handlers.trackClone(mockParent, sourceDiv);
+			cloneMap.track(mockParent, sourceDiv);
 			const cloneP1 = document.createElement("p");
-			handlers.trackClone(cloneP1, sourceP1);
+			cloneMap.track(cloneP1, sourceP1);
 			const cloneP2 = document.createElement("p");
-			handlers.trackClone(cloneP2, sourceP2);
+			cloneMap.track(cloneP2, sourceP2);
 			const newH2 = document.createElement("h2");
 			newH2.textContent = "Inserted";
 
@@ -234,17 +246,19 @@ test.describe("MutationSync element addition", () => {
 	test("maps added element and descendants into clone map", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { MutationSync } = await import("/src/handlers/mutation-sync.js");
-			const { handlers } = await import("/src/handlers/registry.js");
+			const { CloneMap } = await import("/src/fragmentation/clone-map.js");
 
+			const cloneMap = new CloneMap();
 			const sync = new MutationSync();
+			sync.init({}, { cloneMap });
 			const sourceDiv = document.createElement("div");
 			const sourceP = document.createElement("p");
 			sourceDiv.appendChild(sourceP);
 
 			const mockParent = document.createElement("div");
-			handlers.trackClone(mockParent, sourceDiv);
+			cloneMap.track(mockParent, sourceDiv);
 			const cloneP = document.createElement("p");
-			handlers.trackClone(cloneP, sourceP);
+			cloneMap.track(cloneP, sourceP);
 
 			const newDiv = document.createElement("div");
 			const innerSpan = document.createElement("span");
@@ -282,7 +296,7 @@ test.describe("MutationSync element addition", () => {
 test.describe("FragmentContainerElement.takeMutationRecords()", () => {
 	test("returns buffered mutations and clears the buffer", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/content-measure.js");
 			await import("/src/components/fragment-container.js");
 
@@ -290,7 +304,7 @@ test.describe("FragmentContainerElement.takeMutationRecords()", () => {
 			template.innerHTML = `<div style="margin:0; padding:0;">
         <div style="height: 200px; margin: 0;"></div>
       </div>`;
-			const layout = new FragmentedFlow(template.content, { width: 400, height: 100 });
+			const layout = new Fragmenter(template.content, { width: 400, height: 100 });
 			const flow = layout.flow();
 			const fragEl = flow[0];
 			document.body.appendChild(fragEl);
@@ -328,7 +342,7 @@ test.describe("FragmentContainerElement.takeMutationRecords()", () => {
 test.describe("reflow with rebuild", () => {
 	test("reflow(0, { rebuild: true }) picks up structural changes", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/content-measure.js");
 			await import("/src/components/fragment-container.js");
 
@@ -336,7 +350,7 @@ test.describe("reflow with rebuild", () => {
 			template.innerHTML = `<div style="margin:0; padding:0;">
         <div style="height: 100px; margin: 0;"></div>
       </div>`;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				width: 400,
 				height: 200,
 				trackRefs: true,

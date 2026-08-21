@@ -44,6 +44,19 @@ export class FragmentFlow {
 	#root = new FlowRootNode(this.#queue);
 	#breakToken = null;
 
+	/**
+	 * @param {import('./flow-context.js').FlowContext} [context] - the owning
+	 *   flow's context. Required before layoutFragmentainer(); handlers
+	 *   receive it in init(options, context).
+	 */
+	constructor(context = null) {
+		if (context) this.#root.context = context;
+	}
+
+	set context(context) {
+		this.#root.context = context;
+	}
+
 	enqueue(nodes) {
 		if (!nodes) return;
 		for (const node of nodes) {

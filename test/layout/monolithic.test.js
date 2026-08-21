@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("Phase 4: Monolithic content", () => {
 	test("pushes a monolithic element to the next page when it does not fit", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -57,7 +57,7 @@ test.describe("Phase 4: Monolithic content", () => {
 
 	test("slices monolithic at page boundary when it exceeds the page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -98,7 +98,7 @@ test.describe("Phase 4: Monolithic content", () => {
 
 	test("monolithic elements produce break tokens when sliced in page mode", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -136,7 +136,7 @@ test.describe("Phase 4: Monolithic content", () => {
 
 	test("pushes scrollable monolithic then slices if exceeds page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -176,7 +176,7 @@ test.describe("Phase 4: Monolithic content", () => {
 
 	test("monolithic element that fits is placed normally", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -214,7 +214,7 @@ test.describe("Phase 4: Monolithic content", () => {
 
 	test("a monolithic element with block children is not fragmented", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -262,7 +262,7 @@ test.describe("Phase 4: Monolithic content", () => {
 
 	test("sliced monolithic element clips each fragment to its blockSize", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 
 			const frag = document.createDocumentFragment();
 			const root = document.createElement("div");
@@ -270,7 +270,7 @@ test.describe("Phase 4: Monolithic content", () => {
 				'<div id="tall" style="height:500px;overflow:hidden;background:#f00">tall content</div>';
 			frag.appendChild(root);
 
-			const flow = new FragmentedFlow(frag, { width: 300, height: 200 });
+			const flow = new Fragmenter(frag, { width: 300, height: 200 });
 			const pages = [];
 			for (const el of flow) {
 				pages.push(el);

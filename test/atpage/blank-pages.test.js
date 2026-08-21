@@ -194,7 +194,7 @@ test.describe("forcedBreakValue on tokens", () => {
 
 	test("break-before: right stores value through layout", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -220,7 +220,7 @@ test.describe("forcedBreakValue on tokens", () => {
 
 	test("break-after: left stores value through layout", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -252,7 +252,7 @@ test.describe("Blank page insertion", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -281,7 +281,7 @@ test.describe("Blank page insertion", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -310,7 +310,7 @@ test.describe("Blank page insertion", () => {
 
 	test("break-before: recto works like right", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -332,7 +332,7 @@ test.describe("Blank page insertion", () => {
 
 	test("break-before: verso works like left", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -359,7 +359,7 @@ test.describe("Blank page insertion", () => {
 
 	test("no blank page when already on correct side", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -385,7 +385,7 @@ test.describe("Blank page insertion", () => {
 
 	test("break-after: right inserts a blank page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -407,7 +407,7 @@ test.describe("Blank page insertion", () => {
 
 	test("blank pages are counted in the page sequence", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -437,7 +437,7 @@ test.describe("Blank page insertion", () => {
 
 	test("blank page has constraints from resolver", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -469,7 +469,7 @@ test.describe("Blank page insertion", () => {
 
 	test("break-before: page does NOT insert blank pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -563,7 +563,7 @@ test.describe("First page blank page edge case", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -592,7 +592,7 @@ test.describe("First page blank page edge case", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -613,5 +613,47 @@ test.describe("First page blank page edge case", () => {
 		});
 		expect(result.length).toBe(1);
 		expect(result.page0Blank).toBe(false);
+	});
+});
+
+test.describe("Resolvers without page sides", () => {
+	test("a resolver with no isVerso ignores side-specific breaks instead of failing", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			// A region-style resolver: sizes fragmentainers but has no
+			// recto/verso, so it can't answer "which side is this?".
+			const resolver = {
+				resolve() {
+					return {
+						contentArea: { inlineSize: 600, blockSize: 1000 },
+						toConstraintSpace: () =>
+							new ConstraintSpace({
+								availableInlineSize: 600,
+								availableBlockSize: 1000,
+								fragmentainerBlockSize: 1000,
+								fragmentationType: "region",
+							}),
+					};
+				},
+			};
+
+			const root = blockNode({
+				children: [
+					blockNode({ blockSize: 50, breakBefore: "left" }),
+					blockNode({ blockSize: 50 }),
+				],
+			});
+
+			const pages = createFragments(root, resolver);
+			return { length: pages.length, blank: pages.some((p) => p.isBlank) };
+		});
+
+		expect(result.length).toBe(1);
+		expect(result.blank).toBe(false);
 	});
 });

@@ -16,6 +16,7 @@ export class FlowThreadNode extends LayoutNode {
 	constructor(node) {
 		super();
 		this.#node = node;
+		this.adoptContextFrom(node);
 	}
 
 	get children() {

@@ -114,7 +114,7 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
@@ -203,7 +203,7 @@ test.describe("Phase 6: Parallel flows (table row)", () => {
 test.describe("Completed cell rendering across pages", () => {
 	test("a short cell's text is not re-rendered on the row's continuation", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
@@ -219,7 +219,7 @@ test.describe("Completed cell rendering across pages", () => {
 				</table>
 			</div>`;
 
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 200,

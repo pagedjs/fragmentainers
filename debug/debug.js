@@ -1,4 +1,4 @@
-import { FragmentedFlow, PageResolver } from "../src/index.js";
+import { Fragmenter, PageResolver } from "../src/index.js";
 import { ContentParser } from "./content-parser.js";
 import "../src/components/fragment-container.js";
 import "../specs/helpers/page-container.js";
@@ -131,7 +131,7 @@ async function run() {
 
 		const resolver = PageResolver.fromStyleSheets(parsed.styles);
 
-		const layout = new FragmentedFlow(parsed.fragment, {
+		const layout = new Fragmenter(parsed.fragment, {
 			styles: parsed.styles,
 			resolver: resolver.pageRules.length > 0 ? resolver : undefined,
 		});

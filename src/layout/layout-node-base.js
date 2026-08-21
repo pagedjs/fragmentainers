@@ -11,6 +11,41 @@
  * wrapping, but those are outside the base interface.
  */
 export class LayoutNode {
+	#context = null;
+
+	// Flow context
+
+	/**
+	 * The FlowContext of the flow this node belongs to (handlers, clone
+	 * map). Set on root nodes by whoever creates them; children inherit
+	 * it at construction via adoptContextFrom(). Throws when unset so a
+	 * node-creation path that forgot to propagate fails loudly.
+	 *
+	 * @returns {import('../fragmentation/flow-context.js').FlowContext}
+	 */
+	get context() {
+		if (this.#context === null) {
+			throw new Error(`LayoutNode ${this.debugName} has no flow context`);
+		}
+		return this.#context;
+	}
+
+	set context(value) {
+		this.#context = value;
+	}
+
+	get hasContext() {
+		return this.#context !== null;
+	}
+
+	/**
+	 * Inherit the parent's context (which may still be unset).
+	 * @param {LayoutNode} parent
+	 */
+	adoptContextFrom(parent) {
+		this.#context = parent.#context;
+	}
+
 	// Structure
 
 	get children() {

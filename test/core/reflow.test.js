@@ -1,9 +1,9 @@
 import { test, expect } from "../browser-fixture.js";
 
-test.describe("FragmentedFlow.reflow()", () => {
+test.describe("Fragmenter.reflow()", () => {
 	test("reflow(0) matches a fresh layout", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
@@ -13,13 +13,13 @@ test.describe("FragmentedFlow.reflow()", () => {
         <div style="height:200px;margin:0;padding:0"></div>
       </div>`;
 
-			const layout1 = new FragmentedFlow(template.content.cloneNode(true), {
+			const layout1 = new Fragmenter(template.content.cloneNode(true), {
 				width: 600,
 				height: 300,
 			});
 			const fresh = layout1.flow().fragments;
 
-			const layout2 = new FragmentedFlow(template.content.cloneNode(true), {
+			const layout2 = new Fragmenter(template.content.cloneNode(true), {
 				width: 600,
 				height: 300,
 			});
@@ -51,7 +51,7 @@ test.describe("FragmentedFlow.reflow()", () => {
 
 	test("reflow(1) matches original fragments from index 1", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
@@ -61,13 +61,13 @@ test.describe("FragmentedFlow.reflow()", () => {
         <div style="height:200px;margin:0;padding:0"></div>
       </div>`;
 
-			const layout1 = new FragmentedFlow(template.content.cloneNode(true), {
+			const layout1 = new Fragmenter(template.content.cloneNode(true), {
 				width: 600,
 				height: 300,
 			});
 			const fresh = layout1.flow().fragments;
 
-			const layout2 = new FragmentedFlow(template.content.cloneNode(true), {
+			const layout2 = new Fragmenter(template.content.cloneNode(true), {
 				width: 600,
 				height: 300,
 			});
@@ -94,7 +94,7 @@ test.describe("FragmentedFlow.reflow()", () => {
 
 	test("reflow() restores counter state from preceding fragment", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
@@ -106,7 +106,7 @@ test.describe("FragmentedFlow.reflow()", () => {
         </div>
       </div>`;
 
-			const layout = new FragmentedFlow(template.content, { width: 600, height: 300 });
+			const layout = new Fragmenter(template.content, { width: 600, height: 300 });
 			const fragments = layout.flow().fragments;
 
 			const countersBefore = fragments[0].counterState;
@@ -127,7 +127,7 @@ test.describe("FragmentedFlow.reflow()", () => {
 
 	test("reflow(0) on single-fragment content produces identical result", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
@@ -135,7 +135,7 @@ test.describe("FragmentedFlow.reflow()", () => {
         <div style="height:100px;margin:0;padding:0"></div>
       </div>`;
 
-			const layout = new FragmentedFlow(template.content, { width: 600, height: 300 });
+			const layout = new Fragmenter(template.content, { width: 600, height: 300 });
 			const fresh = layout.flow().fragments;
 
 			const reflowed = layout.reflow(0);
@@ -154,17 +154,17 @@ test.describe("FragmentedFlow.reflow()", () => {
 	});
 });
 
-test.describe("FragmentedFlow.reflow() (browser)", () => {
+test.describe("Fragmenter.reflow() (browser)", () => {
 	test("reflow(0) after height change produces different fragment count", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">
         <div id="target" style="height: 200px; margin: 0;"></div>
       </div>`;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				width: 400,
 				height: 100,
 			});
@@ -189,14 +189,14 @@ test.describe("FragmentedFlow.reflow() (browser)", () => {
 
 	test("reflow(0) after height increase produces more fragments", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">
         <div id="target" style="height: 100px; margin: 0;"></div>
       </div>`;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				width: 400,
 				height: 100,
 			});
@@ -221,7 +221,7 @@ test.describe("FragmentedFlow.reflow() (browser)", () => {
 
 	test("reflow(1) preserves fragment 0 and re-layouts from index 1", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
@@ -230,7 +230,7 @@ test.describe("FragmentedFlow.reflow() (browser)", () => {
         <div style="height: 100px; margin: 0;"></div>
         <div style="height: 100px; margin: 0;"></div>
       </div>`;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				width: 400,
 				height: 150,
 			});
@@ -260,14 +260,14 @@ test.describe("FragmentedFlow.reflow() (browser)", () => {
 test.describe("layout.reflow() returns FragmentationContext (browser)", () => {
 	test("reflow(0) returns a FragmentationContext with elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">
         <div style="height: 200px; margin: 0;"></div>
       </div>`;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				width: 400,
 				height: 100,
 			});
@@ -288,14 +288,14 @@ test.describe("layout.reflow() returns FragmentationContext (browser)", () => {
 
 	test("reflow(0) after size change returns updated elements", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">
         <div id="target" style="height: 200px; margin: 0;"></div>
       </div>`;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				width: 400,
 				height: 100,
 			});
@@ -321,14 +321,14 @@ test.describe("layout.reflow() returns FragmentationContext (browser)", () => {
 test.describe("FragmentContainerElement observers (browser)", () => {
 	test("composed elements have correct fragmentIndex", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">
         <div style="height: 200px; margin: 0;"></div>
       </div>`;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				width: 400,
 				height: 100,
 			});
@@ -349,14 +349,14 @@ test.describe("FragmentContainerElement observers (browser)", () => {
 
 	test("startObserving() fires fragment-change on content mutation", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">
         <div style="height: 200px; margin: 0;"></div>
       </div>`;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				width: 400,
 				height: 100,
 			});
@@ -400,14 +400,14 @@ test.describe("FragmentContainerElement observers (browser)", () => {
 
 	test("stopObserving() prevents further events", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0; padding:0;">
         <div style="height: 200px; margin: 0;"></div>
       </div>`;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				width: 400,
 				height: 100,
 			});

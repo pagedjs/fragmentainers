@@ -38,6 +38,10 @@ export class TableRowAlgorithm {
 		this.#earlyBreakTarget = earlyBreakTarget;
 	}
 
+	get node() {
+		return this.#node;
+	}
+
 	*layout() {
 		const cells = this.#node.cells || this.#node.children;
 		yield* this.layoutCells(cells);

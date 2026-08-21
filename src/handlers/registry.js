@@ -1,52 +1,81 @@
 import { LayoutHandler } from "./handler.js";
 import { walkSheets, insertWrappedRule } from "../styles/walk-rules.js";
 
-class HandlerRegistry {
-	#classes = [];
-	#created = [];
+/**
+ * Resolve an ordered list of handler classes into the list a flow will
+ * instantiate:
+ *   - anything that is not a LayoutHandler subclass is rejected;
+ *   - a class listed twice is kept once, at its first position;
+ *   - a class that extends an earlier entry replaces that entry in
+ *     place (override), so handler ordering constraints still hold.
+ *
+ * @param {Array<typeof LayoutHandler>} classes
+ * @returns {Array<typeof LayoutHandler>}
+ */
+export function resolveHandlerClasses(classes) {
+	const resolved = [];
+	for (const Cls of classes) {
+		if (typeof Cls !== "function" || !(Cls.prototype instanceof LayoutHandler)) {
+			throw new TypeError("Handler must be a class that extends LayoutHandler");
+		}
+		if (resolved.includes(Cls)) continue;
+		const overrides = resolved.findIndex((Base) => Cls.prototype instanceof Base);
+		if (overrides !== -1) {
+			resolved[overrides] = Cls;
+		} else {
+			resolved.push(Cls);
+		}
+	}
+	return resolved;
+}
+
+/**
+ * Owns the handler instances of one flow. Constructed from a class list
+ * (normally `Fragmenter.handlers`); instances are created by init()
+ * and destroyed only by this registry's destroy(). Two registries never
+ * share instances.
+ */
+export class HandlerRegistry {
+	#classes;
+	#context;
 	#handlers = [];
-	#cloneMap = new WeakMap();
 	#injectedSheet = null;
 
 	/**
-	 * Register a handler class. A fresh instance is created each time
-	 * init() is called (once per FragmentedFlow initialization).
-	 *
-	 * @param {typeof LayoutHandler} HandlerClass
+	 * @param {Array<typeof LayoutHandler>} classes — ordered handler classes
+	 * @param {import('../fragmentation/flow-context.js').FlowContext|null} [context]
+	 *   passed to every handler's init(options, context)
 	 */
-	register(HandlerClass) {
-		if (typeof HandlerClass !== "function" || !(HandlerClass.prototype instanceof LayoutHandler)) {
-			throw new TypeError("Handler must be a class that extends LayoutHandler");
-		}
-		if (!this.#classes.includes(HandlerClass)) {
-			this.#classes.push(HandlerClass);
-		}
+	constructor(classes, context = null) {
+		this.#classes = resolveHandlerClasses(classes);
+		this.#context = context;
+	}
+
+	/** The resolved class list, in instantiation order. */
+	get classes() {
+		return [...this.#classes];
 	}
 
 	/**
 	 * Create fresh handler instances and initialize them with options.
-	 * Called once per FragmentedFlow initialization. Destroys any
-	 * previous instances before creating new ones.
+	 * Destroys any previous instances first.
 	 *
 	 * @param {Object} [options]
 	 */
-	init(options) {
-		for (const handler of this.#created) {
+	init(options = {}) {
+		for (const handler of this.#handlers) {
 			handler.destroy();
 		}
-		this.#cloneMap = new WeakMap();
-		this.#created = this.#classes.map((Cls) => {
+		this.#handlers = this.#classes.map((Cls) => {
 			const handler = new Cls();
-			handler.init(options);
+			handler.init(options, this.#context);
 			return handler;
 		});
-		this.#handlers = [...this.#created];
 	}
 
 	/**
-	 * Ensure #handlers is populated. If init() hasn't been called yet
-	 * (e.g. code using createFragments() directly without FragmentedFlow),
-	 * create instances with default options so delegate methods work.
+	 * Ensure instances exist. Code driving layout without a Fragmenter
+	 * (createFragments, runLayoutGenerator) never calls init() explicitly.
 	 */
 	#ensureReady() {
 		if (this.#handlers.length === 0 && this.#classes.length > 0) {
@@ -54,38 +83,31 @@ class HandlerRegistry {
 		}
 	}
 
-	remove(HandlerClass) {
-		const idx = this.#classes.indexOf(HandlerClass);
-		if (idx !== -1) this.#classes.splice(idx, 1);
-	}
-
 	/**
-	 * Destroy the current handler instances and reset shared state.
-	 * The registry is a module singleton — only one FragmentedFlow's
-	 * handlers are active at a time — so this is called from
-	 * FragmentedFlow.destroy(). Registered classes are kept; the next
-	 * init() creates fresh instances.
+	 * Destroy the handler instances. Classes are kept; the next init()
+	 * creates fresh instances.
 	 */
 	destroy() {
-		for (const handler of this.#created) {
+		for (const handler of this.#handlers) {
 			handler.destroy();
 		}
-		this.#created = [];
 		this.#handlers = [];
-		this.#cloneMap = new WeakMap();
 		this.#injectedSheet = null;
 	}
 
 	/**
-	 * Return the current instance of a registered handler class.
-	 * Returns null if the class isn't registered or init() hasn't
-	 * been called yet.
+	 * Return this flow's instance of a handler class (or of a subclass
+	 * that overrides it). Null if not in the catalog or before init().
 	 *
 	 * @param {typeof LayoutHandler} HandlerClass
 	 * @returns {LayoutHandler|null}
 	 */
 	get(HandlerClass) {
 		return this.#handlers.find((m) => m instanceof HandlerClass) ?? null;
+	}
+
+	[Symbol.iterator]() {
+		return this.#handlers[Symbol.iterator]();
 	}
 
 	claim(node) {
@@ -124,8 +146,9 @@ class HandlerRegistry {
 	 * into grouping rules (@media, @supports, @layer, etc.) and tracks
 	 * wrapper preambles for handlers that need them (e.g. nth-selectors).
 	 *
-	 * After the walk, collects injected sheets from handlers and appends
-	 * them to the styles array so they cascade after UA and author rules.
+	 * After the walk, collects injected rules from handlers into one
+	 * sheet appended to the styles array so it cascades after UA and
+	 * author rules.
 	 *
 	 * @param {CSSStyleSheet[]} styles — adopted stylesheets (mutated: injected sheet appended)
 	 */
@@ -133,7 +156,6 @@ class HandlerRegistry {
 		this.#ensureReady();
 		const hs = this.#handlers;
 
-		// Reset handler state and give access to the styles array
 		for (const handler of hs) {
 			handler.styles = styles;
 			handler.resetRules();
@@ -147,7 +169,6 @@ class HandlerRegistry {
 			}
 		});
 
-		// Collect rules from handlers into a shared sheet
 		const rules = [];
 		for (const handler of hs) {
 			handler.appendRules(rules);
@@ -165,35 +186,17 @@ class HandlerRegistry {
 
 	/**
 	 * The CSSStyleSheet appended by the most recent processRules() call.
-	 * Holds rules emitted by handler appendRules() (e.g. body-rewriter
-	 * `:scope` overrides). Null when no handler emitted any rules.
+	 * Null when no handler emitted any rules.
 	 */
 	getInjectedSheet() {
 		return this.#injectedSheet;
 	}
 
-	/**
-	 * Collect elements that handlers want persisted across all measurement
-	 * segments. Called after processRules() with the full content.
-	 *
-	 * @param {DocumentFragment|Element} content — the full content root
-	 * @returns {Element[]} elements to include in every segment's measurer
-	 */
-	claimPersistent(content) {
-		const elements = [];
+	prepareContent(content) {
+		this.#ensureReady();
 		for (const handler of this.#handlers) {
-			const claimed = handler.claimPersistent(content);
-			if (claimed.length > 0) elements.push(...claimed);
+			handler.prepareContent(content);
 		}
-		return elements;
-	}
-
-	trackClone(clone, source) {
-		this.#cloneMap.set(clone, source);
-	}
-
-	getSource(clone) {
-		return this.#cloneMap.get(clone);
 	}
 
 	/**
@@ -212,8 +215,6 @@ class HandlerRegistry {
 
 	/**
 	 * Let handlers probe the live measurement DOM after setup.
-	 * Called from the Measurer after pseudo-element materialization
-	 * and reflow, before getContentStyles().
 	 *
 	 * @param {Element} contentRoot — the measurement slot element
 	 */
@@ -234,14 +235,6 @@ class HandlerRegistry {
 			sheets.push(...handler.getAdoptedSheets());
 		}
 		return sheets;
-	}
-
-	claimPseudo(element, pseudo, contentValue) {
-		return this.#handlers.some((handler) => handler.claimPseudo(element, pseudo, contentValue));
-	}
-
-	claimPseudoRule(rule, pseudo) {
-		return this.#handlers.some((handler) => handler.claimPseudoRule(rule, pseudo));
 	}
 
 	afterContentLayout(fragment, constraintSpace, inputBreakToken) {
@@ -274,5 +267,3 @@ class HandlerRegistry {
 		return result;
 	}
 }
-
-export const handlers = new HandlerRegistry();

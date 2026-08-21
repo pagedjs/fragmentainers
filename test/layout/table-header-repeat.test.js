@@ -3,7 +3,7 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("Repeating table headers", () => {
 	test("repeats thead on page 2 when table breaks across pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
 
@@ -47,7 +47,7 @@ test.describe("Repeating table headers", () => {
 
 	test("does not repeat when table fits on one page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
 
@@ -79,7 +79,7 @@ test.describe("Repeating table headers", () => {
 
 	test("does not repeat thead in column fragmentation mode", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
 
@@ -121,7 +121,7 @@ test.describe("Repeating table headers", () => {
 
 	test("does not repeat when table has no thead", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode, tableNode } = await import("/test/fixtures/nodes.js");
 
@@ -154,7 +154,7 @@ test.describe("Repeating table headers", () => {
 
 	test("repeats thead even when it is tall", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
 
@@ -196,7 +196,7 @@ test.describe("Repeating table headers", () => {
 
 	test("repeats thead on every continuation page across multiple pages", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
 
@@ -236,7 +236,7 @@ test.describe("Repeating table headers", () => {
 
 	test("hasSeenAllChildren is correct when repeated header is present", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
 
@@ -278,7 +278,7 @@ test.describe("Repeating table headers", () => {
 
 	test("reduces available space for body content by header height", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode, tableNode, tableHeaderNode } = await import("/test/fixtures/nodes.js");
 
@@ -322,7 +322,7 @@ test.describe("Repeating table headers", () => {
 test.describe("break-inside: avoid push for tables", () => {
 	test("pushes a break-inside:avoid table that does not fit to the next page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode, tableNode } = await import("/test/fixtures/nodes.js");
 
@@ -363,7 +363,7 @@ test.describe("break-inside: avoid push for tables", () => {
 
 	test("does not push when table is the first element on the page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode, tableNode } = await import("/test/fixtures/nodes.js");
 
@@ -400,7 +400,7 @@ test.describe("break-inside: avoid push for tables", () => {
 
 	test("does not push when table fits in remaining space", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { blockNode, tableNode } = await import("/test/fixtures/nodes.js");
 
@@ -434,7 +434,7 @@ test.describe("break-inside: avoid push for tables", () => {
 test.describe("Repeating table headers (browser)", () => {
 	test("repeats thead in each fragment after the first", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
@@ -449,7 +449,7 @@ test.describe("Repeating table headers (browser)", () => {
           </tbody>
         </table>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 200,
@@ -477,7 +477,7 @@ test.describe("Repeating table headers (browser)", () => {
 
 	test("does not repeat thead when table fits on one page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
@@ -489,7 +489,7 @@ test.describe("Repeating table headers (browser)", () => {
           </tbody>
         </table>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 200,
@@ -512,7 +512,7 @@ test.describe("Repeating table headers (browser)", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
@@ -528,7 +528,7 @@ test.describe("Repeating table headers (browser)", () => {
           </tbody>
         </table>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 200,
@@ -555,7 +555,7 @@ test.describe("Repeating table headers (browser)", () => {
 
 	test("repeated header reduces available space for body content", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
@@ -569,7 +569,7 @@ test.describe("Repeating table headers (browser)", () => {
           </tbody>
         </table>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 200,
@@ -598,7 +598,7 @@ test.describe("Repeating table headers (browser)", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
@@ -612,7 +612,7 @@ test.describe("Repeating table headers (browser)", () => {
           </tbody>
         </table>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 100,
@@ -645,7 +645,7 @@ test.describe("break-inside: avoid push for tables (browser)", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
@@ -658,7 +658,7 @@ test.describe("break-inside: avoid push for tables (browser)", () => {
           </table>
         </div>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 200,
@@ -686,7 +686,7 @@ test.describe("break-inside: avoid push for tables (browser)", () => {
 
 	test("does not push when break-inside:avoid table fits in remaining space", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 
 			const template = document.createElement("template");
@@ -698,7 +698,7 @@ test.describe("break-inside: avoid push for tables (browser)", () => {
           </table>
         </div>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 200,

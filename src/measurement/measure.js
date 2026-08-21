@@ -1,8 +1,9 @@
 import { DOMLayoutNode } from "../layout/layout-node.js";
 import { isForcedBreakValue } from "../fragmentation/tokens.js";
-import { handlers } from "../handlers/registry.js";
 import { splitSelectorList } from "../styles/selector-utils.js";
 import { walkSheets, wrappersActive } from "../styles/walk-rules.js";
+import { isPersistent } from "../markers.js";
+import { FlowContext } from "../fragmentation/flow-context.js";
 import "../components/content-measure.js";
 
 export {
@@ -241,13 +242,30 @@ export class Measurer {
 	#finished = null;
 	#pending = null;
 
+	#context;
+
 	/**
 	 * @param {DocumentFragment} content
 	 * @param {CSSStyleSheet[]} styles
+	 * @param {import('../fragmentation/flow-context.js').FlowContext} [context]
+	 *   the owning flow's context; its handlers drive measurement hooks and
+	 *   every layout node created here carries it. Defaults to a context
+	 *   built from the handler catalog for flow-less callers.
 	 */
-	constructor(content, styles) {
+	constructor(content, styles, context = new FlowContext()) {
 		this.#content = content;
 		this.#styles = styles;
+		this.#context = context;
+	}
+
+	get #handlers() {
+		return this.#context.handlers;
+	}
+
+	#createNode(el) {
+		const node = new DOMLayoutNode(el);
+		node.context = this.#context;
+		return node;
 	}
 
 	/**
@@ -258,17 +276,18 @@ export class Measurer {
 	 * @returns {Element} the content root (slot element)
 	 */
 	setup(constraintSpace = null) {
-		// Walk CSS rules and let handlers accumulate state, then claim elements.
+		// Walk CSS rules, then let handlers prepare the full source content.
 		// The PseudoElements handler contributes ::before/::after companion,
 		// relocation, and suppression rules via matchRule/appendRules.
-		handlers.processRules(this.#styles);
+		this.#handlers.processRules(this.#styles);
+		this.#handlers.prepareContent(this.#content);
 
-		this.#persistent = handlers.claimPersistent(this.#content);
+		const elements = Array.from(this.#content.children);
+		this.#allElements = elements;
+		this.#persistent = elements.filter(isPersistent);
 		const persistentSet = new Set(this.#persistent);
 
 		// Resolve break properties only for non-persistent elements
-		const elements = Array.from(this.#content.children);
-		this.#allElements = elements;
 		const displays = resolveDisplayValues(elements, this.#styles);
 		const flowElements = elements.filter(
 			(el, i) => !persistentSet.has(el) && displays[i] !== "none",
@@ -298,13 +317,13 @@ export class Measurer {
 
 		// Let handlers mutate the DOM (pseudo-element materialization
 		// happens here). Reflow so the changes are reflected in styles.
-		handlers.beforeMeasurement(measurer.contentRoot);
+		this.#handlers.beforeMeasurement(measurer.contentRoot);
 		this.#reflowAtWidth(measurer, constraintSpace);
 
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
 
-		handlers.afterMeasurementSetup(measurer.contentRoot);
+		this.#handlers.afterMeasurementSetup(measurer.contentRoot);
 
 		return measurer.contentRoot;
 	}
@@ -324,7 +343,7 @@ export class Measurer {
 		// (both flow and persistent)
 		this.#allNodes = [];
 		for (const el of this.#allElements) {
-			const node = new DOMLayoutNode(el);
+			const node = this.#createNode(el);
 			this.#nodeMap.set(el, node);
 			this.#allNodes.push(node);
 		}
@@ -355,14 +374,14 @@ export class Measurer {
 
 		document.body.appendChild(measurer);
 
-		handlers.beforeMeasurement(measurer.contentRoot);
+		this.#handlers.beforeMeasurement(measurer.contentRoot);
 		this.#reflowAtWidth(measurer, constraintSpace);
 
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
 		this.#currentSegment = 0;
 
-		handlers.afterMeasurementSetup(measurer.contentRoot);
+		this.#handlers.afterMeasurementSetup(measurer.contentRoot);
 
 		return measurer.contentRoot;
 	}
@@ -414,12 +433,12 @@ export class Measurer {
 
 		document.body.appendChild(measurer);
 
-		handlers.beforeMeasurement(newSlot);
+		this.#handlers.beforeMeasurement(newSlot);
 		void measurer.offsetHeight;
 
 		this.#measureElement = measurer;
 
-		handlers.afterMeasurementSetup(newSlot);
+		this.#handlers.afterMeasurementSetup(newSlot);
 
 		// Rebuild root's children from the nodeMap
 		tree.setChildren(this.#buildSegmentChildren(this.#currentSegment));
@@ -444,7 +463,7 @@ export class Measurer {
 			if (display === "none" || SKIP_DISPLAYS.has(display)) continue;
 			let node = this.#nodeMap.get(el);
 			if (!node) {
-				node = new DOMLayoutNode(el);
+				node = this.#createNode(el);
 				this.#nodeMap.set(el, node);
 			}
 			children.push(node);

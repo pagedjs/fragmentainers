@@ -64,10 +64,10 @@ test.describe("RegionResolver", () => {
 	});
 });
 
-test.describe("FragmentedFlow with regions", () => {
+test.describe("Fragmenter with regions", () => {
 	test("flows content across region elements via iterator", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { RegionResolver } = await import("/src/resolvers/region-resolver.js");
 
 			const container = document.createElement("div");
@@ -84,7 +84,7 @@ test.describe("FragmentedFlow with regions", () => {
 			const content = container.querySelector("#content");
 			const regions = [...container.querySelectorAll(".region")];
 
-			const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
+			const layout = new Fragmenter(content, { resolver: new RegionResolver(regions) });
 			let i = 0;
 			for (const el of layout) {
 				if (i >= regions.length) break;
@@ -102,7 +102,7 @@ test.describe("FragmentedFlow with regions", () => {
 
 	test("stops when regions run out with content remaining", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { RegionResolver } = await import("/src/resolvers/region-resolver.js");
 
 			const container = document.createElement("div");
@@ -117,7 +117,7 @@ test.describe("FragmentedFlow with regions", () => {
 			const content = container.querySelector("#content");
 			const regions = [...container.querySelectorAll(".region")];
 
-			const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
+			const layout = new Fragmenter(content, { resolver: new RegionResolver(regions) });
 			let lastResult;
 			for (let i = 0; i < regions.length; i++) {
 				lastResult = layout.next();
@@ -133,7 +133,7 @@ test.describe("FragmentedFlow with regions", () => {
 
 	test("content fits in a single region", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { RegionResolver } = await import("/src/resolvers/region-resolver.js");
 
 			const container = document.createElement("div");
@@ -148,7 +148,7 @@ test.describe("FragmentedFlow with regions", () => {
 			const content = container.querySelector("#content");
 			const regions = [...container.querySelectorAll(".region")];
 
-			const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
+			const layout = new Fragmenter(content, { resolver: new RegionResolver(regions) });
 			const r1 = layout.next();
 			const r2 = layout.next();
 
@@ -168,7 +168,7 @@ test.describe("FragmentedFlow with regions", () => {
 
 	test("supports variable-sized regions", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { RegionResolver } = await import("/src/resolvers/region-resolver.js");
 
 			const container = document.createElement("div");
@@ -185,7 +185,7 @@ test.describe("FragmentedFlow with regions", () => {
 			const content = container.querySelector("#content");
 			const regions = [...container.querySelectorAll(".region")];
 
-			const layout = new FragmentedFlow(content, { resolver: new RegionResolver(regions) });
+			const layout = new Fragmenter(content, { resolver: new RegionResolver(regions) });
 			const r1 = layout.next();
 			const r2 = layout.next();
 			const r3 = layout.next();

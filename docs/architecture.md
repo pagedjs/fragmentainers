@@ -42,7 +42,7 @@ DocumentFragment
 or Element
      |
      v
-FragmentedFlow
+Fragmenter
   layout()
      |
      ├── <content-measure>   (internal, off-screen)
@@ -64,10 +64,10 @@ FragmentedFlow
                                                     light-DOM content)
 ```
 
-**Layout phase.** `FragmentedFlow` accepts a `DocumentFragment` or `Element`
+**Layout phase.** `Fragmenter` accepts a `DocumentFragment` or `Element`
 (elements are cloned internally). During `layout()`, it creates an off-screen
 `<content-measure>` element, injects the content and stylesheets via
-`injectFragment()`, and builds a `DOMLayoutNode` tree. `FragmentedFlow` extends
+`injectFragment()`, and builds a `DOMLayoutNode` tree. `Fragmenter` extends
 `Iterator` — `next()` lays out one fragmentainer at a time, and `flow()` runs
 `next()` until content is exhausted, returning a `FragmentationContext`. Each
 iteration produces one `<fragment-container>` element. Call
@@ -214,28 +214,77 @@ Each algorithm's `*layout()` generator returns an object with:
 
 ## 3. The Fragmentation Loop
 
-`FragmentedFlow.next()` lays out one fragmentainer per call. `flow()` is
-sugar that calls `next()` until `breakToken` is null. Internally this is
-implemented by `LayoutDriver` (in `src/layout/layout-driver.js`), which
-extends `Iterator` and holds the per-fragmentainer state. The shim
-`createFragments()` in `src/layout/layout-driver.js` wraps
-`new LayoutDriver(...).run()` for batch use.
+`Fragmenter` (`src/fragmentation/fragmenter.js`) owns the engine's only
+fragmentainer loop. It extends `Iterator` and holds the per-fragmentainer state.
+Three entry points share one private step:
 
-Each `next()` call:
+- **`next()`** — lays out one fragmentainer and returns its
+  `<fragment-container>` element
+- **`flow({ start, stop })`** — runs layout to completion and returns a
+  `FragmentationContext`
+- **`reflow(fromIndex)`** — rewinds to the break token before `fromIndex` and
+  re-runs from there
+
+`createFragments(rootNode, constraintSpaceOrResolver, continuation)` (in
+`src/fragmentation/create-fragments.js`) is the batch entry point for an
+already-built layout tree. It wraps the tree in a flow, runs `flow()`, and
+returns the `Fragment[]`. There is nothing to measure and nothing to compose
+against, so that flow drives a `NullMeasurer` and produces no elements.
+
+Each step:
 
 ```
-1. Resolve the ConstraintSpace for this fragmentainer (via resolver or fixed)
-2. Sync the DOM measurement container to the new inline size
-3. Run Pass 1: runLayoutGenerator(new RootAlgoClass(rootNode, constraintSpace, breakToken))
-4. If result.earlyBreak exists:
+1. If a side-specific break needs a blank page, emit one and skip layout
+2. Resolve the ConstraintSpace for this fragmentainer (via resolver or fixed)
+3. On the run's first fragmentainer, apply the continuation's block offset
+4. Carry the root's block-start margin for first-child margin collapsing
+5. Sync the DOM measurement container to the new inline size
+6. Reserve block-start/block-end space via handlers.layout()
+7. Run Pass 1: runLayoutGenerator(new RootAlgoClass(rootNode, adjustedSpace, breakToken))
+8. If result.earlyBreak exists:
      Run Pass 2: runLayoutGenerator(new RootAlgoClass(..., result.earlyBreak))
-5. Accumulate counter state
-6. Advance breakToken and fragmentainerIndex
-7. Return the Fragment
+9. Run handlers.afterContentLayout(); if the reservation moved, redo 7-8
+10. Accumulate counter state
+11. Advance breakToken and fragmentainerIndex
+12. Advance the measurer's segment; reinstall the composite sheet if it swapped
+13. Apply the zero-progress guard and decide whether iteration is finished
+14. Return the Fragment
 ```
 
 The caller decides when to stop. For pages, `flow()` stops when `breakToken`
-is null. For regions, the caller stops when region elements run out.
+is null and no parallel flow still holds content. For regions, the caller stops
+when region elements run out.
+
+### Post-layout adjustment
+
+Steps 7-9 iterate; `handlers.layout()` itself runs once per fragmentainer, and
+always against the unadjusted constraint space. What repeats is the reservation
+total, the constraint-space rebuild, and the layout passes.
+
+A handler often cannot know how much block-end space it needs until it sees what
+landed on the page — footnotes reserve room for the notes the page actually
+references. `afterContentLayout()` reports the reservation the handler now wants;
+when that differs from the one layout ran with, the constraint space is rebuilt
+and the content is laid out again. Parallel flows are rolled back to their
+page-start snapshot before each repeat so a settled flow is not re-laid against
+an already-advanced queue. The loop ends when the reservation stabilises, or
+after `MAX_POST_LAYOUT_ITERATIONS` (3) re-runs.
+
+### Main-flow completion vs iteration completion
+
+`#mainDone` (the main content has all been placed) is tracked separately from
+`#done` (iteration is over). A parallel flow can still hold carry-over when the
+main content ends — footnotes pushed off the last page — so the loop keeps
+emitting fragmentainers, with empty main content, until every flow has drained.
+
+### Measurer segments
+
+Content whose top-level children carry forced breaks is measured one segment at
+a time. After every step the flow calls `measurer.advance(breakToken, tree)`;
+when the break token has reached the current segment's boundary the measurer
+swaps in the next segment's measurement container. That re-stamps handler data-refs and rebuilds the normalization
+sheets, so the flow reinstalls its composite stylesheet to keep the scoped rules
+matching the new refs.
 
 ### Constraint space resolution
 
@@ -248,16 +297,21 @@ The engine supports multiple resolver types:
 
 ### Continuation support
 
-An optional `continuation` parameter allows `LayoutDriver` (and the
-`createFragments` shim) to start at a specific fragmentainer index and block
-offset. This supports flowing multiple independent elements across a shared
-sequence of pages (e.g., footnotes following body content).
+`options.continuation = { fragmentainerIndex, blockOffset }` starts a flow at a
+given fragmentainer index with part of that fragmentainer already consumed. The
+first fragmentainer is laid out against a block size reduced by the offset;
+every later one gets the full size. The outgoing resume point is on the flow's
+`continuation` getter, and `createFragments()` returns it as
+`{ fragments, continuation }` when it was given one. This supports flowing
+multiple independent elements across a shared sequence of pages (e.g., footnotes
+following body content).
 
 ### Zero-progress safety
 
 Real DOM content can contain elements with zero measured height (unloaded images,
 empty containers, absolutely positioned children). The loop tracks consecutive
-zero-progress fragmentainers and bails after 5 to prevent infinite loops.
+zero-progress fragmentainers and bails after 5 to prevent infinite loops. Blank
+pages do not count — they skip layout, so they say nothing about progress.
 
 ---
 
@@ -360,7 +414,7 @@ first page, this margin collapses with the first child's margin:
 `max(8px, childMargin)`. On continuation pages, the slot's
 `margin-block-start` is zeroed via the UA stylesheet.
 
-`FragmentedFlow` passes the body margin to the constraint space as
+`Fragmenter` passes the body margin to the constraint space as
 `bodyMarginBlockStart`, and `MarginState` includes it in the first child's
 margin strut.
 
@@ -513,7 +567,7 @@ new `EarlyBreak` is recorded. When content overflows the fragmentainer, the
 algorithm compares the actual break's score against the best early break's score.
 If the early break is better, the result carries `earlyBreak` back to the driver.
 
-**Pass 2 (targeted).** The `createFragments` loop detects the `earlyBreak` on
+**Pass 2 (targeted).** The fragmentation loop detects the `earlyBreak` on
 the result and re-runs `runLayoutGenerator` with the `earlyBreak` as the
 `earlyBreakTarget` parameter. During Pass 2, the algorithm breaks at the
 targeted node instead of waiting for overflow. This produces a fragment with the
@@ -668,7 +722,7 @@ to reconstruct DOM from offset ranges.
 
 `new DOMLayoutNode(element)` from `src/layout/layout-node.js` wraps a DOM element
 as a lazy layout tree root. The resulting node is the `rootNode` passed to
-`createFragments()` or `FragmentedFlow.flow()`.
+`createFragments()` or `Fragmenter.flow()`.
 
 ---
 
@@ -701,8 +755,7 @@ composed recursively. This ensures each fragment gets its own DOM subtree.
 ### Fragment.map()
 
 `map(inputBreakToken, composedParent)` walks the fragment tree and composed
-DOM in parallel, registering each clone→source pair in the handler registry's
-shared map. This mapping is used by handlers (e.g. `MutationSync`) to
+DOM in parallel, registering each clone→source pair in the flow's `CloneMap`. This mapping is used by handlers (e.g. `MutationSync`) to
 resolve composed elements back to their source.
 
 ### Inline content reconstruction
@@ -723,7 +776,7 @@ custom element. `fragment.build()` produces the composed DOM, which is
 appended as light-DOM children of the host (projected visually through the
 `<slot>` in the host's shadow scaffold), and `fragment.map()` registers the
 clone→source mappings. Stylesheets aren't adopted per-instance — the engine
-builds one composite scoped sheet per `FragmentedFlow` and adopts it on
+builds one composite scoped sheet per `Fragmenter` and adopts it on
 `document.adoptedStyleSheets` (see [§ Composite scoped sheet](#composite-scoped-sheet)
 below). Each `<fragment-container>` represents one page or column in the
 output.
@@ -745,7 +798,7 @@ rules.
 ### Composite scoped sheet
 
 `buildCompositeSheet` (in `src/styles/composite-sheet.js`) assembles one
-`CSSStyleSheet` per `FragmentedFlow` and adopts it on
+`CSSStyleSheet` per `Fragmenter` and adopts it on
 `document.adoptedStyleSheets`. It's wrapped in
 `@scope (fragment-container) { ... }` so engine-generated rules style only
 fragment-container subtrees and don't leak onto the host page. In source
@@ -798,9 +851,16 @@ For `box-decoration-break: clone`, each fragment gets the full box decoration
 ## 11. Layout Handlers
 
 The engine supports **layout handlers** — self-contained extensions that hook into
-the layout and composition pipeline without modifying core algorithms. Handlers are
-managed by a global `HandlerRegistry` and all built-in handlers are registered
-automatically at import time.
+the layout and composition pipeline without modifying core algorithms. The handler
+*classes* live in one ordered catalog, `Fragmenter.handlers` (initialised from
+`src/handlers/catalog.js`); each `Fragmenter` resolves that catalog into its own
+`HandlerRegistry` of fresh instances, owned by a per-flow `FlowContext` alongside the
+flow's `CloneMap`. Layout nodes carry their flow's context (`LayoutNode.context`,
+inherited parent → child at construction, and as a fallback at dispatch in the layout
+driver), which is how `BlockContainerAlgorithm` reaches `handlers.claim()` and how
+`Fragment` composition reaches the clone map without either being threaded through
+signatures. Entry points without a flow (`runLayoutGenerator` and `Fragment.build` called
+directly on hand-built trees) get a default context built from the catalog.
 
 ### Hook points
 
@@ -816,50 +876,45 @@ Handlers interact with the engine at these hook points, listed in lifecycle orde
 3. **`appendRules(rules)`** — push CSS rule text strings into `rules[]` to be
    inserted into a shared stylesheet prepended to the styles array.
 
-4. **`claimPersistent(content)`** — called before measurement begins. Returns
-   elements that must be present in every measurement segment (e.g.,
-   `position: fixed` elements).
+4. **`prepareContent(content)`** — called after rule processing with the full
+   source content, before it enters the measurement DOM. Handlers mutate the
+   content or set markers (`markPersistent`, `markNativePseudo` from
+   `src/markers.js`) that the measurer and `PseudoElements` read later.
 
-5. **`claimPseudo(element, pseudo, contentValue)`** — called during pseudo-element
-   materialization. Return `true` to claim the pseudo and prevent default handling.
-
-6. **`claimPseudoRule(rule, pseudo)`** — called during CSS pseudo-element rule
-   rewriting. Return `true` to skip rewriting this rule.
-
-7. **`afterMeasurementSetup(contentRoot)`** — called after the measurement
+5. **`afterMeasurementSetup(contentRoot)`** — called after the measurement
    container is fully set up (content injected, pseudo-elements materialized,
    styles resolved). The live DOM is available for `getComputedStyle()` queries.
    Handlers can probe elements and build internal state (e.g., generated
    stylesheets). Must not modify the measurer's adopted stylesheets.
 
-8. **`getAdoptedSheets()`** — returns `CSSStyleSheet[]` to fold into the
+6. **`getAdoptedSheets()`** — returns `CSSStyleSheet[]` to fold into the
    composite scoped sheet (`document.adoptedStyleSheets`). Called once per
-   `FragmentedFlow` initialization.
+   `Fragmenter` initialization.
 
-9. **`layout(rootNode, constraintSpace, breakToken, layoutChild)`** — called
+7. **`layout(rootNode, constraintSpace, breakToken, layoutChild)`** — called
    before the normal layout pass for each fragmentainer. Scans root children,
    claims nodes, lays out claimed content via the `layoutChild` callback, and
    returns space reservations (`reservedBlockStart`, `reservedBlockEnd`) plus an
    `afterRender` closure.
 
-10. **`claim(node)`** — during block container layout, each child is checked
+8. **`claim(node)`** — during block container layout, each child is checked
     against all handlers. If any handler returns `true`, the child is skipped in
     normal flow.
 
-11. **`beforeChildren(node, constraintSpace, breakToken)`** — called before the
+9. **`beforeChildren(node, constraintSpace, breakToken)`** — called before the
     child loop in `BlockContainerAlgorithm`. Returns a layout request descriptor for
     content to prepend (e.g., repeated table headers), or `null`.
 
-12. **`afterContentLayout(fragment, constraintSpace, inputBreakToken)`** — called
+10. **`afterContentLayout(fragment, constraintSpace, inputBreakToken)`** — called
     after content layout completes. Handlers can inspect the fragment and request
     additional block-end space (e.g., footnotes). Returning a different
     `reservedBlockEnd` triggers a re-layout.
 
 ### Handler options
 
-`FragmentedFlow` passes its constructor options to all registered handlers via
+`Fragmenter` passes its constructor options to all registered handlers via
 `handlers.setOptions(options)`. Handlers read `this.options` to check for flags.
-This avoids tight coupling between `FragmentedFlow` and individual handlers.
+This avoids tight coupling between `Fragmenter` and individual handlers.
 
 See [Layout Handlers](handlers.md) for the full handler interface and how to write
 custom handlers.

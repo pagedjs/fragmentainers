@@ -42,6 +42,63 @@ test.describe("FixedPosition.matches", () => {
 	});
 });
 
+test.describe("FixedPosition.prepareContent", () => {
+	test("marks top-level fixed elements as data-frag-persistent", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { FixedPosition } = await import("/src/handlers/fixed-position.js");
+
+			const content = document.createDocumentFragment();
+			const fixed = document.createElement("div");
+			fixed.style.position = "fixed";
+			const regular = document.createElement("div");
+			content.append(fixed, regular);
+
+			const mod = new FixedPosition();
+			mod.prepareContent(content);
+
+			return {
+				fixed: fixed.hasAttribute("data-frag-persistent"),
+				regular: regular.hasAttribute("data-frag-persistent"),
+			};
+		});
+
+		expect(result.fixed).toBe(true);
+		expect(result.regular).toBe(false);
+	});
+
+	test("clears its own stale marker on re-run but keeps a caller's", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { FixedPosition } = await import("/src/handlers/fixed-position.js");
+			const { markPersistent } = await import("/src/markers.js");
+
+			const content = document.createDocumentFragment();
+			const wasFixed = document.createElement("div");
+			wasFixed.style.position = "fixed";
+			const callerMarked = document.createElement("div");
+			markPersistent(callerMarked);
+			content.append(wasFixed, callerMarked);
+
+			const mod = new FixedPosition();
+			mod.prepareContent(content);
+			const afterFirst = wasFixed.getAttribute("data-frag-persistent");
+
+			// Style changed between runs: no longer fixed.
+			wasFixed.style.position = "";
+			mod.prepareContent(content);
+
+			return {
+				afterFirst,
+				wasFixedStill: wasFixed.hasAttribute("data-frag-persistent"),
+				callerKept: callerMarked.hasAttribute("data-frag-persistent"),
+			};
+		});
+
+		expect(result.afterFirst).toBe("fixed-position");
+		expect(result.wasFixedStill).toBe(false);
+		expect(result.callerKept).toBe(true);
+	});
+});
+
 test.describe("FixedPosition.layout", () => {
 	test("reserves block-start space for a top-anchored fixed element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
@@ -328,38 +385,40 @@ test.describe("fixed position integration with createFragments", () => {
 	test("fixed header reduces available space for content", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
 			const container = document.createElement("div");
 			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			// 700 + 100 of flow content would fill the 800px page exactly; the
+			// fixed header's 100px reservation pushes the last block off it.
 			container.innerHTML = `<div style="margin:0;padding:0">
         <div style="position:fixed;top:0;height:100px;margin:0;padding:0"></div>
         <div style="height:700px;margin:0;padding:0"></div>
+        <div style="height:100px;margin:0;padding:0"></div>
       </div>`;
 			document.body.appendChild(container);
 			const root = new DOMLayoutNode(container.firstElementChild);
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
-				availableBlockSize: 800 - 100,
+				availableBlockSize: 800,
 				fragmentainerBlockSize: 800,
-				blockOffsetInFragmentainer: 100,
 				fragmentationType: FRAGMENTATION_PAGE,
 			});
 			const fragments = createFragments(root, cs);
 			container.remove();
 			return { len: fragments.length, blockSize: fragments[0].blockSize };
 		});
-		expect(result.len).toBe(1);
+		expect(result.len).toBe(2);
 		expect(result.blockSize).toBe(700);
 	});
 
 	test("fixed header causes content to overflow into second page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
@@ -374,9 +433,8 @@ test.describe("fixed position integration with createFragments", () => {
 
 			const cs = new ConstraintSpace({
 				availableInlineSize: 600,
-				availableBlockSize: 800 - 200,
+				availableBlockSize: 800,
 				fragmentainerBlockSize: 800,
-				blockOffsetInFragmentainer: 200,
 				fragmentationType: FRAGMENTATION_PAGE,
 			});
 			const fragments = createFragments(root, cs);
@@ -390,7 +448,7 @@ test.describe("fixed position integration with createFragments", () => {
 test.describe("position: fixed in paged media (browser)", () => {
 	test("fixed header reduces available page space", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
@@ -402,7 +460,7 @@ test.describe("position: fixed in paged media (browser)", () => {
           <div style="height: 180px; margin: 0; padding: 0;"></div>
         </div>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 400,
@@ -420,7 +478,7 @@ test.describe("position: fixed in paged media (browser)", () => {
 
 	test("fixed header repeats in rendered output on every page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
@@ -432,7 +490,7 @@ test.describe("position: fixed in paged media (browser)", () => {
           <div style="height: 200px; margin: 0; padding: 0;"></div>
         </div>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 400,
@@ -463,7 +521,7 @@ test.describe("position: fixed in paged media (browser)", () => {
 
 	test("fixed footer positioned at bottom of each page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
@@ -475,7 +533,7 @@ test.describe("position: fixed in paged media (browser)", () => {
           <div style="height: 200px; margin: 0; padding: 0;"></div>
         </div>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 400,
@@ -510,7 +568,7 @@ test.describe("position: fixed in paged media (browser)", () => {
 
 	test("header and footer both repeat on every page", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
@@ -523,7 +581,7 @@ test.describe("position: fixed in paged media (browser)", () => {
           <div style="height: 200px; margin: 0; padding: 0;"></div>
         </div>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 400,
@@ -557,7 +615,7 @@ test.describe("position: fixed in paged media (browser)", () => {
 
 	test("content fits on one page when fixed elements leave enough room", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { FRAGMENTATION_PAGE } = await import("/src/fragmentation/constraint-space.js");
 
@@ -568,7 +626,7 @@ test.describe("position: fixed in paged media (browser)", () => {
           <div style="height: 50px; margin: 0; padding: 0;"></div>
         </div>
       `;
-			const layout = new FragmentedFlow(template.content, {
+			const layout = new Fragmenter(template.content, {
 				constraintSpace: new ConstraintSpace({
 					availableInlineSize: 400,
 					availableBlockSize: 400,

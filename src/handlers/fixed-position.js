@@ -1,6 +1,9 @@
 import { LayoutHandler } from "./handler.js";
+import { markPersistent, clearPersistent } from "../markers.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE } from "../fragmentation/constraint-space.js";
+
+const MARKER_OWNER = "fixed-position";
 
 const ANCHOR_BLOCK_START = "block-start";
 const ANCHOR_BLOCK_END = "block-end";
@@ -53,25 +56,28 @@ class FixedPosition extends LayoutHandler {
 		}
 	}
 
-	claimPersistent(content) {
-		const claimed = [];
+	prepareContent(content) {
 		for (const el of content.children) {
-			if (el.style.position === "fixed") {
-				claimed.push(el);
-				continue;
-			}
-			for (const selector of this.#fixedSelectors) {
-				try {
-					if (el.matches(selector)) {
-						claimed.push(el);
-						break;
-					}
-				} catch {
-					continue;
-				}
+			if (this.#isFixed(el)) {
+				markPersistent(el, MARKER_OWNER);
+			} else {
+				// Content may be re-prepared after a style change; drop a
+				// marker this handler set on a previous run, never a caller's.
+				clearPersistent(el, MARKER_OWNER);
 			}
 		}
-		return claimed;
+	}
+
+	#isFixed(el) {
+		if (el.style.position === "fixed") return true;
+		for (const selector of this.#fixedSelectors) {
+			try {
+				if (el.matches(selector)) return true;
+			} catch {
+				continue;
+			}
+		}
+		return false;
 	}
 
 	layout(rootNode, constraintSpace, breakToken, layoutChild) {

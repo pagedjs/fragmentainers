@@ -1,5 +1,4 @@
 import { LayoutHandler } from "./handler.js";
-import { handlers } from "./registry.js";
 
 /** Attributes managed by the compositor — never sync back to source. */
 const COMPOSITOR_ATTRS = new Set([
@@ -14,20 +13,27 @@ const COMPOSITOR_ATTRS = new Set([
  * Layout handler that syncs mutations from composed <fragment-container>
  * clones back to the source DOM.
  *
- * Uses the shared clone→source map on the handler registry (populated
- * by mapFragment after composition) to resolve clone elements.
+ * Uses the flow's clone→source map (populated during composition) to
+ * resolve clone elements.
  *
- *   const sync = new MutationSync();
- *   FragmentedFlow.register(sync);
- *   const flow = await layout.flow();
+ *   Fragmenter.handlers.push(MutationSync);
+ *   const layout = new Fragmenter(content, options);
+ *   const pages = [...layout];
+ *   const sync = layout.handlers.get(MutationSync);
  *
- *   flow[0].startObserving();
- *   flow[0].addEventListener("fragment-change", () => {
- *     const records = flow[0].takeMutationRecords();
+ *   pages[0].startObserving();
+ *   pages[0].addEventListener("fragment-change", () => {
+ *     const records = pages[0].takeMutationRecords();
  *     sync.applyMutations(records);
  *   });
  */
 export class MutationSync extends LayoutHandler {
+	#cloneMap = null;
+
+	init(options, context) {
+		this.#cloneMap = context.cloneMap;
+	}
+
 	/**
 	 * Process an array of MutationRecords from a fragment-container.
 	 * Applies each mutation back to the source DOM.
@@ -63,7 +69,7 @@ export class MutationSync extends LayoutHandler {
 		const { attributeName, target } = mutation;
 		if (COMPOSITOR_ATTRS.has(attributeName)) return false;
 
-		const source = handlers.getSource(target);
+		const source = this.#cloneMap.get(target);
 		if (!source) return false;
 
 		const newValue = target.getAttribute(attributeName);
@@ -79,7 +85,7 @@ export class MutationSync extends LayoutHandler {
 		let changed = false;
 		for (const node of mutation.removedNodes) {
 			if (node.nodeType !== 1) continue;
-			const source = handlers.getSource(node);
+			const source = this.#cloneMap.get(node);
 			if (!source) continue;
 			source.remove();
 			changed = true;
@@ -91,7 +97,7 @@ export class MutationSync extends LayoutHandler {
 		let changed = false;
 		for (const node of mutation.addedNodes) {
 			if (node.nodeType !== 1) continue;
-			if (handlers.getSource(node)) continue;
+			if (this.#cloneMap.get(node)) continue;
 
 			const insertionPoint = this.#findInsertionPoint(node, mutation.target);
 			if (!insertionPoint) continue;
@@ -105,11 +111,11 @@ export class MutationSync extends LayoutHandler {
 			}
 
 			// Register the new clone→source pairs in the shared map
-			handlers.trackClone(node, sourceClone);
+			this.#cloneMap.track(node, sourceClone);
 			const composedDescs = node.querySelectorAll("*");
 			const sourceDescs = sourceClone.querySelectorAll("*");
 			for (let i = 0; i < composedDescs.length && i < sourceDescs.length; i++) {
-				handlers.trackClone(composedDescs[i], sourceDescs[i]);
+				this.#cloneMap.track(composedDescs[i], sourceDescs[i]);
 			}
 
 			changed = true;
@@ -119,28 +125,28 @@ export class MutationSync extends LayoutHandler {
 
 	#findInsertionPoint(node, parent) {
 		let prev = node.previousElementSibling;
-		while (prev && !handlers.getSource(prev)) {
+		while (prev && !this.#cloneMap.get(prev)) {
 			prev = prev.previousElementSibling;
 		}
 		if (prev) {
-			const sourceRef = handlers.getSource(prev);
+			const sourceRef = this.#cloneMap.get(prev);
 			if (sourceRef) {
 				return { parent: sourceRef.parentElement, before: sourceRef.nextElementSibling };
 			}
 		}
 
 		let next = node.nextElementSibling;
-		while (next && !handlers.getSource(next)) {
+		while (next && !this.#cloneMap.get(next)) {
 			next = next.nextElementSibling;
 		}
 		if (next) {
-			const sourceRef = handlers.getSource(next);
+			const sourceRef = this.#cloneMap.get(next);
 			if (sourceRef) {
 				return { parent: sourceRef.parentElement, before: sourceRef };
 			}
 		}
 
-		const parentSource = handlers.getSource(parent);
+		const parentSource = this.#cloneMap.get(parent);
 		if (parentSource) {
 			return { parent: parentSource, before: null };
 		}

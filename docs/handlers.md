@@ -6,11 +6,11 @@ Layout handlers extend the fragmentation engine with custom behaviors. A handler
 
 A handler hooks into the engine at these points:
 
-0. **Initialization** -- When a handler is registered, the engine calls `handler.init()`. Handlers use this for one-time feature detection (e.g., browser sniffing to enable/disable behavior).
+0. **Initialization** -- Each flow creates its own instance of every catalog class and calls `handler.init(options, context)` at layout initialization. `options` are the flow's constructor options (plus `isPageBased`); `context` is the flow's `FlowContext` (`handlers`, `cloneMap`, `flow`). Handlers use this for feature detection, reading options, and keeping the context for any layout nodes or parallel flows they create.
 
 1. **CSS rule matching** -- Before measurement begins, the engine walks all CSS rules in a single pass and calls `handler.matchRule(rule, context)` for each leaf style rule. Handlers accumulate state (selectors, descriptors) for use in later hooks. After the walk, `handler.injectSheets()` can return additional stylesheets to prepend.
 
-2. **Persistent element claim** -- After rule processing, the engine calls `handler.claimPersistent(content)`. The handler uses state from step 1 to identify elements that must be present in every measurement segment (e.g., `position: fixed` elements).
+2. **Content preparation** -- After rule processing and before the measurer segments the content, the engine calls `handler.prepareContent(content)` with the full source content. The content is not yet in the measurement DOM, so `getComputedStyle()` is unavailable; handlers match via selectors accumulated in step 1 or inline styles. Handlers may mutate the content or set [markers](#markers) on it (e.g., `FixedPosition` marks `position: fixed` elements persistent).
 
 3. **Pre-layout scan** -- Before the normal layout pass, the engine calls `handler.layout()`. The handler scans the root node's children, lays out any it claims (via a provided callback), and returns space reservations. The engine adjusts the available space for remaining content.
 
@@ -24,9 +24,9 @@ A handler extends `LayoutHandler` and implements whichever methods it needs. All
 
 ```javascript
 {
-  // Called once when the handler is registered.
-  // Use for feature detection or setting internal flags.
-  init() -> void,
+  // Called on the fresh instance a flow creates at layout initialization.
+  // Use for feature detection, options, and keeping the flow context.
+  init(options, context) -> void,
 
   // Called per CSS style rule during the centralized rule walk.
   // context.wrappers contains grouping rule preambles (e.g. ["@media screen"]).
@@ -58,10 +58,9 @@ A handler extends `LayoutHandler` and implements whichever methods it needs. All
     isRepeated,        // mark the fragment as repeated content
   } | null,
 
-  // Called after processRules() with the full content fragment.
-  // Return elements that must persist across all measurement segments
-  // (e.g., position: fixed elements that repeat on every page).
-  claimPersistent(content) -> Element[],
+  // Called after processRules() with the full source content, before
+  // it is injected into the measurement DOM. Mutate it or set markers.
+  prepareContent(content) -> void,
 
   // Called after content layout completes for a fragmentainer.
   // Inspect the fragment and optionally request additional block-end space.
@@ -77,18 +76,29 @@ The `afterRender` closure captures whatever state the handler needs from `layout
 
 ## Centralized Rule Walk
 
-CSS rules are processed in a single pass by `HandlerRegistry.processRules(styles)`. The walk recurses into grouping rules (`@media`, `@supports`, `@layer`) and dispatches each leaf style rule to every handler's `matchRule()`. This replaces the previous pattern where each handler independently walked all stylesheets in `claimPersistent()`.
+CSS rules are processed in a single pass by `HandlerRegistry.processRules(styles)`. The walk recurses into grouping rules (`@media`, `@supports`, `@layer`) and dispatches each leaf style rule to every handler's `matchRule()`. This replaces the previous pattern where each handler independently walked all stylesheets.
 
 The `context.wrappers` array tracks the chain of grouping rule preambles, e.g. `["@media screen"]` for a rule inside `@media screen { ... }`. Handlers that re-emit rules preserve these wrappers so grouping-rule context survives.
 
 After the walk, the registry calls `appendRules(rules)` on each handler. Handlers push CSS rule text strings into the array. If any rules are collected, the registry creates a single `CSSStyleSheet`, inserts all rules, and prepends it to the styles array before measurement begins.
 
+## Markers
+
+Features cooperate through DOM attribute markers rather than by calling each other. Anything that can touch the content before layout can set them: a handler in `prepareContent()`, or the caller before constructing a `Fragmenter`. Helpers are exported from the package root.
+
+| Helper | Attribute | Effect |
+| --- | --- | --- |
+| `markPersistent(element, owner = "")` | `data-frag-persistent="<owner>"` | The element is included in every measurement segment (e.g. a `position: fixed` header repeated on each page). Applies to **top-level** children of the content only; marking a nested element has no effect. |
+| `markNativePseudo(element, "before" \| "after")` | `data-frag-native-pseudo-<pseudo>` | `PseudoElements` leaves that pseudo alone instead of materializing it as a `<frag-pseudo>`. Use it when the pseudo's content must stay native (e.g. a counter rendered by the browser). |
+
+The `owner` value on `data-frag-persistent` lets a handler distinguish its own markers from a caller's when content is re-prepared after a style change: a handler clears only markers carrying its own owner string (`clearPersistent(element, owner)`), and never a caller's (`""`). Markers are ordinary attributes, so they survive cloning into the output and can be styled.
+
 ## Registration
 
-All handlers must extend the `LayoutHandler` base class. Register the **class** (not an instance) on the global registry — the engine creates a fresh instance each time a `FragmentedFlow` initializes, so handler state never leaks between flows.
+All handlers must extend the `LayoutHandler` base class. Register the **class** (not an instance) on the global registry — the engine creates a fresh instance each time a `Fragmenter` initializes, so handler state never leaks between flows.
 
 ```javascript
-import { LayoutHandler, FragmentedFlow } from "fragmentainers";
+import { LayoutHandler, Fragmenter } from "fragmentainers";
 
 class MyHandler extends LayoutHandler {
 	claim(node) {
@@ -96,16 +106,32 @@ class MyHandler extends LayoutHandler {
 	}
 }
 
-FragmentedFlow.register(MyHandler);
+// Add it to the catalog once, at package load.
+Fragmenter.handlers.push(MyHandler);
 
-// Unregister
-FragmentedFlow.remove(MyHandler);
-
-// Retrieve the current instance (created during flow initialization)
-const instance = FragmentedFlow.getHandler(MyHandler);
+// Every flow constructed afterwards owns a fresh instance.
+const flow = new Fragmenter(content, options);
+const instance = flow.handlers.get(MyHandler);
 ```
 
-Built-in handlers from `src/handlers/index.js` are registered automatically at import time.
+`Fragmenter.handlers` is a plain ordered array of handler classes — the one catalog for the page. Fragmentainers fills it with the handlers CSS fragmentation needs; a package built on fragmentainers (pagedjs) appends its own once at import. There is no per-flow configuration: every `Fragmenter` resolves the catalog at construction into its own instances, so two flows never share handler state, and a push after a flow exists affects only flows constructed later.
+
+Resolution rules, applied in list order:
+
+- anything that is not a `LayoutHandler` subclass throws;
+- a class listed twice is kept once, at its first position;
+- a class that **extends** an earlier entry **replaces** it in place.
+
+That last rule is how a core handler is overridden without disturbing handler order:
+
+```javascript
+class PagedFixedPosition extends FixedPosition {
+	/* ... */
+}
+Fragmenter.handlers.push(PagedFixedPosition); // takes FixedPosition's slot
+```
+
+Removing a handler is not a supported operation.
 
 ## Example: Full-Page Image Handler
 
@@ -154,11 +180,11 @@ class PageFit extends LayoutHandler {
 3. Override `claim()`, `layout()`, and/or `beforeChildren()` as needed.
 4. Use `node.getCustomProperty("my-prop")` to read CSS custom properties (the `--` prefix is added automatically). This uses the cached `getComputedStyle` on `DOMLayoutNode`, so repeated reads are free.
 5. The `layoutChild` callback provided to `layout()` runs a node through the full layout algorithm. Use it to measure elements.
-6. Export the class and register it via `FragmentedFlow.register(MyHandler)`. The registry creates a fresh instance per flow.
+6. Export the class and append it to the catalog: `Fragmenter.handlers.push(MyHandler)`. Every flow creates its own instance.
 
 ### Handler Initialization
 
-Handlers can override `init(options)` to run setup when a flow initializes — typically feature detection or reading options. Since a fresh instance is created per flow, `init()` is called on a clean object each time. `FragmentedFlow` additionally injects an `isPageBased` flag (`true` when a `PageResolver` is used or when neither `resolver` nor `constraintSpace` is supplied) so handlers can no-op for non-page flows.
+Handlers can override `init(options, context)` to run setup when a flow initializes — typically feature detection or reading options. Since a fresh instance is created per flow, `init()` is called on a clean object each time. `Fragmenter` additionally injects an `isPageBased` flag (`true` when a `PageResolver` is used or when neither `resolver` nor `constraintSpace` is supplied) so handlers can no-op for non-page flows.
 
 For example, `EmulatePrintPixelRatio` gates its line-height normalization on both browser family and fragmentation mode:
 
@@ -178,22 +204,23 @@ class EmulatePrintPixelRatio extends LayoutHandler {
 
 ## Built-in Handlers
 
-Built-in handlers (in `src/handlers/`) registered by default:
+Handlers in the default catalog (`Fragmenter.handlers`, in order):
 
 | Handler                  | Purpose                                                                   | Page-only? |
 | ------------------------ | ------------------------------------------------------------------------- | :--------: |
-| `PageFloat`              | Page-relative floats (`--float-reference: page`)                          |     —      |
 | `RepeatedTableHeader`    | Repeat `<thead>` on continuation pages                                    |     —      |
 | `FixedPosition`          | Repeat `position: fixed` elements on every page                           |     —      |
 | `StyleResolver`          | Per-element overrides for structural-pseudo rules                         |     —      |
 | `EmulatePrintPixelRatio` | Line-height normalization so screen rendering matches DPR-1 layout        |    yes     |
 | `BodyRewriter`           | Rewrites `body`/`html` rules to `:scope` and `:host(content-measure) > slot` |    yes     |
 
-Opt-in handlers (register explicitly via `FragmentedFlow.register(Handler)`):
+Shipped but not in the default catalog (push them yourself):
 
 | Handler        | Import                                                       | Purpose                                                          |
 | -------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
-| `Footnote`     | `import { Footnote } from "fragmentainers/handlers"`         | CSS footnotes (`float: footnote`) with iterative layout          |
-| `MutationSync` | `import { MutationSync } from "fragmentainers"`              | Sync mutations from fragment-container clones back to source     |
+| `PageFloat`    | `import { PageFloat } from "fragmentainers/handlers"`        | Page-relative floats (`--float-reference: page`)                 |
+| `MutationSync` | `import { MutationSync } from "fragmentainers/handlers"`     | Sync mutations from fragment-container clones back to source     |
 
-To add a built-in default handler, register it from `src/handlers/index.js` -- it will be registered automatically at import time.
+Paged-media handlers such as footnotes live in pagedjs, which appends them to the catalog.
+
+To add a handler to the default catalog, add it to `src/handlers/catalog.js`.

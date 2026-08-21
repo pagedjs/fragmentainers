@@ -77,6 +77,10 @@ export class MulticolAlgorithm {
 		this.#earlyBreakTarget = earlyBreakTarget;
 	}
 
+	get node() {
+		return this.#node;
+	}
+
 	*layout() {
 		this.#setup();
 		yield* this.layoutColumnLoop();

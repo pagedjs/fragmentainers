@@ -311,7 +311,7 @@ test.describe("layoutGridContainer", () => {
 
 	test("a broken grid row resumes its items instead of re-laying from scratch", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { gridNode, gridItemNode } = await import("/test/fixtures/nodes.js");
 

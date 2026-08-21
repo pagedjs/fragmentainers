@@ -478,16 +478,16 @@ export class DOMLayoutNode extends LayoutNode {
 			for (const child of childNodes) {
 				if (isBlockLevelNode(child)) {
 					if (inlineGroup.length > 0) {
-						this.#children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
+						this.#children.push(this.#childNode(new AnonymousBlockNode(this.element, [...inlineGroup])));
 						inlineGroup = [];
 					}
-					this.#children.push(new DOMLayoutNode(child));
+					this.#children.push(this.#childNode(new DOMLayoutNode(child)));
 				} else if (isSignificantInlineNode(child)) {
 					inlineGroup.push(child);
 				}
 			}
 			if (inlineGroup.length > 0) {
-				this.#children.push(new AnonymousBlockNode(this.element, [...inlineGroup]));
+				this.#children.push(this.#childNode(new AnonymousBlockNode(this.element, [...inlineGroup])));
 			}
 		} else {
 			// Pure block children. Push every non-skipped element — block-level,
@@ -497,12 +497,17 @@ export class DOMLayoutNode extends LayoutNode {
 			// Insignificant whitespace and display:none/skip classify as "skip".
 			for (const child of childNodes) {
 				if (child.nodeType === Node.ELEMENT_NODE && classifyNode(child) !== "skip") {
-					this.#children.push(new DOMLayoutNode(child));
+					this.#children.push(this.#childNode(new DOMLayoutNode(child)));
 				}
 			}
 		}
 
 		return this.#children;
+	}
+
+	#childNode(node) {
+		node.adoptContextFrom(this);
+		return node;
 	}
 
 	setChildren(children) {

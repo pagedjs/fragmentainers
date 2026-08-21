@@ -8,7 +8,7 @@ The top-level entry point exposes the main public API:
 
 ```js
 import {
-	FragmentedFlow,
+	Fragmenter,
 	Fragment,
 	FragmentationContext,
 	ConstraintSpace,
@@ -21,13 +21,13 @@ Additional subpath barrels expose the rest of the public surface area:
 
 | Subpath | Exports |
 | --- | --- |
-| `fragmentainers/fragmentation` | `BreakToken`, `BlockBreakToken`, `InlineBreakToken`, `findChildBreakToken`, `Fragment`, `ConstraintSpace`, `EarlyBreak`, `BreakScore`, `FragmentedFlow`, `FragmentationContext`, `CounterState`, `parseCounterDirective`, `walkFragmentTree` |
-| `fragmentainers/layout` | `LayoutRequest`, `createFragments`, `LayoutDriver`, `runLayoutGenerator`, `getLayoutAlgorithm`, `isMonolithic`, `getMonolithicBlockSize`, `buildCumulativeHeights`, `LayoutNode`, `DOMLayoutNode`, `AnonymousBlockNode`, `FlowThreadNode` |
+| `fragmentainers/fragmentation` | `BreakToken`, `BlockBreakToken`, `InlineBreakToken`, `findChildBreakToken`, `Fragment`, `ConstraintSpace`, `FRAGMENTATION_*`, `EarlyBreak`, `BreakScore`, `Fragmenter`, `createFragments`, `FragmentFlow`, `FlowContext`, `CloneMap`, `FragmentationContext`, `CounterState`, `parseCounterDirective`, `walkFragmentTree` |
+| `fragmentainers/layout` | `LayoutRequest`, `createFragments`, `runLayoutGenerator`, `getLayoutAlgorithm`, `isMonolithic`, `getMonolithicBlockSize`, `buildCumulativeHeights`, `LayoutNode`, `DOMLayoutNode`, `AnonymousBlockNode`, `FlowThreadNode` |
 | `fragmentainers/algorithms` | `BlockContainerAlgorithm`, `FlexAlgorithm`, `GridAlgorithm`, `InlineContentAlgorithm`, `MulticolAlgorithm`, `TableRowAlgorithm`, `resolveColumnDimensions` |
 | `fragmentainers/resolvers` | `PageResolver`, `RegionResolver`, `RegionConstraints` |
 | `fragmentainers/components` | `ContentMeasureElement`, `FragmentContainerElement` |
-| `fragmentainers/styles` | `computedStyleMap` |
-| `fragmentainers/handlers` | `LayoutHandler`, `handlers`, `PageFloat`, `RepeatedTableHeader`, `FixedPosition`, `Footnote` |
+| `fragmentainers/styles` | `computedStyleMap`, `parseNumeric`, `toPx` |
+| `fragmentainers/handlers` | `LayoutHandler`, `HandlerRegistry`, `resolveHandlerClasses`, `defaultHandlers`, `RepeatedTableHeader`, `FixedPosition`, `StyleResolver`, `EmulatePrintPixelRatio`, `BodyRewriter`, `PseudoElements`, `PageFloat`, `MutationSync`, `markPersistent`, `markNativePseudo` |
 
 Constants and internal helpers (e.g. `NAMED_SIZES`, `FRAGMENTATION_*`, `BOX_DECORATION_*`, `walkRules`, `parseNumeric`) are imported from the specific file that owns them — see each section below for the exact path.
 
@@ -50,26 +50,29 @@ Constants and internal helpers (e.g. `NAMED_SIZES`, `FRAGMENTATION_*`, `BOX_DECO
 
 ## 1. Primary API
 
-### FragmentedFlow
+### Fragmenter
 
-`import { FragmentedFlow } from "fragmentainers"`
+`import { Fragmenter } from "fragmentainers"`
 
 High-level coordinator for the content-to-fragmentation pipeline. Accepts a
 `DocumentFragment`, `Element`, or mock node. Internally creates a
 `<content-measure>` element for DOM measurement, builds the layout tree,
 runs fragmentation, and returns a `FragmentationContext`.
 
+Renamed from `FragmentedFlow` — that name is a CSS Fragmentation 3 term for the
+content being laid out, not for the machinery laying it out.
+
 ```js
 // DocumentFragment input with stylesheets — iterate directly
 const template = document.createElement("template");
 template.innerHTML = htmlContent;
-const flow = new FragmentedFlow(template.content, { styles: [sheet] });
+const flow = new Fragmenter(template.content, { styles: [sheet] });
 for (const el of flow) {
 	document.body.appendChild(el);
 }
 
 // Element input (cloned internally) — use flow() for partial ranges
-const layout = new FragmentedFlow(document.getElementById("content"), {
+const layout = new Fragmenter(document.getElementById("content"), {
 	width: 600,
 	height: 800,
 });
@@ -77,7 +80,7 @@ const context = layout.flow({ start: 0, stop: 5 });
 
 // Region mode — iterator fills regions
 const resolver = new RegionResolver([...regionEls]);
-const flow = new FragmentedFlow(content, { resolver });
+const flow = new Fragmenter(content, { resolver });
 let i = 0;
 for (const el of flow) {
 	if (i >= regionEls.length) break;
@@ -89,7 +92,7 @@ flow.destroy();
 #### Constructor
 
 ```js
-new FragmentedFlow(content, options?)
+new Fragmenter(content, options?)
 ```
 
 | Parameter                     | Type                                        | Description                                                                                                                               |
@@ -102,6 +105,7 @@ new FragmentedFlow(content, options?)
 | `options.height`              | `number`                                    | Container height in CSS px (column fragmentation)                                                                                         |
 | `options.type`                | `string`                                    | Fragmentation type when using `width`/`height` (default: `FRAGMENTATION_COLUMN`)                                                          |
 | `options.styleSheet`          | `CSSStyleSheet`                             | Sheet to write the composite scoped rules into. The caller adopts it where needed (`document` or any `ShadowRoot`). When omitted, the flow creates its own sheet and adopts it on `document.adoptedStyleSheets`. |
+| `options.continuation`        | `{ fragmentainerIndex, blockOffset }`       | Resume point handed over by a previous flow: the fragmentainer index to number from, and the block offset already consumed within it. Read the outgoing one back off the `continuation` getter. |
 
 Options are checked in priority order: `constraintSpace` > `resolver` > `width`/`height` > auto-create `PageResolver` from `@page` rules in styles.
 
@@ -109,12 +113,20 @@ Options are checked in priority order: `constraintSpace` > `resolver` > `width`/
 
 | Method                         | Returns                | Description                                                                                                                                                                                                 |
 | ------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `next()`                       | `{ value, done }`      | Iterator protocol — lay out the next fragmentainer, return its `<fragment-container>` element. Returns `{ done: true }` when all content is placed.                                                         |
+| `next()`                       | `{ value, done }`      | Iterator protocol — lay out the next fragmentainer, return its `<fragment-container>` element. Returns `{ done: true }` when all content is placed. A flow over a `LayoutNode` tree composes nothing, so `value` is `undefined`; use `flow()` and read `.fragments`. |
 | `flow({ start, stop }?)`       | `FragmentationContext` | Run all fragmentainers to completion. `start`/`stop` control which elements are created (layout always runs to completion).                                                                                 |
 | `layout(forceUpdate?)`         | `void`                 | Initialize the layout tree and internal measurement container. Called lazily by `next()`. Pass `true` to force re-initialization.                                                                           |
 | `preload(options?)`            | `Promise<void>`        | Optional — preload fonts and images before layout for accurate measurement. Accepts `{ signal, timeout }` (default timeout 10s; pass `0` to disable).                                                       |
 | `reflow(fromIndex?, options?)` | `FragmentationContext` | Re-layout from a specific fragmentainer index. Returns a new `FragmentationContext` with the reflowed fragments. Pass `{ rebuild: true }` after structural DOM changes to force layout tree reconstruction. |
-| `destroy()`                    | `void`                 | Remove the internal `<content-measure>` element from the DOM. Call when the layout is no longer needed.                                                                                                     |
+| `destroy()`                    | `void`                 | Remove the internal `<content-measure>` element from the DOM and destroy this flow's handler instances. Call when the layout is no longer needed.                                                           |
+
+#### Properties
+
+| Property                       | Type                   | Description                                                                                                                                                                                                 |
+| ------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Fragmenter.handlers`      | `Class[]` (static)     | The ordered catalog of handler classes every flow instantiates. Append to add; append a subclass of a listed class to override it. See [handlers](#fragmenterhandlers-catalog-and-flowhandlers-registry). |
+| `handlers`                     | `HandlerRegistry`      | This flow's handler instances (`flow.handlers.get(Cls)`).                                                                                                                                                    |
+| `continuation`                 | `{ fragmentainerIndex, blockOffset }` | The resume point for a flow picking up where this one stopped. Rolls to the next index when the last fragment filled its fragmentainer.                                                       |
 
 ---
 
@@ -404,11 +416,15 @@ processing.
 
 ### createFragments(rootNode, constraintSpaceOrResolver, continuation?)
 
-`import { createFragments } from "fragmentainers"`
+`import { createFragments } from "fragmentainers/fragmentation"`
 
-Top-level fragmentainer driver loop. Creates fragmentainers, runs layout
-generators, and collects fragments until no break token remains. Supports
-two-pass layout with early-break re-runs.
+**Source:** `src/fragmentation/create-fragments.js`
+
+Batch entry point for fragmenting an already-built layout tree. Wraps the tree
+in a `Fragmenter`, runs it to completion, and returns the fragments. The
+tree is already measured, so no measurement container is created; nothing is
+composed, so no `<fragment-container>` elements are produced. Callers that want
+elements build them with `fragment.build(prevBreakToken)`.
 
 ```js
 // Simple: single constraint space, returns flat array
@@ -805,7 +821,7 @@ The two custom elements live under `src/components/`. They are auto-registered o
 Off-screen measurement container with Shadow DOM. Injects content and CSS into a
 shadow root so the host page's styles do not affect layout measurements.
 
-Managed internally by `FragmentedFlow`.
+Managed internally by `Fragmenter`.
 
 #### Methods
 
@@ -1212,7 +1228,7 @@ Base class for all layout handlers. Subclass and override methods as needed.
 
 | Property  | Type     | Description                                                           |
 | --------- | -------- | --------------------------------------------------------------------- |
-| `options` | `Object` | Options passed from `FragmentedFlow` via the registry. Default: `{}`. |
+| `options` | `Object` | Options passed from `Fragmenter` via the registry. Default: `{}`. |
 
 #### Methods
 
@@ -1222,9 +1238,7 @@ Base class for all layout handlers. Subclass and override methods as needed.
 | `resetRules()`                                                   | `void`                                                  | Reset state from a previous `matchRule` pass. Called before each CSS rule walk.                      |
 | `matchRule(rule, context)`                                       | `void`                                                  | Inspect a CSS rule during the centralized rule walk. `context.wrappers` has grouping rule preambles. |
 | `appendRules(rules)`                                             | `void`                                                  | Push CSS rule text strings into `rules[]` to inject into a shared stylesheet.                        |
-| `claimPersistent(content)`                                       | `Element[]`                                             | Called before measurement. Return elements to include in every measurement segment.                  |
-| `claimPseudo(element, pseudo, contentValue)`                     | `boolean`                                               | Claim a pseudo-element during materialization. Return `true` to prevent default handling.            |
-| `claimPseudoRule(rule, pseudo)`                                  | `boolean`                                               | Claim a CSS pseudo-element rule. Return `true` to skip rewriting.                                    |
+| `prepareContent(content)`                                        | `void`                                                  | Called after rule processing with the full source content, before measurement. Mutate or mark it.    |
 | `afterMeasurementSetup(contentRoot)`                             | `void`                                                  | Called after measurement DOM is set up. Handlers can probe live elements via `getComputedStyle`.     |
 | `getAdoptedSheets()`                                             | `CSSStyleSheet[]`                                       | Return per-flow stylesheets to fold into the composite scoped sheet (`document.adoptedStyleSheets`). |
 | `layout(rootNode, constraintSpace, breakToken, layoutChild)`     | `{ reservedBlockStart, reservedBlockEnd, afterRender }` | Pre-layout hook. Called once per fragmentainer.                                                      |
@@ -1233,50 +1247,74 @@ Base class for all layout handlers. Subclass and override methods as needed.
 
 ---
 
-### handlers (registry)
+### Fragmenter.handlers (catalog) and flow.handlers (registry)
 
-`import { handlers } from "fragmentainers"`
+`Fragmenter.handlers` is the ordered array of handler classes every flow
+instantiates. Append to it once at package load; append a subclass of a listed
+class to override it in place. Pushes affect flows constructed afterwards.
 
-Global `HandlerRegistry` instance. Built-in handlers are registered automatically
-at import time, except `Footnote`, which must be registered explicitly via
-`FragmentedFlow.register(Footnote)`.
+```js
+Fragmenter.handlers.push(MyHandler);
+const flow = new Fragmenter(content, options);
+flow.handlers.get(MyHandler); // this flow's instance
+```
 
-#### Methods
+Each flow owns a `HandlerRegistry` (`flow.handlers`), created from the catalog
+at construction. The registry is iterable over the instances.
+
+#### HandlerRegistry
+
+`import { HandlerRegistry, resolveHandlerClasses } from "fragmentainers/handlers"`
 
 | Method                                                           | Returns                  | Description                                                                                |
 | ---------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------ |
-| `register(handler)`                                              | `void`                   | Register a handler instance                                                                |
-| `remove(handler)`                                                | `void`                   | Unregister a handler                                                                       |
-| `setOptions(options)`                                            | `void`                   | Pass options from `FragmentedFlow` to all handlers                                         |
+| `new HandlerRegistry(classes, context?)`                         | —                        | Resolve `classes` (validate, dedupe, subclass-overrides-base) for one flow                 |
+| `classes`                                                        | `Class[]`                | The resolved class list, in instantiation order                                            |
+| `init(options)`                                                  | `void`                   | Destroy existing instances, create fresh ones, call `handler.init(options, context)`      |
+| `destroy()`                                                      | `void`                   | Destroy this registry's instances only                                                     |
+| `get(HandlerClass)`                                              | `LayoutHandler \| null`  | This flow's instance of the class (or of the subclass overriding it)                       |
 | `processRules(styles)`                                           | `void`                   | Walk CSS rules, dispatch to `matchRule()`, collect `appendRules()` output                  |
 | `getInjectedSheet()`                                             | `CSSStyleSheet \| null`  | The sheet appended by the most recent `processRules()` call (handler-`appendRules` output) |
-| `claim(node)`                                                    | `boolean`                | Check if any registered handler claims this node                                           |
-| `claimPersistent(content)`                                       | `Element[]`              | Aggregate persistent elements from all handlers                                            |
+| `claim(node)`                                                    | `boolean`                | Check if any handler claims this node                                                      |
+| `prepareContent(content)`                                        | `void`                   | Let every handler prepare the source content                                               |
+| `beforeMeasurement(contentRoot)`                                 | `void`                   | Let handlers mutate the measurement DOM before measurement                                 |
 | `afterMeasurementSetup(contentRoot)`                             | `void`                   | Let handlers probe the live measurement DOM                                                |
 | `getAdoptedSheets()`                                             | `CSSStyleSheet[]`        | Collect per-flow stylesheets from handlers (folded into the composite scoped sheet)        |
 | `layout(rootNode, constraintSpace, breakToken, layoutChild)`     | `object`                 | Aggregate `layout()` results from all handlers                                             |
 | `beforeChildren(node, constraintSpace, breakToken)`              | `object \| null`         | First non-null `beforeChildren()` result                                                   |
 | `afterContentLayout(fragment, constraintSpace, inputBreakToken)` | `object \| null`         | Aggregate `afterContentLayout()` results                                                   |
+| `getFlows()`                                                     | `Array<{ handler, flow }>` | Handlers that run a parallel `FragmentFlow`                                              |
+
+#### FlowContext
+
+`import { FlowContext } from "fragmentainers/fragmentation"`
+
+Per-flow state handed to every handler's `init(options, context)` and carried by
+every `LayoutNode` as `node.context`: `{ handlers: HandlerRegistry, cloneMap: CloneMap, flow: Fragmenter | null }`.
+Handlers that create layout nodes or a `FragmentFlow` must pass the context on.
 
 ---
 
 ### Built-in Handlers
 
-Most built-in handlers are registered automatically. `Footnote` and `MutationSync` must be registered explicitly via `FragmentedFlow.register(Handler)`.
+The default catalog, in order: `RepeatedTableHeader`, `FixedPosition`,
+`StyleResolver`, `EmulatePrintPixelRatio`, `BodyRewriter`, `PseudoElements`.
+`PageFloat` and `MutationSync` ship with the package but are not in the catalog;
+push them if you need them. Paged-media handlers (footnotes, running elements)
+live in pagedjs, which appends them to the catalog.
 
 | Handler                  | Import                                                                                   | Description                                                                                     |
 | ------------------------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `PageFloat`              | `import { PageFloat } from "fragmentainers"`                                             | Page-relative floats via `--float-reference: page` and `--float: top\|bottom`                   |
-| `PageFit`                | `import { PageFit } from "fragmentainers"`                                               | Full-page elements via `--page-fit: contain\|cover\|fill`                                       |
 | `RepeatedTableHeader`    | `import { RepeatedTableHeader } from "fragmentainers"`                                   | Repeat `<thead>` on continuation pages                                                          |
-| `FixedPosition`          | `import { FixedPosition } from "fragmentainers/src/handlers/fixed-position.js"`          | Repeat `position: fixed` elements on every page                                                 |
-| `Footnote`               | `import { Footnote } from "fragmentainers/src/handlers/footnote.js"`                     | CSS footnotes (`float: footnote`) with iterative layout. **Opt-in.**                            |
-| `StyleResolver`          | `import { StyleResolver } from "fragmentainers/src/handlers/style-resolver.js"`          | Per-element overrides for structural-pseudo rules (replaces the cloned-position match)          |
-| `EmulatePrintPixelRatio` | `import { EmulatePrintPixelRatio } from "fragmentainers/src/handlers/normalize.js"`      | Line-height normalization for print-style flows (auto-enabled in Blink browsers; page-based only) |
-| `BodyRewriter`           | `import { BodyRewriter } from "fragmentainers/src/handlers/body-rewriter.js"`            | Rewrites `body`/`html` rules to `:scope` (fragment-container) and `:host(content-measure) > slot` (measurer); page-based only |
-| `MutationSync`           | `import { MutationSync } from "fragmentainers"`                                          | Optional. Syncs mutations from fragment-container clones back to source elements                |
+| `FixedPosition`          | `import { FixedPosition } from "fragmentainers"`                                         | Repeat `position: fixed` elements on every page                                                 |
+| `StyleResolver`          | `import { StyleResolver } from "fragmentainers"`                                         | Per-element overrides for structural-pseudo rules (replaces the cloned-position match)          |
+| `EmulatePrintPixelRatio` | `import { EmulatePrintPixelRatio } from "fragmentainers"`                                | Line-height normalization for print-style flows (auto-enabled in Blink browsers; page-based only) |
+| `BodyRewriter`           | `import { BodyRewriter } from "fragmentainers"`                                          | Rewrites `body`/`html` rules to `:scope` (fragment-container) and `:host(content-measure) > slot` (measurer); page-based only |
+| `PseudoElements`         | `import { PseudoElements } from "fragmentainers"`                                        | Materializes `::before`/`::after` as `<frag-pseudo>` layout objects                             |
+| `PageFloat`              | `import { PageFloat } from "fragmentainers/handlers"`                                    | Not in catalog. Page-relative floats via `--float-reference: page` and `--float: top\|bottom`  |
+| `MutationSync`           | `import { MutationSync } from "fragmentainers/handlers"`                                 | Not in catalog. Syncs mutations from fragment-container clones back to source elements          |
 
-`FragmentedFlow` computes an `isPageBased` flag (`true` when a `PageResolver` is used or when neither `resolver` nor `constraintSpace` is supplied) and passes it to all handlers via `init()`. Handlers that only apply to print-style fragmentation (`EmulatePrintPixelRatio`, `BodyRewriter`) gate their behavior on this flag and no-op for column/region flows.
+`Fragmenter` computes an `isPageBased` flag (`true` when a `PageResolver` is used or when neither `resolver` nor `constraintSpace` is supplied) and passes it to all handlers via `init(options, context)`. Handlers that only apply to print-style fragmentation (`EmulatePrintPixelRatio`, `BodyRewriter`) gate their behavior on this flag and no-op for column/region flows.
 
 ---
 

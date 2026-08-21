@@ -1,7 +1,7 @@
 # The `<fragment-container>` Element
 
 `<fragment-container>` is the visible output of the fragmentation engine. Each
-fragmentainer produced by `FragmentedFlow` — one page, one column, or one
+fragmentainer produced by `Fragmenter` — one page, one column, or one
 region — becomes a `<fragment-container>` custom element. It hosts the
 composed DOM as light-DOM children (so anchor links, `document.getElementById`,
 and PDF link annotations resolve natively) and exposes the page-level values
@@ -39,7 +39,7 @@ touches the element. All measurement happens inside `<content-measure>`
 off-screen; the fragment-container only receives the composed output.
 
 ```
-FragmentedFlow.next()
+Fragmenter.next()
   │
   ├── run layout for one fragmentainer   ← Fragment + BreakToken + CounterState
   │
@@ -209,7 +209,7 @@ which resolver was used — typically by checking for the presence of
 
 #### Fixed constraint space (column / manual mode)
 
-When `FragmentedFlow` is constructed with `width`/`height` or a fixed
+When `Fragmenter` is constructed with `width`/`height` or a fixed
 `ConstraintSpace` (no resolver), the per-fragment `constraints` is the
 `ConstraintSpace` itself. It has `availableInlineSize`,
 `availableBlockSize`, `fragmentainerBlockSize`, etc. — but no page box,
@@ -218,7 +218,7 @@ named page, or margins.
 ### 4.3 Consuming the properties
 
 ```js
-const flow = new FragmentedFlow(content, { resolver: PageResolver.fromDocument() });
+const flow = new Fragmenter(content, { resolver: PageResolver.fromDocument() });
 for (const el of flow) {
 	if (el.constraints?.pageBoxSize) {
 		// Page mode: apply full-page sizing with margins outside the content area.
@@ -241,7 +241,7 @@ for (const el of flow) {
 ## 5. Stylesheet Pipeline
 
 The fragment-container itself doesn't adopt any per-instance stylesheets.
-The engine builds **one composite scoped sheet per `FragmentedFlow`** and
+The engine builds **one composite scoped sheet per `Fragmenter`** and
 adopts it on `document.adoptedStyleSheets` (see
 `src/styles/composite-sheet.js`). Inside `@scope (fragment-container)`,
 the sheet layers:
@@ -359,7 +359,7 @@ slot's `contentBoxSize.blockSize` reflects the projected content's
 natural height (the host itself is size-contained and won't grow). When
 that exceeds `expectedBlockSize + overflowThreshold`, an `overflow` event
 fires with the delta. Consumers can respond by calling
-`FragmentedFlow.reflow(index, { rebuild: true })` or by flagging the page
+`Fragmenter.reflow(index, { rebuild: true })` or by flagging the page
 for manual intervention — the engine itself does not auto-reflow on
 overflow.
 

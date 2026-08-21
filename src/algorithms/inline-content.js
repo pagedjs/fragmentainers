@@ -159,6 +159,10 @@ export class InlineContentAlgorithm {
 		this.#textOffset = breakToken?.textOffset ?? 0;
 	}
 
+	get node() {
+		return this.#node;
+	}
+
 	// eslint-disable-next-line require-yield
 	*layout() {
 		// A block-level done token (isAtBlockEnd) marks an inline formatting

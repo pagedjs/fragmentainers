@@ -52,9 +52,9 @@ test.describe("Inline hyphenation lang propagation", () => {
 		expect(result.shadowHeight).toBe(result.expectedHyphenatedHeight);
 	});
 
-	test("FragmentedFlow produces multi-page output for hyphenated long words", async ({ page }) => {
+	test("Fragmenter produces multi-page output for hyphenated long words", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 
 			const originalLang = document.documentElement.lang;
 			document.documentElement.setAttribute("lang", "en");
@@ -67,7 +67,7 @@ test.describe("Inline hyphenation lang propagation", () => {
 				"antidisestablishmentarianism antidisestablishmentarianism antidisestablishmentarianism";
 			frag.appendChild(p);
 
-			const flow = new FragmentedFlow(frag, { width: 150, height: 60 });
+			const flow = new Fragmenter(frag, { width: 150, height: 60 });
 
 			const containers = [];
 			for (const el of flow) {
@@ -93,7 +93,7 @@ test.describe("Inline break offset normalization", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 			const { measureLines } = await import("/src/measurement/line-box.js");
@@ -179,7 +179,7 @@ test.describe("Inline break offset normalization", () => {
 
 	test("trailing collapsible space is flagged and trimmed at render time", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 
 			const frag = document.createDocumentFragment();
 			const p = document.createElement("p");
@@ -191,7 +191,7 @@ test.describe("Inline break offset normalization", () => {
 			p.textContent = Array.from({ length: 12 }, () => "test").join(" ");
 			frag.appendChild(p);
 
-			const flow = new FragmentedFlow(frag, { width: 200, height: 40 });
+			const flow = new Fragmenter(frag, { width: 200, height: 40 });
 
 			const pages = [];
 			for (const el of flow) {
@@ -272,7 +272,7 @@ test.describe("Inline break offset normalization", () => {
 test.describe("Hyphenation rendering", () => {
 	test("auto hyphenation injects a hyphen on page N", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 
 			document.documentElement.setAttribute("lang", "en");
 
@@ -284,7 +284,7 @@ test.describe("Hyphenation rendering", () => {
 			p.textContent = "antidisestablishmentarianism";
 			frag.appendChild(p);
 
-			const flow = new FragmentedFlow(frag, { width: 150, height: 28, styles: [] });
+			const flow = new Fragmenter(frag, { width: 150, height: 28, styles: [] });
 			const pages = [];
 			for (const el of flow) {
 				pages.push(el);
@@ -305,7 +305,7 @@ test.describe("Hyphenation rendering", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 
 			const frag = document.createDocumentFragment();
 			const p = document.createElement("p");
@@ -316,7 +316,7 @@ test.describe("Hyphenation rendering", () => {
 			p.textContent = "establish\u00ADmentarianism";
 			frag.appendChild(p);
 
-			const flow = new FragmentedFlow(frag, { width: 200, height: 28, styles: [] });
+			const flow = new Fragmenter(frag, { width: 200, height: 28, styles: [] });
 			const pages = [];
 			for (const el of flow) {
 				pages.push(el);
@@ -336,7 +336,7 @@ test.describe("Hyphenation rendering", () => {
 
 	test("hyphens: none suppresses the injected hyphen", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 
 			document.documentElement.setAttribute("lang", "en");
 
@@ -348,7 +348,7 @@ test.describe("Hyphenation rendering", () => {
 			p.textContent = "antidisestablishmentarianism";
 			frag.appendChild(p);
 
-			const flow = new FragmentedFlow(frag, { width: 150, height: 28, styles: [] });
+			const flow = new Fragmenter(frag, { width: 150, height: 28, styles: [] });
 			const pages = [];
 			for (const el of flow) {
 				pages.push(el);
@@ -365,7 +365,7 @@ test.describe("Hyphenation rendering", () => {
 
 	test("custom hyphenate-character is used instead of U+2010", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 
 			const frag = document.createDocumentFragment();
 			const p = document.createElement("p");
@@ -374,7 +374,7 @@ test.describe("Hyphenation rendering", () => {
 			p.textContent = "establish\u00ADmentarianism";
 			frag.appendChild(p);
 
-			const flow = new FragmentedFlow(frag, { width: 200, height: 28, styles: [] });
+			const flow = new Fragmenter(frag, { width: 200, height: 28, styles: [] });
 			const pages = [];
 			for (const el of flow) {
 				pages.push(el);

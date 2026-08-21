@@ -13,7 +13,7 @@ This document maps the fragmentainer engine's data structures, algorithms, and m
 7. [InlineItemsData / InlineItem](#7-inlineitemsdata--inlineitem)
 8. [PageRule / PageConstraints / PageResolver](#8-pagerule--pageconstraints--pagesizeresolver)
 9. [Algorithm Data](#9-algorithm-data)
-10. [FragmentedFlow / FragmentationContext](#10-fragmentainerlayout--fragmentedflow)
+10. [Fragmenter / FragmentationContext](#10-fragmenter--fragmentationcontext)
 11. [Architecture Diagram](#architecture-diagram)
 
 ---
@@ -311,8 +311,8 @@ Yielded from layout algorithm generators to the driver. Represents a request to 
 
 - `runLayoutGenerator(algorithm)` — runs an algorithm instance's `*layout()` generator to completion, fulfilling yielded `LayoutRequest` objects by recursively instantiating child algorithm classes
 - `getLayoutAlgorithm(node)` — returns the algorithm **class** for a node (not a function)
-- `LayoutDriver` — `Iterator`-subclassing top-level driver, one fragmentainer per `next()` call
-- `createFragments(rootNode, constraintSpaceOrResolver, continuation)` — backwards-compatible shim that wraps `new LayoutDriver(...).run()`
+
+The fragmentainer loop that drives these lives on `Fragmenter` (see [§10](#10-fragmenter--fragmentationcontext)); `createFragments(rootNode, constraintSpaceOrResolver, continuation)` in `src/fragmentation/create-fragments.js` is its batch entry point for an already-built layout tree.
 
 ### Blink Equivalent
 
@@ -651,20 +651,23 @@ Gecko stores algorithm-specific state on the frame objects and their continuatio
 
 ---
 
-## 10. FragmentedFlow / FragmentationContext
+## 10. Fragmenter / FragmentationContext
 
-**Source:** `src/fragmentation/fragmented-flow.js`
+**Source:** `src/fragmentation/fragmenter.js`
 
 High-level coordinator that encapsulates the full content-to-fragmentation pipeline.
 
-### FragmentedFlow
+The spec term "fragmented flow" names the *content* being laid out, not the machinery laying it out — so the coordinator is `Fragmenter` and its result is a `FragmentationContext`.
+
+### Fragmenter
 
 | Method                          | Description                                                                                                                                              |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `constructor(content, options)` | Accepts `DocumentFragment`, `Element`, or mock node. Options: `{ styles, resolver, constraintSpace, width, height, type, trackRefs }`                    |
-| `next()`                        | Lay out the next fragmentainer, returns `Fragment`. Automatically inserts blank pages for side-specific breaks (`left`/`right`/`recto`/`verso`). |
+| `next()`                        | Lay out the next fragmentainer, returns its composed `<fragment-container>` `Element`. Automatically inserts blank pages for side-specific breaks (`left`/`right`/`recto`/`verso`). |
 | `flow()`                        | Runs fragmentation to completion, returns `FragmentationContext`                                                                                         |
-| `setup(forceUpdate?)`           | Initialize layout tree and internal `<content-measure>` (called lazily by `next()`)                                                                      |
+| `continuation`                  | Getter: the `{ fragmentainerIndex, blockOffset }` resume point for a flow picking up where this one stopped                                              |
+| `layout(forceUpdate?)`          | Initialize layout tree and internal `<content-measure>` (called lazily by `next()`)                                                                      |
 | `destroy()`                     | Remove the internal `<content-measure>` element                                                                                                          |
 | `reflow(fromIndex?, options?)`  | Reset stepper to re-layout from a specific fragmentainer, returns new `FragmentationContext`                                                             |
 
@@ -674,13 +677,13 @@ Delegates measurement to a `Measurer` instance, which creates `<content-measure>
 
 **Source:** `src/measurement/measure.js`
 
-Owns the `<content-measure>` element lifecycle. On setup, resolves `break-before`, `break-after`, and `page` CSS properties from stylesheet rules for each top-level child element. When forced breaks split content into multiple segments, each segment gets its own `<content-measure>` — the browser only computes layout for one segment at a time. Previous segments' measurers are destroyed as the engine advances. For documents without forced breaks, a single `<content-measure>` is used (identical to previous behavior).
+Owns the `<content-measure>` element lifecycle. A flow over an already-built layout tree has nothing to measure and drives a `NullMeasurer` (`src/measurement/null-measurer.js`) instead — same shape, every hook inert. On setup, resolves `break-before`, `break-after`, and `page` CSS properties from stylesheet rules for each top-level child element. When forced breaks split content into multiple segments, each segment gets its own `<content-measure>` — the browser only computes layout for one segment at a time. Previous segments' measurers are destroyed as the engine advances. For documents without forced breaks, a single `<content-measure>` is used (identical to previous behavior).
 
 | Method                      | Returns                    | Description                                                             |
 | --------------------------- | -------------------------- | ----------------------------------------------------------------------- |
-| `setup()`                   | `Promise<Element>`         | Create measurement container(s), returns content root for tree building |
-| `advance(breakToken, tree)` | `Promise<void>`            | Swap to next segment if at a boundary (no-op for single-segment)        |
-| `release()`                 | `{ content, refMap, ... }` | Destroy measurer, return all content as a DocumentFragment in order     |
+| `setup(constraintSpace?)`   | `Element`                  | Create measurement container(s), returns content root for tree building |
+| `advance(breakToken, tree)` | `boolean`                  | Swap to next segment if at a boundary; true when it swapped             |
+| `release()`                 | `{ content }`              | Destroy measurer, return all content as a DocumentFragment in order     |
 | `applyConstraintSpace(cs)`  | `void`                     | Sync the measurement container's inline size                            |
 | `getContentStyles()`        | `object`                   | Adopted stylesheets and nth-selector descriptors for rendering          |
 
@@ -697,14 +700,15 @@ Owns the `<content-measure>` element lifecycle. On setup, resolves `break-before
 
 ### Blink Equivalent
 
-- The fragmentainer loop is embedded in Blink's [`BlockLayoutAlgorithm::Layout()`](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/core/layout/block_layout_algorithm.cc) and its callers. There is no single "FragmentedFlow" coordinator class — the fragmentation loop is woven into the LayoutNG pipeline.
+- The fragmentainer loop is embedded in Blink's [`BlockLayoutAlgorithm::Layout()`](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/core/layout/block_layout_algorithm.cc) and its callers. There is no single "Fragmenter" coordinator class — the fragmentation loop is woven into the LayoutNG pipeline.
+- Legacy Blink's `LayoutFlowThread` / `LayoutMultiColumnFlowThread` are **not** the analogue despite the name. They model the *content* being fragmented — the spec's "fragmented flow" — not the machinery that fragments it. The engine's counterpart to those is `FlowThreadNode` (see [Flow Thread Pattern](architecture.md#8-flow-thread-pattern)).
 
 ### Gecko Equivalent
 
 - **`nsPageSequenceFrame`** — [`layout/generic/nsPageSequenceFrame.h`](https://searchfox.org/mozilla-central/source/layout/generic/nsPageSequenceFrame.h) — the top-level coordinator for paginated layout. Creates `nsPageFrame` children, drives reflow across pages, and tracks page count.
 - **`nsColumnSetFrame`** — [`layout/generic/nsColumnSetFrame.h`](https://searchfox.org/mozilla-central/source/layout/generic/nsColumnSetFrame.h) — coordinator for column fragmentation; creates column frames and drives content across them
 
-> **Mapping:** `FragmentedFlow` ≈ `nsPageSequenceFrame` (page mode) or `nsColumnSetFrame` (column mode). `FragmentationContext` ≈ the resulting chain of `nsPageFrame` / column frames.
+> **Mapping:** `Fragmenter` ≈ `nsPageSequenceFrame` (page mode) or `nsColumnSetFrame` (column mode). `FragmentationContext` ≈ the resulting chain of `nsPageFrame` / column frames.
 
 ### WebKit Equivalent
 
@@ -713,7 +717,7 @@ Owns the `<content-measure>` element lifecycle. On setup, resolves `break-before
 - **`RenderFragmentContainer`** — `Source/WebCore/rendering/RenderFragmentContainer.h` — represents one fragmentainer (one column, one page region)
 - **`RenderView`** — [`Source/WebCore/rendering/RenderView.h`](https://github.com/WebKit/WebKit/blob/main/Source/WebCore/rendering/RenderView.h) — for page mode, the root render view manages pagination state
 
-> **Mapping:** `FragmentedFlow` ≈ `RenderFragmentationContext` (the coordinator). `FragmentationContext` ≈ the set of `RenderFragmentContainer` objects.
+> **Mapping:** `Fragmenter` ≈ `RenderFragmentationContext` (the coordinator). `FragmentationContext` ≈ the set of `RenderFragmentContainer` objects.
 
 ### W3C Specification
 
@@ -726,7 +730,7 @@ Owns the `<content-measure>` element lifecycle. On setup, resolves `break-before
 
 ```
                         ┌──────────────────────┐
-                        │  FragmentedFlow  │
+                        │  Fragmenter  │
                         │  (coordinator)        │
                         └──────────┬───────────┘
                                    │ builds
@@ -799,5 +803,5 @@ Owns the `<content-measure>` element lifecycle. On setup, resolves `break-before
 | Break scoring       | `EarlyBreak` (two-pass)  | `EarlyBreak` (two-pass)    | Single-pass push         | Single-pass push                           |
 | Inline items        | Flat `InlineItem[]`      | Flat `InlineItem` vector   | `nsTextFrame` per run    | `InlineItem` (LFC) / `LegacyInlineTextBox` |
 | Multicol            | Fragmentainer-per-column | Fragmentainer-per-column   | `nsColumnSetFrame`       | Flow thread + `RenderMultiColumnSet`       |
-| Page coordination   | `FragmentedFlow`         | Embedded in algorithm loop | `nsPageSequenceFrame`    | `RenderView` pagination                    |
+| Page coordination   | `Fragmenter`         | Embedded in algorithm loop | `nsPageSequenceFrame`    | `RenderView` pagination                    |
 | Output rendering    | DOM clones per fragment  | `BoxFragmentPainter` → display list | Static document clone (`CreateStaticClone`) | Display list from render tree |

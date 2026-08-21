@@ -12,10 +12,10 @@ npm install fragmentainers
 
 ## Usage
 
-### `FragmentedFlow`
+### `Fragmenter`
 
 ```javascript
-const flow = new FragmentedFlow(content, options);
+const flow = new Fragmenter(content, options);
 for (const el of flow) {
 	/* ... */
 }
@@ -38,7 +38,7 @@ for (const el of flow) {
 ### Pagination with @page styles
 
 ```javascript
-import { FragmentedFlow } from "fragmentainers";
+import { Fragmenter } from "fragmentainers";
 
 const sheet = new CSSStyleSheet();
 sheet.replaceSync(`
@@ -48,7 +48,7 @@ sheet.replaceSync(`
 const template = document.createElement("template");
 template.innerHTML = "<h1>Hello</h1><p>Content to paginate...</p>";
 
-const flow = new FragmentedFlow(template.content, { styles: [sheet] });
+const flow = new Fragmenter(template.content, { styles: [sheet] });
 
 for (const fragmentainer of flow) {
 	// Each element is a <fragment-container>
@@ -61,7 +61,7 @@ for (const fragmentainer of flow) {
 Layout is synchronous. If fonts or images haven't loaded yet, measurements may be inaccurate. Use `preload()` to ensure resources are ready before iterating:
 
 ```javascript
-const flow = new FragmentedFlow(template.content, { styles: [sheet] });
+const flow = new Fragmenter(template.content, { styles: [sheet] });
 await flow.preload();
 for (const el of flow) {
 	document.body.appendChild(el);
@@ -84,7 +84,7 @@ Like pagedjs the engine supports **handlers** - self-contained extensions that h
 ```
 
 ```javascript
-import { LayoutHandler, FragmentedFlow } from "fragmentainers";
+import { LayoutHandler, Fragmenter } from "fragmentainers";
 
 // Custom handlers extend the LayoutHandler base class
 class MyHandler extends LayoutHandler {
@@ -96,10 +96,12 @@ class MyHandler extends LayoutHandler {
 	}
 }
 
-FragmentedFlow.register(MyHandler);
+// Add it to the catalog once, at package load. Every flow constructed
+// afterwards instantiates it.
+Fragmenter.handlers.push(MyHandler);
 ```
 
-See [Layout Handlers](docs/handlers.md) for the full handler interface and how to register custom handlers.
+See [Layout Handlers](docs/handlers.md) for the full handler interface and how handlers are added or overridden.
 
 ## Emulate Print Pixel Ratio
 

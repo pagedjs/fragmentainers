@@ -12,12 +12,13 @@
  * Follows Chromium LayoutNG's approach where pseudo elements become layout
  * objects in the layout tree, rather than being invisible to the engine.
  *
- * Handlers can opt out via claimPseudo() (skip materialization) or
- * claimPseudoRule() (skip rule rewriting).
+ * Features that need native browser pseudo handling can mark elements via
+ * markNativePseudo(), which makes beforeMeasurement skip materialization
+ * for that element/pseudo pair.
  */
 
 import { LayoutHandler } from "./handler.js";
-import { handlers } from "./registry.js";
+import { hasNativePseudo } from "../markers.js";
 import { splitSelectorList } from "../styles/selector-utils.js";
 
 const PSEUDO_TAG = "FRAG-PSEUDO";
@@ -109,8 +110,6 @@ export class PseudoElements extends LayoutHandler {
 			const pseudo = extractPseudo(sel);
 			if (!pseudo) continue;
 
-			if (handlers.claimPseudoRule(rule, pseudo)) continue;
-
 			const base = sel.replace(/::(before|after)\s*$/, "").trim();
 			const fragSel = `${base} > frag-pseudo[data-pseudo="${pseudo}"]`;
 
@@ -182,7 +181,7 @@ export class PseudoElements extends LayoutHandler {
 		const candidate = which === "before" ? el.firstElementChild : el.lastElementChild;
 		if (candidate?.tagName === PSEUDO_TAG && candidate.dataset.pseudo === which) return;
 
-		if (handlers.claimPseudo(el, which, content)) return;
+		if (hasNativePseudo(el, which)) return;
 
 		const synthetic = document.createElement("frag-pseudo");
 		synthetic.setAttribute("role", "none");

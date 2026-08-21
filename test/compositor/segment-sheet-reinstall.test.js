@@ -9,7 +9,7 @@ test.describe("Segment sheet reinstall (HND-3)", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 
 			// Forced-break elements must be direct children of the content so the
 			// measurer splits them into segments. The break on the second paragraph
@@ -22,7 +22,7 @@ test.describe("Segment sheet reinstall (HND-3)", () => {
 			p2.style.breakBefore = "page";
 			frag.append(p1, p2);
 
-			const flow = new FragmentedFlow(frag, { width: 400, height: 600 });
+			const flow = new Fragmenter(frag, { width: 400, height: 600 });
 			const pages = [];
 			for (const el of flow) {
 				pages.push(el);

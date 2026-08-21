@@ -981,7 +981,7 @@ test.describe("MarginState — self-collapsing boxes (LAY-4)", () => {
 
 	test("empty box between two paragraphs yields one collapsed gap (integration)", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { createFragments } = await import("/src/layout/layout-driver.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
 			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 

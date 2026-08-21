@@ -126,7 +126,7 @@ test.describe("measure-time cascade order (LAY-8)", () => {
 
 	test("end-to-end: inline break:avoid yields a single fragmentainer", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentedFlow } = await import("/src/fragmentation/fragmented-flow.js");
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			await import("/src/components/fragment-container.js");
 			const sheet = new CSSStyleSheet();
 			sheet.replaceSync(".brk { break-before: page; }");
@@ -134,7 +134,7 @@ test.describe("measure-time cascade order (LAY-8)", () => {
 			template.innerHTML =
 				"<div style=\"height:50px;margin:0;padding:0\"></div>" +
 				"<div class=\"brk\" style=\"height:50px;margin:0;padding:0;break-before:avoid\"></div>";
-			const flow = new FragmentedFlow(template.content, { width: 400, height: 800, styles: [sheet] });
+			const flow = new Fragmenter(template.content, { width: 400, height: 800, styles: [sheet] });
 			const ctx = flow.flow();
 			const count = ctx.fragmentainerCount;
 			flow.destroy();

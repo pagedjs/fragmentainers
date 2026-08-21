@@ -1,10 +1,14 @@
 export class LayoutHandler {
 	/**
-	 * Called once when the handler is registered, and again when
-	 * options change. Handlers use this for feature detection
-	 * and reading options that affect their behavior.
+	 * Called on the fresh instance a flow creates at layout
+	 * initialization. Handlers use this for feature detection and for
+	 * reading options that affect their behavior.
 	 *
-	 * @param {Object} [options] - Options from FragmentedFlow
+	 * @param {Object} [options] - Options from Fragmenter
+	 * @param {import('../fragmentation/flow-context.js').FlowContext} [context] -
+	 *   The owning flow's context: `handlers` (this registry), `cloneMap`
+	 *   (composed clone → source), `flow`. Handlers that create layout
+	 *   nodes or parallel flows must hand it on to them.
 	 */
 	init() {}
 
@@ -46,42 +50,13 @@ export class LayoutHandler {
 	}
 
 	/**
-	 * Called before measurement begins, with the full content fragment.
-	 * Handlers can claim elements that should persist across all measurement
-	 * segments (e.g., position: fixed elements that repeat on every page).
+	 * Called before measurement begins, after CSS rules have been processed
+	 * and before the measurer segments top-level content. Handlers can mutate
+	 * the source content or mark elements for measurement-specific behavior.
 	 *
 	 * @param {DocumentFragment|Element} content — the full content root
-	 * @returns {Element[]} elements to include in every measurement segment
 	 */
-	claimPersistent() {
-		return [];
-	}
-
-	/**
-	 * Called during pseudo element materialization for each detected
-	 * ::before/::after. Return true to claim the pseudo and prevent
-	 * materialization (the handler manages it via CSS).
-	 *
-	 * @param {Element} element — the element with the pseudo
-	 * @param {string} pseudo — "before" or "after"
-	 * @param {string} contentValue — the computed content CSS value
-	 * @returns {boolean}
-	 */
-	claimPseudo() {
-		return false;
-	}
-
-	/**
-	 * Called during CSS rule rewriting for each rule with ::before/::after.
-	 * Return true to skip rewriting this rule (the handler owns it).
-	 *
-	 * @param {CSSStyleRule} rule — the CSS rule
-	 * @param {string} pseudo — "before" or "after"
-	 * @returns {boolean}
-	 */
-	claimPseudoRule() {
-		return false;
-	}
+	prepareContent() {}
 
 	/**
 	 * Called after content has been injected into the measurement container

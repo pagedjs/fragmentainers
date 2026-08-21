@@ -43,6 +43,10 @@ export class GridAlgorithm {
 		}
 	}
 
+	get node() {
+		return this.#node;
+	}
+
 	*layout() {
 		const children = this.#node.children;
 		if (children.length === 0) return this.#emptyOutput();

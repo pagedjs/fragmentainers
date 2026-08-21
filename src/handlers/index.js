@@ -1,8 +1,12 @@
-import "./register-defaults.js";
-
 export { LayoutHandler } from "./handler.js";
-export { handlers } from "./registry.js";
-export { PageFloat } from "./page-float.js";
+export { HandlerRegistry, resolveHandlerClasses } from "./registry.js";
+export { defaultHandlers } from "./catalog.js";
 export { RepeatedTableHeader } from "./repeated-header.js";
 export { FixedPosition } from "./fixed-position.js";
-export { Footnote } from "./footnote.js";
+export { StyleResolver } from "./style-resolver.js";
+export { EmulatePrintPixelRatio } from "./normalize.js";
+export { BodyRewriter } from "./body-rewriter.js";
+export { PseudoElements } from "./pseudo-elements.js";
+export { PageFloat } from "./page-float.js";
+export { MutationSync } from "./mutation-sync.js";
+export { markPersistent, markNativePseudo } from "../markers.js";

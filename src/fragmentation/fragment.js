@@ -11,8 +11,9 @@ import {
 	INLINE_CLOSE_TAG,
 	INLINE_ATOMIC,
 } from "../measurement/collect-inlines.js";
-import { handlers } from "../handlers/registry.js";
 import { isPseudoElement } from "../handlers/pseudo-elements.js";
+import { ensureFlowContext } from "./flow-context.js";
+import { CloneMap } from "./clone-map.js";
 
 /**
  * The output of a layout algorithm — a positioned fragment.
@@ -56,11 +57,14 @@ export class Fragment {
 	 * @returns {DocumentFragment}
 	 */
 	build(inputBreakToken) {
+		// The root node's flow owns the clone→source map for this build.
+		// Child nodes need no context of their own for composition.
+		const cloneMap = this.node ? ensureFlowContext(this.node).cloneMap : new CloneMap();
 		const docFragment = document.createDocumentFragment();
 		for (const child of this.childFragments) {
 			if (!child.node) continue;
 			const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-			child.#buildInto(childInputBT, docFragment);
+			child.#buildInto(childInputBT, docFragment, cloneMap);
 		}
 		return docFragment;
 	}
@@ -71,8 +75,9 @@ export class Fragment {
 	 *
 	 * @param {import("./tokens.js").BreakToken|null} inputBreakToken
 	 * @param {Element} parentEl
+	 * @param {import("./clone-map.js").CloneMap} cloneMap
 	 */
-	#buildInto(inputBreakToken, parentEl) {
+	#buildInto(inputBreakToken, parentEl, cloneMap) {
 		if (!this.node) return;
 
 		// A done token (isAtBlockEnd) means this subtree finished on an earlier
@@ -85,9 +90,9 @@ export class Fragment {
 		const node = this.node;
 
 		if (this.multicolData) {
-			this.#buildMulticol(inputBreakToken, parentEl);
+			this.#buildMulticol(inputBreakToken, parentEl, cloneMap);
 		} else if (node.isInlineFormattingContext) {
-			this.#buildInline(inputBreakToken, parentEl);
+			this.#buildInline(inputBreakToken, parentEl, cloneMap);
 		} else if (this.hasBlockChildren) {
 			const el = node.element.cloneNode(false);
 			if (this.isRepeated) el.setAttribute("data-repeated", "");
@@ -103,14 +108,14 @@ export class Fragment {
 				if (child.node.element && !this.#shouldBuildPseudo(child.node.element, inputBreakToken))
 					continue;
 				const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-				child.#buildInto(childInputBT, el);
+				child.#buildInto(childInputBT, el, cloneMap);
 			}
 			// Skip empty container shells — all built children were themselves
 			// empty and skipped (e.g. an <ol> whose only <li> had no visible text).
 			if (el.childNodes.length === 0 && this.breakToken) {
 				return;
 			}
-			handlers.trackClone(el, node.element);
+			cloneMap.track(el, node.element);
 			parentEl.appendChild(el);
 		} else if (
 			this.childFragments.length === 0 &&
@@ -129,7 +134,7 @@ export class Fragment {
 			this.#applySplitAttributes(el, inputBreakToken);
 			if (this.truncateMarginBlockStart) el.setAttribute("data-truncate-margin", "");
 			if (this.truncateMarginBlockEnd) el.setAttribute("data-truncate-margin-end", "");
-			Fragment.#trackCloneDeep(el, node.element);
+			cloneMap.trackDeep(el, node.element);
 			if (this.needsBlockClip) {
 				this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
 			} else {
@@ -143,7 +148,7 @@ export class Fragment {
 	 * Uses inlineItemsData + break token offsets to reconstruct
 	 * only the visible portion of the content.
 	 */
-	#buildInline(inputBreakToken, parentEl) {
+	#buildInline(inputBreakToken, parentEl, cloneMap) {
 		const node = this.node;
 		const data = node.inlineItemsData;
 		const isAnonymous = !node.element;
@@ -153,7 +158,7 @@ export class Fragment {
 				const el = node.element.cloneNode(false);
 				if (this.truncateMarginBlockStart) el.setAttribute("data-truncate-margin", "");
 				if (this.truncateMarginBlockEnd) el.setAttribute("data-truncate-margin-end", "");
-				handlers.trackClone(el, node.element);
+				cloneMap.track(el, node.element);
 				parentEl.appendChild(el);
 			}
 			return;
@@ -228,7 +233,7 @@ export class Fragment {
 				el,
 				options,
 			);
-			handlers.trackClone(el, node.element);
+			cloneMap.track(el, node.element);
 			if (this.needsBlockClip) {
 				this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
 			} else {
@@ -261,12 +266,12 @@ export class Fragment {
 	 * Clones the element, disables native columns, builds each column
 	 * child as a flex item with correct width and gap.
 	 */
-	#buildMulticol(inputBreakToken, parentEl) {
+	#buildMulticol(inputBreakToken, parentEl, cloneMap) {
 		const node = this.node;
 		const { columnWidth, columnGap } = this.multicolData;
 
 		const el = node.element.cloneNode(false);
-		handlers.trackClone(el, node.element);
+		cloneMap.track(el, node.element);
 		el.style.columns = "auto";
 		el.style.columnCount = "auto";
 		el.style.columnWidth = "auto";
@@ -298,7 +303,7 @@ export class Fragment {
 			for (const child of colFragment.childFragments) {
 				if (!child.node) continue;
 				const childInputBT = findChildBreakToken(colInputBT, child.node);
-				child.#buildInto(childInputBT, colEl);
+				child.#buildInto(childInputBT, colEl, cloneMap);
 			}
 
 			el.appendChild(colEl);
@@ -410,20 +415,6 @@ export class Fragment {
 		}
 
 		el.setAttribute("start", String(originalStart + itemCount));
-	}
-
-	/**
-	 * Register a deep clone and its descendants in the handler registry's
-	 * shared clone→source map, used by handlers (NthSelectors, MutationSync)
-	 * to resolve clone elements back to their source elements.
-	 */
-	static #trackCloneDeep(clone, source) {
-		handlers.trackClone(clone, source);
-		const sourceChildren = source.children;
-		const cloneChildren = clone.children;
-		for (let i = 0; i < sourceChildren.length && i < cloneChildren.length; i++) {
-			Fragment.#trackCloneDeep(cloneChildren[i], sourceChildren[i]);
-		}
 	}
 
 	/**

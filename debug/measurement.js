@@ -6,7 +6,7 @@
  *
  * The viewer --measure flag injects this instead of process.js.
  */
-import { FragmentedFlow, PageResolver } from "../src/index.js";
+import { Fragmenter, PageResolver } from "../src/index.js";
 import { LayoutHandler } from "../src/handlers/handler.js";
 import { ContentParser } from "./content-parser.js";
 import "../src/components/content-measure.js";
@@ -95,9 +95,11 @@ async function process() {
 		containerStyle.textContent = DEBUG_CONTAINER_STYLES;
 		document.head.appendChild(containerStyle);
 
-		FragmentedFlow.register(MeasurementCloneHandler);
+		if (!Fragmenter.handlers.includes(MeasurementCloneHandler)) {
+			Fragmenter.handlers.push(MeasurementCloneHandler);
+		}
 
-		const layout = new FragmentedFlow(frag, { resolver, styles });
+		const layout = new Fragmenter(frag, { resolver, styles });
 		await layout.preload();
 		layout.flow();
 

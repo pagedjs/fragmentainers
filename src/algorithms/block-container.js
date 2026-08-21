@@ -23,7 +23,6 @@ import {
 } from "../fragmentation/break-scoring.js";
 import { BOX_DECORATION_CLONE } from "../layout/layout-node.js";
 import { MarginState, isSelfCollapsing } from "../layout/margin-collapsing.js";
-import { handlers } from "../handlers/registry.js";
 
 // Skip break scoring when cumulative child content fills less than
 // this fraction of the fragmentainer — children this far from the
@@ -78,6 +77,10 @@ export class BlockContainerAlgorithm {
 		this.#constraintSpace = constraintSpace;
 		this.#breakToken = breakToken;
 		this.#earlyBreakTarget = earlyBreakTarget;
+	}
+
+	get node() {
+		return this.#node;
 	}
 
 	*layout() {
@@ -361,7 +364,7 @@ export class BlockContainerAlgorithm {
 	}
 
 	*runBeforeChildren() {
-		const beforeResult = handlers.beforeChildren(
+		const beforeResult = this.#node.context.handlers.beforeChildren(
 			this.#node,
 			this.#constraintSpace,
 			this.#breakToken,
@@ -557,7 +560,7 @@ export class BlockContainerAlgorithm {
 			}
 
 			// Skip children claimed by a layout handler (e.g. page floats)
-			if (handlers.claim(child)) continue;
+			if (this.#node.context.handlers.claim(child)) continue;
 
 			// isBreakBefore means "pushed to this fragmentainer, lay out fresh"
 			const effectiveChildBreakToken = childBreakToken?.isBreakBefore ? null : childBreakToken;

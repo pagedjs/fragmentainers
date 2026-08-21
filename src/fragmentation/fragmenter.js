@@ -14,11 +14,12 @@ import { Fragment } from "./fragment.js";
 import "../components/content-measure.js";
 import "../components/fragment-container.js";
 import { Measurer } from "../measurement/measure.js";
+import { NullMeasurer } from "../measurement/null-measurer.js";
 import { setTargetDevicePixelRatio } from "../measurement/line-box.js";
-import { handlers } from "../handlers/registry.js";
+import { FlowContext } from "./flow-context.js";
+import { defaultHandlers } from "../handlers/catalog.js";
 import { UA_DEFAULTS } from "../styles/ua-defaults.js";
 import { buildCompositeText } from "../styles/composite-sheet.js";
-import "../handlers/index.js";
 
 const MAX_ZERO_PROGRESS = 5;
 
@@ -129,12 +130,15 @@ function findBlockAncestor(node, targetEl) {
 }
 
 /**
- * A fragmented flow — iterates over content, producing one
- * <fragment-container> element per fragmentainer.
+ * Fragments content across bounded containers — iterates over content,
+ * producing one <fragment-container> element per fragmentainer.
+ *
+ * The result it produces is the spec's "fragmented flow"; this is the
+ * machinery that produces it.
  *
  * Extends Iterator so instances are directly usable in for-of:
  *
- *   const flow = new FragmentedFlow(content, { width: 400, height: 600 });
+ *   const flow = new Fragmenter(content, { width: 400, height: 600 });
  *   for (const el of flow) {
  *     document.body.appendChild(el);
  *   }
@@ -146,32 +150,18 @@ function findBlockAncestor(node, targetEl) {
  * - (none) — auto-collects @page rules from document.styleSheets,
  *   defaults to US Letter
  */
-export class FragmentedFlow extends Iterator {
+export class Fragmenter extends Iterator {
 	/**
-	 * Register a layout handler class globally.
-	 * @param {typeof import('../handlers/handler.js').LayoutHandler} HandlerClass
+	 * The ordered catalog of handler classes every flow instantiates.
+	 * Append to it once at package load to add a handler; append a
+	 * subclass of a listed handler to override it in place. Changes
+	 * apply to flows constructed afterwards.
+	 *
+	 * @type {Array<typeof import('../handlers/handler.js').LayoutHandler>}
 	 */
-	static register(HandlerClass) {
-		handlers.register(HandlerClass);
-	}
+	static handlers = defaultHandlers;
 
-	/**
-	 * Unregister a layout handler class.
-	 * @param {typeof import('../handlers/handler.js').LayoutHandler} HandlerClass
-	 */
-	static remove(HandlerClass) {
-		handlers.remove(HandlerClass);
-	}
-
-	/**
-	 * Return the current instance of a registered handler class.
-	 * @param {typeof import('../handlers/handler.js').LayoutHandler} HandlerClass
-	 * @returns {import('../handlers/handler.js').LayoutHandler|null}
-	 */
-	static getHandler(HandlerClass) {
-		return handlers.get(HandlerClass);
-	}
-
+	#flowContext;
 	#content;
 	#styles;
 	#resolver;
@@ -186,6 +176,8 @@ export class FragmentedFlow extends Iterator {
 	#fragmentainerIndex = 0;
 	#counterState = null;
 	#contentStyles = null;
+	#startIndex = 0;
+	#startOffset = 0;
 	#prevFragment = null;
 	#fragments = [];
 	#styleSheet = null;
@@ -215,6 +207,10 @@ export class FragmentedFlow extends Iterator {
 	 *   Defaults to window.devicePixelRatio.
 	 * @param {boolean} [options.emulatePrintPixelRatio=true] - Whether to normalize
 	 *   line-height for screen rendering to match DPR 1 layout.
+	 * @param {{ fragmentainerIndex: number, blockOffset: number }} [options.continuation] -
+	 *   Resume point handed over by a previous flow: the fragmentainer index to
+	 *   number from, and the block offset already consumed within it. Read back
+	 *   after layout via the `continuation` getter.
 	 * @param {CSSStyleSheet} [options.styleSheet] - Sheet to write the composite
 	 *   scoped rules into. The caller adopts it where needed (`document` or any
 	 *   `ShadowRoot`). When omitted, the flow creates its own sheet and adopts
@@ -223,6 +219,11 @@ export class FragmentedFlow extends Iterator {
 	constructor(content, options = {}) {
 		super();
 		this.#options = options;
+		this.#flowContext = new FlowContext({ handlerClasses: Fragmenter.handlers, flow: this });
+
+		this.#startIndex = options.continuation?.fragmentainerIndex ?? 0;
+		this.#startOffset = options.continuation?.blockOffset ?? 0;
+		this.#fragmentainerIndex = this.#startIndex;
 
 		if (options.styleSheet) {
 			this.#styleSheet = options.styleSheet;
@@ -274,11 +275,25 @@ export class FragmentedFlow extends Iterator {
 	}
 
 	/**
+	 * This flow's handler instances. `flow.handlers.get(Cls)` returns the
+	 * instance of a catalog class (or of the subclass overriding it).
+	 *
+	 * @returns {import('../handlers/registry.js').HandlerRegistry}
+	 */
+	get handlers() {
+		return this.#flowContext.handlers;
+	}
+
+	/**
 	 * Lay out the next fragmentainer and return an iterator result.
 	 *
 	 * Returns `{ value: <fragment-container>, done: false }` for each
 	 * fragmentainer, and `{ value: undefined, done: true }` when all
 	 * content has been placed.
+	 *
+	 * A flow over a pre-built layout tree has no measured content styles
+	 * to compose against, so it produces no elements; read its Fragments
+	 * off the FragmentationContext that `flow()` returns instead.
 	 *
 	 * @returns {{ value: Element|undefined, done: boolean }}
 	 */
@@ -294,7 +309,7 @@ export class FragmentedFlow extends Iterator {
 			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles);
 		}
 
-		const fragment = this.#step();
+		this.#step();
 
 		// Create element and push to internal context (if contentStyles available)
 		let el;
@@ -305,7 +320,7 @@ export class FragmentedFlow extends Iterator {
 
 		if (this.#done) this.releaseMeasurer();
 
-		return { value: el ?? fragment, done: false };
+		return { value: el, done: false };
 	}
 
 	/**
@@ -358,7 +373,10 @@ export class FragmentedFlow extends Iterator {
 	 * re-runs layout to completion with live measurements, and returns
 	 * a new FragmentationContext containing the new fragments and elements.
 	 *
-	 * @param {number} [fromIndex=0] - Fragmentainer index to restart from
+	 * @param {number} [fromIndex=0] - Fragmentainer index to restart from. Absolute,
+	 *   so on a flow started from a continuation it is offset by the start index.
+	 *   Ignored when the layout tree has been rebuilt since those fragments were
+	 *   produced: the flow then restarts from the beginning.
 	 * @param {Object} [options]
 	 * @param {boolean} [options.rebuild=false] - Rebuild the layout tree from source DOM
 	 * @returns {FragmentationContext}
@@ -370,15 +388,26 @@ export class FragmentedFlow extends Iterator {
 		} else {
 			this.#layout();
 		}
-		const prev = fromIndex > 0 ? this.#fragments[fromIndex - 1] : null;
+		// #fragments is indexed from the start of this run, which is only the
+		// same as the fragmentainer index when the run started at zero.
+		const requested = Math.min(
+			Math.max(fromIndex - this.#startIndex, 0),
+			this.#fragments.length,
+		);
+		// Rebuilding replaces every layout node, so fragments produced before
+		// it — and the break tokens they carry — name nodes that no longer
+		// exist. Nothing can be resumed from them and the flow restarts.
+		const position =
+			requested === 0 || this.#fragments[requested - 1]?.node === this.#tree ? requested : 0;
+		const prev = position > 0 ? this.#fragments[position - 1] : null;
 		this.#breakToken = prev?.breakToken ?? null;
-		this.#fragmentainerIndex = fromIndex;
+		this.#fragmentainerIndex = this.#startIndex + position;
 		this.#prevFragment = prev;
 		this.#counterState = new CounterState();
 		if (prev?.counterState) {
 			this.#counterState.restore(prev.counterState);
 		}
-		this.#fragments.length = fromIndex;
+		this.#fragments.length = position;
 		this.#mainDone = false;
 		this.#done = false;
 		this.#context = null;
@@ -404,6 +433,42 @@ export class FragmentedFlow extends Iterator {
 	}
 
 	/**
+	 * The resume point for a flow picking up where this one stopped:
+	 * the fragmentainer index to continue numbering from and the block
+	 * offset already consumed within it. Rolls to the next index when
+	 * the last fragment filled the fragmentainer.
+	 *
+	 * Meaningful once layout has run; before that it echoes the incoming
+	 * continuation.
+	 *
+	 * @returns {{ fragmentainerIndex: number, blockOffset: number }}
+	 */
+	get continuation() {
+		const fragments = this.#fragments;
+		if (fragments.length === 0) {
+			return { fragmentainerIndex: this.#startIndex, blockOffset: this.#startOffset };
+		}
+
+		const last = fragments[fragments.length - 1];
+		const lastIndex = this.#startIndex + fragments.length - 1;
+		const lastOffset = last.blockSize + (fragments.length === 1 ? this.#startOffset : 0);
+		// A resolver reports the fragmentainer's own size through the
+		// fragment's constraints. Without one, the per-fragment constraints
+		// are synthesized from the available size, which the start offset
+		// has already reduced — so read the fragmentainer size directly.
+		const fragmentainerBlockSize =
+			(this.#resolver
+				? last.constraints?.contentArea?.blockSize
+				: this.#constraintSpace?.fragmentainerBlockSize) ?? 0;
+
+		const filled = lastOffset >= fragmentainerBlockSize;
+		return {
+			fragmentainerIndex: filled ? lastIndex + 1 : lastIndex,
+			blockOffset: filled ? 0 : lastOffset,
+		};
+	}
+
+	/**
 	 * Shared iteration step for next()/flow()/reflow(): lay out the next
 	 * fragment, track completion state, apply the zero-progress guard,
 	 * and advance the measurer's segment.
@@ -417,7 +482,7 @@ export class FragmentedFlow extends Iterator {
 	#step() {
 		const fragment = this.#nextFragment();
 
-		if (this.#fragments.length === 1) {
+		if (this.#startIndex === 0 && this.#fragments.length === 1) {
 			fragment.isFirst = true;
 		}
 
@@ -430,7 +495,7 @@ export class FragmentedFlow extends Iterator {
 		// Segment advancement (sync). A new segment re-stamps handler data-refs
 		// (StyleResolver) and rebuilds normalization sheets, so reinstall the
 		// composite sheet to keep those rules matching the new refs.
-		if (this.#measurer && this.#measurer.advance(fragment.breakToken, this.#tree)) {
+		if (this.#measurer.advance(fragment.breakToken, this.#tree)) {
 			this.#installStyleSheet();
 		}
 
@@ -439,7 +504,7 @@ export class FragmentedFlow extends Iterator {
 			this.#zeroProgressCount++;
 			if (this.#zeroProgressCount >= MAX_ZERO_PROGRESS) {
 				console.warn(
-					`FragmentedFlow: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers`,
+					`Fragmenter: stopped after ${MAX_ZERO_PROGRESS} consecutive zero-progress fragmentainers`,
 				);
 				this.#done = true;
 				fragment.isLast = true;
@@ -449,7 +514,7 @@ export class FragmentedFlow extends Iterator {
 			this.#zeroProgressCount = 0;
 		}
 
-		const pendingFlow = handlers.getFlows().some(({ flow }) => flow.breakToken !== null);
+		const pendingFlow = this.#flowContext.handlers.getFlows().some(({ flow }) => flow.breakToken !== null);
 		if (fragment.breakToken === null && !pendingFlow && !fragment.isBlank) {
 			this.#done = true;
 			fragment.isLast = true;
@@ -462,7 +527,7 @@ export class FragmentedFlow extends Iterator {
 	 * Lay out one fragmentainer with two-pass earlyBreak support
 	 * and iterative post-layout adjustment.
 	 *
-	 * After content layout, handlers.afterContentLayout() is called.
+	 * After content layout, this.#flowContext.handlers.afterContentLayout() is called.
 	 * If any handler requests a different block-end reservation than
 	 * what was used, layout is re-run with the updated constraint
 	 * space. This repeats until the reservation stabilises or the
@@ -477,10 +542,10 @@ export class FragmentedFlow extends Iterator {
 		};
 		const { reservedBlockStart, reservedBlockEnd, afterRenderCallbacks } = this.#mainDone
 			? { reservedBlockStart: 0, reservedBlockEnd: 0, afterRenderCallbacks: [] }
-			: handlers.layout(rootNode, constraintSpace, breakToken, layoutChildFn);
+			: this.#flowContext.handlers.layout(rootNode, constraintSpace, breakToken, layoutChildFn);
 
 		const MAX_POST_LAYOUT_ITERATIONS = 3;
-		const flowEntries = handlers.getFlows();
+		const flowEntries = this.#flowContext.handlers.getFlows();
 		const flowSnapshots = flowEntries.map(({ flow }) => flow.snapshot());
 		const flowReservations = flowEntries.map(() => 0);
 		const flowFragments = flowEntries.map(() => null);
@@ -527,7 +592,7 @@ export class FragmentedFlow extends Iterator {
 				}
 			}
 
-			const adjustment = handlers.afterContentLayout(result.fragment, constraintSpace, breakToken);
+			const adjustment = this.#flowContext.handlers.afterContentLayout(result.fragment, constraintSpace, breakToken);
 			const legacyReserved = adjustment?.reservedBlockEnd ?? 0;
 			const legacyCallbacks = adjustment?.afterRenderCallbacks ?? [];
 
@@ -617,7 +682,9 @@ export class FragmentedFlow extends Iterator {
 	 */
 	#nextFragment() {
 		// Check if a side-specific break requires a blank page before layout.
-		if (this.#resolver) {
+		// Only resolvers that number page sides can answer this; a region
+		// resolver has no recto/verso.
+		if (this.#resolver?.isVerso) {
 			let sideValue = resolveForcedBreakValue(this.#breakToken);
 			if (!isSideSpecificBreak(sideValue)) {
 				const nextBreakBefore = resolveNextPageBreakBefore(this.#tree, this.#breakToken);
@@ -665,17 +732,28 @@ export class FragmentedFlow extends Iterator {
 			constraintSpace = this.#constraintSpace;
 		}
 
-		// First page: carry body margin for collapsing with first child
+		// Resuming mid-fragmentainer: the first one this flow produces starts
+		// where the handover left off, and has that much less room.
+		if (this.#fragmentainerIndex === this.#startIndex && this.#startOffset > 0) {
+			constraintSpace = new ConstraintSpace({
+				availableInlineSize: constraintSpace.availableInlineSize,
+				availableBlockSize: constraintSpace.fragmentainerBlockSize - this.#startOffset,
+				fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize,
+				blockOffsetInFragmentainer: this.#startOffset,
+				fragmentationType: constraintSpace.fragmentationType,
+				isNewFormattingContext: constraintSpace.isNewFormattingContext,
+			});
+		}
+
+		// First page: carry body margin for collapsing with first child. Copy
+		// first — a caller-supplied space may be reused for another run.
 		if (!this.#breakToken && this.#tree.marginBlockStart) {
+			constraintSpace = Object.assign(new ConstraintSpace(), constraintSpace);
 			constraintSpace.bodyMarginBlockStart = this.#tree.marginBlockStart;
 		}
 
 		// Sync DOM measurement container
-		if (this.#measurer) {
-			this.#measurer.applyConstraintSpace(constraintSpace);
-		} else if (this.#measureElement) {
-			this.#measureElement.applyConstraintSpace(constraintSpace);
-		}
+		this.#measurer.applyConstraintSpace(constraintSpace);
 
 		// Layout this fragmentainer (with two-pass earlyBreak support)
 		const result = this.#layoutFragmentainer(this.#tree, constraintSpace, this.#breakToken);
@@ -717,6 +795,12 @@ export class FragmentedFlow extends Iterator {
 		this.#layout(forceUpdate);
 	}
 
+	#rootNode(element) {
+		const node = new DOMLayoutNode(element);
+		node.context = this.#flowContext;
+		return node;
+	}
+
 	/**
 	 * Internal sync initialization.
 	 */
@@ -724,6 +808,14 @@ export class FragmentedFlow extends Iterator {
 		if (this.#tree && this.#measureElement && !forceUpdate) return;
 		const content = this.#content;
 		const styles = this.#styles;
+
+		if (this.#measurer instanceof NullMeasurer) {
+			// A pre-built tree has no source DOM to re-derive itself from, so
+			// there is nothing to rebuild — just restore the stepper's state.
+			this.#tree = content;
+			this.#measureElement = { applyConstraintSpace: () => {} };
+			return;
+		}
 		if (this.#tree && !this.#measureElement && this.#measurer) {
 			// Measurer was released — reattach it without rebuilding the tree.
 			// The tree's DOMLayoutNode wrappers still reference the same
@@ -733,7 +825,7 @@ export class FragmentedFlow extends Iterator {
 			this.#measureElement = { applyConstraintSpace: () => {} };
 			this.#contentStyles = this.#measurer.getContentStyles();
 			if (forceUpdate) {
-				this.#tree = new DOMLayoutNode(contentRoot);
+				this.#tree = this.#rootNode(contentRoot);
 			}
 			const initialChildren = this.#measurer.initialChildren;
 			if (initialChildren) {
@@ -744,7 +836,7 @@ export class FragmentedFlow extends Iterator {
 
 		if (this.#measureElement) {
 			// Rebuild layout tree from existing measurer (content already injected)
-			this.#tree = new DOMLayoutNode(this.#measureElement.contentRoot);
+			this.#tree = this.#rootNode(this.#measureElement.contentRoot);
 		} else if (typeof DocumentFragment !== "undefined" && content instanceof DocumentFragment) {
 			// Delegate to the Measurer class, which handles segmented
 			// measurement when top-level children have forced breaks.
@@ -758,14 +850,15 @@ export class FragmentedFlow extends Iterator {
 			if (this.#options.devicePixelRatio != null) {
 				setTargetDevicePixelRatio(this.#options.devicePixelRatio);
 			}
-			handlers.init({ ...this.#options, isPageBased });
-			this.#measurer = new Measurer(content, layoutStyles);
+			this.#flowContext.handlers.init({ ...this.#options, isPageBased });
+			this.#flowContext.cloneMap.clear();
+			this.#measurer = new Measurer(content, layoutStyles, this.#flowContext);
 			// Pass the known constraint (set for explicit-size / constraintSpace
 			// flows) so measurement reflows at the real width, not 0px.
 			// Resolver-based @page flows resolve width per fragment, so it stays null.
 			const contentRoot = this.#measurer.setup(this.#constraintSpace);
 
-			this.#tree = new DOMLayoutNode(contentRoot);
+			this.#tree = this.#rootNode(contentRoot);
 			this.#measureElement = { applyConstraintSpace: () => {} };
 			this.#contentStyles = this.#measurer.getContentStyles();
 			this.#installStyleSheet();
@@ -781,8 +874,12 @@ export class FragmentedFlow extends Iterator {
 				this.#resolver = PageResolver.fromStyleSheets(styles);
 			}
 		} else {
-			// Mock node (unit tests)
+			// A pre-built layout tree (createFragments, unit tests). Nothing to
+			// measure, so the flow drives a NullMeasurer and composes nothing.
 			this.#tree = content;
+			this.#tree.context = this.#flowContext;
+			this.#measurer = new NullMeasurer(content);
+			this.#measureElement = { applyConstraintSpace: () => {} };
 		}
 
 		this.#counterState = new CounterState();
@@ -926,7 +1023,7 @@ export class FragmentedFlow extends Iterator {
 			this.#measurer = null;
 		}
 		this.#measureElement = null;
-		handlers.destroy();
+		this.#flowContext.handlers.destroy();
 		this.#teardownStyleSheet();
 
 		for (const face of this.#preloadedFonts) {
@@ -996,8 +1093,8 @@ export class FragmentedFlow extends Iterator {
 	#installStyleSheet() {
 		const text = buildCompositeText(
 			this.#contentStyles,
-			handlers.getAdoptedSheets(),
-			handlers.getInjectedSheet(),
+			this.#flowContext.handlers.getAdoptedSheets(),
+			this.#flowContext.handlers.getInjectedSheet(),
 		);
 		if (!this.#styleSheet) {
 			this.#styleSheet = new CSSStyleSheet();

@@ -12,7 +12,7 @@ function sheetText(sheet) {
 }
 
 /**
- * Build the composite scoped stylesheet text for a FragmentedFlow.
+ * Build the composite scoped stylesheet text for a Fragmenter.
  *
  * The original author sheets in `document.styleSheets` already cascade
  * to fragment-container content. The composite layers on top, scoped via
