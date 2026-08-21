@@ -114,6 +114,7 @@ export class FlexAlgorithm {
 		const itemBreakTokens = [];
 		let maxItemBlockSize = 0;
 		let anyBroke = false;
+		let anyBrokeInFlow = false;
 
 		const itemCount = lineItems.length;
 		const itemInlineSize = this.#constraintSpace.availableInlineSize / itemCount;
@@ -145,6 +146,7 @@ export class FlexAlgorithm {
 			if (result.breakToken) {
 				itemBreakTokens.push(result.breakToken);
 				anyBroke = true;
+				if (!result.breakToken.isAtBlockEnd) anyBrokeInFlow = true;
 			} else {
 				itemBreakTokens.push(null);
 			}
@@ -168,6 +170,9 @@ export class FlexAlgorithm {
 		let lineToken = null;
 		if (anyBroke) {
 			lineToken = new BlockBreakToken(this.#node);
+			// Every item at its block-end leaves the line's own extent complete:
+			// it continues only to carry their parallel flows (§2.1).
+			lineToken.isAtBlockEnd = !anyBrokeInFlow;
 			lineToken.childBreakTokens = itemBreakTokens;
 			lineToken.hasSeenAllChildren = true;
 			lineToken.algorithmData = { type: ALGORITHM_FLEX_LINE };

@@ -95,6 +95,7 @@ export class GridAlgorithm {
 		const itemBreakTokens = [];
 		let maxItemBlockSize = 0;
 		let anyBroke = false;
+		let anyBrokeInFlow = false;
 
 		const itemCount = rowItems.length;
 		const itemInlineSize = this.#constraintSpace.availableInlineSize / itemCount;
@@ -126,6 +127,7 @@ export class GridAlgorithm {
 			if (result.breakToken) {
 				itemBreakTokens.push(result.breakToken);
 				anyBroke = true;
+				if (!result.breakToken.isAtBlockEnd) anyBrokeInFlow = true;
 			} else {
 				itemBreakTokens.push(null);
 			}
@@ -149,6 +151,9 @@ export class GridAlgorithm {
 		let rowToken = null;
 		if (anyBroke) {
 			rowToken = new BlockBreakToken(this.#node);
+			// Every item at its block-end leaves the row's own extent complete:
+			// it continues only to carry their parallel flows (§2.1).
+			rowToken.isAtBlockEnd = !anyBrokeInFlow;
 			rowToken.childBreakTokens = itemBreakTokens;
 			rowToken.hasSeenAllChildren = true;
 		}

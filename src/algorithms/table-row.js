@@ -26,6 +26,7 @@ export class TableRowAlgorithm {
 	#cellBreakTokens = [];
 	#maxCellBlockSize = 0;
 	#anyChildBroke = false;
+	#anyChildBrokeInFlow = false;
 	#earlyBreakTarget = null;
 
 	// Class A break scoring (earlyBreakTarget) is only implemented by
@@ -96,6 +97,7 @@ export class TableRowAlgorithm {
 			if (result.breakToken) {
 				this.#cellBreakTokens.push(result.breakToken);
 				this.#anyChildBroke = true;
+				if (!result.breakToken.isAtBlockEnd) this.#anyChildBrokeInFlow = true;
 			} else {
 				// Placeholder — resolved below if any sibling broke
 				this.#cellBreakTokens.push(null);
@@ -120,6 +122,9 @@ export class TableRowAlgorithm {
 
 		if (this.#anyChildBroke) {
 			const rowToken = new BlockBreakToken(this.#node);
+			// Every cell at its block-end leaves the row's own extent complete:
+			// it continues only to carry their parallel flows (§2.1).
+			rowToken.isAtBlockEnd = !this.#anyChildBrokeInFlow;
 			rowToken.consumedBlockSize =
 				(this.#breakToken?.consumedBlockSize || 0) + this.#maxCellBlockSize;
 			rowToken.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;

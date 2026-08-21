@@ -81,9 +81,20 @@ export class Fragment {
 		if (!this.node) return;
 
 		// A done token (isAtBlockEnd) means this subtree finished on an earlier
-		// fragmentainer in a parallel flow (e.g. a completed table cell); it must
-		// not be re-rendered on the continuation.
+		// fragmentainer in a parallel flow — a completed table cell, flex item or
+		// grid item. Its content must not be re-rendered, but its box has to stay:
+		// dropping it would collapse the track it holds and shift the siblings that
+		// do continue.
 		if (inputBreakToken?.type === BREAK_TOKEN_BLOCK && inputBreakToken.isAtBlockEnd) {
+			if (!this.node.element) return;
+			const emptied = this.node.element.cloneNode(false);
+			this.#applySplitAttributes(emptied, inputBreakToken);
+			cloneMap.track(emptied, this.node.element);
+			if (this.childFragments.length > 0) {
+				this.#buildChildren(emptied, inputBreakToken, cloneMap);
+			}
+			applyPastBlockEnd(emptied);
+			parentEl.appendChild(emptied);
 			return;
 		}
 
