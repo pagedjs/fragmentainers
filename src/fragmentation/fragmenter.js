@@ -176,6 +176,7 @@ export class Fragmenter extends Iterator {
 	#fragmentainerIndex = 0;
 	#counterState = null;
 	#contentStyles = null;
+	#isPageBased = false;
 	#startIndex = 0;
 	#startOffset = 0;
 	#prevFragment = null;
@@ -842,15 +843,15 @@ export class Fragmenter extends Iterator {
 			// measurement when top-level children have forced breaks.
 			// For page-based flows, prepend UA defaults (body margin)
 			// so the slot matches the browser's body element.
-			const isPageBased =
+			this.#isPageBased =
 				this.#resolver instanceof PageResolver || (!this.#resolver && !this.#constraintSpace);
-			const layoutStyles = isPageBased ? [UA_DEFAULTS, ...styles] : styles;
+			const layoutStyles = this.#isPageBased ? [UA_DEFAULTS, ...styles] : styles;
 			// Set target devicePixelRatio before handlers init and measurement.
 			// Explicit option overrides window.devicePixelRatio.
 			if (this.#options.devicePixelRatio != null) {
 				setTargetDevicePixelRatio(this.#options.devicePixelRatio);
 			}
-			this.#flowContext.handlers.init({ ...this.#options, isPageBased });
+			this.#flowContext.handlers.init({ ...this.#options, isPageBased: this.#isPageBased });
 			this.#flowContext.cloneMap.clear();
 			this.#measurer = new Measurer(content, layoutStyles, this.#flowContext);
 			// Pass the known constraint (set for explicit-size / constraintSpace
@@ -1095,6 +1096,7 @@ export class Fragmenter extends Iterator {
 			this.#contentStyles,
 			this.#flowContext.handlers.getAdoptedSheets(),
 			this.#flowContext.handlers.getInjectedSheet(),
+			{ isPageBased: this.#isPageBased },
 		);
 		if (!this.#styleSheet) {
 			this.#styleSheet = new CSSStyleSheet();

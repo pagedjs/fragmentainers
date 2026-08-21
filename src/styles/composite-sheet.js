@@ -18,7 +18,7 @@ function sheetText(sheet) {
  * to fragment-container content. The composite layers on top, scoped via
  * `@scope (fragment-container) { ... }`:
  *
- *   `@layer { UA defaults }`             — lowest priority
+ *   `@layer { UA defaults }`             — lowest priority, page-based flows only
  *   body-rewriter rules                  — unlayered, normal
  *   neutralize structural-pseudo rules   — unlayered, !important
  *   StyleResolver per-element overrides  — unlayered, !important
@@ -32,14 +32,23 @@ function sheetText(sheet) {
  *   handlers.getAdoptedSheets() (StyleResolver, EmulatePrintPixelRatio)
  * @param {CSSStyleSheet|null} injectedSheet — handler-rule sheet appended
  *   by registry.processRules(); included verbatim, not neutralized
+ * @param {{ isPageBased?: boolean }} [options] — `isPageBased` mirrors the flag
+ *   the flow measured with. The UA body margin is only restated for page-based
+ *   flows, matching the measurement sheet; emitting it for column/region flows
+ *   would inset every fragmentainer by a margin layout never accounted for.
  * @returns {string}
  */
-export function buildCompositeText(contentStyles, handlerSheets, injectedSheet) {
+export function buildCompositeText(
+	contentStyles,
+	handlerSheets,
+	injectedSheet,
+	{ isPageBased = true } = {},
+) {
 	const authorSheets = (contentStyles?.sheets ?? []).filter(
 		(s) => s !== UA_DEFAULTS && s !== injectedSheet,
 	);
 
-	const parts = [`@layer {\n${UA_DEFAULTS_HOST_TEXT}\n}`];
+	const parts = isPageBased ? [`@layer {\n${UA_DEFAULTS_HOST_TEXT}\n}`] : [];
 
 	const injectedText = sheetText(injectedSheet);
 	if (injectedText) parts.push(injectedText);
@@ -64,8 +73,8 @@ export function buildCompositeText(contentStyles, handlerSheets, injectedSheet) 
  *
  * @returns {CSSStyleSheet}
  */
-export function buildCompositeSheet(contentStyles, handlerSheets, injectedSheet) {
+export function buildCompositeSheet(contentStyles, handlerSheets, injectedSheet, options) {
 	const sheet = new CSSStyleSheet();
-	sheet.replaceSync(buildCompositeText(contentStyles, handlerSheets, injectedSheet));
+	sheet.replaceSync(buildCompositeText(contentStyles, handlerSheets, injectedSheet, options));
 	return sheet;
 }
