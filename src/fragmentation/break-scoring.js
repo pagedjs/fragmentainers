@@ -28,12 +28,18 @@ export class EarlyBreak {
 }
 
 /**
- * Returns true if `a` is a better (lower) break score than `b`.
+ * Returns true if `a` should replace `b` as the recorded early break.
+ *
+ * A lower score is better. Candidates arrive in document order, so an equal
+ * score also wins: the later breakpoint puts more content on the fragmentainer
+ * for the same appeal. Keeping the earlier one would strand the space between
+ * them. Matches Blink's `ContainerFragmentBuilder::UpdateEarlyBreak`, which
+ * replaces unless the stored candidate has strictly better appeal.
  */
 export function isBetterBreak(a, b) {
 	if (!a) return false;
 	if (!b) return true;
-	return a.score < b.score;
+	return a.score <= b.score;
 }
 
 /**
