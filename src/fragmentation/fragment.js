@@ -39,6 +39,9 @@ export class Fragment {
 		this.blockOffset = 0;
 		this.isLast = false;
 		this.needsBlockClip = false;
+		// The box's block-size is specified: its fragments are slices of that
+		// block-size (CSS Fragmentation §5.3) rather than sized by content.
+		this.hasFixedBlockSize = false;
 	}
 
 	/**
@@ -80,11 +83,13 @@ export class Fragment {
 	#buildInto(inputBreakToken, parentEl, cloneMap) {
 		if (!this.node) return;
 
-		// A done token (isAtBlockEnd) means this subtree finished on an earlier
-		// fragmentainer in a parallel flow — a completed table cell, flex item or
-		// grid item. Its content must not be re-rendered, but its box has to stay:
-		// dropping it would collapse the track it holds and shift the siblings that
-		// do continue.
+		// A done token (isAtBlockEnd) means this box's own extent finished on an
+		// earlier fragmentainer in a parallel flow — a completed table cell, flex
+		// item or grid item, or a fixed-size box whose content overflows its
+		// block-end (§2.1). Its extent must not be re-rendered, but its box has
+		// to stay: dropping it would collapse the track it holds and shift the
+		// siblings that do continue. Overflowing content still continuing is
+		// built into it as overflow of a box with no extent of its own.
 		if (inputBreakToken?.type === BREAK_TOKEN_BLOCK && inputBreakToken.isAtBlockEnd) {
 			if (!this.node.element) return;
 			const emptied = this.node.element.cloneNode(false);
@@ -92,8 +97,8 @@ export class Fragment {
 			cloneMap.track(emptied, this.node.element);
 			if (this.childFragments.length > 0) {
 				this.#buildChildren(emptied, inputBreakToken, cloneMap);
+				applyPastBlockEnd(emptied);
 			}
-			applyPastBlockEnd(emptied);
 			parentEl.appendChild(emptied);
 			return;
 		}
@@ -113,21 +118,29 @@ export class Fragment {
 			if (inputBreakToken && el.tagName === "OL") {
 				this.#applyListContinuation(el, inputBreakToken);
 			}
-			for (const child of this.childFragments) {
-				if (!child.node) continue;
-				// Skip materialized pseudo elements at wrong split boundaries
-				if (child.node.element && !this.#shouldBuildPseudo(child.node.element, inputBreakToken))
-					continue;
-				const childInputBT = findChildBreakToken(inputBreakToken, child.node);
-				child.#buildInto(childInputBT, el, cloneMap);
-			}
+			this.#buildChildren(el, inputBreakToken, cloneMap);
 			// Skip empty container shells — all built children were themselves
 			// empty and skipped (e.g. an <ol> whose only <li> had no visible text).
 			if (el.childNodes.length === 0 && this.breakToken && !this.needsBlockClip) {
 				return;
 			}
 			cloneMap.track(el, node.element);
-			if (this.needsBlockClip) {
+			if (node.isTable && consumedBlockSize(inputBreakToken) > 0 && !this.needsBlockClip) {
+				// A table's specified height is a minimum for the whole table, not
+				// for each reconstructed continuation fragment (CSS2 §17.5.3).
+				el.style.setProperty("height", "auto", "important");
+				el.style.setProperty("min-height", "0", "important");
+				parentEl.appendChild(el);
+			} else if (this.hasFixedBlockSize && consumedBlockSize(inputBreakToken) > 0) {
+				// A continuation of a fixed-size box with content shows the rest
+				// of that block-size (§5.3), with its content — and any overflow
+				// of it (§2.1) — laid out from the top of the continuation.
+				el.style.setProperty("box-sizing", "border-box", "important");
+				el.style.setProperty("min-height", "0", "important");
+				el.style.setProperty("max-height", "none", "important");
+				el.style.setProperty("height", `${this.blockSize}px`, "important");
+				parentEl.appendChild(el);
+			} else if (this.needsBlockClip) {
 				this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
 			} else {
 				parentEl.appendChild(el);
@@ -162,6 +175,20 @@ export class Fragment {
 			} else {
 				parentEl.appendChild(el);
 			}
+		}
+	}
+
+	/**
+	 * Build the block-level child fragments into the clone of this box.
+	 */
+	#buildChildren(el, inputBreakToken, cloneMap) {
+		for (const child of this.childFragments) {
+			if (!child.node) continue;
+			// Skip materialized pseudo elements at wrong split boundaries
+			if (child.node.element && !this.#shouldBuildPseudo(child.node.element, inputBreakToken))
+				continue;
+			const childInputBT = findChildBreakToken(inputBreakToken, child.node);
+			child.#buildInto(childInputBT, el, cloneMap);
 		}
 	}
 
@@ -223,8 +250,7 @@ export class Fragment {
 	}
 
 	#appendWithBlockSlice(el, parentEl, inputBreakToken) {
-		const consumed =
-			inputBreakToken?.type === BREAK_TOKEN_BLOCK ? inputBreakToken.consumedBlockSize : 0;
+		const consumed = consumedBlockSize(inputBreakToken);
 		const wrapper = document.createElement("div");
 		wrapper.style.height = `${this.blockSize}px`;
 		wrapper.style.overflow = "hidden";
@@ -323,7 +349,9 @@ export class Fragment {
 			el.setAttribute("data-split-from", "");
 		}
 		if (this.breakToken) {
-			el.setAttribute("data-split-to", "");
+			// A box at its block-end is complete, decorations included; only
+			// its overflow continues (§2.1).
+			if (!this.breakToken.isAtBlockEnd) el.setAttribute("data-split-to", "");
 			this.#applyTextAlignLast(el);
 		}
 	}
@@ -332,6 +360,9 @@ export class Fragment {
 		// The anonymous inline node's break belongs to this element: it is the
 		// box the lines are in.
 		const childBreakTokens = this.breakToken?.childBreakTokens ?? [];
+		if (this.breakToken?.isAtBlockEnd) {
+			return childBreakTokens.some((token) => token.node?.isInlineNode);
+		}
 		return !childBreakTokens.some((token) => !token.isAtBlockEnd && !token.node?.isInlineNode);
 	}
 
@@ -531,4 +562,27 @@ export class Fragment {
 			lastTextNode.textContent = t + hyphenateCharacter;
 		}
 	}
+}
+
+function consumedBlockSize(inputBreakToken) {
+	return inputBreakToken?.type === BREAK_TOKEN_BLOCK ? inputBreakToken.consumedBlockSize : 0;
+}
+
+/**
+ * Past its block-end (CSS Fragmentation §2.1) a box has no extent and no
+ * decorations; the content built into it is overflow.
+ */
+function applyPastBlockEnd(el) {
+	for (const property of [
+		"height",
+		"min-height",
+		"margin-block-start",
+		"margin-block-end",
+		"padding-block-start",
+		"padding-block-end",
+	]) {
+		el.style.setProperty(property, "0", "important");
+	}
+	el.style.setProperty("border-block-start", "none", "important");
+	el.style.setProperty("border-block-end", "none", "important");
 }

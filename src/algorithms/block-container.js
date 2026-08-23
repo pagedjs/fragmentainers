@@ -62,13 +62,16 @@ export class BlockContainerAlgorithm {
 	#breakScore = BreakScore.PERFECT;
 	#earlyBreakForChild = null;
 	#startIndex = 0;
-	#prependedFragments = 0;
 	#hasSeenAllChildren = false;
+	#isAtBlockEnd = false;
+	#hasFixedBlockSize = false;
 
-	// Derived from #node/#constraintSpace during #setup, used in layoutChildren + #finalize
+	// The box's own block insets (padding + border) and how breaks treat them
 	#containerBoxStart = 0;
 	#containerBoxEnd = 0;
 	#isClone = false;
+
+	// Derived from #node/#constraintSpace during #setup, used in layoutChildren + #finalize
 	#tableSpacing = 0;
 	#containerOffsetInFragmentainer = 0;
 
@@ -77,6 +80,9 @@ export class BlockContainerAlgorithm {
 		this.#constraintSpace = constraintSpace;
 		this.#breakToken = breakToken;
 		this.#earlyBreakTarget = earlyBreakTarget;
+		this.#containerBoxStart = (node.paddingBlockStart || 0) + (node.borderBlockStart || 0);
+		this.#containerBoxEnd = (node.paddingBlockEnd || 0) + (node.borderBlockEnd || 0);
+		this.#isClone = node.boxDecorationBreak === BOX_DECORATION_CLONE;
 	}
 
 	get node() {
@@ -86,8 +92,11 @@ export class BlockContainerAlgorithm {
 	*layout() {
 		const breakToken = this.#breakToken;
 		// The box's own extent is complete (CSS Fragmentation §2.1, parallel
-		// flows): it occupies nothing in this fragmentainer.
-		if (breakToken?.isAtBlockEnd) return this.#buildEmptyFragment();
+		// flows): it occupies nothing in this fragmentainer. Only descendants
+		// that still continue are laid out here, as overflow.
+		if (breakToken?.isAtBlockEnd && breakToken.childBreakTokens.length === 0) {
+			return this.#buildEmptyFragment();
+		}
 		// Monolithic boxes contain no break points (§4.1): placed whole, or
 		// sliced as a last resort (§4.4). Their children are never laid out.
 		if (isMonolithic(this.#node)) return this.#layoutMonolithic();
@@ -98,6 +107,7 @@ export class BlockContainerAlgorithm {
 			return this.#layoutRemainingExtent();
 		}
 		this.#setup();
+		if (breakToken?.isAtBlockEnd) this.#setupPastBlockEnd();
 		yield* this.runBeforeChildren();
 		// `yield*` evaluates to the inner generator's return value. `layoutChildren`
 		// may return an earlyBreak signal ({ earlyBreak, fragment: null, breakToken: null })
@@ -109,6 +119,26 @@ export class BlockContainerAlgorithm {
 
 	#hasConsumedExtent() {
 		return (this.#breakToken?.consumedBlockSize || 0) > 0;
+	}
+
+	/**
+	 * The block-start inset a continuation repeats under box-decoration-break:
+	 * clone (CSS Fragmentation §5.4). The first fragment's block-start inset
+	 * is the box's own.
+	 */
+	#clonedStartInset() {
+		return this.#isClone && this.#hasConsumedExtent() ? this.#containerBoxStart : 0;
+	}
+
+	/**
+	 * The insets a fragment that is not the box's last repeats under
+	 * box-decoration-break: clone (§5.4): its block-end inset, plus the
+	 * block-start inset of a continuation. They wrap the fragment outside
+	 * the box's block-size, so they are excluded from the extent counted
+	 * against it in consumedBlockSize (§5.3).
+	 */
+	#clonedInsets() {
+		return this.#isClone ? this.#containerBoxEnd + this.#clonedStartInset() : 0;
 	}
 
 	#availableBlockSpace() {
@@ -127,45 +157,123 @@ export class BlockContainerAlgorithm {
 	}
 
 	/**
-	 * The box's own block-size as a limit on the extent of its fragments
-	 * (CSS Fragmentation §5.3), border-box. Null when the block-size is
-	 * auto, i.e. determined by content. Table cells are sized by their row.
+	 * The box's block-size and the limits on it (border-box), which the
+	 * extent of its fragments counts against (CSS Fragmentation §5.3).
+	 * Table cells are sized by their row.
 	 */
-	#usedBlockSize() {
+	#blockSizeLimits() {
 		const node = this.#node;
-		if (node.isTableCell || typeof node.borderBoxBlockSize !== "function") return null;
-		return node.borderBoxBlockSize();
+		if (node.isTableCell || typeof node.blockSizeLimits !== "function") {
+			return { specified: null, min: 0, max: Infinity };
+		}
+		const limits = node.blockSizeLimits();
+		if (node.isTable || node.isTableSection) {
+			// CSS2 §17.5.3: the height of a table or a row group is a minimum,
+			// never a cap on its rows. min/max-height behavior on them is
+			// undefined, so do not turn a maximum into fixed-size parallel
+			// overflow here.
+			return {
+				specified: null,
+				min: Math.max(limits.min, limits.specified ?? 0),
+				max: Infinity,
+			};
+		}
+		return limits;
 	}
 
 	/**
-	 * Token for a break inside this box after all of its in-flow content:
-	 * the content is complete, the box's own block-size is not.
+	 * The box's used block-size, border-box: the specified block-size
+	 * clamped by its limits, the minimum winning over the maximum (CSS2
+	 * §10.7). Null when the block-size is auto, i.e. determined by content.
 	 */
-	#selfBreakToken(consumedBlockSize) {
+	#usedBlockSize() {
+		const { specified, min, max } = this.#blockSizeLimits();
+		if (specified == null) return null;
+		return Math.max(min, Math.min(specified, max));
+	}
+
+	/**
+	 * The extent the box reaches on its own once its in-flow content is
+	 * complete, border-box: its used block-size or, when that is auto, its
+	 * minimum block-size. Both are limits the extra block size of a
+	 * fragmented box contributes progress towards (CSS Fragmentation §5.3).
+	 * Null when only the content sizes the box.
+	 */
+	#ownExtent() {
+		const used = this.#usedBlockSize();
+		if (used != null) return used;
+		const { min } = this.#blockSizeLimits();
+		return min > 0 ? min : null;
+	}
+
+	/**
+	 * Token for a break in this box's own block-size. Most such breaks happen
+	 * after all in-flow content; an oversized child may instead force the box
+	 * to make block-size progress while later siblings remain unvisited.
+	 */
+	#selfBreakToken(consumedBlockSize, hasSeenAllChildren = true) {
 		const token = new BlockBreakToken(this.#node);
 		token.consumedBlockSize = consumedBlockSize;
 		token.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
-		token.hasSeenAllChildren = true;
+		token.hasSeenAllChildren = hasSeenAllChildren;
 		return token;
+	}
+
+	/**
+	 * Past the box's block-end (CSS Fragmentation §2.1): the box has no
+	 * decorations and no extent of its own in this fragmentainer. The
+	 * descendants that continue are overflow, laid out from its block-start.
+	 */
+	#setupPastBlockEnd() {
+		this.#isAtBlockEnd = true;
+		this.#containerBoxStart = 0;
+		this.#containerBoxEnd = 0;
+		this.#blockOffset = 0;
+	}
+
+	/**
+	 * Whether the box's in-flow content is complete. Descendants continuing
+	 * in parallel flows (§2.1) are overflow: they keep the box's break token
+	 * alive without keeping the box itself open.
+	 */
+	#inFlowContentDone() {
+		return this.#hasSeenAllChildren && !this.#childBreakTokens.some((t) => !t.isAtBlockEnd);
+	}
+
+	/**
+	 * Every in-flow child has been visited once the loop runs out of
+	 * children: a break before or inside the last child leaves none unseen,
+	 * and an input token that had seen them all still has (the children
+	 * after a resumed one completed in an earlier fragmentainer).
+	 */
+	#computeHasSeenAllChildren() {
+		const children = this.#node.children;
+		const last = this.#childBreakTokens[this.#childBreakTokens.length - 1];
+		if (!last || last.isAtBlockEnd) return true;
+		const index = children.indexOf(last.node);
+		const unseenFrom = last.isBreakBefore ? index : index + 1;
+		return unseenFrom >= children.length || !!this.#breakToken?.hasSeenAllChildren;
 	}
 
 	/**
 	 * Place `remaining` of this box's own extent, with no further content to
 	 * lay out. When it exceeds the remaining fragmentainer extent the box
 	 * breaks at the fragmentainer edge and the rest continues (§5.3); each
-	 * such fragment shows only its slice of the box.
+	 * such fragment shows only its slice of the box. `cloned` is the part of
+	 * `remaining` made of insets repeated by box-decoration-break: clone
+	 * (§5.4), which a break leaves out of the box's consumed block-size.
 	 */
-	#layoutExtent(remaining, consumed, slice) {
+	#layoutExtent(remaining, consumed, slice, cloned = 0) {
 		const constraintSpace = this.#constraintSpace;
 		const available = this.#availableBlockSpace();
-		const fits = !slice || remaining <= available || available <= 0;
+		const fits = !slice || remaining <= available || available <= cloned;
 
 		const fragment = new Fragment(this.#node, fits ? remaining : available);
 		fragment.inlineSize = constraintSpace.availableInlineSize;
 		fragment.needsBlockClip = !fits || consumed > 0;
 		if (fits) return { fragment, breakToken: null };
 
-		fragment.breakToken = this.#selfBreakToken(consumed + available);
+		fragment.breakToken = this.#selfBreakToken(consumed + available - cloned);
 		return { fragment, breakToken: fragment.breakToken };
 	}
 
@@ -196,13 +304,16 @@ export class BlockContainerAlgorithm {
 	#layoutRemainingExtent() {
 		const node = this.#node;
 		const consumed = this.#breakToken.consumedBlockSize;
-		const extent = this.#usedBlockSize() ?? node.blockSize ?? 0;
+		const extent = this.#ownExtent() ?? node.blockSize ?? 0;
 		const remaining = extent - consumed;
 		if (remaining <= 0) return this.#buildEmptyFragment();
+		// A clone continuation wraps the rest of the box in its own
+		// block-start inset (§5.4).
 		return this.#layoutExtent(
-			remaining,
+			remaining + this.#clonedStartInset(),
 			consumed,
 			this.#constraintSpace.fragmentationType !== FRAGMENTATION_NONE,
+			this.#clonedInsets(),
 		);
 	}
 
@@ -211,10 +322,11 @@ export class BlockContainerAlgorithm {
 		const constraintSpace = this.#constraintSpace;
 		const breakToken = this.#breakToken;
 
-		this.#hasSeenAllChildren =
-			this.#childBreakTokens.length === 0 ||
-			this.#startIndex + this.#childFragments.length - this.#prependedFragments >=
-				node.children.length;
+		this.#hasSeenAllChildren = this.#computeHasSeenAllChildren();
+		const contentDone = this.#inFlowContentDone();
+		// Only a break in the box's own flow truncates margins at the break;
+		// a parallel flow continuing past the box (§2.1) leaves them alone.
+		const hasInFlowBreak = !contentDone;
 
 		// Class A (forced) breaks preserve margins on both sides per CSS Frag L3 §5.2;
 		// Class C (unforced) breaks truncate. Thread isForcedBreak into both margin calls.
@@ -222,7 +334,7 @@ export class BlockContainerAlgorithm {
 			!!this.#childBreakTokens[this.#childBreakTokens.length - 1]?.isForcedBreak;
 
 		this.#blockOffset += this.#margins.trailingMargin(
-			this.#childBreakTokens.length > 0,
+			hasInFlowBreak,
 			this.#childFragments.length > 0,
 			pendingIsForcedBreak,
 		);
@@ -231,10 +343,7 @@ export class BlockContainerAlgorithm {
 		// at a break boundary (CSS Fragmentation L3 §5.2). Forced breaks preserve
 		// margins on both sides, so truncation only applies to unforced breaks.
 		if (
-			this.#margins.shouldTruncateLastChildMarginEnd(
-				this.#childBreakTokens.length > 0,
-				pendingIsForcedBreak,
-			) &&
+			this.#margins.shouldTruncateLastChildMarginEnd(hasInFlowBreak, pendingIsForcedBreak) &&
 			this.#childFragments.length > 0
 		) {
 			const lastChildFrag = this.#childFragments[this.#childFragments.length - 1];
@@ -245,22 +354,14 @@ export class BlockContainerAlgorithm {
 
 		// Bottom-edge border-spacing: gap after the last row/section in the table.
 		// Only on the final fragment (no break token pending).
-		if (
-			this.#tableSpacing > 0 &&
-			node.isTable &&
-			this.#hasSeenAllChildren &&
-			this.#childBreakTokens.length === 0
-		) {
+		if (this.#tableSpacing > 0 && node.isTable && contentDone) {
 			this.#blockOffset += this.#tableSpacing;
 		}
 
 		// Add container's bottom padding+border.
 		// For slice: only on final fragment (all children placed, no break).
 		// For clone: on every fragment (repeated decorations).
-		if (
-			(this.#hasSeenAllChildren && this.#childBreakTokens.length === 0) ||
-			(this.#isClone && this.#childBreakTokens.length > 0)
-		) {
+		if (contentDone || (this.#isClone && this.#childBreakTokens.length > 0)) {
 			this.#blockOffset += this.#containerBoxEnd;
 		}
 
@@ -282,22 +383,32 @@ export class BlockContainerAlgorithm {
 		// Build the output fragment
 		const fragment = new Fragment(node, this.#blockOffset, this.#childFragments);
 		fragment.inlineSize = constraintSpace.availableInlineSize;
+		fragment.hasFixedBlockSize = this.#hasFixedBlockSize;
 
 		if (selfBreak) {
+			// Overflow still continuing in parallel (§2.1) resumes alongside
+			// the rest of the box's extent.
+			selfBreak.childBreakTokens = this.#childBreakTokens;
 			fragment.breakToken = selfBreak;
 			fragment.needsBlockClip = true;
 		}
 
-		// Build break token if the container needs to continue
+		// Build break token if the container needs to continue. With its own
+		// extent complete, the box continues only for descendants in parallel
+		// flows (§2.1): the token is at the block-end, and consumedBlockSize
+		// stays at the box's whole extent.
 		const needsBreakToken =
 			!selfBreak && (this.#childBreakTokens.length > 0 || !this.#hasSeenAllChildren);
 		if (needsBreakToken) {
 			const containerToken = new BlockBreakToken(node);
+			// An emptied fragment carries no insets to leave out.
+			const cloned = this.#blockOffset > 0 ? this.#clonedInsets() : 0;
 			containerToken.consumedBlockSize =
-				(breakToken?.consumedBlockSize || 0) + this.#blockOffset;
+				(breakToken?.consumedBlockSize || 0) + this.#blockOffset - cloned;
 			containerToken.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
 			containerToken.childBreakTokens = this.#childBreakTokens;
 			containerToken.hasSeenAllChildren = this.#hasSeenAllChildren;
+			containerToken.isAtBlockEnd = this.#isAtBlockEnd || contentDone;
 			fragment.breakToken = containerToken;
 		}
 
@@ -312,26 +423,55 @@ export class BlockContainerAlgorithm {
 	}
 
 	/**
-	 * Resolve the fragment's block-size against the box's own block-size.
+	 * Resolve the fragment's block-size against the box's own extent.
 	 *
-	 * Auto: the fragment is as tall as its content, floored to the browser
-	 * measurement when nothing in the fragment tree contributed (generated
-	 * content, list markers, min-height).
+	 * Content-sized: the fragment is as tall as its content, floored to the
+	 * browser measurement when nothing in the fragment tree contributed
+	 * (generated content, list markers).
 	 *
-	 * Specified: the extent of every fragment counts against it (CSS
-	 * Fragmentation §5.3). Once the in-flow content is complete, the box
-	 * extends to the rest of its block-size; if that exceeds the remaining
-	 * fragmentainer extent, the box breaks after its content — a Class C
-	 * break point (§4.1) — fills the fragmentainer, and the remainder, with
-	 * the block-end decorations (box-decoration-break: slice), continues.
-	 * Content taller than the specified block-size keeps its own extent.
+	 * Specified block-size, or a minimum block-size on an auto box: the
+	 * extent of every fragment counts against it (CSS Fragmentation §5.3).
+	 * Once the in-flow content is complete, the box extends to the rest of
+	 * that extent; if it exceeds the remaining fragmentainer extent, the box
+	 * breaks after its content — a Class C break point (§4.1) — fills the
+	 * fragmentainer, and the remainder continues. Under box-decoration-break:
+	 * slice the block-end decorations move to the remainder; under clone
+	 * every fragment is wrapped in its own (§5.4), outside the box's
+	 * block-size. Content reaching the box's block-end completes the box's
+	 * extent: what lies beyond is overflow, parallel to the content after
+	 * the box (§2.1). It does not size the box, and when it breaks the box
+	 * is at its block-end, continuing only for that parallel flow.
 	 *
 	 * @returns {BlockBreakToken|null} the token for a break inside this box
 	 */
 	#applyBlockSize() {
 		const node = this.#node;
-		const contentDone = this.#hasSeenAllChildren && this.#childBreakTokens.length === 0;
-		const used = this.#usedBlockSize();
+		if (this.#breakToken?.isAtBlockEnd) {
+			this.#blockOffset = 0;
+			return null;
+		}
+		const contentDone = this.#inFlowContentDone();
+		const consumed = this.#breakToken?.consumedBlockSize || 0;
+		const limits = this.#blockSizeLimits();
+		const explicitUsed = this.#usedBlockSize();
+		const used = this.#ownExtent();
+		// A minimum block-size is a floor the content may exceed (CSS2 §10.7);
+		// only a specified block-size makes content beyond it overflow (§2.1).
+		this.#hasFixedBlockSize = explicitUsed != null;
+
+		// For height:auto, max-height caps the content-derived tentative used
+		// height (CSS2 §10.7). Once progress reaches that cap, later content
+		// is overflow in a parallel flow just as for an explicitly sized box.
+		const autoMax = Math.max(limits.min, limits.max);
+		if (explicitUsed == null && Number.isFinite(autoMax)) {
+			const maxRemaining = Math.max(0, autoMax - consumed + this.#clonedStartInset());
+			if (this.#blockOffset >= maxRemaining) {
+				this.#hasFixedBlockSize = true;
+				this.#blockOffset = maxRemaining;
+				this.#isAtBlockEnd = !contentDone;
+				return null;
+			}
+		}
 
 		if (used == null) {
 			const boxStart = this.#isClone || !this.#hasConsumedExtent() ? this.#containerBoxStart : 0;
@@ -347,30 +487,55 @@ export class BlockContainerAlgorithm {
 			return null;
 		}
 
-		if (!contentDone) return null;
-
-		const consumed = this.#breakToken?.consumedBlockSize || 0;
-		const remaining = used - consumed;
-		if (this.#blockOffset >= remaining) return null;
-
+		// A clone continuation wraps the rest of the box in its own
+		// block-start inset (§5.4).
+		const remaining = used - consumed + this.#clonedStartInset();
 		const available = this.#availableBlockSpace();
 		const fits =
 			this.#constraintSpace.fragmentationType === FRAGMENTATION_NONE ||
 			remaining <= available ||
 			available <= 0;
+
+		if (this.#blockOffset >= remaining) {
+			if (!this.#hasFixedBlockSize) return null;
+			if (fits) {
+				this.#blockOffset = remaining;
+				this.#isAtBlockEnd = !contentDone;
+				return null;
+			}
+			// A top-of-fragmentainer child can make progress beyond both the
+			// fragmentainer and this box's remaining extent. Break the box at
+			// the fragmentainer edge and carry the child token forward; never
+			// record the overflowing child size as progress in the box itself.
+			this.#blockOffset = available;
+			this.#breakScore = applyBreakInsideAvoid(
+				node,
+				BreakScore.PERFECT,
+				this.#constraintSpace.fragmentationType,
+			);
+			return this.#selfBreakToken(
+				consumed + this.#blockOffset - this.#clonedInsets(),
+				this.#hasSeenAllChildren,
+			);
+		}
+		if (!contentDone) return null;
 		if (fits) {
 			this.#blockOffset = remaining;
 			return null;
 		}
 
-		const contentExtent = this.#blockOffset - this.#containerBoxEnd;
+		// The block-end inset stays with this fragment under clone; under
+		// slice it belongs to the last fragment.
+		const contentExtent = this.#isClone
+			? this.#blockOffset
+			: this.#blockOffset - this.#containerBoxEnd;
 		this.#blockOffset = Math.max(available, contentExtent);
 		this.#breakScore = applyBreakInsideAvoid(
 			node,
 			BreakScore.PERFECT,
 			this.#constraintSpace.fragmentationType,
 		);
-		return this.#selfBreakToken(consumed + this.#blockOffset);
+		return this.#selfBreakToken(consumed + this.#blockOffset - this.#clonedInsets());
 	}
 
 	#setup() {
@@ -388,15 +553,10 @@ export class BlockContainerAlgorithm {
 			}
 		}
 
-		// Container's own box insets (padding + border)
-		this.#containerBoxStart = (node.paddingBlockStart || 0) + (node.borderBlockStart || 0);
-		this.#containerBoxEnd = (node.paddingBlockEnd || 0) + (node.borderBlockEnd || 0);
-
 		// Start blockOffset at the container's top padding+border.
 		// For slice (default): only on the first fragment with any extent —
 		// a zero-progress continuation still owes its block-start decorations.
 		// For clone: on every fragment (repeated decorations).
-		this.#isClone = node.boxDecorationBreak === BOX_DECORATION_CLONE;
 		this.#blockOffset = this.#isClone || !this.#hasConsumedExtent() ? this.#containerBoxStart : 0;
 
 		// Table border-spacing (separated borders model): adds gaps between
@@ -439,7 +599,6 @@ export class BlockContainerAlgorithm {
 			result.fragment.blockSize = beforeResult.node.blockSize;
 		}
 		this.#childFragments.push(result.fragment);
-		this.#prependedFragments = 1;
 		this.#blockOffset += result.fragment.blockSize;
 	}
 
@@ -606,17 +765,45 @@ export class BlockContainerAlgorithm {
 		);
 	}
 
+	/**
+	 * Resume a child past its block-end: only its overflow continues, in a
+	 * flow parallel to the content after it (§2.1). The fragment is placed
+	 * at the current position and, having no extent, advances nothing.
+	 */
+	*#layoutOverflow(child, childBreakToken) {
+		const result = yield new LayoutRequest(
+			child,
+			this.#buildChildConstraint(this.#remainingSpace(), 0),
+			childBreakToken,
+			this.#earlyBreakTargetForChild(),
+		);
+		result.fragment.blockOffset = this.#blockOffset;
+		this.#childFragments.push(result.fragment);
+		if (result.breakToken) this.#childBreakTokens.push(result.breakToken);
+	}
+
 	*layoutChildren() {
 		const node = this.#node;
 		const breakToken = this.#breakToken;
 		const children = node.children;
 
+		// Children without a token before the last resumed child completed in
+		// an earlier fragmentainer: resumed tokens are sparse, and parallel
+		// flows (§2.1) can leave completed children between them.
+		const lastResumed = breakToken?.childBreakTokens[breakToken.childBreakTokens.length - 1];
+		const resumedThrough = lastResumed ? children.indexOf(lastResumed.node) : -1;
+		let placedInFlow = false;
+
 		for (let i = this.#startIndex; i < children.length; i++) {
 			const child = children[i];
 			const childBreakToken = findChildBreakToken(breakToken, child);
 
-			// Skip completed children when all have been visited
-			if (!childBreakToken && breakToken?.hasSeenAllChildren) {
+			// Skip completed children
+			if (
+				!childBreakToken &&
+				breakToken &&
+				(breakToken.hasSeenAllChildren || i < resumedThrough)
+			) {
 				continue;
 			}
 
@@ -626,10 +813,21 @@ export class BlockContainerAlgorithm {
 			// isBreakBefore means "pushed to this fragmentainer, lay out fresh"
 			const effectiveChildBreakToken = childBreakToken?.isBreakBefore ? null : childBreakToken;
 
+			// A child past its block-end continues only for overflow in a
+			// parallel flow (§2.1): it takes no extent and no margins here, and
+			// the flow goes on to the next sibling.
+			if (effectiveChildBreakToken?.isAtBlockEnd) {
+				yield* this.#layoutOverflow(child, effectiveChildBreakToken);
+				continue;
+			}
+
+			const isFirstInFlow = !placedInFlow;
+			placedInFlow = true;
+
 			// Margin collapsing: sibling collapse and through-collapse —
 			// delegated to MarginState.
 			const { marginDelta, collapsedThrough, consumedPrevMarginEnd } = this.#margins.computeMarginBefore(child, {
-				isFirstInLoop: i === this.#startIndex,
+				isFirstInLoop: isFirstInFlow,
 				isFirstFragment: !breakToken,
 				isForcedBreak: !!childBreakToken?.isForcedBreak,
 			});
@@ -714,7 +912,7 @@ export class BlockContainerAlgorithm {
 
 			if (
 				this.#margins.shouldTruncateChildMarginStart({
-					isFirstChild: i === this.#startIndex,
+					isFirstChild: isFirstInFlow,
 					hasBreakToken: !!breakToken,
 					childMarginBefore: child.marginBlockStart || 0,
 					isForcedBreak: !!childBreakToken?.isForcedBreak,
@@ -738,11 +936,14 @@ export class BlockContainerAlgorithm {
 				collapsedThrough === 0 &&
 				!child.establishesBlockFormattingContext &&
 				isSelfCollapsing(child, result.fragment.blockSize);
+			// A child at its block-end is complete as far as this flow goes:
+			// only its overflow continues, in parallel (§2.1).
+			const childBroke = !!result.breakToken && !result.breakToken.isAtBlockEnd;
 			this.#blockOffset -= this.#margins.applyAfterLayout(
 				child,
 				collapsedThrough,
 				!!effectiveChildBreakToken,
-				!!result.breakToken,
+				childBroke,
 				{ selfCollapsing, appliedMarginStart: marginDelta, consumedPrevMarginEnd },
 			);
 
@@ -751,7 +952,9 @@ export class BlockContainerAlgorithm {
 				this.#blockOffset += this.#tableSpacing;
 			}
 
-			if (result.breakToken) {
+			if (result.breakToken && !childBroke) {
+				this.#childBreakTokens.push(result.breakToken);
+			} else if (result.breakToken) {
 				// A violating child break (orphans/widows, or any break inside a
 				// break-inside:avoid container) can be improved by breaking at an
 				// earlier Class A breakpoint — retry there when one scored better.

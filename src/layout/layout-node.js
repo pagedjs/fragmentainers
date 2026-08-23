@@ -59,6 +59,8 @@ export class DOMLayoutNode extends LayoutNode {
 	#textAlign = null;
 	#textAlignLast = null;
 	#whiteSpace = null;
+	#boxDecorationBreak = null;
+	#boxSizing = null;
 	#marginBlockStart = null;
 	#marginBlockEnd = null;
 	#paddingBlockStart = null;
@@ -110,6 +112,11 @@ export class DOMLayoutNode extends LayoutNode {
 		this.#textAlign = cssKeyword(map.get("text-align"), "start");
 		this.#textAlignLast = cssKeyword(map.get("text-align-last"), "auto");
 		this.#whiteSpace = cssKeyword(map.get("white-space"), "normal");
+		this.#boxDecorationBreak = cssKeyword(
+			map.get("box-decoration-break"),
+			BOX_DECORATION_SLICE,
+		);
+		this.#boxSizing = cssKeyword(map.get("box-sizing"), "content-box");
 		this.#marginBlockStart = cssPx(map.get("margin-block-start"));
 		this.#marginBlockEnd = cssPx(map.get("margin-block-end"));
 		this.#paddingBlockStart = cssPx(map.get("padding-block-start"));
@@ -400,7 +407,13 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	get boxDecorationBreak() {
-		return cssKeyword(this.#getStyleMap().get("box-decoration-break"), BOX_DECORATION_SLICE);
+		if (this.#boxDecorationBreak === null) this.#getStyleMap();
+		return this.#boxDecorationBreak ?? BOX_DECORATION_SLICE;
+	}
+
+	get boxSizing() {
+		if (this.#boxSizing === null) this.#getStyleMap();
+		return this.#boxSizing ?? "content-box";
 	}
 
 	get orphans() {
@@ -571,15 +584,40 @@ export class DOMLayoutNode extends LayoutNode {
 		if (cssHeight == null) return null;
 		// Replaced elements: measureElementBlockSize already yields border-box.
 		if (this.isReplacedElement) return cssHeight;
-		if (cssKeyword(this.#getStyleMap().get("box-sizing"), "content-box") === "border-box")
-			return cssHeight;
-		return (
-			cssHeight +
+		return this.#toBorderBox(cssHeight);
+	}
+
+	/**
+	 * The box's block-size and the limits on it, as border-box px (CSS
+	 * Sizing §3): `specified` is null when `height` is auto; `min` is 0 and
+	 * `max` is Infinity when unset. Only px-resolvable lengths count, so
+	 * percentages and keywords resolve to "no limit". A replaced element
+	 * reports its rendered size, which already honours its limits.
+	 */
+	blockSizeLimits() {
+		if (this.isReplacedElement) {
+			return { specified: measureElementBlockSize(this.element), min: 0, max: Infinity };
+		}
+		const map = this.#getStyleMap();
+		const length = (property) => {
+			const px = typedLengthToPx(map.get(property));
+			return px == null ? null : this.#toBorderBox(px);
+		};
+		return {
+			specified: length("height"),
+			min: length("min-height") ?? 0,
+			max: length("max-height") ?? Infinity,
+		};
+	}
+
+	#toBorderBox(cssLength) {
+		const insets =
 			this.paddingBlockStart +
 			this.paddingBlockEnd +
 			this.borderBlockStart +
-			this.borderBlockEnd
-		);
+			this.borderBlockEnd;
+		if (this.boxSizing === "border-box") return Math.max(cssLength, insets);
+		return cssLength + insets;
 	}
 
 	// Inline formatting context

@@ -86,6 +86,10 @@ export class LayoutNode {
 		return null;
 	}
 
+	blockSizeLimits() {
+		return { specified: null, min: 0, max: Infinity };
+	}
+
 	getCustomProperty() {
 		return null;
 	}
@@ -169,6 +173,9 @@ export class LayoutNode {
 	}
 	get borderSpacingBlock() {
 		return 0;
+	}
+	get boxSizing() {
+		return "content-box";
 	}
 
 	// Fragmentation
