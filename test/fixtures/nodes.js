@@ -15,6 +15,12 @@ const DEFAULTS = {
 	getCustomProperty() {
 		return null;
 	},
+	computedBlockSize() {
+		return null;
+	},
+	borderBoxBlockSize() {
+		return null;
+	},
 	position: "static",
 	isInlineFormattingContext: false,
 	isReplacedElement: false,
@@ -55,41 +61,62 @@ const DEFAULTS = {
 
 /**
  * Create a block-level layout node.
+ *
+ * The box is auto-height unless `specifiedBlockSize` is given: `blockSize`
+ * is the measured (content-derived) size, while `computedBlockSize()` and
+ * `borderBoxBlockSize()` return null as they do for `height: auto`. With
+ * `specifiedBlockSize`, both resolve to that border-box value and
+ * `blockSize` defaults to it.
+ *
  * @param {Object} opts
  * @param {string} [opts.debugName] - Name for debug output
- * @param {number} [opts.blockSize] - Intrinsic block size (for leaf nodes)
+ * @param {number} [opts.blockSize] - Measured block size (for leaf nodes)
+ * @param {number|null} [opts.specifiedBlockSize] - Explicit border-box block size
  * @param {LayoutNode[]} [opts.children] - Child nodes
  * @param {Object} [opts.overrides] - Any LayoutNode property overrides
  */
-export function blockNode({ debugName, blockSize = 0, children = [], ...overrides } = {}) {
+export function blockNode({
+	debugName,
+	blockSize,
+	specifiedBlockSize = null,
+	children = [],
+	...overrides
+} = {}) {
+	const measured = blockSize ?? specifiedBlockSize ?? 0;
 	return {
 		...DEFAULTS,
-		debugName: debugName || `block(${blockSize})`,
-		blockSize,
+		debugName: debugName || `block(${measured})`,
+		blockSize: measured,
 		children,
-		computedBlockSize: () => blockSize,
+		hasExplicitBlockSize: specifiedBlockSize != null,
+		computedBlockSize: () => specifiedBlockSize,
+		borderBoxBlockSize: () => specifiedBlockSize,
 		...overrides,
 	};
 }
 
 /**
- * Create a replaced element (img, video, etc.) — monolithic.
+ * Create a replaced element (img, video, etc.) — monolithic. A replaced
+ * element's block size is always definite: its rendered border-box size.
  */
 export function replacedNode({ debugName, blockSize = 0, ...overrides } = {}) {
 	return blockNode({
 		debugName: debugName || `replaced(${blockSize})`,
 		blockSize,
 		isReplacedElement: true,
+		computedBlockSize: () => blockSize,
+		borderBoxBlockSize: () => blockSize,
 		...overrides,
 	});
 }
 
 /**
- * Create a scrollable element — monolithic.
+ * Create a scrollable element — monolithic. Auto-height unless
+ * `specifiedBlockSize` is given.
  */
-export function scrollableNode({ debugName, blockSize = 0, children = [], ...overrides } = {}) {
+export function scrollableNode({ debugName, blockSize, children = [], ...overrides } = {}) {
 	return blockNode({
-		debugName: debugName || `scrollable(${blockSize})`,
+		debugName: debugName || `scrollable(${blockSize ?? overrides.specifiedBlockSize ?? 0})`,
 		blockSize,
 		children,
 		isScrollable: true,
@@ -188,7 +215,6 @@ export function inlineNode({
 				return MOCK_TOP + (mockLines.length - 1) * lineHeight;
 			},
 		},
-		computedBlockSize: () => 0,
 		...overrides,
 	};
 }
@@ -259,7 +285,7 @@ export function gridNode({ debugName, children = [], ...overrides } = {}) {
  */
 export function gridItemNode({
 	debugName,
-	blockSize = 0,
+	blockSize,
 	gridRowStart = 1,
 	gridRowEnd = 2,
 	...overrides
@@ -282,7 +308,6 @@ export function tableNode({ debugName, children = [], ...overrides } = {}) {
 		debugName: debugName || "table",
 		isTable: true,
 		children,
-		computedBlockSize: () => 0,
 		...overrides,
 	};
 }
@@ -296,7 +321,6 @@ export function tableHeaderNode({ debugName, children = [], ...overrides } = {})
 		debugName: debugName || "thead",
 		isTableHeaderGroup: true,
 		children,
-		computedBlockSize: () => 0,
 		...overrides,
 	};
 }
@@ -313,7 +337,6 @@ export function tableRowNode({ debugName, cells = [], ...overrides } = {}) {
 		isTableRow: true,
 		cells,
 		children: cells,
-		computedBlockSize: () => 0,
 		...overrides,
 	};
 }
@@ -327,7 +350,7 @@ export function tableRowNode({ debugName, cells = [], ...overrides } = {}) {
 export function floatNode({
 	debugName,
 	placement = "top",
-	blockSize = 0,
+	blockSize,
 	children = [],
 	...overrides
 } = {}) {
@@ -336,7 +359,7 @@ export function floatNode({
 		float: placement,
 	};
 	return blockNode({
-		debugName: debugName || `float-${placement}(${blockSize})`,
+		debugName: debugName || `float-${placement}(${blockSize ?? overrides.specifiedBlockSize ?? 0})`,
 		blockSize,
 		children,
 		getCustomProperty(name) {
@@ -355,7 +378,7 @@ export function floatNode({
 export function fixedNode({
 	debugName,
 	anchorEdge = "block-start",
-	blockSize = 0,
+	blockSize,
 	children = [],
 	...overrides
 } = {}) {
@@ -369,7 +392,7 @@ export function fixedNode({
 	}[anchorEdge];
 
 	return blockNode({
-		debugName: debugName || `fixed-${anchorEdge}(${blockSize})`,
+		debugName: debugName || `fixed-${anchorEdge}(${blockSize ?? overrides.specifiedBlockSize ?? 0})`,
 		blockSize,
 		children,
 		position: "fixed",
