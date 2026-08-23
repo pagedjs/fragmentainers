@@ -270,7 +270,18 @@ test.describe("Phase 4: Monolithic content", () => {
 				'<div id="tall" style="height:500px;overflow:hidden;background:#f00">tall content</div>';
 			frag.appendChild(root);
 
-			const flow = new Fragmenter(frag, { width: 300, height: 200 });
+			const { ConstraintSpace, FRAGMENTATION_PAGE } =
+				await import("/src/fragmentation/constraint-space.js");
+			// Slicing a monolithic box is the paged-media last resort (CSS
+			// Fragmentation §4.4); column fragmentation overflows instead.
+			const flow = new Fragmenter(frag, {
+				constraintSpace: new ConstraintSpace({
+					availableInlineSize: 300,
+					availableBlockSize: 200,
+					fragmentainerBlockSize: 200,
+					fragmentationType: FRAGMENTATION_PAGE,
+				}),
+			});
 			const pages = [];
 			for (const el of flow) {
 				pages.push(el);

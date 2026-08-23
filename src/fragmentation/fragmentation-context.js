@@ -112,7 +112,7 @@ function findLastIFCLineHeight(fragment) {
 	for (let i = children.length - 1; i >= 0; i--) {
 		const child = children[i];
 		if (!child.node) continue;
-		if (child.node.isInlineFormattingContext) {
+		if (child.node.isInlineNode) {
 			return child.node.lineHeight;
 		}
 		const result = findLastIFCLineHeight(child);

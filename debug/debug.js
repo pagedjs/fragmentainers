@@ -107,7 +107,7 @@ function parseRange(str, total) {
 function findBaseLineHeight(fragment) {
 	for (const child of fragment.childFragments) {
 		if (!child.node) continue;
-		if (child.node.isInlineFormattingContext) return child.node.lineHeight;
+		if (child.node.isInlineNode) return child.node.lineHeight;
 		const lh = findBaseLineHeight(child);
 		if (lh) return lh;
 	}

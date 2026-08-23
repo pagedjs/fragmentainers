@@ -57,7 +57,7 @@ export function getLayoutAlgorithm(node) {
 	if (node.isMulticolContainer) return MulticolAlgorithm;
 	if (node.isFlexContainer) return FlexAlgorithm;
 	if (node.isGridContainer) return GridAlgorithm;
-	if (node.isInlineFormattingContext) return InlineContentAlgorithm;
+	if (node.isInlineNode) return InlineContentAlgorithm;
 	if (node.isTableRow) return TableRowAlgorithm;
 	return BlockContainerAlgorithm;
 }

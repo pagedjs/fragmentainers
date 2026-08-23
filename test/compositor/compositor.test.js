@@ -445,7 +445,7 @@ test.describe("Fragment.build", () => {
 	test("sets data-split-to when fragment has a break token", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
-			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { splitTextBlock } = await import("/test/fixtures/fragments.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
@@ -461,8 +461,7 @@ test.describe("Fragment.build", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const childFrag = new Fragment(childNodes[0], 50);
-			childFrag.breakToken = new BlockBreakToken(childNodes[0]);
+			const childFrag = splitTextBlock(childNodes[0], 50);
 			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
 			const docFrag = rootFragment.build(null);
@@ -483,7 +482,7 @@ test.describe("Fragment.build", () => {
 	}) => {
 		const result = await page.evaluate(async () => {
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
-			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { splitTextBlock } = await import("/test/fixtures/fragments.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
@@ -500,8 +499,7 @@ test.describe("Fragment.build", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const childFrag = new Fragment(childNodes[0], 50);
-			childFrag.breakToken = new BlockBreakToken(childNodes[0]);
+			const childFrag = splitTextBlock(childNodes[0], 50);
 			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
 			const docFrag = rootFragment.build(null);
@@ -527,7 +525,7 @@ test.describe("Fragment.build", () => {
 	test("applies explicit text-align-last on the deepest split element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
-			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { splitTextBlock } = await import("/test/fixtures/fragments.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
@@ -545,8 +543,7 @@ test.describe("Fragment.build", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const childFrag = new Fragment(childNodes[0], 50);
-			childFrag.breakToken = new BlockBreakToken(childNodes[0]);
+			const childFrag = splitTextBlock(childNodes[0], 50);
 			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
 			const docFrag = rootFragment.build(null);
@@ -574,6 +571,7 @@ test.describe("Fragment.build", () => {
 		const result = await page.evaluate(async () => {
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { splitTextBlock } = await import("/test/fixtures/fragments.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
@@ -596,14 +594,13 @@ test.describe("Fragment.build", () => {
 			const wrapperNode = sectionNode.children[0];
 			const paragraphNode = wrapperNode.children[0];
 
-			const paragraphToken = new BlockBreakToken(paragraphNode);
+			const paragraphFrag = splitTextBlock(paragraphNode, 50);
+			const paragraphToken = paragraphFrag.breakToken;
 			const wrapperToken = new BlockBreakToken(wrapperNode);
 			wrapperToken.childBreakTokens = [paragraphToken];
 			const sectionToken = new BlockBreakToken(sectionNode);
 			sectionToken.childBreakTokens = [wrapperToken];
 
-			const paragraphFrag = new Fragment(paragraphNode, 50);
-			paragraphFrag.breakToken = paragraphToken;
 			const wrapperFrag = new Fragment(wrapperNode, 50, [paragraphFrag]);
 			wrapperFrag.breakToken = wrapperToken;
 			const sectionFrag = new Fragment(sectionNode, 50, [wrapperFrag]);
@@ -644,7 +641,7 @@ test.describe("Fragment.build", () => {
 	test("does not set data-justify-last when text-align is not justify", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
-			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { splitTextBlock } = await import("/test/fixtures/fragments.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
@@ -661,8 +658,7 @@ test.describe("Fragment.build", () => {
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
 
-			const childFrag = new Fragment(childNodes[0], 50);
-			childFrag.breakToken = new BlockBreakToken(childNodes[0]);
+			const childFrag = splitTextBlock(childNodes[0], 50);
 			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
 			const docFrag = rootFragment.build(null);
@@ -686,7 +682,7 @@ test.describe("Fragment.build", () => {
 	test("sets data-justify-last after element is detached from DOM", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
-			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { splitTextBlock } = await import("/test/fixtures/fragments.js");
 			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
 
 			const container = document.createElement("div");
@@ -708,8 +704,7 @@ test.describe("Fragment.build", () => {
 			// Detach
 			container.removeChild(outer);
 
-			const childFrag = new Fragment(childNodes[0], 50);
-			childFrag.breakToken = new BlockBreakToken(childNodes[0]);
+			const childFrag = splitTextBlock(childNodes[0], 50);
 			const rootFragment = new Fragment(outerNode, 50, [childFrag]);
 
 			const docFrag = rootFragment.build(null);

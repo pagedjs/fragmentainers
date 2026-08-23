@@ -449,7 +449,7 @@ test.describe("DOMLayoutNode", () => {
 				const node = new DOMLayoutNode(parent);
 				const out = {
 					ifc: node.isInlineFormattingContext,
-					text: node.inlineItemsData ? node.inlineItemsData.textContent.trim() : null,
+					text: node.children[0]?.inlineItemsData?.textContent.trim() ?? null,
 				};
 				container.remove();
 				return out;
@@ -554,7 +554,7 @@ test.describe("DOMLayoutNode", () => {
 				p.innerHTML = "Hello <em>world</em>";
 				container.appendChild(p);
 				const node = new DOMLayoutNode(p);
-				const data = node.inlineItemsData;
+				const data = node.children[0].inlineItemsData;
 				const isNotNull = data !== null;
 				const textContent = data ? data.textContent : null;
 				const types = data ? data.items.map((item) => item.type) : [];
@@ -580,7 +580,7 @@ test.describe("DOMLayoutNode", () => {
 				div.innerHTML = "<div>block</div>";
 				container.appendChild(div);
 				const node = new DOMLayoutNode(div);
-				const isNull = node.inlineItemsData === null;
+				const isNull = node.children.every((c) => !c.isInlineNode);
 				container.remove();
 				return { isNull };
 			});

@@ -241,7 +241,7 @@ export function buildFragmentOverlay(pageFragment, contentArea, margins) {
 
 			const visibleHeight = height - throughTop - throughBottom;
 			const color = COLORS[depth % COLORS.length];
-			const isIFC = child.node.isInlineFormattingContext;
+			const isIFC = child.node.isInlineNode;
 
 			const drawTop = top + throughTop;
 
@@ -346,7 +346,7 @@ function dumpFragment(frag, parentBT, depth) {
 	const node = frag.node;
 	const tag = node.element?.tagName?.toLowerCase() || "?";
 	const name = node.debugName || tag;
-	const isIFC = node.isInlineFormattingContext;
+	const isIFC = node.isInlineNode;
 	const measured = node.blockSize || null;
 
 	const breakProps = {};
@@ -454,7 +454,7 @@ function printFragmentInfo(info, log, depth) {
 function checkLastLineClip(frag, pageBlockSize, pageH) {
 	let current = frag;
 	while (current) {
-		if (current.node?.isInlineFormattingContext) {
+		if (current.node?.isInlineNode) {
 			if (pageBlockSize > pageH + 0.01) {
 				return `Last IFC (${current.node.debugName}): page blockSize ${pageBlockSize.toFixed(2)} > fragmentainer ${pageH} — last line clipped`;
 			}
@@ -473,7 +473,7 @@ function collectPageTextSegments(pageFragment, inputBreakToken) {
 		for (const child of fragment.childFragments) {
 			if (!child.node) continue;
 			const childBT = findChildBreakToken(bt, child.node);
-			if (child.node.isInlineFormattingContext) {
+			if (child.node.isInlineNode) {
 				extractInlineText(child, childBT, segments);
 			} else {
 				walk(child, childBT);

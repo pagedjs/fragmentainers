@@ -13,6 +13,7 @@ import {
 } from "../measurement/collect-inlines.js";
 import { isPseudoElement } from "../handlers/pseudo-elements.js";
 import { ensureFlowContext } from "./flow-context.js";
+import { isMonolithic } from "../layout/layout-helpers.js";
 import { CloneMap } from "./clone-map.js";
 
 /**
@@ -28,7 +29,6 @@ export class Fragment {
 		this.breakToken = null;
 		this.constraints = null;
 		this.multicolData = null;
-		this.lineCount = 0;
 		this.isRepeated = false;
 		this.truncateMarginBlockStart = false;
 		this.truncateMarginBlockEnd = false;
@@ -102,8 +102,8 @@ export class Fragment {
 
 		if (this.multicolData) {
 			this.#buildMulticol(inputBreakToken, parentEl, cloneMap);
-		} else if (node.isInlineFormattingContext) {
-			this.#buildInline(inputBreakToken, parentEl, cloneMap);
+		} else if (node.isInlineNode) {
+			this.#buildInline(inputBreakToken, parentEl);
 		} else if (this.hasBlockChildren) {
 			const el = node.element.cloneNode(false);
 			if (this.isRepeated) el.setAttribute("data-repeated", "");
@@ -123,11 +123,15 @@ export class Fragment {
 			}
 			// Skip empty container shells — all built children were themselves
 			// empty and skipped (e.g. an <ol> whose only <li> had no visible text).
-			if (el.childNodes.length === 0 && this.breakToken) {
+			if (el.childNodes.length === 0 && this.breakToken && !this.needsBlockClip) {
 				return;
 			}
 			cloneMap.track(el, node.element);
-			parentEl.appendChild(el);
+			if (this.needsBlockClip) {
+				this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
+			} else {
+				parentEl.appendChild(el);
+			}
 		} else if (
 			this.childFragments.length === 0 &&
 			this.breakToken &&
@@ -136,9 +140,16 @@ export class Fragment {
 		) {
 			// Empty container shell — all children pushed to next fragmentainer.
 			// Don't build; content will appear on the next page/column. A block-clip
-			// slice (monolithic node taller than the page) is not a shell: it falls
-			// through to the deep-clone path below so the visible slice still renders.
+			// slice is not a shell: it falls through so the visible slice renders.
 			return;
+		} else if (this.childFragments.length === 0 && this.needsBlockClip && !isMonolithic(node)) {
+			// The rest of a box whose block-size outran the fragmentainer after
+			// all its content was placed (CSS Fragmentation §5.3): an empty box
+			// showing only this fragment's slice of the decorations.
+			const el = node.element.cloneNode(false);
+			this.#applySplitAttributes(el, inputBreakToken);
+			cloneMap.track(el, node.element);
+			this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
 		} else {
 			const el = node.element.cloneNode(true);
 			if (this.isRepeated) el.setAttribute("data-repeated", "");
@@ -155,25 +166,14 @@ export class Fragment {
 	}
 
 	/**
-	 * Build an inline formatting context fragment.
-	 * Uses inlineItemsData + break token offsets to reconstruct
-	 * only the visible portion of the content.
+	 * Build the line boxes of an anonymous inline node straight into the
+	 * containing block's clone. Uses inlineItemsData + break token offsets
+	 * to reconstruct only the visible portion of the content.
 	 */
-	#buildInline(inputBreakToken, parentEl, cloneMap) {
+	#buildInline(inputBreakToken, parentEl) {
 		const node = this.node;
 		const data = node.inlineItemsData;
-		const isAnonymous = !node.element;
-
-		if (!data || !data.items || data.items.length === 0) {
-			if (!isAnonymous) {
-				const el = node.element.cloneNode(false);
-				if (this.truncateMarginBlockStart) el.setAttribute("data-truncate-margin", "");
-				if (this.truncateMarginBlockEnd) el.setAttribute("data-truncate-margin-end", "");
-				cloneMap.track(el, node.element);
-				parentEl.appendChild(el);
-			}
-			return;
-		}
+		if (!data || !data.items || data.items.length === 0) return;
 
 		const startOffset =
 			inputBreakToken && inputBreakToken.type === BREAK_TOKEN_INLINE
@@ -191,8 +191,7 @@ export class Fragment {
 			return;
 		}
 
-		const ws = isAnonymous ? "normal" : node.whiteSpace;
-		const collapseWS = !ws.startsWith("pre");
+		const collapseWS = !node.whiteSpace.startsWith("pre");
 		const isInlineToken = this.breakToken?.type === BREAK_TOKEN_INLINE;
 		const hasTrailingCollapsibleSpace = isInlineToken
 			? this.breakToken.hasTrailingCollapsibleSpace
@@ -212,53 +211,17 @@ export class Fragment {
 			willContinue: !!this.breakToken,
 		};
 
-		const options = {
+		const docFragment = document.createDocumentFragment();
+		Fragment.buildInlineContent(data.items, data.textContent, startOffset, endOffset, docFragment, {
 			collapseWS,
 			pseudoContext,
 			hasTrailingCollapsibleSpace,
 			isHyphenated,
 			hyphenateCharacter,
-		};
-
-		if (isAnonymous) {
-			const docFragment = document.createDocumentFragment();
-			Fragment.buildInlineContent(
-				data.items,
-				data.textContent,
-				startOffset,
-				endOffset,
-				docFragment,
-				options,
-			);
-			parentEl.appendChild(docFragment);
-		} else {
-			const el = node.element.cloneNode(false);
-			this.#applySplitAttributes(el, inputBreakToken);
-			if (this.truncateMarginBlockStart) el.setAttribute("data-truncate-margin", "");
-			if (this.truncateMarginBlockEnd) el.setAttribute("data-truncate-margin-end", "");
-			Fragment.buildInlineContent(
-				data.items,
-				data.textContent,
-				startOffset,
-				endOffset,
-				el,
-				options,
-			);
-			cloneMap.track(el, node.element);
-			if (this.needsBlockClip) {
-				this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
-			} else {
-				parentEl.appendChild(el);
-			}
-		}
+		});
+		parentEl.appendChild(docFragment);
 	}
 
-	/**
-	 * Append `el` to `parentEl`, wrapping it in a clip container when this
-	 * fragment is a slice of a block-sized (monolithic or explicit-height)
-	 * box. The wrapper clips to the fragment's blockSize and offsets the
-	 * element by the consumed amount so only the current slice is visible.
-	 */
 	#appendWithBlockSlice(el, parentEl, inputBreakToken) {
 		const consumed =
 			inputBreakToken?.type === BREAK_TOKEN_BLOCK ? inputBreakToken.consumedBlockSize : 0;
@@ -366,8 +329,10 @@ export class Fragment {
 	}
 
 	#isDeepestSplitElement() {
+		// The anonymous inline node's break belongs to this element: it is the
+		// box the lines are in.
 		const childBreakTokens = this.breakToken?.childBreakTokens ?? [];
-		return !childBreakTokens.some((token) => !token.isAtBlockEnd);
+		return !childBreakTokens.some((token) => !token.isAtBlockEnd && !token.node?.isInlineNode);
 	}
 
 	#applyTextAlignLast(el) {

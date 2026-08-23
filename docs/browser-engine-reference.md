@@ -129,7 +129,6 @@ The immutable output of a layout algorithm. Represents one positioned portion of
 | `breakToken`     | `BreakToken \| null`      | Continuation token for next fragmentainer                                                   |
 | `constraints`    | `PageConstraints \| null` | Fragmentainer constraint info                                                               |
 | `multicolData`   | `object \| null`          | `{ columnWidth, columnGap, columnCount }` for multicol containers                           |
-| `lineCount`      | `number`                  | Line count (inline content only)                                                            |
 | `isRepeated`     | `boolean`                 | Fragment is repeated content (e.g. table thead across pages)                                |
 | `isBlank`        | `boolean`                 | Fragment is a blank page inserted for side-specific breaks (`left`/`right`/`recto`/`verso`) |
 | `counterState`   | `object \| null`          | CSS counter state snapshot at end of fragment                                               |
@@ -380,7 +379,7 @@ Read-only wrapper around a DOM `Element`, providing the layout-relevant properti
 
 ### AnonymousBlockNode
 
-Wraps consecutive inline content in mixed-content containers per [CSS 2.1 §9.2.1.1](https://www.w3.org/TR/CSS2/visuren.html#anonymous-block-level). All box-model properties are zero; `isInlineFormattingContext` is always `true`.
+Holds a block container's inline-level content per [CSS 2.1 §9.2.1.1](https://www.w3.org/TR/CSS2/visuren.html#anonymous-block-level) — every inline run in a mixed-content container, and all of the content of a block with only inline-level children. All box-model properties are zero; `isInlineNode` and `isInlineFormattingContext` are always `true`; `orphans`, `widows` and `white-space` are read from the containing element. Blink's equivalent is `NGInlineNode`: the block's `NGBlockLayoutAlgorithm` runs for the element and hands the inline content to the inline node.
 
 ### Blink Equivalent
 

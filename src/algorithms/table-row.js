@@ -13,9 +13,9 @@ export const ALGORITHM_TABLE_ROW = "TableRowData";
  * when any cell overflows (completed cells get isAtBlockEnd = true).
  * The tallest cell drives the break point.
  *
- * Table cells dispatched to InlineContentAlgorithm return content-only
- * height (lines × lineHeight), missing cell padding/border. Use the
- * DOM-measured height when it's larger for accurate row sizing.
+ * A cell's fragment is as tall as its laid-out content; the browser
+ * stretches every cell to the row's tallest, so the DOM-measured height
+ * is used when it is larger.
  */
 export class TableRowAlgorithm {
 	#node;

@@ -122,16 +122,16 @@ Per CSS Fragmentation: margins adjoining a fragmentainer break are truncated to 
 ## Inline Content
 
 **File:** `src/algorithms/inline-content.js`
-**Dispatch:** `node.isInlineFormattingContext === true`
+**Dispatch:** `node.isInlineNode === true` — the anonymous inline node that holds a block container's inline-level content (CSS 2.1 §9.2.1.1)
 **Class:** `InlineContentAlgorithm` — `new InlineContentAlgorithm(node, constraintSpace, breakToken)` → `*layout()`
 
-Handles text content and inline-level boxes. Breaks at word boundaries across lines and fragmentainers.
+Lays out line boxes and breaks between them (Class B break points). The box the lines sit in — its block-size, padding, border and breaks inside the box itself — belongs to the containing `BlockContainerAlgorithm`; a fragment produced here is exactly the extent of the lines it places.
 
 Never yields a `LayoutRequest` — all measurement happens via the node's `inlineItemsData` plus the measurer. The `*layout()` generator still runs under the standard dispatch protocol; it returns the final `{ fragment, breakToken }` on its first `.next()`.
 
 ### Break Offset Resolution
 
-The algorithm uses the element's rendered height from `getBoundingClientRect()` to compute total lines, then resolves the break offset via `measurer.offsetAtLine(items, lineTops, targetLineIndex)`.
+The algorithm measures the inline content's rendered extent (a `Range` across the inline node's child nodes, `contentRect`) to compute total lines, then resolves the break offset via `measurer.offsetAtLine(items, lineTops, targetLineIndex)`.
 
 `offsetAtLine` binary-searches the flat text range using `lineIndexAtOffset`, which snaps each candidate char's rendered rect to a known line-top from `measureLines().tops`. Comparing integer line indices rather than scalar Y cutoffs eliminates sub-pixel boundary artifacts — notably the zero-width leading rect that `Range.getClientRects()` emits for chars at hyphenated soft-wrap boundaries (handled by `renderedRect`, which picks the rect with the largest top).
 

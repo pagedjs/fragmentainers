@@ -1,15 +1,10 @@
-import {
-	BlockBreakToken,
-	InlineBreakToken,
-	BREAK_TOKEN_BLOCK,
-	DEFAULT_HYPHEN,
-} from "../fragmentation/tokens.js";
+import { InlineBreakToken, DEFAULT_HYPHEN } from "../fragmentation/tokens.js";
 import { Fragment } from "../fragmentation/fragment.js";
 import { BreakScore } from "../fragmentation/break-scoring.js";
 import { INLINE_TEXT, INLINE_CONTROL, INLINE_ATOMIC } from "../measurement/collect-inlines.js";
 import { DEFAULT_OVERFLOW_THRESHOLD } from "../fragmentation/fragmentation-context.js";
 import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
-import { isMonolithic } from "../layout/layout-helpers.js";
+import { computeLineExtents } from "../measurement/line-box.js";
 
 /**
  * Given a flat textContent offset, find the kText item that contains it
@@ -124,8 +119,12 @@ function hasContentItems(items) {
 /**
  * Inline content layout algorithm.
  *
- * Uses the element's rendered height for accurate line counting and
- * binary search for break offsets.
+ * Lays out the line boxes of an anonymous inline node (the inline-level
+ * content of a block container) and breaks between them — Class B break
+ * points (CSS Fragmentation §4.1). The box that contains the lines is the
+ * block container's concern: its block-size, padding, border and
+ * decorations at breaks are handled by BlockContainerAlgorithm, so a
+ * fragment produced here is exactly the extent of the lines it places.
  *
  * Content-addressed via itemIndex + textOffset — survives
  * inline-size changes between fragmentainers.
@@ -135,10 +134,24 @@ function hasContentItems(items) {
  * runs under the standard dispatch protocol; it returns the final
  * `{ fragment, breakToken, breakScore }` on its first `.next()`.
  */
+// Sub-pixel slack when snapping a character's ink top onto a line top.
+const LINE_SNAP_TOLERANCE = 0.0625;
+
+/**
+ * Index of the line whose top is at or above `y` — the line a character with
+ * ink top `y` renders on.
+ */
+function lineIndexAtTop(tops, y) {
+	if (!Number.isFinite(y)) return tops.length;
+	for (let i = tops.length - 1; i >= 0; i--) {
+		if (y >= tops[i] - LINE_SNAP_TOLERANCE) return i;
+	}
+	return 0;
+}
+
 export class InlineContentAlgorithm {
 	#node;
 	#constraintSpace;
-	#breakToken;
 
 	// Cross-phase state (set during layout, consumed by #buildOutput)
 	#lineFragments = [];
@@ -147,6 +160,7 @@ export class InlineContentAlgorithm {
 	#textOffset;
 	#consumedLines = 0;
 	#remainingLines = 0;
+	#lineExtents = [];
 	#hasTrailingCollapsibleSpace = false;
 
 	// Class A break scoring (earlyBreakTarget) is only implemented by
@@ -154,7 +168,6 @@ export class InlineContentAlgorithm {
 	constructor(node, constraintSpace, breakToken) {
 		this.#node = node;
 		this.#constraintSpace = constraintSpace;
-		this.#breakToken = breakToken;
 		this.#itemIndex = breakToken?.itemIndex ?? 0;
 		this.#textOffset = breakToken?.textOffset ?? 0;
 	}
@@ -165,23 +178,12 @@ export class InlineContentAlgorithm {
 
 	// eslint-disable-next-line require-yield
 	*layout() {
-		// A block-level done token (isAtBlockEnd) marks an inline formatting
-		// context that finished on an earlier fragmentainer in a parallel flow
-		// (e.g. a completed table cell); emit nothing on the continuation.
-		if (this.#breakToken?.type === BREAK_TOKEN_BLOCK && this.#breakToken.isAtBlockEnd) {
-			return this.#buildEmptyFragment();
-		}
-
 		const inlineItems = this.#node.inlineItemsData;
 
-		// Guard: no inline data at all → empty fragment
-		if (!inlineItems?.items?.length) return this.#buildEmptyFragment();
-
-		// Guard: only non-content items (empty element with pseudo-content) → monolithic
-		if (!hasContentItems(inlineItems.items)) return this.#buildMonolithicFragment();
-
-		if (this.#node.element && isMonolithic(this.#node)) {
-			return this.#layoutExplicitHeight();
+		// Nothing that produces a line box (no items, or only open/close tags):
+		// the containing block sizes itself from the browser measurement.
+		if (!inlineItems?.items?.length || !hasContentItems(inlineItems.items)) {
+			return this.#buildEmptyFragment();
 		}
 
 		// Guard: insufficient space for even one line → zero-height continuation
@@ -198,45 +200,6 @@ export class InlineContentAlgorithm {
 		const fragment = new Fragment(this.#node, 0);
 		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
 		return { fragment, breakToken: null };
-	}
-
-	#buildMonolithicFragment() {
-		let measuredHeight = 0;
-		if (this.#node.element) {
-			measuredHeight = this.#node.isTableCell
-				? this.#node.intrinsicBlockSize
-				: this.#node.element.getBoundingClientRect().height;
-		}
-		const fragment = new Fragment(this.#node, measuredHeight);
-		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
-		return { fragment, breakToken: null };
-	}
-
-	#layoutExplicitHeight() {
-		const totalHeight = this.#node.borderBoxBlockSize();
-		const consumed = this.#breakToken?.consumedBlockSize || 0;
-		const remaining = totalHeight - consumed;
-		const available = this.#availableBlockSpace();
-		const fits =
-			this.#constraintSpace.fragmentationType === FRAGMENTATION_NONE ||
-			remaining <= available ||
-			available <= 0;
-
-		const fragment = new Fragment(this.#node, fits ? remaining : available);
-		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
-		// Continuation fragments (consumed > 0) always clip so only the current
-		// slice is visible. The first fragment only clips when it's about to
-		// break — if the whole element fits, no clip needed.
-		fragment.needsBlockClip = !fits || consumed > 0;
-
-		if (fits) return { fragment, breakToken: null };
-
-		const token = new BlockBreakToken(this.#node);
-		token.consumedBlockSize = consumed + available;
-		token.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
-		token.hasSeenAllChildren = true;
-		fragment.breakToken = token;
-		return { fragment, breakToken: token };
 	}
 
 	#insufficientSpace() {
@@ -264,62 +227,66 @@ export class InlineContentAlgorithm {
 					this.#constraintSpace.blockOffsetInFragmentainer;
 	}
 
+	/**
+	 * Block extent of `count` line boxes starting at `first`. Line boxes tile
+	 * their containing block, so a run of them is the sum of its own advances
+	 * — never a line count times one nominal height, which is wrong for every
+	 * line that carries something taller than the strut.
+	 */
+	#extentOf(first, count) {
+		let extent = 0;
+		for (let i = 0; i < count; i++) extent += this.#lineExtent(first + i);
+		return extent;
+	}
+
+	#lineExtent(index) {
+		const extent = this.#lineExtents[index];
+		return extent > 0 ? extent : this.#node.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
+	}
+
 	#layoutLines() {
 		const inlineItems = this.#node.inlineItemsData;
 		const measurer = this.#node.measurer;
 		const lineHeight = this.#node.lineHeight || DEFAULT_OVERFLOW_THRESHOLD;
 
-		// Box insets (padding + border) for IFC elements that have their own
-		// box model — mirrors block-container.js handling.
-		const boxStart = (this.#node.paddingBlockStart || 0) + (this.#node.borderBlockStart || 0);
-		const boxEnd = (this.#node.paddingBlockEnd || 0) + (this.#node.borderBlockEnd || 0);
-		// Base "first fragment" on consumed progress, not token presence: a
-		// zero-height insufficient-space continuation carries a break token but
-		// has advanced no text, so the block-start decorations still belong to
-		// the next fragment that actually places content.
-		const isFirstFragment = this.#textOffset === 0;
+		// The extent of the line boxes, measured across the inline content
+		// itself (a Range), so the containing block's own size never enters
+		// the line count.
+		const contentRect = this.#node.contentRect;
+		const contentHeight = contentRect.height;
+		const measured = this.#node.measureLines();
+		const accurateLineHeight = measured.lineHeight > 0 ? measured.lineHeight : lineHeight;
+		this.#lineExtents = computeLineExtents(measured, lineHeight, this.#node.contentBoxExtent);
+		const totalLines =
+			measured.count > 0 ? measured.count : Math.round(contentHeight / accurateLineHeight);
 
-		// Get the element's rendered height from the browser.
-		// Anonymous blocks (from mixed-content wrapping) have no element;
-		// fall back to a Range-based contentRect.
-		const element = this.#node.element;
-		const elementRect = element ? element.getBoundingClientRect() : this.#node.contentRect;
-		const totalHeight = elementRect.height;
-
-		// Compute consumed height from break token (for continuation fragments)
-		let consumedHeight = 0;
+		// Which line the break token resumes on (for continuation fragments).
+		// The token's character is snapped to a measured line top rather than
+		// divided by a nominal line height, so lines of differing extent do
+		// not accumulate an error in the resume index.
+		let resumeLine = 0;
 		if (this.#textOffset > 0) {
 			const loc = findItemAtOffset(inlineItems.items, this.#textOffset);
 			if (loc) {
 				const charY = measurer.charTop(loc.item.domNode, loc.localOffset);
-				consumedHeight = charY - elementRect.top;
+				resumeLine = lineIndexAtTop(measured.tops, charY);
 			}
 		}
 		const availableBlockSpace = this.#availableBlockSpace();
-		const remainingHeight = totalHeight - consumedHeight;
+		this.#consumedLines = Math.min(Math.max(0, resumeLine), totalLines);
+		this.#remainingLines = totalLines - this.#consumedLines;
+		const remainingHeight = this.#extentOf(this.#consumedLines, this.#remainingLines);
 
 		if (remainingHeight <= availableBlockSpace) {
-			// FAST PATH — all remaining content fits, no expensive measurement needed.
-			// Use lineHeight (which may be DPR-adjusted for normalized output)
-			// as the authoritative per-line height for block size computation.
-			// Line count is derived from content height (excluding box insets).
-			// Table cells are stretched to the row's tallest cell by the browser,
-			// so deriving line count from content height over-counts. Use actual
-			// line-box enumeration instead.
-			const contentHeight = totalHeight - boxStart - boxEnd;
-			const totalLines = this.#node.isTableCell
-				? this.#node.measureLines().count
-				: Math.round(contentHeight / lineHeight);
-			this.#consumedLines = isFirstFragment
-				? 0
-				: Math.round(Math.max(0, consumedHeight - boxStart) / lineHeight);
-			this.#remainingLines = totalLines - this.#consumedLines;
+			// FAST PATH — all remaining line boxes fit. Range bounds describe
+			// glyph ink, not the line-box extent, so the measured count above is
+			// still required even though no break offset needs to be found.
 			if (this.#remainingLines < 1) this.#remainingLines = 1;
 
 			for (let i = 0; i < this.#remainingLines; i++) {
-				this.#lineFragments.push(new Fragment(null, lineHeight));
+				this.#lineFragments.push(new Fragment(null, this.#lineExtent(this.#consumedLines + i)));
 			}
-			this.#blockOffset = (isFirstFragment ? boxStart : 0) + this.#remainingLines * lineHeight;
+			this.#blockOffset = this.#extentOf(this.#consumedLines, this.#remainingLines);
 
 			// Consume everything
 			this.#itemIndex = inlineItems.items.length;
@@ -327,23 +294,17 @@ export class InlineContentAlgorithm {
 			return false;
 		}
 
-		// SLOW PATH — content breaks. Use accurate gap-based line height
-		// from measureLines() to determine exactly how many lines fit.
-		// The node abstracts measurement over its Range (DOMLayoutNode)
-		// or child-node span (AnonymousBlockNode).
-		const measured = this.#node.measureLines();
-		const accurateLineHeight = measured.lineHeight > 0 ? measured.lineHeight : lineHeight;
-		const contentHeight = totalHeight - boxStart - boxEnd;
-		const totalLines =
-			measured.count > 0 ? measured.count : Math.round(contentHeight / accurateLineHeight);
-
-		this.#consumedLines = isFirstFragment
-			? 0
-			: Math.round(Math.max(0, consumedHeight - boxStart) / accurateLineHeight);
-		this.#remainingLines = totalLines - this.#consumedLines;
-		const fittingLines = Math.floor(
-			(availableBlockSpace - (isFirstFragment ? boxStart : 0)) / accurateLineHeight,
-		);
+		// SLOW PATH — content breaks. Walk the same per-line extents the fast
+		// path sums, so the modelled size of a run of lines does not depend on
+		// how much room it was offered.
+		let fittingLines = 0;
+		let fittingExtent = 0;
+		while (fittingLines < this.#remainingLines) {
+			const next = fittingExtent + this.#lineExtent(this.#consumedLines + fittingLines);
+			if (next > availableBlockSpace) break;
+			fittingExtent = next;
+			fittingLines += 1;
+		}
 		// Guarantee at least one line for progress when at top of page
 		const minLines =
 			this.#remainingLines > 0 && this.#constraintSpace.blockOffsetInFragmentainer === 0 ? 1 : 0;
@@ -380,9 +341,9 @@ export class InlineContentAlgorithm {
 		}
 
 		for (let i = 0; i < linesToPlace; i++) {
-			this.#lineFragments.push(new Fragment(null, accurateLineHeight));
+			this.#lineFragments.push(new Fragment(null, this.#lineExtent(this.#consumedLines + i)));
 		}
-		this.#blockOffset = (isFirstFragment ? boxStart : 0) + linesToPlace * accurateLineHeight;
+		this.#blockOffset = this.#extentOf(this.#consumedLines, linesToPlace);
 
 		if (linesToPlace >= this.#remainingLines) {
 			this.#itemIndex = inlineItems.items.length;
@@ -420,10 +381,8 @@ export class InlineContentAlgorithm {
 
 	#buildOutput(contentRemains) {
 		const inlineItems = this.#node.inlineItemsData;
-		const boxEnd = (this.#node.paddingBlockEnd || 0) + (this.#node.borderBlockEnd || 0);
 		const fragment = new Fragment(this.#node, this.#blockOffset, this.#lineFragments);
 		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
-		fragment.lineCount = this.#lineFragments.length;
 
 		// Produce inline break token if content remains.
 		// Skip trailing non-content items (close tags, whitespace-only text, BRs)
@@ -452,11 +411,6 @@ export class InlineContentAlgorithm {
 				this.#itemIndex = inlineItems.items.length;
 				this.#textOffset = inlineItems.textContent.length;
 			}
-		}
-
-		// Add bottom box inset (padding + border) on the last fragment only
-		if (!actuallyRemains) {
-			fragment.blockSize += boxEnd;
 		}
 
 		let breakScore = BreakScore.PERFECT;

@@ -57,6 +57,14 @@ function sharesLine(rect, line) {
 	return minHeight > 0 && overlap > minHeight / 2;
 }
 
+function overlapsInline(rect, line) {
+	return Math.min(rect.right, line.inlineEnd) > Math.max(rect.left, line.inlineStart);
+}
+
+function emptyLines() {
+	return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [], inkTops: [], inkHeights: [] };
+}
+
 /**
  * Reduce a DOMRectList to per-line tops. getClientRects() can return several
  * rects for one visual line when it mixes inline metrics, so rects are
@@ -70,26 +78,58 @@ function sharesLine(rect, line) {
  * or mixed metrics.
  */
 function reduceRectsToLines(rects) {
-	if (rects.length === 0) return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [] };
+	if (rects.length === 0) return emptyLines();
 
 	const lines = [];
 	for (let i = 0; i < rects.length; i++) {
 		const rect = rects[i];
 		if (rect.width === 0 && rect.height === 0) continue;
-		const line = lines.length > 0 ? lines[lines.length - 1] : null;
-		if (line && sharesLine(rect, line)) {
+		// A Range that fully contains inline elements may return the element's
+		// fragment rects first and its descendant text rects afterwards. Match
+		// every existing visual line rather than assuming DOMRect order is also
+		// line order, or nested inline runs are counted twice.
+		const last = lines.length > 0 ? lines[lines.length - 1] : null;
+		const line =
+			last && sharesLine(rect, last)
+				? last
+				: lines.find(
+						(candidate) => sharesLine(rect, candidate) && overlapsInline(rect, candidate),
+					);
+		if (line) {
+			line.top = Math.min(line.top, rect.top);
 			line.bottom = Math.max(line.bottom, rect.bottom);
+			line.inlineStart = Math.min(line.inlineStart, rect.left);
+			line.inlineEnd = Math.max(line.inlineEnd, rect.right);
 		} else {
-			lines.push({ anchorTop: rect.top, anchorBottom: rect.bottom, bottom: rect.bottom });
+			lines.push({
+				anchorTop: rect.top,
+				anchorBottom: rect.bottom,
+				top: rect.top,
+				bottom: rect.bottom,
+				inlineStart: rect.left,
+				inlineEnd: rect.right,
+			});
 		}
 	}
 
-	if (lines.length === 0) return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [] };
+	if (lines.length === 0) return emptyLines();
 
+	lines.sort((a, b) => a.anchorTop - b.anchorTop);
 	const tops = lines.map((line) => line.anchorTop);
 	const lineHeight = tops.length >= 2 ? tops[tops.length - 1] - tops[tops.length - 2] : 0;
 	const firstLineHeight = lines[0].anchorBottom - lines[0].anchorTop;
-	return { count: lines.length, lineHeight, firstLineHeight, tops };
+	return {
+		count: lines.length,
+		lineHeight,
+		firstLineHeight,
+		tops,
+		// Ink geometry per line, anchored on the topmost rect of the line
+		// rather than the first one in DOMRect order: a line that mixes an
+		// atomic inline with text reports the atomic's edge, which is the
+		// edge closest to the line box.
+		inkTops: lines.map((line) => line.top),
+		inkHeights: lines.map((line) => line.bottom - line.top),
+	};
 }
 
 /**
@@ -113,13 +153,109 @@ export function measureLines(element) {
  * @returns {{ count: number, lineHeight: number, firstLineHeight: number, tops: number[] }}
  */
 export function measureLinesAcrossNodes(nodes) {
-	if (!nodes || nodes.length === 0) {
-		return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [] };
-	}
+	if (!nodes || nodes.length === 0) return emptyLines();
 	const range = document.createRange();
 	range.setStartBefore(nodes[0]);
 	range.setEndAfter(nodes[nodes.length - 1]);
 	return reduceRectsToLines(range.getClientRects());
+}
+
+// Line box extents
+
+// Sub-pixel slack. Layout snaps line positions to 1/64 px, and a computed
+// line-height such as `0.9 * 48px` does not reproduce the used advance
+// exactly, so a difference below this is noise rather than a short line box.
+const EXTENT_TOLERANCE = 0.0625;
+
+/**
+ * Redistribute block extent from over-tall lines onto lines that came out
+ * shorter than the strut.
+ *
+ * A line box is never shorter than the block's strut (CSS Inline §4.3), so an
+ * advance below it means the ink anchor of that line sits at a different
+ * offset inside its line box than the anchor of the line before it — the error
+ * is a transfer between two adjacent advances, not a change in their sum.
+ * Moving the deficit back off the surplus lines restores each line's own
+ * extent and leaves the total untouched. With no surplus to draw on the strut
+ * is the value in doubt, and the advances are left as measured.
+ */
+function liftShortLines(advances, strut) {
+	if (!(strut > 0) || advances.length < 2) return advances;
+
+	let deficit = 0;
+	let surplus = 0;
+	for (const advance of advances) {
+		if (advance < strut - EXTENT_TOLERANCE) deficit += strut - advance;
+		else if (advance > strut) surplus += advance - strut;
+	}
+	if (deficit <= 0 || surplus <= 0) return advances;
+
+	const moved = Math.min(deficit, surplus);
+	const grow = moved / deficit;
+	const shrink = moved / surplus;
+	for (let i = 0; i < advances.length; i++) {
+		const advance = advances[i];
+		if (advance < strut - EXTENT_TOLERANCE) advances[i] = advance + (strut - advance) * grow;
+		else if (advance > strut) advances[i] = advance - (advance - strut) * shrink;
+	}
+	return advances;
+}
+
+/**
+ * Block-direction advance of each line box, in line order.
+ *
+ * Line boxes tile the block's content box, so line `i` spans
+ * `[Σ extents[<i], Σ extents[<=i])` and any run of lines is sized by summing
+ * its own slice. Interior boundaries come from the gaps between the lines' ink
+ * anchors — the browser's own line positions, so a line taller than
+ * `line-height` is measured rather than assumed. The last line takes the
+ * residual against the block's content box: with no following line there is no
+ * gap to measure, and `line-height` is the wrong answer for a line holding an
+ * inline-block, an image, a larger font run or a raised/lowered box.
+ *
+ * `totalExtent` is only the extent of the line boxes when nothing else sizes
+ * that content box, so the residual it implies is checked against what a line
+ * box can be — at least the strut, at most its own ink plus a strut of leading
+ * — and dropped when it is not. That covers a specified block-size, a
+ * stretched flex or grid item, a table cell, a block-level pseudo-element and
+ * anything else that inflates the box, without enumerating them.
+ *
+ * @param {{ inkTops: number[], inkHeights: number[] }} measured - measureLines() result
+ * @param {number} lineHeight - the block's computed line-height (the strut)
+ * @param {number|null} [totalExtent] - content-box extent of the block holding
+ *   these lines, when known; null extrapolates the last line instead.
+ * @returns {number[]}
+ */
+export function computeLineExtents(measured, lineHeight, totalExtent = null) {
+	const tops = measured?.inkTops ?? [];
+	const count = tops.length;
+	if (count === 0) return [];
+
+	const strut = lineHeight > 0 ? lineHeight : 0;
+	const advances = new Array(count);
+	let spanned = 0;
+	// A measured gap is a rendered line box height, so the smallest of them
+	// bounds the strut from above when `line-height: normal` had to be
+	// measured off a line that carries something taller than the font.
+	let strutFloor = strut;
+	for (let i = 0; i < count - 1; i++) {
+		const advance = Math.max(0, tops[i + 1] - tops[i]);
+		advances[i] = advance;
+		spanned += advance;
+		if (advance < strutFloor) strutFloor = advance;
+	}
+
+	const lastInk = measured.inkHeights?.[count - 1] ?? 0;
+	const ceiling = Math.max(strutFloor, lastInk) + strut + EXTENT_TOLERANCE;
+	if (totalExtent > 0 && totalExtent - spanned <= ceiling) {
+		advances[count - 1] = totalExtent - spanned;
+		liftShortLines(advances, strut);
+		if (advances[count - 1] >= strutFloor - EXTENT_TOLERANCE) return advances;
+	}
+
+	// No trustworthy content box: the last line advances like the one before it.
+	advances[count - 1] = count > 1 ? Math.max(strut, advances[count - 2]) : strut;
+	return liftShortLines(advances, strut);
 }
 
 /**

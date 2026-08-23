@@ -20,7 +20,12 @@ export class BreakToken {
 		this.isForcedBreak = false;
 		this.forcedBreakValue = null;
 		this.isRepeated = false;
+		// The box's own extent is complete; it continues only because a
+		// descendant in a parallel flow does (CSS Fragmentation §2.1).
 		this.isAtBlockEnd = false;
+		// Every in-flow child has been laid out. Without child break tokens
+		// and without isAtBlockEnd, the box's block-size is what continues:
+		// consumedBlockSize counts the extent placed so far against it (§5.3).
 		this.hasSeenAllChildren = false;
 		this.isCausedByColumnSpanner = false;
 		this.hasUnpositionedListMarker = false;

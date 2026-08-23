@@ -52,6 +52,18 @@ export class LayoutNode {
 		return [];
 	}
 
+	/**
+	 * True for the anonymous box that holds a block container's inline-level
+	 * content (CSS 2.1 §9.2.1.1). Inline content is laid out line by line by
+	 * the inline algorithm; the containing block container owns the box —
+	 * its size, decorations and fragmentation — so every element node,
+	 * whether its children are block-level or inline-level, is a block
+	 * container to the driver.
+	 */
+	get isInlineNode() {
+		return false;
+	}
+
 	get element() {
 		return null;
 	}
@@ -215,7 +227,10 @@ export class LayoutNode {
 		return null;
 	}
 	measureLines() {
-		return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [] };
+		return { count: 0, lineHeight: 0, firstLineHeight: 0, tops: [], inkTops: [], inkHeights: [] };
+	}
+	get contentBoxExtent() {
+		return null;
 	}
 	get cells() {
 		return [];

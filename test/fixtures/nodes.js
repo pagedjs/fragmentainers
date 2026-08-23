@@ -139,9 +139,9 @@ function computeMockLines(text, measureFn, availableInlineSize) {
 /**
  * Create a node with inline formatting context.
  *
- * The mock node provides a measurer with charTop() and a mock element
- * with getBoundingClientRect(), matching the DOM measurer contract so
- * the browser-height code path is exercised in tests.
+ * The mock node provides a measurer with charTop() and a contentRect,
+ * matching the anonymous inline node's measurement contract so the
+ * browser-height code path is exercised in tests.
  *
  * @param {Object} opts
  * @param {Object} opts.inlineItemsData - { items: InlineItem[], textContent: string }
@@ -168,13 +168,13 @@ export function inlineNode({
 	return {
 		...DEFAULTS,
 		debugName: debugName || "inline",
+		isInlineNode: true,
 		isInlineFormattingContext: true,
 		inlineItemsData,
 		lineHeight,
-		element: {
-			getBoundingClientRect() {
-				return { top: MOCK_TOP, height: totalHeight };
-			},
+		whiteSpace: "normal",
+		get contentRect() {
+			return { top: MOCK_TOP, height: totalHeight };
 		},
 		measurer: {
 			charTop(textNode, localOffset) {

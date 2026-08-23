@@ -1,10 +1,9 @@
-import { collectInlineItems } from "../measurement/collect-inlines.js";
 import {
 	measureElementBlockSize,
 	measureElementInlineSize,
 	measureCellIntrinsicBlockSize,
 } from "../measurement/block-size.js";
-import { getLineHeight, getSharedMeasurer, measureLines } from "../measurement/line-box.js";
+import { getLineHeight } from "../measurement/line-box.js";
 import { computedStyleMap, HAS_TYPED_OM } from "../styles/computed-style-map.js";
 import { typedLengthToPx } from "../styles/css-values.js";
 import { buildCumulativeHeights } from "./layout-helpers.js";
@@ -54,7 +53,6 @@ export class DOMLayoutNode extends LayoutNode {
 	#styleMap = null;
 	#disconnectedStyleMap = null;
 	#children = null;
-	#inlineItemsData = null;
 	#isInlineFormattingContext = null;
 	#intrinsicBlockSizeCache = null;
 	#cumulativeHeights = null;
@@ -448,15 +446,16 @@ export class DOMLayoutNode extends LayoutNode {
 	get children() {
 		if (this.#children !== null) return this.#children;
 
-		if (this.isInlineFormattingContext) {
-			// Inline FC nodes are leaves from the block layout perspective
-			this.#children = [];
-			return this.#children;
-		}
-
 		// Flatten display:contents boxes (CSS Display L3 §3.1) so their children
 		// participate in this element's flow instead of being lost.
 		const childNodes = flattenContents(this.element.childNodes);
+
+		if (this.isInlineFormattingContext) {
+			// Inline-level content only: one anonymous block box holds it all
+			// (CSS 2.1 §9.2.1.1), and this element stays a block container.
+			this.#children = [this.#childNode(new AnonymousBlockNode(this.element, childNodes, this))];
+			return this.#children;
+		}
 
 		// Check for mixed content (inline + block children)
 		let hasInline = false;
@@ -478,7 +477,7 @@ export class DOMLayoutNode extends LayoutNode {
 			for (const child of childNodes) {
 				if (isBlockLevelNode(child)) {
 					if (inlineGroup.length > 0) {
-						this.#children.push(this.#childNode(new AnonymousBlockNode(this.element, [...inlineGroup])));
+						this.#children.push(this.#childNode(new AnonymousBlockNode(this.element, [...inlineGroup], this)));
 						inlineGroup = [];
 					}
 					this.#children.push(this.#childNode(new DOMLayoutNode(child)));
@@ -487,7 +486,7 @@ export class DOMLayoutNode extends LayoutNode {
 				}
 			}
 			if (inlineGroup.length > 0) {
-				this.#children.push(this.#childNode(new AnonymousBlockNode(this.element, [...inlineGroup])));
+				this.#children.push(this.#childNode(new AnonymousBlockNode(this.element, [...inlineGroup], this)));
 			}
 		} else {
 			// Pure block children. Push every non-skipped element — block-level,
@@ -631,27 +630,10 @@ export class DOMLayoutNode extends LayoutNode {
 		return this.#isInlineFormattingContext;
 	}
 
-	get inlineItemsData() {
-		if (this.#inlineItemsData !== null) return this.#inlineItemsData;
-		if (!this.isInlineFormattingContext) return null;
-		// Collect from the flattened stream so display:contents-wrapped inline
-		// content is included.
-		this.#inlineItemsData = collectInlineItems(flattenContents(this.element.childNodes));
-		return this.#inlineItemsData;
-	}
-
 	get lineHeight() {
 		if (this.#lineHeightCache !== null) return this.#lineHeightCache;
 		this.#lineHeightCache = getLineHeight(this.element);
 		return this.#lineHeightCache;
-	}
-
-	get measurer() {
-		return getSharedMeasurer();
-	}
-
-	measureLines() {
-		return measureLines(this.element);
 	}
 
 	// Table row support

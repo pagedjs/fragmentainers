@@ -476,7 +476,13 @@ algorithm class (via `getLayoutAlgorithm`) and recursing into it.
 
 Dispatch to the correct layout algorithm class based on node type. Checked in order:
 `isMulticolContainer` → `isFlexContainer` → `isGridContainer` →
-`isInlineFormattingContext` → `isTableRow` → `BlockContainerAlgorithm` (default).
+`isInlineNode` → `isTableRow` → `BlockContainerAlgorithm` (default).
+
+Every element is a block container. A block whose children are inline-level
+holds one anonymous inline node (CSS 2.1 §9.2.1.1) as its only child; the
+inline node is what `InlineContentAlgorithm` lays out, line by line, while
+the element's own box — block-size, decorations, breaks inside the box — is
+`BlockContainerAlgorithm`'s.
 
 | Parameter | Type         | Description            |
 | --------- | ------------ | ---------------------- |
@@ -593,7 +599,6 @@ new Fragment(node, blockSize, childFragments?)
 | `breakToken`     | `BreakToken \| null`      | `null`  | Continuation token if content overflowed                                     |
 | `constraints`    | `PageConstraints \| null` | `null`  | Page constraints (set by driver on root fragments)                           |
 | `multicolData`   | `object \| null`          | `null`  | Multicol layout data (`{ columnWidth, columnGap, columnCount }`)             |
-| `lineCount`      | `number`                  | `0`     | Number of lines (for inline formatting contexts)                             |
 | `isRepeated`     | `boolean`                 | `false` | Repeated content (e.g. table thead across pages)                             |
 | `isBlank`        | `boolean`                 | `false` | Blank page inserted for side-specific break (`left`/`right`/`recto`/`verso`) |
 | `counterState`   | `object \| null`          | `null`  | Counter snapshot for this fragmentainer                                      |
@@ -1207,7 +1212,7 @@ this order:
 1. `isMulticolContainer` -- `MulticolAlgorithm`
 2. `isFlexContainer` -- `FlexAlgorithm`
 3. `isGridContainer` -- `GridAlgorithm`
-4. `isInlineFormattingContext` -- `InlineContentAlgorithm`
+4. `isInlineNode` -- `InlineContentAlgorithm` (the anonymous inline node holding a block container's inline-level content)
 5. `isTableRow` -- `TableRowAlgorithm`
 6. (default) -- `BlockContainerAlgorithm`
 

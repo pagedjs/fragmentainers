@@ -154,7 +154,7 @@ test.describe("Inline break offset normalization", () => {
 					fragmentationType: "page",
 				}),
 			);
-			const breakToken = pages[0].breakToken;
+			const breakToken = pages[0].breakToken?.childBreakTokens[0];
 
 			container.remove();
 			if (originalLang) document.documentElement.setAttribute("lang", originalLang);

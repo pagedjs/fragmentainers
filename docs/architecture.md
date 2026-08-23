@@ -325,11 +325,20 @@ export function getLayoutAlgorithm(node) {
 	if (node.isMulticolContainer) return MulticolAlgorithm;
 	if (node.isFlexContainer) return FlexAlgorithm;
 	if (node.isGridContainer) return GridAlgorithm;
-	if (node.isInlineFormattingContext) return InlineContentAlgorithm;
+	if (node.isInlineNode) return InlineContentAlgorithm;
 	if (node.isTableRow) return TableRowAlgorithm;
 	return BlockContainerAlgorithm;
 }
 ```
+
+Every element node is a block container to the driver; only the anonymous
+inline node (`isInlineNode`) goes to `InlineContentAlgorithm`. The block
+container owns the box — its specified block-size counts the extent of every
+fragment against it (CSS Fragmentation §5.3), and when the rest of the box does
+not fit after its content, the box breaks there (a Class C break point, §4.1)
+and continues as an empty fragment carrying the remaining extent and the
+block-end decorations. The inline algorithm only places lines and breaks
+between them (Class B).
 
 The driver instantiates the returned class with `(node, constraintSpace, breakToken)`
 (plus an optional `earlyBreakTarget` for `BlockContainerAlgorithm`) and calls
@@ -350,7 +359,7 @@ first ensures correct dispatch.
 | `MulticolAlgorithm`       | `algorithms/multicol-container.js` | `column-count` / `column-width`  |
 | `FlexAlgorithm`           | `algorithms/flex-container.js`     | `display: flex` (row and column) |
 | `GridAlgorithm`           | `algorithms/grid-container.js`     | `display: grid`                  |
-| `InlineContentAlgorithm`  | `algorithms/inline-content.js`     | Line breaking, inline boxes      |
+| `InlineContentAlgorithm`  | `algorithms/inline-content.js`     | Line boxes of an anonymous inline node |
 | `TableRowAlgorithm`       | `algorithms/table-row.js`          | `<tr>` with parallel cell flows  |
 | `BlockContainerAlgorithm` | `algorithms/block-container.js`    | Default block layout             |
 
@@ -678,9 +687,10 @@ All properties are computed on first access and cached:
 - **`_style`** -- result of `getComputedStyle(element)`, cached on first read
 - **`_styleMap`** -- CSS Typed OM values via `computedStyleMap(element)`, cached
   on first read
-- **`_children`** -- child `DOMLayoutNode` wrappers, created on first access
-- **`_inlineItemsData`** -- flat `InlineItemsData` collected only when
-  `isInlineFormattingContext` is true
+- **`_children`** -- child `DOMLayoutNode` wrappers, created on first access. A
+  block whose children are inline-level gets a single `AnonymousBlockNode`
+  child holding all of them (CSS 2.1 §9.2.1.1); that node collects the
+  `InlineItemsData` and is what the inline algorithm lays out.
 
 This laziness matters because layout often skips subtrees entirely (monolithic
 content, elements pushed to the next fragmentainer). Eagerly computing styles
@@ -695,7 +705,8 @@ Layout algorithms read these properties from `LayoutNode`:
 | `isMulticolContainer`        | `column-count` or `column-width` is set        |
 | `isFlexContainer`            | `display: flex` or `display: inline-flex`      |
 | `isGridContainer`            | `display: grid` or `display: inline-grid`      |
-| `isInlineFormattingContext`  | Block with only inline-level children          |
+| `isInlineFormattingContext`  | Block with only inline-level children; its one child is the anonymous inline node |
+| `isInlineNode`               | The anonymous inline node itself (`AnonymousBlockNode`) |
 | `isTableRow`                 | `display: table-row`                           |
 | `isReplacedElement`          | `<img>`, `<video>`, `<canvas>`, `<svg>`, etc.  |
 | `breakBefore` / `breakAfter` | `break-before` / `break-after` computed values |
@@ -743,7 +754,7 @@ preview builds a non-destructive static clone of the source document
 based on node type:
 
 1. If `fragment.multicolData` exists — compose as a multicol container
-2. If `node.isInlineFormattingContext` — compose inline content
+2. If `node.isInlineNode` — compose its line boxes straight into the parent's clone
 3. If fragment has block children — shallow-clone the element, recurse into
    children
 4. Otherwise — leaf node, deep-clone the element

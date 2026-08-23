@@ -84,11 +84,18 @@ export class BlockContainerAlgorithm {
 	}
 
 	*layout() {
-		// Monolithic nodes are placed (or sliced) whole — never descend into and
-		// fragment their children, even when they have some. Childless nodes also
-		// take the leaf path.
-		if (this.#node.children.length === 0 || isMonolithic(this.#node)) {
-			return this.#layoutLeaf();
+		const breakToken = this.#breakToken;
+		// The box's own extent is complete (CSS Fragmentation §2.1, parallel
+		// flows): it occupies nothing in this fragmentainer.
+		if (breakToken?.isAtBlockEnd) return this.#buildEmptyFragment();
+		// Monolithic boxes contain no break points (§4.1): placed whole, or
+		// sliced as a last resort (§4.4). Their children are never laid out.
+		if (isMonolithic(this.#node)) return this.#layoutMonolithic();
+		if (this.#node.children.length === 0) return this.#layoutLeaf();
+		// In-flow content complete, block-size not yet exhausted (§5.3): only
+		// the rest of the box's extent continues here.
+		if (breakToken?.hasSeenAllChildren && breakToken.childBreakTokens.length === 0) {
+			return this.#layoutRemainingExtent();
 		}
 		this.#setup();
 		yield* this.runBeforeChildren();
@@ -100,6 +107,10 @@ export class BlockContainerAlgorithm {
 		return this.#finalize();
 	}
 
+	#hasConsumedExtent() {
+		return (this.#breakToken?.consumedBlockSize || 0) > 0;
+	}
+
 	#availableBlockSpace() {
 		// Use availableBlockSize (set by parent), which accounts for ancestor
 		// padding/border reservations. Fall back to fragmentainer math if not set.
@@ -109,73 +120,90 @@ export class BlockContainerAlgorithm {
 					this.#constraintSpace.blockOffsetInFragmentainer;
 	}
 
+	#buildEmptyFragment() {
+		const fragment = new Fragment(this.#node, 0);
+		fragment.inlineSize = this.#constraintSpace.availableInlineSize;
+		return { fragment, breakToken: null };
+	}
+
+	/**
+	 * The box's own block-size as a limit on the extent of its fragments
+	 * (CSS Fragmentation §5.3), border-box. Null when the block-size is
+	 * auto, i.e. determined by content. Table cells are sized by their row.
+	 */
+	#usedBlockSize() {
+		const node = this.#node;
+		if (node.isTableCell || typeof node.borderBoxBlockSize !== "function") return null;
+		return node.borderBoxBlockSize();
+	}
+
+	/**
+	 * Token for a break inside this box after all of its in-flow content:
+	 * the content is complete, the box's own block-size is not.
+	 */
+	#selfBreakToken(consumedBlockSize) {
+		const token = new BlockBreakToken(this.#node);
+		token.consumedBlockSize = consumedBlockSize;
+		token.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
+		token.hasSeenAllChildren = true;
+		return token;
+	}
+
+	/**
+	 * Place `remaining` of this box's own extent, with no further content to
+	 * lay out. When it exceeds the remaining fragmentainer extent the box
+	 * breaks at the fragmentainer edge and the rest continues (§5.3); each
+	 * such fragment shows only its slice of the box.
+	 */
+	#layoutExtent(remaining, consumed, slice) {
+		const constraintSpace = this.#constraintSpace;
+		const available = this.#availableBlockSpace();
+		const fits = !slice || remaining <= available || available <= 0;
+
+		const fragment = new Fragment(this.#node, fits ? remaining : available);
+		fragment.inlineSize = constraintSpace.availableInlineSize;
+		fragment.needsBlockClip = !fits || consumed > 0;
+		if (fits) return { fragment, breakToken: null };
+
+		fragment.breakToken = this.#selfBreakToken(consumed + available);
+		return { fragment, breakToken: fragment.breakToken };
+	}
+
+	#layoutMonolithic() {
+		const node = this.#node;
+		const consumed = this.#breakToken?.consumedBlockSize || 0;
+		const intrinsic = (node.isTableCell ? node.intrinsicBlockSize : node.blockSize) || 0;
+		// Monolithic content is normally placed whole or pushed by the parent;
+		// slicing its rendering is the page-mode last resort of §4.4.
+		return this.#layoutExtent(
+			intrinsic - consumed,
+			consumed,
+			this.#constraintSpace.fragmentationType === FRAGMENTATION_PAGE,
+		);
+	}
+
 	#layoutLeaf() {
 		const node = this.#node;
-		const constraintSpace = this.#constraintSpace;
-		const breakToken = this.#breakToken;
+		const consumed = this.#breakToken?.consumedBlockSize || 0;
+		const extent = this.#usedBlockSize() ?? node.blockSize ?? 0;
+		return this.#layoutExtent(
+			extent - consumed,
+			consumed,
+			this.#constraintSpace.fragmentationType !== FRAGMENTATION_NONE,
+		);
+	}
 
-		const intrinsicBlockSize = (node.isTableCell ? node.intrinsicBlockSize : node.blockSize) || 0;
-		const consumed = breakToken?.consumedBlockSize || 0;
-		const remaining = intrinsicBlockSize - consumed;
-
-		// A done token (isAtBlockEnd) marks a leaf that finished on an earlier
-		// fragmentainer in a parallel flow; emit a zero-height fragment so its
-		// content is not re-laid on the continuation.
-		if (breakToken?.isAtBlockEnd) {
-			const fragment = new Fragment(node, 0);
-			fragment.inlineSize = constraintSpace.availableInlineSize;
-			return { fragment, breakToken: null };
-		}
-
-		// Monolithic elements are normally placed whole or pushed by parent.
-		// Last resort (CSS Fragmentation §4.4): in page mode, slice at the
-		// fragmentainer boundary when the element exceeds the full page.
-		if (isMonolithic(node)) {
-			const availableSpace = this.#availableBlockSpace();
-
-			if (
-				constraintSpace.fragmentationType === FRAGMENTATION_PAGE &&
-				remaining > availableSpace &&
-				availableSpace > 0
-			) {
-				const fragment = new Fragment(node, availableSpace);
-				fragment.inlineSize = constraintSpace.availableInlineSize;
-				fragment.needsBlockClip = true;
-				const token = new BlockBreakToken(node);
-				token.consumedBlockSize = consumed + availableSpace;
-				token.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
-				token.hasSeenAllChildren = true;
-				fragment.breakToken = token;
-				return { fragment, breakToken: token };
-			}
-
-			const fragment = new Fragment(node, remaining);
-			fragment.inlineSize = constraintSpace.availableInlineSize;
-			if (consumed > 0) fragment.needsBlockClip = true;
-			return { fragment, breakToken: null };
-		}
-
-		// Non-monolithic leaves can fragment across fragmentainers.
-		const availableSpace = this.#availableBlockSpace();
-
-		if (
-			constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
-			remaining > availableSpace &&
-			availableSpace > 0
-		) {
-			const fragment = new Fragment(node, availableSpace);
-			fragment.inlineSize = constraintSpace.availableInlineSize;
-			const token = new BlockBreakToken(node);
-			token.consumedBlockSize = consumed + availableSpace;
-			token.sequenceNumber = (breakToken?.sequenceNumber ?? -1) + 1;
-			token.hasSeenAllChildren = true;
-			fragment.breakToken = token;
-			return { fragment, breakToken: token };
-		}
-
-		const fragment = new Fragment(node, remaining);
-		fragment.inlineSize = constraintSpace.availableInlineSize;
-		return { fragment, breakToken: null };
+	#layoutRemainingExtent() {
+		const node = this.#node;
+		const consumed = this.#breakToken.consumedBlockSize;
+		const extent = this.#usedBlockSize() ?? node.blockSize ?? 0;
+		const remaining = extent - consumed;
+		if (remaining <= 0) return this.#buildEmptyFragment();
+		return this.#layoutExtent(
+			remaining,
+			consumed,
+			this.#constraintSpace.fragmentationType !== FRAGMENTATION_NONE,
+		);
 	}
 
 	#finalize() {
@@ -236,48 +264,14 @@ export class BlockContainerAlgorithm {
 			this.#blockOffset += this.#containerBoxEnd;
 		}
 
-		// Floor blockOffset to the browser-measured height in two cases:
-		// (1) no children contributed height but the browser measures a non-zero
-		//     height (CSS pseudo-elements, list markers, min-height);
-		// (2) the node has an explicit CSS height that exceeds the children sum.
-		// Case 2 only applies when the container isn't being fragmented — if it
-		// is, the slice size is already determined by the fragmentainer.
-		const boxStartIncluded = !breakToken || this.#isClone ? this.#containerBoxStart : 0;
-		const boxEndIncluded =
-			(this.#hasSeenAllChildren && this.#childBreakTokens.length === 0) ||
-			(this.#isClone && this.#childBreakTokens.length > 0)
-				? this.#containerBoxEnd
-				: 0;
-		const contentHeight = this.#blockOffset - boxStartIncluded - boxEndIncluded;
-		const hasExplicitHeight =
-			node.element &&
-			!node.isTableCell &&
-			this.#hasSeenAllChildren &&
-			this.#childBreakTokens.length === 0 &&
-			node.computedBlockSize &&
-			node.computedBlockSize() != null;
-		if (
-			(contentHeight === 0 && this.#childFragments.length > 0 && node.element) ||
-			hasExplicitHeight
-		) {
-			// hasExplicitHeight excludes table cells, so borderBoxBlockSize is safe
-			// there — and reads from cached style, avoiding a layout reflow.
-			const measuredHeight = node.isTableCell
-				? node.intrinsicBlockSize
-				: hasExplicitHeight
-					? node.borderBoxBlockSize()
-					: node.blockSize;
-			if (measuredHeight > this.#blockOffset) {
-				this.#blockOffset = measuredHeight;
-			}
-		}
+		const selfBreak = this.#applyBlockSize();
 
 		// Empty container: no child produced visible content, all remaining
 		// children were pushed. Zero out blockOffset so this fragment doesn't
 		// consume space (avoids rendering an empty padding/border shell).
 		// Covers both the case where no children were placed at all and the
 		// case where children were placed but all have zero blockSize (e.g.
-		// an <li> inline FC that had no room for even one line of text).
+		// an <li> whose inline content had no room for even one line of text).
 		if (
 			this.#childBreakTokens.length > 0 &&
 			!this.#childFragments.some((f) => f.blockSize > 0)
@@ -289,9 +283,14 @@ export class BlockContainerAlgorithm {
 		const fragment = new Fragment(node, this.#blockOffset, this.#childFragments);
 		fragment.inlineSize = constraintSpace.availableInlineSize;
 
+		if (selfBreak) {
+			fragment.breakToken = selfBreak;
+			fragment.needsBlockClip = true;
+		}
+
 		// Build break token if the container needs to continue
 		const needsBreakToken =
-			this.#childBreakTokens.length > 0 || !this.#hasSeenAllChildren;
+			!selfBreak && (this.#childBreakTokens.length > 0 || !this.#hasSeenAllChildren);
 		if (needsBreakToken) {
 			const containerToken = new BlockBreakToken(node);
 			containerToken.consumedBlockSize =
@@ -310,6 +309,68 @@ export class BlockContainerAlgorithm {
 			breakToken: fragment.breakToken || null,
 			breakScore: fragment.breakToken ? this.#breakScore : BreakScore.PERFECT,
 		};
+	}
+
+	/**
+	 * Resolve the fragment's block-size against the box's own block-size.
+	 *
+	 * Auto: the fragment is as tall as its content, floored to the browser
+	 * measurement when nothing in the fragment tree contributed (generated
+	 * content, list markers, min-height).
+	 *
+	 * Specified: the extent of every fragment counts against it (CSS
+	 * Fragmentation §5.3). Once the in-flow content is complete, the box
+	 * extends to the rest of its block-size; if that exceeds the remaining
+	 * fragmentainer extent, the box breaks after its content — a Class C
+	 * break point (§4.1) — fills the fragmentainer, and the remainder, with
+	 * the block-end decorations (box-decoration-break: slice), continues.
+	 * Content taller than the specified block-size keeps its own extent.
+	 *
+	 * @returns {BlockBreakToken|null} the token for a break inside this box
+	 */
+	#applyBlockSize() {
+		const node = this.#node;
+		const contentDone = this.#hasSeenAllChildren && this.#childBreakTokens.length === 0;
+		const used = this.#usedBlockSize();
+
+		if (used == null) {
+			const boxStart = this.#isClone || !this.#hasConsumedExtent() ? this.#containerBoxStart : 0;
+			const boxEnd =
+				contentDone || (this.#isClone && this.#childBreakTokens.length > 0)
+					? this.#containerBoxEnd
+					: 0;
+			const contentHeight = this.#blockOffset - boxStart - boxEnd;
+			if (contentHeight === 0 && this.#childFragments.length > 0 && node.element) {
+				const measured = node.isTableCell ? node.intrinsicBlockSize : node.blockSize;
+				if (measured > this.#blockOffset) this.#blockOffset = measured;
+			}
+			return null;
+		}
+
+		if (!contentDone) return null;
+
+		const consumed = this.#breakToken?.consumedBlockSize || 0;
+		const remaining = used - consumed;
+		if (this.#blockOffset >= remaining) return null;
+
+		const available = this.#availableBlockSpace();
+		const fits =
+			this.#constraintSpace.fragmentationType === FRAGMENTATION_NONE ||
+			remaining <= available ||
+			available <= 0;
+		if (fits) {
+			this.#blockOffset = remaining;
+			return null;
+		}
+
+		const contentExtent = this.#blockOffset - this.#containerBoxEnd;
+		this.#blockOffset = Math.max(available, contentExtent);
+		this.#breakScore = applyBreakInsideAvoid(
+			node,
+			BreakScore.PERFECT,
+			this.#constraintSpace.fragmentationType,
+		);
+		return this.#selfBreakToken(consumed + this.#blockOffset);
 	}
 
 	#setup() {
@@ -332,10 +393,11 @@ export class BlockContainerAlgorithm {
 		this.#containerBoxEnd = (node.paddingBlockEnd || 0) + (node.borderBlockEnd || 0);
 
 		// Start blockOffset at the container's top padding+border.
-		// For slice (default): only on first fragment.
+		// For slice (default): only on the first fragment with any extent —
+		// a zero-progress continuation still owes its block-start decorations.
 		// For clone: on every fragment (repeated decorations).
 		this.#isClone = node.boxDecorationBreak === BOX_DECORATION_CLONE;
-		this.#blockOffset = breakToken && !this.#isClone ? 0 : this.#containerBoxStart;
+		this.#blockOffset = this.#isClone || !this.#hasConsumedExtent() ? this.#containerBoxStart : 0;
 
 		// Table border-spacing (separated borders model): adds gaps between
 		// rows/sections and at table edges. Non-zero only for <table> and
@@ -384,21 +446,21 @@ export class BlockContainerAlgorithm {
 	#marginOverflowedFragmentainer() {
 		return (
 			this.#constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
-			this.#containerOffsetInFragmentainer + this.#blockOffset >=
-				this.#constraintSpace.fragmentainerBlockSize &&
+			this.#blockOffset >= this.#availableBlockSpace() &&
 			this.#childFragments.length > 0
 		);
 	}
 
+	/**
+	 * Block space left for the next child: the space the parent made
+	 * available to this box, less what is placed and the box's own
+	 * block-end inset, which every fragment but the last must leave room for.
+	 */
 	#remainingSpace() {
 		const tableEdgeEnd =
 			this.#tableSpacing > 0 && this.#node.isTable ? this.#tableSpacing : 0;
 		return (
-			this.#constraintSpace.fragmentainerBlockSize -
-			this.#containerOffsetInFragmentainer -
-			this.#blockOffset -
-			this.#containerBoxEnd -
-			tableEdgeEnd
+			this.#availableBlockSpace() - this.#blockOffset - this.#containerBoxEnd - tableEdgeEnd
 		);
 	}
 
@@ -465,8 +527,7 @@ export class BlockContainerAlgorithm {
 	#fragmentainerExhausted() {
 		return (
 			this.#constraintSpace.fragmentationType !== FRAGMENTATION_NONE &&
-			this.#containerOffsetInFragmentainer + this.#blockOffset >=
-				this.#constraintSpace.fragmentainerBlockSize
+			this.#blockOffset >= this.#availableBlockSpace()
 		);
 	}
 
