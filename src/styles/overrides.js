@@ -17,11 +17,14 @@ const OVERRIDES_TEXT = `
 [data-split-from] {
   text-indent: unset !important;
   margin-block-start: unset !important;
-  padding-block-start: unset !important;
-  border-block-start: none !important;
   initial-letter: unset !important;
   counter-increment: unset !important;
   counter-set: unset !important;
+}
+
+[data-split-from]:not([data-box-decoration-clone]) {
+  padding-block-start: unset !important;
+  border-block-start: none !important;
 }
 
 /* Suppress counter-reset on continuation fragments — but not on <ol>,
@@ -63,6 +66,9 @@ li[data-split-from] {
 
 [data-split-to] {
   margin-block-end: unset !important;
+}
+
+[data-split-to]:not([data-box-decoration-clone]) {
   padding-block-end: unset !important;
   border-block-end: none !important;
 }

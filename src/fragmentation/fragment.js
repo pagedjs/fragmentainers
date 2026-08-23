@@ -141,7 +141,11 @@ export class Fragment {
 				el.style.setProperty("height", `${this.blockSize}px`, "important");
 				parentEl.appendChild(el);
 			} else if (this.needsBlockClip) {
-				this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
+				if (node.boxDecorationBreak === "clone" && !isMonolithic(node)) {
+					this.#appendSizedFragment(el, parentEl, inputBreakToken);
+				} else {
+					this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
+				}
 			} else {
 				parentEl.appendChild(el);
 			}
@@ -162,7 +166,11 @@ export class Fragment {
 			const el = node.element.cloneNode(false);
 			this.#applySplitAttributes(el, inputBreakToken);
 			cloneMap.track(el, node.element);
-			this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
+			if (node.boxDecorationBreak === "clone") {
+				this.#appendSizedFragment(el, parentEl, inputBreakToken);
+			} else {
+				this.#appendWithBlockSlice(el, parentEl, inputBreakToken);
+			}
 		} else {
 			const el = node.element.cloneNode(true);
 			if (this.isRepeated) el.setAttribute("data-repeated", "");
@@ -262,6 +270,31 @@ export class Fragment {
 	}
 
 	/**
+	 * Size an independently composed fragment without changing its inline-axis
+	 * box model. For content-box elements, translate the fragment's border-box
+	 * block size back to the CSS height after accounting for the decorations
+	 * that this fragment actually paints.
+	 */
+	#appendSizedFragment(el, parentEl, inputBreakToken) {
+		const node = this.node;
+		const isClone = node.boxDecorationBreak === "clone";
+		const isContinuation = consumedBlockSize(inputBreakToken) > 0;
+		const continuesOwnBox = !!this.breakToken && !this.breakToken.isAtBlockEnd;
+		let insets = 0;
+		if (isClone || !isContinuation) {
+			insets += node.paddingBlockStart + node.borderBlockStart;
+		}
+		if (isClone || !continuesOwnBox) {
+			insets += node.paddingBlockEnd + node.borderBlockEnd;
+		}
+		const height = node.boxSizing === "border-box" ? this.blockSize : this.blockSize - insets;
+		el.style.setProperty("min-height", "0", "important");
+		el.style.setProperty("max-height", "none", "important");
+		el.style.setProperty("height", `${Math.max(0, height)}px`, "important");
+		parentEl.appendChild(el);
+	}
+
+	/**
 	 * Build a multicol container fragment.
 	 * Clones the element, disables native columns, builds each column
 	 * child as a flex item with correct width and gap.
@@ -339,12 +372,14 @@ export class Fragment {
 	 * @param {import("./tokens.js").BreakToken|null} inputBreakToken - non-null if continuation
 	 */
 	#applySplitAttributes(el, inputBreakToken) {
-		if (
+		const isContinuation =
 			inputBreakToken &&
 			!inputBreakToken.isBreakBefore &&
 			(inputBreakToken.type === BREAK_TOKEN_INLINE
 				? inputBreakToken.textOffset > 0
-				: inputBreakToken.consumedBlockSize > 0)
+				: inputBreakToken.consumedBlockSize > 0 || inputBreakToken.isAtBlockEnd);
+		if (
+			isContinuation
 		) {
 			el.setAttribute("data-split-from", "");
 		}
@@ -353,6 +388,9 @@ export class Fragment {
 			// its overflow continues (§2.1).
 			if (!this.breakToken.isAtBlockEnd) el.setAttribute("data-split-to", "");
 			this.#applyTextAlignLast(el);
+		}
+		if (this.node.boxDecorationBreak === "clone" && (isContinuation || this.breakToken)) {
+			el.setAttribute("data-box-decoration-clone", "");
 		}
 	}
 

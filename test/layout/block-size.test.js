@@ -430,6 +430,50 @@ test.describe("Specified block-size under fragmentation", () => {
 		expect(content).toBe(200);
 	});
 
+	test("a composed clone paints both block edges on every fragment", async ({ page }) => {
+		const { pages, metrics } = await layout(
+			page,
+			'<div data-test="box"><p>a</p></div>',
+			"body, div, p { margin: 0; } div { height: 200px; padding: 10px 0; border-block: 5px solid; box-decoration-break: clone; }",
+			{ height: 120, margin: 0 },
+		);
+		expect(pages.map((fragments) => fragments[0].blockSize)).toEqual([120, 120, 50]);
+		expect(metrics.map((pageMetrics) => pageMetrics.box.decorationClone)).toEqual([
+			true,
+			true,
+			true,
+		]);
+		for (const pageMetrics of metrics) {
+			expect(pageMetrics.box.paddingBlockStart).toBe(10);
+			expect(pageMetrics.box.paddingBlockEnd).toBe(10);
+			expect(pageMetrics.box.borderBlockStart).toBe(5);
+			expect(pageMetrics.box.borderBlockEnd).toBe(5);
+		}
+		expect(metrics.map((pageMetrics) => pageMetrics.box.height)).toEqual([120, 120, 50]);
+	});
+
+	test("a completed table cell cannot re-inflate a row continuation", async ({ page }) => {
+		const { pages, metrics } = await layout(
+			page,
+			`<table data-test="table"><tbody><tr data-test="row">
+				<td class="short" data-test="short">short</td>
+				<td class="long"><div></div></td>
+			</tr></tbody></table><p data-test="sib">after</p>`,
+			"body, table, tr, td, p, div { margin: 0; } table { border-spacing: 0; } .short { height: 180px; padding: 10px 0; border: 5px solid; box-decoration-break: clone; } .long { padding: 0; } .long > div { height: 300px; }",
+			{ height: 200, margin: 0 },
+		);
+		expect(pages).toHaveLength(2);
+		expect(pages[1][0].blockSize).toBe(100);
+		expect(metrics[1].table.height).toBe(100);
+		expect(metrics[1].row.height).toBe(100);
+		expect(metrics[1].short.height).toBe(100);
+		expect(metrics[1].short.paddingBlockStart).toBe(0);
+		expect(metrics[1].short.paddingBlockEnd).toBe(0);
+		expect(metrics[1].short.borderBlockStart).toBe(0);
+		expect(metrics[1].short.borderBlockEnd).toBe(0);
+		expect(metrics[1].sib.top - metrics[1].table.top).toBe(100);
+	});
+
 	test("a clone box breaking through its children keeps counting its block-size", async ({
 		page,
 	}) => {

@@ -36,7 +36,9 @@ export class BreakToken {
  * Block break token — for block-level nodes (the primary break token type).
  *
  * Key invariants:
- * - consumedBlockSize is cumulative across ALL previous fragments
+ * - consumedBlockSize is cumulative across ALL previous fragments, less the
+ *   insets box-decoration-break: clone repeats on them (CSS Fragmentation
+ *   §5.4), which lie outside the box's block-size
  * - childBreakTokens form a sparse tree mirroring the CSS box tree
  * - sequenceNumber increments per fragment (0, 1, 2, ...)
  */
