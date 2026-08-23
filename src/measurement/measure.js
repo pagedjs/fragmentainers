@@ -215,6 +215,20 @@ function findSegmentBoundaries(props) {
 	return boundaries;
 }
 
+/**
+ * The top-level elements a segment swap must keep measurable: those whose
+ * box still has content to lay out — its own, or a parallel flow past its
+ * block-end (CSS Fragmentation §2.1). A box that finished is released.
+ */
+function unfinishedElements(breakToken) {
+	const elements = new Set();
+	for (const token of breakToken.childBreakTokens) {
+		if (token.isBreakBefore || token.isComplete) continue;
+		if (token.node?.element) elements.add(token.node.element);
+	}
+	return elements;
+}
+
 const SKIP_TAGS = new Set(["script", "style", "template"]);
 const SKIP_DISPLAYS = new Set(["table-column", "table-column-group", "none"]);
 
@@ -241,6 +255,7 @@ export class Measurer {
 	#persistent = [];
 	#finished = null;
 	#pending = null;
+	#retained = new Map();
 
 	#context;
 
@@ -402,16 +417,22 @@ export class Measurer {
 		const seg = this.#segments[this.#currentSegment];
 
 		// Move completed flow elements from the current measurer to finished.
-		// Persistent elements stay — they'll be moved to the new measurer.
+		// Persistent elements stay — they'll be moved to the new measurer. So
+		// does a box that still has content to lay out: a parallel flow (CSS
+		// Fragmentation §2.1) is laid out alongside the next segment and must
+		// remain measurable until it finishes.
 		const slot = this.#measureElement.contentRoot;
 		const persistentSet = new Set(this.#persistent);
+		const unfinished = unfinishedElements(breakToken);
 		const toKeep = [];
 		while (slot.firstChild) {
-			if (persistentSet.has(slot.firstChild)) {
-				toKeep.push(slot.firstChild);
-				slot.removeChild(slot.firstChild);
+			const element = slot.firstChild;
+			if (persistentSet.has(element) || unfinished.has(element)) {
+				this.#holdPlace(element);
+				toKeep.push(element);
+				slot.removeChild(element);
 			} else {
-				this.#finished.appendChild(slot.firstChild);
+				this.#finish(element);
 			}
 		}
 
@@ -443,6 +464,32 @@ export class Measurer {
 		// Rebuild root's children from the nodeMap
 		tree.setChildren(this.#buildSegmentChildren(this.#currentSegment));
 		return true;
+	}
+
+	/**
+	 * Mark where an element belongs among the finished content while it stays
+	 * measurable: it is released later than its segment-mates but still sits
+	 * before them in the document.
+	 */
+	#holdPlace(element) {
+		if (this.#retained.has(element)) return;
+		const marker = document.createComment("");
+		this.#finished.appendChild(marker);
+		this.#retained.set(element, marker);
+	}
+
+	/**
+	 * Move an element into the finished content, at the place held for it if
+	 * it was retained across a segment.
+	 */
+	#finish(element) {
+		const marker = this.#retained.get(element);
+		if (marker) {
+			marker.replaceWith(element);
+			this.#retained.delete(element);
+		} else {
+			this.#finished.appendChild(element);
+		}
 	}
 
 	/**
@@ -520,10 +567,15 @@ export class Measurer {
 		const frag = document.createDocumentFragment();
 
 		if (this.#segments) {
+			const slot = this.#measureElement.contentRoot;
+			for (const [element, marker] of this.#retained) {
+				if (element.parentNode === slot) marker.replaceWith(element);
+				else marker.remove();
+			}
+			this.#retained.clear();
 			if (this.#finished.childNodes.length > 0) {
 				frag.appendChild(this.#finished);
 			}
-			const slot = this.#measureElement.contentRoot;
 			while (slot.firstChild) {
 				frag.appendChild(slot.firstChild);
 			}
@@ -558,6 +610,7 @@ export class Measurer {
 		if (this.#segments) {
 			this.#finished = document.createDocumentFragment();
 			this.#pending = document.createDocumentFragment();
+			this.#retained.clear();
 			const firstEnd = this.#segments[0].end;
 			for (let i = this.#flowElements.length - 1; i >= firstEnd; i--) {
 				this.#pending.insertBefore(this.#flowElements[i], this.#pending.firstChild);

@@ -21,24 +21,41 @@ export class BreakToken {
 		this.forcedBreakValue = null;
 		this.isRepeated = false;
 		// The box's own extent is complete; it continues only because a
-		// descendant in a parallel flow does (CSS Fragmentation §2.1).
+		// descendant in a parallel flow does (CSS Fragmentation §2.1). With
+		// child break tokens, those descendants are content overflowing the
+		// box's block-end: they resume as overflow of a box that has no extent
+		// and no decorations in the fragmentainers that follow.
 		this.isAtBlockEnd = false;
 		// Every in-flow child has been laid out. Without child break tokens
 		// and without isAtBlockEnd, the box's block-size is what continues:
 		// consumedBlockSize counts the extent placed so far against it (§5.3).
 		this.hasSeenAllChildren = false;
+		// The fragment this token came from was dropped as an empty shell, so
+		// the box's block-start decorations have not been rendered yet.
+		this.wasSuppressed = false;
 		this.isCausedByColumnSpanner = false;
 		this.hasUnpositionedListMarker = false;
 	}
+
+	/**
+	 * The box's own block-size is what continues: it resumes with its extent,
+	 * its block-end decorations and the rest of its in-flow content.
+	 */
+	get continuesInFlow() {
+		return !this.isAtBlockEnd;
+	}
+
 }
 
 /**
  * Block break token — for block-level nodes (the primary break token type).
  *
  * Key invariants:
- * - consumedBlockSize is cumulative across ALL previous fragments, less the
- *   insets box-decoration-break: clone repeats on them (CSS Fragmentation
- *   §5.4), which lie outside the box's block-size
+ * - consumedBlockSize is cumulative across ALL previous fragments: the
+ *   box's own extent placed so far, less the insets box-decoration-break:
+ *   clone repeats on them (CSS Fragmentation §5.4), which lie outside the
+ *   box's block-size. Once the box is at its block-end it equals the box's
+ *   whole extent; overflow continuing in parallel (§2.1) adds nothing to it.
  * - childBreakTokens form a sparse tree mirroring the CSS box tree
  * - sequenceNumber increments per fragment (0, 1, 2, ...)
  */
@@ -49,6 +66,24 @@ export class BlockBreakToken extends BreakToken {
 		this.sequenceNumber = 0;
 		this.childBreakTokens = [];
 		this.algorithmData = null;
+	}
+
+	/**
+	 * The box's extent is complete but descendants overflowing its block-end
+	 * continue in a parallel flow (§2.1). It resumes with no extent and no
+	 * decorations, carrying only that flow.
+	 */
+	get continuesAsOverflow() {
+		return this.isAtBlockEnd && this.childBreakTokens.length > 0;
+	}
+
+	/**
+	 * The whole subtree finished on an earlier fragmentainer while a sibling
+	 * in a parallel flow continued. Nothing is rendered for it, but its box
+	 * stays so the track it holds does not collapse.
+	 */
+	get isComplete() {
+		return this.isAtBlockEnd && this.childBreakTokens.length === 0;
 	}
 
 	/**

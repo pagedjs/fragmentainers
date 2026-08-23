@@ -23,6 +23,10 @@ import { buildCompositeText } from "../styles/composite-sheet.js";
 
 const MAX_ZERO_PROGRESS = 5;
 
+function hasPlacedContent(fragment) {
+	return fragment.blockSize > 0 || fragment.childFragments.some(hasPlacedContent);
+}
+
 const DEFAULT_PRELOAD_TIMEOUT = 10000;
 
 // Combine a caller-supplied AbortSignal with a default timeout signal so
@@ -500,8 +504,9 @@ export class Fragmenter extends Iterator {
 			this.#installStyleSheet();
 		}
 
-		// Zero-progress guard
-		if (fragment.breakToken && fragment.blockSize === 0 && !fragment.isBlank) {
+		// Zero-progress guard. Overflow continuing past a box's block-end
+		// (CSS Fragmentation §2.1) is progress that adds no extent to the box.
+		if (fragment.breakToken && !fragment.isBlank && !hasPlacedContent(fragment)) {
 			this.#zeroProgressCount++;
 			if (this.#zeroProgressCount >= MAX_ZERO_PROGRESS) {
 				console.warn(

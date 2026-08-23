@@ -94,6 +94,7 @@ export class Fragment {
 			if (!this.node.element) return;
 			const emptied = this.node.element.cloneNode(false);
 			this.#applySplitAttributes(emptied, inputBreakToken);
+			if (emptied.tagName === "OL") this.#applyListContinuation(emptied, inputBreakToken);
 			cloneMap.track(emptied, this.node.element);
 			if (this.childFragments.length > 0) {
 				this.#buildChildren(emptied, inputBreakToken, cloneMap);
@@ -122,6 +123,7 @@ export class Fragment {
 			// Skip empty container shells — all built children were themselves
 			// empty and skipped (e.g. an <ol> whose only <li> had no visible text).
 			if (el.childNodes.length === 0 && this.breakToken && !this.needsBlockClip) {
+				this.breakToken.wasSuppressed = true;
 				return;
 			}
 			cloneMap.track(el, node.element);
@@ -131,15 +133,15 @@ export class Fragment {
 				el.style.setProperty("height", "auto", "important");
 				el.style.setProperty("min-height", "0", "important");
 				parentEl.appendChild(el);
-			} else if (this.hasFixedBlockSize && consumedBlockSize(inputBreakToken) > 0) {
+			} else if (
+				this.hasFixedBlockSize &&
+				(consumedBlockSize(inputBreakToken) > 0 ||
+					!!this.breakToken?.continuesInFlow)
+			) {
 				// A continuation of a fixed-size box with content shows the rest
 				// of that block-size (§5.3), with its content — and any overflow
 				// of it (§2.1) — laid out from the top of the continuation.
-				el.style.setProperty("box-sizing", "border-box", "important");
-				el.style.setProperty("min-height", "0", "important");
-				el.style.setProperty("max-height", "none", "important");
-				el.style.setProperty("height", `${this.blockSize}px`, "important");
-				parentEl.appendChild(el);
+				this.#appendSizedFragment(el, parentEl, inputBreakToken);
 			} else if (this.needsBlockClip) {
 				if (node.boxDecorationBreak === "clone" && !isMonolithic(node)) {
 					this.#appendSizedFragment(el, parentEl, inputBreakToken);
@@ -279,7 +281,7 @@ export class Fragment {
 		const node = this.node;
 		const isClone = node.boxDecorationBreak === "clone";
 		const isContinuation = consumedBlockSize(inputBreakToken) > 0;
-		const continuesOwnBox = !!this.breakToken && !this.breakToken.isAtBlockEnd;
+		const continuesOwnBox = !!this.breakToken?.continuesInFlow;
 		let insets = 0;
 		if (isClone || !isContinuation) {
 			insets += node.paddingBlockStart + node.borderBlockStart;
@@ -301,10 +303,21 @@ export class Fragment {
 	 */
 	#buildMulticol(inputBreakToken, parentEl, cloneMap) {
 		const node = this.node;
-		const { columnWidth, columnGap } = this.multicolData;
+		const { columnWidth, columnGap, columnHeight } = this.multicolData;
+		const columnBlockSize = columnHeight ?? this.blockSize;
 
 		const el = node.element.cloneNode(false);
 		cloneMap.track(el, node.element);
+		// Columns are fragmentainers: they clip at the column height, not at
+		// the multicol's used block-size, which a parallel flow (§2.1) adds
+		// nothing to. The multicol keeps that used size.
+		const insets =
+			node.paddingBlockStart + node.borderBlockStart + node.paddingBlockEnd + node.borderBlockEnd;
+		el.style.setProperty(
+			"height",
+			`${node.boxSizing === "border-box" ? this.blockSize + insets : this.blockSize}px`,
+			"important",
+		);
 		el.style.columns = "auto";
 		el.style.columnCount = "auto";
 		el.style.columnWidth = "auto";
@@ -326,7 +339,7 @@ export class Fragment {
 
 			const colEl = document.createElement("div");
 			colEl.style.width = `${columnWidth}px`;
-			colEl.style.height = `${this.blockSize}px`;
+			colEl.style.height = `${columnBlockSize}px`;
 			colEl.style.overflow = "hidden";
 			colEl.style.flexShrink = "0";
 
@@ -377,16 +390,15 @@ export class Fragment {
 			!inputBreakToken.isBreakBefore &&
 			(inputBreakToken.type === BREAK_TOKEN_INLINE
 				? inputBreakToken.textOffset > 0
-				: inputBreakToken.consumedBlockSize > 0 || inputBreakToken.isAtBlockEnd);
-		if (
-			isContinuation
-		) {
+				: (inputBreakToken.consumedBlockSize > 0 || inputBreakToken.isAtBlockEnd) &&
+					!inputBreakToken.wasSuppressed);
+		if (isContinuation) {
 			el.setAttribute("data-split-from", "");
 		}
 		if (this.breakToken) {
 			// A box at its block-end is complete, decorations included; only
 			// its overflow continues (§2.1).
-			if (!this.breakToken.isAtBlockEnd) el.setAttribute("data-split-to", "");
+			if (this.breakToken.continuesInFlow) el.setAttribute("data-split-to", "");
 			this.#applyTextAlignLast(el);
 		}
 		if (this.node.boxDecorationBreak === "clone" && (isContinuation || this.breakToken)) {
@@ -401,7 +413,7 @@ export class Fragment {
 		if (this.breakToken?.isAtBlockEnd) {
 			return childBreakTokens.some((token) => token.node?.isInlineNode);
 		}
-		return !childBreakTokens.some((token) => !token.isAtBlockEnd && !token.node?.isInlineNode);
+		return !childBreakTokens.some((token) => token.continuesInFlow && !token.node?.isInlineNode);
 	}
 
 	#applyTextAlignLast(el) {
@@ -623,4 +635,7 @@ function applyPastBlockEnd(el) {
 	}
 	el.style.setProperty("border-block-start", "none", "important");
 	el.style.setProperty("border-block-end", "none", "important");
+	// The shadow is cast by a box that has no extent here. The outline is
+	// not: Chromium draws it around the zero-extent fragment, so it stays.
+	el.style.setProperty("box-shadow", "none", "important");
 }

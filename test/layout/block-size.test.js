@@ -251,7 +251,51 @@ test.describe("Specified block-size under fragmentation", () => {
 				/^<div data-split-from="" style="[^"]*height: 42px !important;"><p>7<\/p><p>8<\/p><\/div><p class="sib">after<\/p>$/,
 			);
 		});
-	});
+
+		test("an oversized line cannot make fixed-size progress negative", async ({ page }) => {
+			const { pages } = await layout(
+				page,
+				'<div class="fixed"><p>a<br>b</p></div><p class="sib">after</p>',
+				"body, div, p { margin: 0; } .fixed { height: 130px; } .fixed > p { line-height: 150px; }",
+				{ height: 100, margin: 0 },
+			);
+			const fixed = pages.flat().filter((fragment) => fragment.node === "div.fixed");
+			expect(fixed.map((fragment) => fragment.blockSize)).toEqual([100, 30]);
+			expect(fixed[0].token.consumed).toBe(100);
+			expect(pages[1].find((fragment) => fragment.node === "p.sib").blockOffset).toBe(30);
+			expect(pages.flat().every((fragment) => fragment.blockSize >= 0)).toBe(true);
+		});
+
+		test("a content-box continuation preserves its inline size", async ({ page }) => {
+			const paragraphs = Array.from({ length: 8 }, (_, i) => `<p>${i + 1}</p>`).join("");
+			const { metrics } = await layout(
+				page,
+				`<div data-test="box">${paragraphs}</div><p data-test="sib">after</p>`,
+				"body, div, p { margin: 0; } div { box-sizing: content-box; width: 100px; height: 150px; padding-inline: 20px; }",
+				{ height: 120, margin: 0 },
+			);
+			expect(metrics).toHaveLength(2);
+			expect(metrics[0].box.width).toBe(140);
+			expect(metrics[1].box.width).toBe(140);
+			expect(metrics[1].box.boxSizing).toBe("content-box");
+			expect(metrics[1].sib.top - metrics[1].box.top).toBe(42);
+		});
+
+		test("a border-box continuation keeps its border-box fragment height", async ({ page }) => {
+			const paragraphs = Array.from({ length: 8 }, (_, i) => `<p>${i + 1}</p>`).join("");
+			const { pages, metrics } = await layout(
+				page,
+				`<div data-test="box">${paragraphs}</div><p data-test="sib">after</p>`,
+				"body, div, p { margin: 0; } div { box-sizing: border-box; height: 150px; padding-block: 10px; } p { line-height: 18px; }",
+				{ height: 120, margin: 0 },
+			);
+			expect(pages.map((pageFragments) => pageFragments[0].blockSize)).toEqual([100, 50]);
+			expect(metrics).toHaveLength(2);
+			expect(metrics[1].box.boxSizing).toBe("border-box");
+			expect(metrics[1].box.height).toBe(50);
+			expect(metrics[1].sib.top - metrics[1].box.top).toBe(50);
+		});
+		});
 
 	test("block-size limits resolve to border-box px", async ({ page }) => {
 		const result = await page.evaluate(async () => {

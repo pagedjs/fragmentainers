@@ -99,7 +99,7 @@ export class TableRowAlgorithm {
 			if (result.breakToken) {
 				this.#cellBreakTokens.push(result.breakToken);
 				this.#anyChildBroke = true;
-				if (!result.breakToken.isAtBlockEnd) this.#anyChildBrokeInFlow = true;
+				if (result.breakToken.continuesInFlow) this.#anyChildBrokeInFlow = true;
 			} else {
 				// Placeholder — resolved below if any sibling broke
 				this.#cellBreakTokens.push(null);

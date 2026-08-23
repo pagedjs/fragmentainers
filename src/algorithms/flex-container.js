@@ -146,7 +146,7 @@ export class FlexAlgorithm {
 			if (result.breakToken) {
 				itemBreakTokens.push(result.breakToken);
 				anyBroke = true;
-				if (!result.breakToken.isAtBlockEnd) anyBrokeInFlow = true;
+				if (result.breakToken.continuesInFlow) anyBrokeInFlow = true;
 			} else {
 				itemBreakTokens.push(null);
 			}

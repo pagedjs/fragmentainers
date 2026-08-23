@@ -171,6 +171,7 @@ export class MulticolAlgorithm {
 			columnWidth: this.#width,
 			columnGap: this.#gap,
 			columnCount: this.#count,
+			columnHeight: this.#columnHeight,
 		};
 
 		// Break token if content remains and we're in an outer fragmentation context

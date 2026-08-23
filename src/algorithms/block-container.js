@@ -74,6 +74,7 @@ export class BlockContainerAlgorithm {
 	// Derived from #node/#constraintSpace during #setup, used in layoutChildren + #finalize
 	#tableSpacing = 0;
 	#containerOffsetInFragmentainer = 0;
+	#cachedBlockSizeLimits = null;
 
 	constructor(node, constraintSpace, breakToken, earlyBreakTarget = null) {
 		this.#node = node;
@@ -94,9 +95,7 @@ export class BlockContainerAlgorithm {
 		// The box's own extent is complete (CSS Fragmentation §2.1, parallel
 		// flows): it occupies nothing in this fragmentainer. Only descendants
 		// that still continue are laid out here, as overflow.
-		if (breakToken?.isAtBlockEnd && breakToken.childBreakTokens.length === 0) {
-			return this.#buildEmptyFragment();
-		}
+		if (breakToken?.isComplete) return this.#buildEmptyFragment();
 		// Monolithic boxes contain no break points (§4.1): placed whole, or
 		// sliced as a last resort (§4.4). Their children are never laid out.
 		if (isMonolithic(this.#node)) return this.#layoutMonolithic();
@@ -107,7 +106,7 @@ export class BlockContainerAlgorithm {
 			return this.#layoutRemainingExtent();
 		}
 		this.#setup();
-		if (breakToken?.isAtBlockEnd) this.#setupPastBlockEnd();
+		if (breakToken?.continuesAsOverflow) this.#setupPastBlockEnd();
 		yield* this.runBeforeChildren();
 		// `yield*` evaluates to the inner generator's return value. `layoutChildren`
 		// may return an earlyBreak signal ({ earlyBreak, fragment: null, breakToken: null })
@@ -162,6 +161,12 @@ export class BlockContainerAlgorithm {
 	 * Table cells are sized by their row.
 	 */
 	#blockSizeLimits() {
+		if (this.#cachedBlockSizeLimits) return this.#cachedBlockSizeLimits;
+		this.#cachedBlockSizeLimits = this.#computeBlockSizeLimits();
+		return this.#cachedBlockSizeLimits;
+	}
+
+	#computeBlockSizeLimits() {
 		const node = this.#node;
 		if (node.isTableCell || typeof node.blockSizeLimits !== "function") {
 			return { specified: null, min: 0, max: Infinity };
@@ -207,9 +212,9 @@ export class BlockContainerAlgorithm {
 	}
 
 	/**
-	 * Token for a break in this box's own block-size. Most such breaks happen
-	 * after all in-flow content; an oversized child may instead force the box
-	 * to make block-size progress while later siblings remain unvisited.
+	 * Token for a break inside this box after its in-flow content, or at the
+	 * fragmentainer edge: the box's own block-size is what continues. An edge
+	 * break can leave children unvisited, so the caller states what was seen.
 	 */
 	#selfBreakToken(consumedBlockSize, hasSeenAllChildren = true) {
 		const token = new BlockBreakToken(this.#node);
@@ -217,6 +222,15 @@ export class BlockContainerAlgorithm {
 		token.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
 		token.hasSeenAllChildren = hasSeenAllChildren;
 		return token;
+	}
+
+	/**
+	 * Whether any child put something in this fragment. A child at its own
+	 * block-end counts: its extent is placed, on this fragmentainer or an
+	 * earlier one.
+	 */
+	#hasPlacedContent() {
+		return this.#childFragments.some((f) => f.blockSize > 0 || f.breakToken?.isAtBlockEnd);
 	}
 
 	/**
@@ -237,7 +251,7 @@ export class BlockContainerAlgorithm {
 	 * alive without keeping the box itself open.
 	 */
 	#inFlowContentDone() {
-		return this.#hasSeenAllChildren && !this.#childBreakTokens.some((t) => !t.isAtBlockEnd);
+		return this.#hasSeenAllChildren && !this.#childBreakTokens.some((t) => t.continuesInFlow);
 	}
 
 	/**
@@ -249,7 +263,7 @@ export class BlockContainerAlgorithm {
 	#computeHasSeenAllChildren() {
 		const children = this.#node.children;
 		const last = this.#childBreakTokens[this.#childBreakTokens.length - 1];
-		if (!last || last.isAtBlockEnd) return true;
+		if (!last || !last.continuesInFlow) return true;
 		const index = children.indexOf(last.node);
 		const unseenFrom = last.isBreakBefore ? index : index + 1;
 		return unseenFrom >= children.length || !!this.#breakToken?.hasSeenAllChildren;
@@ -373,10 +387,7 @@ export class BlockContainerAlgorithm {
 		// Covers both the case where no children were placed at all and the
 		// case where children were placed but all have zero blockSize (e.g.
 		// an <li> whose inline content had no room for even one line of text).
-		if (
-			this.#childBreakTokens.length > 0 &&
-			!this.#childFragments.some((f) => f.blockSize > 0)
-		) {
+		if (this.#childBreakTokens.length > 0 && !this.#hasPlacedContent()) {
 			this.#blockOffset = 0;
 		}
 
@@ -446,7 +457,7 @@ export class BlockContainerAlgorithm {
 	 */
 	#applyBlockSize() {
 		const node = this.#node;
-		if (this.#breakToken?.isAtBlockEnd) {
+		if (this.#breakToken?.continuesAsOverflow) {
 			this.#blockOffset = 0;
 			return null;
 		}
@@ -480,7 +491,14 @@ export class BlockContainerAlgorithm {
 					? this.#containerBoxEnd
 					: 0;
 			const contentHeight = this.#blockOffset - boxStart - boxEnd;
-			if (contentHeight === 0 && this.#childFragments.length > 0 && node.element) {
+			// The measurement covers the whole box, so only a first fragment can
+			// be floored to it.
+			if (
+				contentHeight === 0 &&
+				this.#childFragments.length > 0 &&
+				node.element &&
+				!this.#breakToken
+			) {
 				const measured = node.isTableCell ? node.intrinsicBlockSize : node.blockSize;
 				if (measured > this.#blockOffset) this.#blockOffset = measured;
 			}
@@ -489,20 +507,30 @@ export class BlockContainerAlgorithm {
 
 		// A clone continuation wraps the rest of the box in its own
 		// block-start inset (§5.4).
-		const remaining = used - consumed + this.#clonedStartInset();
+		const remaining = Math.max(0, used - consumed + this.#clonedStartInset());
 		const available = this.#availableBlockSpace();
 		const fits =
 			this.#constraintSpace.fragmentationType === FRAGMENTATION_NONE ||
 			remaining <= available ||
 			available <= 0;
 
+		// A box whose own extent fits the space left reaches its block-end as
+		// soon as its content stops: either the content filled the extent, or
+		// it broke, and what is left of it is overflow (§2.1). An empty
+		// fragment is not a break inside the box — #finalize zeroes it, and
+		// the box is pushed whole instead.
+		if (
+			this.#hasFixedBlockSize &&
+			fits &&
+			(this.#blockOffset >= remaining || (!contentDone && this.#hasPlacedContent()))
+		) {
+			this.#blockOffset = remaining;
+			this.#isAtBlockEnd = !contentDone;
+			return null;
+		}
+
 		if (this.#blockOffset >= remaining) {
 			if (!this.#hasFixedBlockSize) return null;
-			if (fits) {
-				this.#blockOffset = remaining;
-				this.#isAtBlockEnd = !contentDone;
-				return null;
-			}
 			// A top-of-fragmentainer child can make progress beyond both the
 			// fragmentainer and this box's remaining extent. Break the box at
 			// the fragmentainer edge and carry the child token forward; never
@@ -619,8 +647,22 @@ export class BlockContainerAlgorithm {
 		const tableEdgeEnd =
 			this.#tableSpacing > 0 && this.#node.isTable ? this.#tableSpacing : 0;
 		return (
-			this.#availableBlockSpace() - this.#blockOffset - this.#containerBoxEnd - tableEdgeEnd
+			this.#availableBlockSpace() - this.#blockOffset - this.#reservedBoxEnd() - tableEdgeEnd
 		);
+	}
+
+	/**
+	 * The block-end inset a child must still leave room for. Once the box's
+	 * own extent is placed the inset lies within it, and what follows is
+	 * overflow laid out against the fragmentainer (§2.1), reserving nothing.
+	 */
+	#reservedBoxEnd() {
+		if (this.#isAtBlockEnd || this.#containerBoxEnd === 0) return 0;
+		const used = this.#usedBlockSize();
+		if (used == null) return this.#containerBoxEnd;
+		const consumed = this.#breakToken?.consumedBlockSize || 0;
+		const remaining = Math.max(0, used - consumed + this.#clonedStartInset());
+		return this.#blockOffset >= remaining ? 0 : this.#containerBoxEnd;
 	}
 
 	#earlyBreakTargetForChild() {
@@ -938,7 +980,7 @@ export class BlockContainerAlgorithm {
 				isSelfCollapsing(child, result.fragment.blockSize);
 			// A child at its block-end is complete as far as this flow goes:
 			// only its overflow continues, in parallel (§2.1).
-			const childBroke = !!result.breakToken && !result.breakToken.isAtBlockEnd;
+			const childBroke = !!result.breakToken?.continuesInFlow;
 			this.#blockOffset -= this.#margins.applyAfterLayout(
 				child,
 				collapsedThrough,
