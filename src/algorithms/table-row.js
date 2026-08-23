@@ -13,9 +13,10 @@ export const ALGORITHM_TABLE_ROW = "TableRowData";
  * when any cell overflows (completed cells get isAtBlockEnd = true).
  * The tallest cell drives the break point.
  *
- * A cell's fragment is as tall as its laid-out content; the browser
- * stretches every cell to the row's tallest, so the DOM-measured height
- * is used when it is larger.
+ * The row's block-size is the maximum of its cells' specified heights and
+ * the minimum height their content requires (CSS 2.1 §17.5.3). A cell's
+ * fragment carries only the latter: the block container sizes a cell by
+ * its content, never by its `height`, because the row owns that size.
  */
 export class TableRowAlgorithm {
 	#node;
@@ -79,10 +80,11 @@ export class TableRowAlgorithm {
 
 			this.#cellFragments.push(result.fragment);
 
-			// Use the cell's intrinsic content height as a floor for fresh,
-			// non-fragmenting cells — not blockSize, because browsers stretch
-			// sibling cells to the tallest one in a row. Continuation or
-			// fragmented cells must use the layout-computed size.
+			// Raise a cell laid out whole to its specified `height` / `min-height`
+			// (CSS 2.1 §17.5.3); `intrinsicBlockSize` folds those in with the
+			// cell's content minimum. A fragmented or continued cell keeps its
+			// laid-out extent. The browser-reported `blockSize` is never used: it
+			// is already stretched to the row's tallest cell.
 			let cellBlockSize = result.fragment.blockSize;
 			if (
 				!effectiveCellBreakToken &&
