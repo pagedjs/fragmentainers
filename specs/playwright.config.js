@@ -1,18 +1,21 @@
 import { defineConfig } from "@playwright/test";
 
+// Override with FRAG_TEST_PORT so several checkouts can run tests at once.
+const PORT = Number(process.env.FRAG_TEST_PORT ?? 8080);
+
 export default defineConfig({
 	testDir: ".",
 	timeout: 30000,
 	retries: 0,
 	workers: 8,
 	webServer: {
-		command: "serve . -p 8080 --no-clipboard",
-		port: 8080,
+		command: `serve . -p ${PORT} --no-clipboard`,
+		port: PORT,
 		cwd: "..",
 		reuseExistingServer: true,
 	},
 	use: {
-		baseURL: "http://localhost:8080",
+		baseURL: `http://localhost:${PORT}`,
 		browserName: "chromium",
 		deviceScaleFactor: 1,
 		headless: true,
