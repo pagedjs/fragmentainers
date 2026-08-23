@@ -3,7 +3,6 @@ import {
 	measureElementInlineSize,
 	measureCellIntrinsicBlockSize,
 } from "../measurement/block-size.js";
-import { getLineHeight } from "../measurement/line-box.js";
 import { computedStyleMap, HAS_TYPED_OM } from "../styles/computed-style-map.js";
 import { typedLengthToPx } from "../styles/css-values.js";
 import { buildCumulativeHeights } from "./layout-helpers.js";
@@ -66,7 +65,6 @@ export class DOMLayoutNode extends LayoutNode {
 	#paddingBlockEnd = null;
 	#borderBlockStart = null;
 	#borderBlockEnd = null;
-	#lineHeightCache = null;
 	#borderSpacingBlock = undefined;
 	#breakBeforeOverride = null;
 	#breakInsideOverride = null;
@@ -628,12 +626,6 @@ export class DOMLayoutNode extends LayoutNode {
 		// (real implementation would wrap anonymous blocks)
 		this.#isInlineFormattingContext = hasInlineContent && !hasBlockContent;
 		return this.#isInlineFormattingContext;
-	}
-
-	get lineHeight() {
-		if (this.#lineHeightCache !== null) return this.#lineHeightCache;
-		this.#lineHeightCache = getLineHeight(this.element);
-		return this.#lineHeightCache;
 	}
 
 	// Table row support
