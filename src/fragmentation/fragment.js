@@ -34,6 +34,8 @@ export class Fragment {
 		this.truncateMarginBlockEnd = false;
 		this.isBlank = false;
 		this.counterState = null;
+		this.flowSnapshots = [];
+		this.pushedBreakMark = 0;
 		this.afterRender = null;
 		this.isFirst = false;
 		this.blockOffset = 0;

@@ -197,6 +197,7 @@ export class Fragmenter extends Iterator {
 	#done = false;
 	#zeroProgressCount = 0;
 	#pushedBreaks = [];
+	#initialFlowSnapshots = null;
 
 	/**
 	 * @param {DocumentFragment|Element|object} content - Content to fragment
@@ -394,6 +395,7 @@ export class Fragmenter extends Iterator {
 			// no contentRoot.
 			this.releaseMeasurer();
 			this.#tree = null;
+			this.#initialFlowSnapshots = null;
 			this.#layout(true);
 		} else {
 			this.#layout();
@@ -421,18 +423,39 @@ export class Fragmenter extends Iterator {
 		if (prev?.counterState) {
 			this.#counterState.restore(prev.counterState);
 		}
-		this.#fragments.length = position;
-		this.#mainDone = false;
-		this.#done = false;
-		this.#context = null;
-		this.#zeroProgressCount = 0;
 
-		// Undo handler-driven break pushes — re-layout re-applies any
-		// that are still needed.
-		for (const { node, breakBefore } of this.#pushedBreaks) {
+		// Fragment checkpoints describe their output state, so the fragment
+		// before the restart supplies its flows. The initial checkpoint also
+		// preserves queues populated by a handler before the first page.
+		const flowSnapshots = prev?.flowSnapshots ?? this.#initialFlowSnapshots;
+		if (flowSnapshots) {
+			const flowEntries = this.#flowContext.handlers.getFlows();
+			for (let i = 0; i < flowEntries.length; i++) {
+				flowEntries[i].flow.restore(flowSnapshots[i]);
+			}
+		}
+
+		// Break pushes before the restart remain part of the retained prefix.
+		// Later pushes are unwound in reverse mutation order and re-derived.
+		const pushedBreakMark = prev?.pushedBreakMark ?? 0;
+		for (let i = this.#pushedBreaks.length - 1; i >= pushedBreakMark; i--) {
+			const { node, breakBefore } = this.#pushedBreaks[i];
 			node.breakBefore = breakBefore;
 		}
-		this.#pushedBreaks.length = 0;
+		this.#pushedBreaks.length = pushedBreakMark;
+
+		this.#fragments.length = position;
+		// A null token on a non-blank retained fragment means the main flow
+		// ended there; later fragmentainers may only be draining parallel flows.
+		this.#mainDone = this.#fragments.some(
+			(fragment) => !fragment.isBlank && fragment.breakToken === null,
+		);
+		const pendingFlow = this.#flowContext.handlers
+			.getFlows()
+			.some(({ flow }) => flow.breakToken !== null);
+		this.#done = this.#mainDone && !pendingFlow;
+		this.#context = null;
+		this.#zeroProgressCount = 0;
 
 		// Re-run layout to completion
 		const newFragments = [];
@@ -495,6 +518,11 @@ export class Fragmenter extends Iterator {
 	 */
 	#step() {
 		const fragment = this.#nextFragment();
+		// Store the settled output state used to resume the following fragment.
+		fragment.flowSnapshots = this.#flowContext.handlers
+			.getFlows()
+			.map(({ flow }) => flow.snapshot());
+		fragment.pushedBreakMark = this.#pushedBreaks.length;
 
 		if (this.#startIndex === 0 && this.#fragments.length === 1) {
 			fragment.isFirst = true;

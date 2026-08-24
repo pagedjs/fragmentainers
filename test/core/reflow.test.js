@@ -152,6 +152,191 @@ test.describe("Fragmenter.reflow()", () => {
 		expect(result.blockSizeMatch).toBe(true);
 		expect(result.breakTokenNull).toBe(true);
 	});
+
+	test("reflow restores a seeded parallel flow at every restart index", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
+			const { FragmentFlow } = await import("/src/fragmentation/fragment-flow.js");
+			const { LayoutHandler } = await import("/src/handlers/handler.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			class SeededFlow extends LayoutHandler {
+				#flow;
+				#host;
+
+				init(_options, context) {
+					this.#flow = new FragmentFlow(context);
+					this.#host = document.createElement("div");
+					this.#host.style.cssText = "position:absolute;left:-9999px;width:300px";
+					this.#host.innerHTML = `<div style="margin:0;padding:0">${["one", "two", "three"]
+						.map(
+							(label) =>
+								`<div data-seeded="${label}" style="height:40px;margin:0;padding:0">${label}</div>`,
+						)
+						.join("")}</div>`;
+					document.body.appendChild(this.#host);
+					const node = new DOMLayoutNode(this.#host.firstElementChild);
+					node.context = context;
+					this.#flow.enqueue([node]);
+				}
+
+				getFlow() {
+					return this.#flow;
+				}
+
+				getFlowCap() {
+					return 50;
+				}
+
+				composeFlowFragment(wrapper, fragment, inputBreakToken) {
+					const area = document.createElement("div");
+					area.setAttribute("data-seeded-flow", "");
+					area.appendChild(fragment.build(inputBreakToken));
+					wrapper.appendChild(area);
+				}
+
+				destroy() {
+					this.#flow?.destroy();
+					this.#host?.remove();
+				}
+			}
+
+			const handlers = Fragmenter.handlers;
+			Fragmenter.handlers = [...handlers, SeededFlow];
+			let layout;
+			try {
+				const template = document.createElement("template");
+				template.innerHTML =
+					'<div data-main="" style="height:20px;margin:0;padding:0">main</div>';
+				layout = new Fragmenter(template.content, { width: 300, height: 100 });
+				const initial = layout.flow();
+				const read = (context) =>
+					[...context].map((element) =>
+						[...element.querySelectorAll("[data-seeded]")].map(
+							(item) => item.getAttribute("data-seeded"),
+						),
+					);
+				const expected = read(initial);
+				const restarts = [];
+				for (let index = 0; index < initial.fragments.length; index++) {
+					restarts.push(read(layout.reflow(index)));
+				}
+				return {
+					expected,
+					restarts,
+					mainBreaks: initial.fragments.map((fragment) => fragment.breakToken !== null),
+					mainContent: [...initial].map(
+						(element) => element.querySelector("[data-main]") !== null,
+					),
+					flowState: initial.fragments.map((fragment) =>
+						fragment.flowSnapshots.map((snapshot) => ({
+							queue: snapshot.queue.length,
+							breakToken: snapshot.breakToken !== null,
+						})),
+					),
+				};
+			} finally {
+				layout?.destroy();
+				Fragmenter.handlers = handlers;
+			}
+		});
+
+		expect(result.flowState).toEqual([
+			[{ queue: 1, breakToken: true }],
+			[{ queue: 1, breakToken: true }],
+			[{ queue: 0, breakToken: false }],
+		]);
+		expect(result.expected).toEqual([["one"], ["two"], ["three"]]);
+		expect(result.mainBreaks).toEqual([false, false, false]);
+		expect(result.mainContent).toEqual([true, false, false]);
+		for (let index = 0; index < result.expected.length; index++) {
+			expect(result.restarts[index]).toEqual(result.expected.slice(index));
+		}
+	});
+
+	test("reflow restores the pushed-break prefix at every restart index", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
+			const { FragmentFlow } = await import("/src/fragmentation/fragment-flow.js");
+			const { LayoutHandler } = await import("/src/handlers/handler.js");
+
+			class PushForward extends LayoutHandler {
+				#flow;
+
+				init(_options, context) {
+					this.#flow = new FragmentFlow(context);
+				}
+
+				getFlow() {
+					return this.#flow;
+				}
+
+				getFlowCap() {
+					return 0;
+				}
+
+				extractFlowChildren(fragment) {
+					const pushForward = [];
+					const visit = (current) => {
+						if (
+							current.blockSize > 0 &&
+							current.node?.element?.hasAttribute("data-push")
+						) {
+							pushForward.push(current.node.element);
+						}
+						for (const child of current.childFragments) visit(child);
+					};
+					visit(fragment);
+					return { children: [], pushForward };
+				}
+
+				destroy() {
+					this.#flow?.destroy();
+				}
+			}
+
+			const handlers = Fragmenter.handlers;
+			Fragmenter.handlers = [...handlers, PushForward];
+			let layout;
+			try {
+				const template = document.createElement("template");
+				template.innerHTML = `<div style="margin:0;padding:0">
+					<div data-id="a" style="height:60px;margin:0;padding:0">a</div>
+					<div data-id="push-1" data-push="" style="height:30px;margin:0;padding:0">push-1</div>
+					<div data-id="b" style="height:20px;margin:0;padding:0">b</div>
+					<div data-id="push-2" data-push="" style="height:30px;margin:0;padding:0">push-2</div>
+					<div data-id="c" style="height:20px;margin:0;padding:0">c</div>
+				</div>`;
+				layout = new Fragmenter(template.content, { width: 300, height: 100 });
+				const initial = layout.flow();
+				const read = (context) =>
+					[...context].map((element) =>
+						[...element.querySelectorAll("[data-id]")].map((item) => item.dataset.id),
+					);
+				const expectedContent = read(initial);
+				const expectedMarks = initial.fragments.map((fragment) => fragment.pushedBreakMark);
+				const restarts = [];
+				for (let index = 0; index < initial.fragments.length; index++) {
+					const context = layout.reflow(index);
+					restarts.push({
+						content: read(context),
+						marks: context.fragments.map((fragment) => fragment.pushedBreakMark),
+					});
+				}
+				return { expectedContent, expectedMarks, restarts };
+			} finally {
+				layout?.destroy();
+				Fragmenter.handlers = handlers;
+			}
+		});
+
+		expect(result.expectedContent).toEqual([["a"], ["push-1", "b"], ["push-2", "c"]]);
+		expect(result.expectedMarks).toEqual([1, 2, 2]);
+		for (let index = 0; index < result.expectedContent.length; index++) {
+			expect(result.restarts[index].content).toEqual(result.expectedContent.slice(index));
+			expect(result.restarts[index].marks).toEqual(result.expectedMarks.slice(index));
+		}
+	});
 });
 
 test.describe("Fragmenter.reflow() (browser)", () => {
