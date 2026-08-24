@@ -49,7 +49,7 @@ Fragmenter.next()
         ├── assign fragmentIndex, constraints, namedPage
         ├── style.counterSet = (previous fragment's counter snapshot)
         ├── el.appendChild(fragment.build(prevBreakToken))
-        ├── fragment.map(prevBreakToken, el)
+        │     └── register clone→source pairs in the flow's CloneMap
         ├── run each fragment.afterRender(el, contentStyles)
         └── set expectedBlockSize + overflowThreshold
 ```
@@ -210,10 +210,14 @@ which resolver was used — typically by checking for the presence of
 #### Fixed constraint space (column / manual mode)
 
 When `Fragmenter` is constructed with `width`/`height` or a fixed
-`ConstraintSpace` (no resolver), the per-fragment `constraints` is the
-`ConstraintSpace` itself. It has `availableInlineSize`,
-`availableBlockSize`, `fragmentainerBlockSize`, etc. — but no page box,
-named page, or margins.
+`ConstraintSpace` (no resolver), each root fragment receives a lightweight
+geometry object:
+
+```js
+{ contentArea: { inlineSize, blockSize } }
+```
+
+It has no page box, named page, margins, or original `ConstraintSpace` fields.
 
 ### 4.3 Consuming the properties
 
@@ -248,7 +252,7 @@ the sheet layers:
 
 ```
 @scope (fragment-container) {
-  @layer { UA defaults }            ← :scope { margin: 8px }, etc.
+  @layer { UA defaults }            ← page-based flows only
   body-rewriter rules               ← :scope { ... } from `body { ... }`
   neutralize structural pseudos     ← `tr:nth-child(odd) { ...: unset !important }`
   StyleResolver per-element rules   ← `tr.foo[data-ref="N"] { ... !important }`
@@ -256,8 +260,9 @@ the sheet layers:
 }
 ```
 
-- **UA defaults** (`src/styles/ua-defaults.js`) — restore `body`'s 8px
-  margin on the host, in their own anonymous `@layer` so author rules win.
+- **UA defaults** (`src/styles/ua-defaults.js`) — in page-based flows, restore
+  `body`'s 8px margin on the host in an anonymous `@layer` so author rules win.
+  Column and region flows omit this layer.
 - **Body-rewriter rules** rewrite `body`/`html` rules from author sheets
   to target `:scope` (the fragment-container host).
 - **Neutralize** (`src/styles/neutralize-structural-pseudos.js`) — for
@@ -289,7 +294,8 @@ via inline `style.counterSet` on the host:
 
 ```js
 // fragmentation-context.js
-const counterSnapshot = index > 0 ? this.#fragments[index - 1].counterState : null;
+const previous = index > 0 ? this.#fragments[index - 1] : this.#previous;
+const counterSnapshot = previous?.counterState ?? null;
 if (counterSnapshot && Object.keys(counterSnapshot).length > 0) {
 	el.style.counterSet = formatCounterSet(counterSnapshot);
 }
@@ -304,6 +310,10 @@ break boundary; descendants inherit the scope and `counter-increment` /
 
 See `src/fragmentation/counter-state.js` for the snapshot format and the
 accumulator that produces it.
+
+For a context returned by `reflow(fromIndex)`, `#previous` is the preserved
+fragment immediately before the reflowed suffix. It seeds both counters and
+the input break token used for split attributes on the suffix's first element.
 
 ---
 
@@ -398,10 +408,12 @@ contract:
   The host box is sized to the `contentArea` directly. Consumers typically
   compose the fragment-container _into_ the region element rather than
   rendering it as a page.
-- **Column mode** (multicol). Each column is a fragmentainer inside the
-  containing block's multicol layout; the multicol algorithm produces
-  column fragment-containers via `MulticolAlgorithm`. Their
-  `constraints` is a fixed `ConstraintSpace` and `namedPage` is `null`.
+- **Fixed column mode.** A top-level flow constructed with `width` / `height`
+  produces one fragment-container per fixed-size column, with lightweight
+  `contentArea` constraints and `namedPage === null`.
+- **CSS multicol inside a flow.** `MulticolAlgorithm` composes inner columns as
+  clipped `<div>` elements inside the containing fragment-container; it does
+  not create nested fragment-container elements.
 
 Because all three modes produce the same element type, consumers can write
 code that works across modes by branching on the shape of
@@ -412,5 +424,5 @@ code that works across modes by branching on the shape of
 ## See Also
 
 - [api-reference.md § FragmentContainerElement](api-reference.md#fragmentcontainerelement-fragment-container) — complete method/property/event tables
-- [architecture.md § Fragmentation](architecture.md#10-composition) — how composition turns layout output into fragment-containers
+- [architecture.md § Fragmentation](architecture.md#10-fragmentation) — how composition turns layout output into fragment-containers
 - [handlers.md](handlers.md) — handler hooks that contribute sheets, per-fragment overrides, and `afterRender` behavior

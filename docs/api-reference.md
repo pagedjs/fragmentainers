@@ -9,27 +9,24 @@ The top-level entry point exposes the main public API:
 ```js
 import {
 	Fragmenter,
-	Fragment,
-	FragmentationContext,
 	ConstraintSpace,
 	PageResolver,
-	handlers,
+	RegionResolver,
+	LayoutHandler,
 } from "fragmentainers";
 ```
 
-Additional subpath barrels expose the rest of the public surface area:
+Additional package entry points expose the rest of the public API:
 
 | Subpath | Exports |
 | --- | --- |
 | `fragmentainers/fragmentation` | `BreakToken`, `BlockBreakToken`, `InlineBreakToken`, `findChildBreakToken`, `Fragment`, `ConstraintSpace`, `FRAGMENTATION_*`, `EarlyBreak`, `BreakScore`, `Fragmenter`, `createFragments`, `FragmentFlow`, `FlowContext`, `CloneMap`, `FragmentationContext`, `CounterState`, `parseCounterDirective`, `walkFragmentTree` |
 | `fragmentainers/layout` | `LayoutRequest`, `createFragments`, `runLayoutGenerator`, `getLayoutAlgorithm`, `isMonolithic`, `getMonolithicBlockSize`, `buildCumulativeHeights`, `LayoutNode`, `DOMLayoutNode`, `AnonymousBlockNode`, `FlowThreadNode` |
 | `fragmentainers/algorithms` | `BlockContainerAlgorithm`, `FlexAlgorithm`, `GridAlgorithm`, `InlineContentAlgorithm`, `MulticolAlgorithm`, `TableRowAlgorithm`, `resolveColumnDimensions` |
-| `fragmentainers/resolvers` | `PageResolver`, `RegionResolver`, `RegionConstraints` |
+| `fragmentainers/resolvers` | `PageResolver`, `PageRule`, `RegionResolver`, `RegionConstraints` |
 | `fragmentainers/components` | `ContentMeasureElement`, `FragmentContainerElement` |
 | `fragmentainers/styles` | `computedStyleMap`, `parseNumeric`, `toPx` |
 | `fragmentainers/handlers` | `LayoutHandler`, `HandlerRegistry`, `resolveHandlerClasses`, `defaultHandlers`, `RepeatedTableHeader`, `FixedPosition`, `StyleResolver`, `EmulatePrintPixelRatio`, `BodyRewriter`, `PseudoElements`, `PageFloat`, `MutationSync`, `markPersistent`, `markNativePseudo` |
-
-Constants and internal helpers (e.g. `NAMED_SIZES`, `FRAGMENTATION_*`, `BOX_DECORATION_*`, `walkRules`, `parseNumeric`) are imported from the specific file that owns them — see each section below for the exact path.
 
 ---
 
@@ -39,7 +36,7 @@ Constants and internal helpers (e.g. `NAMED_SIZES`, `FRAGMENTATION_*`, `BOX_DECO
 2. [Lower-Level Layout API](#2-lower-level-layout-api)
 3. [Break Tokens](#3-break-tokens)
 4. [Break Scoring](#4-break-scoring)
-5. [Fragmentation (Fragment)](#5-composition-fragment)
+5. [Fragmentation (Fragment)](#5-fragmentation-fragment)
 6. [Custom Elements](#6-custom-elements)
 7. [Helpers](#7-helpers)
 8. [Constants](#8-constants)
@@ -58,9 +55,6 @@ High-level coordinator for the content-to-fragmentation pipeline. Accepts a
 `DocumentFragment`, `Element`, or mock node. Internally creates a
 `<content-measure>` element for DOM measurement, builds the layout tree,
 runs fragmentation, and returns a `FragmentationContext`.
-
-Renamed from `FragmentedFlow` — that name is a CSS Fragmentation 3 term for the
-content being laid out, not for the machinery laying it out.
 
 ```js
 // DocumentFragment input with stylesheets — iterate directly
@@ -104,6 +98,8 @@ new Fragmenter(content, options?)
 | `options.width`               | `number`                                    | Container width in CSS px (column fragmentation)                                                                                          |
 | `options.height`              | `number`                                    | Container height in CSS px (column fragmentation)                                                                                         |
 | `options.type`                | `string`                                    | Fragmentation type when using `width`/`height` (default: `FRAGMENTATION_COLUMN`)                                                          |
+| `options.devicePixelRatio`    | `number`                                    | Target DPR for line-height rounding (defaults to `window.devicePixelRatio`)                                                               |
+| `options.emulatePrintPixelRatio` | `boolean`                                 | Normalize screen line-height to match DPR-1 print layout where supported (default: `true`)                                                |
 | `options.styleSheet`          | `CSSStyleSheet`                             | Sheet to write the composite scoped rules into. The caller adopts it where needed (`document` or any `ShadowRoot`). When omitted, the flow creates its own sheet and adopts it on `document.adoptedStyleSheets`. |
 | `options.continuation`        | `{ fragmentainerIndex, blockOffset }`       | Resume point handed over by a previous flow: the fragmentainer index to number from, and the block offset already consumed within it. Read the outgoing one back off the `continuation` getter. |
 
@@ -117,7 +113,11 @@ Options are checked in priority order: `constraintSpace` > `resolver` > `width`/
 | `flow({ start, stop }?)`       | `FragmentationContext` | Run all fragmentainers to completion. `start`/`stop` control which elements are created (layout always runs to completion).                                                                                 |
 | `layout(forceUpdate?)`         | `void`                 | Initialize the layout tree and internal measurement container. Called lazily by `next()`. Pass `true` to force re-initialization.                                                                           |
 | `preload(options?)`            | `Promise<void>`        | Optional — preload fonts and images before layout for accurate measurement. Accepts `{ signal, timeout }` (default timeout 10s; pass `0` to disable).                                                       |
+| `preloadFonts(options?)`       | `Promise<string[]>`    | Register `@font-face` rules from the content styles and wait for unloaded faces used by those styles. Accepts the same preload options.                                                                    |
+| `preloadImages(options?)`      | `Promise<void[]>`      | Load images without explicit dimensions, fill in their natural dimensions, and remove images that fail to load. Accepts the same preload options.                                                         |
 | `reflow(fromIndex?, options?)` | `FragmentationContext` | Re-layout from a specific fragmentainer index. Returns a new `FragmentationContext` with the reflowed fragments. Pass `{ rebuild: true }` after structural DOM changes to force layout tree reconstruction. |
+| `return(value?)`               | `{ value, done: true }` | Iterator cleanup used when iteration stops early. Releases measurement without marking the flow exhausted, so later iteration can resume.                                                                 |
+| `releaseMeasurer()`            | `void`                 | Detach the measurement element and preserve the source DOM for later reflow. Called automatically on completion and early iterator exit.                                                                  |
 | `destroy()`                    | `void`                 | Remove the internal `<content-measure>` element from the DOM and destroy this flow's handler instances. Call when the layout is no longer needed.                                                           |
 
 #### Properties
@@ -127,30 +127,34 @@ Options are checked in priority order: `constraintSpace` > `resolver` > `width`/
 | `Fragmenter.handlers`      | `Class[]` (static)     | The ordered catalog of handler classes every flow instantiates. Append to add; append a subclass of a listed class to override it. See [handlers](#fragmenterhandlers-catalog-and-flowhandlers-registry). |
 | `handlers`                     | `HandlerRegistry`      | This flow's handler instances (`flow.handlers.get(Cls)`).                                                                                                                                                    |
 | `continuation`                 | `{ fragmentainerIndex, blockOffset }` | The resume point for a flow picking up where this one stopped. Rolls to the next index when the last fragment filled its fragmentainer.                                                       |
+| `contentRoot`                  | `Element \| DocumentFragment \| LayoutNode` | Live measurement root while attached; otherwise the preserved detached source content (or pre-built layout tree).                                                             |
 
 ---
 
 ### FragmentationContext
 
-`import { FragmentationContext } from "fragmentainers"`
+`import { FragmentationContext } from "fragmentainers/fragmentation"`
 
 **Source:** `src/fragmentation/fragmentation-context.js`
 
 Result of running fragmentation -- a "fragmented flow" in CSS spec terms.
-Extends `Array`, so flow instances are directly iterable: `flow[0]` gives the
-first element, `flow.length` gives the count, and `for...of` iterates all
-elements. Elements are created eagerly during `flow()`.
+Extends `Array`, so context instances are directly iterable: `context[0]` gives
+the first element, `context.length` gives the composed count, and `for...of`
+iterates the elements. Elements are created eagerly during `flow()`.
 
 #### Constructor
 
 ```js
-new FragmentationContext(fragments, contentStyles);
+new FragmentationContext(fragments, contentStyles, { start, stop, previous });
 ```
 
 | Parameter       | Type                                                                         | Description                                    |
 | --------------- | ---------------------------------------------------------------------------- | ---------------------------------------------- |
 | `fragments`     | `Fragment[]`                                                         | Array of root fragments, one per fragmentainer |
 | `contentStyles` | `{ sheets: CSSStyleSheet[] } \| null`                                | Stylesheet snapshot from the measurer (used for composition) |
+| `range.start`   | `number`                                                               | First fragment index to compose (default: `0`)                |
+| `range.stop`    | `number`                                                               | Exclusive fragment index to compose (default: all)            |
+| `range.previous` | `Fragment \| null`                                                   | Fragment immediately before this context; preserves split state and counters for a reflowed suffix |
 
 #### Properties
 
@@ -169,11 +173,12 @@ new FragmentationContext(fragments, contentStyles);
 
 ### PageResolver
 
-`import { PageResolver } from "fragmentainers/src/resolvers/page-resolver.js"`
+`import { PageResolver } from "fragmentainers"`
 
 Resolves page dimensions per-page by implementing `@page` rule matching and
-cascade. Implements CSS specificity ordering: universal (0) < pseudo-class (1)
-< named (2) < named+pseudo (3).
+cascade. Implements the CSS Paged Media `[f, g, h]` specificity tuple: page
+type names contribute to `f`, `:first` / `:blank` / `:nth()` to `g`, and
+`:left` / `:right` to `h`.
 
 #### Constructor
 
@@ -223,37 +228,37 @@ Plain objects use the same shape as `PageRule`:
 
 ### PageRule
 
-`import { PageRule } from "fragmentainers/src/resolvers/page-resolver.js"`
+`import { PageRule } from "fragmentainers/resolvers"`
 
 Parsed representation of a CSS `@page` rule.
 
 #### Constructor
 
 ```js
-new PageRule({ name, pseudoClasses, nth, size, margin, pageOrientation });
+new PageRule({ name, pseudo, nth, size, margin, pageOrientation });
 ```
 
 | Property          | Type                                   | Description                                                       |
 | ----------------- | -------------------------------------- | ----------------------------------------------------------------- |
 | `name`            | `string \| null`                       | Named page type (`"chapter"`, `"cover"`), or `null` for universal |
-| `pseudoClasses`   | `string[]`                             | Any combination of `"first"`, `"left"`, `"right"`, `"blank"`      |
+| `pseudo`          | `string[]`                             | Any combination of `"first"`, `"left"`, `"right"`, `"blank"`      |
 | `nth`             | `{ a: number, b: number } \| null`     | Coefficients from `:nth(<An+B>)`, matched against the 1-based page index |
-| `size`            | `string \| number[] \| null`           | `"a4"`, `"letter landscape"`, `[width, height]`, or `null`        |
-| `margin`          | `{ top, right, bottom, left } \| null` | Margins in CSS px                                                 |
+| `size`            | `string \| null`                       | Raw CSS size value such as `"A4"` or `"210mm 297mm"`             |
+| `margin`          | `{ top, right, bottom, left } \| null` | Raw CSS length strings for each margin side                        |
 | `pageOrientation` | `string \| null`                       | `"rotate-left"`, `"rotate-right"`, or `null`                      |
 
 ---
 
 ### PageConstraints
 
-`import { PageConstraints } from "fragmentainers/src/resolvers/page-resolver.js"`
+**Source:** `src/resolvers/page-resolver.js`
 
 Resolved page dimensions for one page -- the fragmentainer definition.
 
 #### Constructor
 
 ```js
-new PageConstraints({ pageIndex, namedPage, pageBoxSize, margins, contentArea, isFirst, isVerso, isRecto, isBlank? })
+new PageConstraints({ pageIndex, namedPage, pageBoxSize, margins, contentArea, isFirst, isVerso, isRecto, isBlank?, matchedRules? })
 ```
 
 | Property      | Type                                        | Description                                                                        |
@@ -267,6 +272,7 @@ new PageConstraints({ pageIndex, namedPage, pageBoxSize, margins, contentArea, i
 | `isVerso`     | `boolean`                                   | Whether this is a verso (left) page                                                |
 | `isRecto`     | `boolean`                                   | Whether this is a recto (right) page                                               |
 | `isBlank`     | `boolean`                                   | Whether this is a blank page inserted for a side-specific break (default: `false`) |
+| `matchedRules` | `PageRule[]`                               | Page rules that matched this page (default: `[]`)                                  |
 
 #### Methods
 
@@ -278,7 +284,7 @@ new PageConstraints({ pageIndex, namedPage, pageBoxSize, margins, contentArea, i
 
 ### parsePageRulesFromCSS(cssTexts)
 
-`import { parsePageRulesFromCSS } from "fragmentainers/src/resolvers/page-resolver.js"`
+**Source:** `src/resolvers/page-resolver.js`
 
 Parse `@page` rules from CSS text strings using the browser's CSSOM.
 Recursively descends into grouping rules (`@layer`, `@supports`, `@media`).
@@ -322,7 +328,7 @@ new RegionResolver(regionElements);
 
 ### RegionConstraints
 
-`import { RegionConstraints } from "fragmentainers"`
+`import { RegionConstraints } from "fragmentainers/resolvers"`
 
 Resolved dimensions for one region element.
 
@@ -342,7 +348,7 @@ Resolved dimensions for one region element.
 
 ### parseNumeric(str)
 
-`import { parseNumeric } from "fragmentainers/src/styles/css-values.js"`
+`import { parseNumeric } from "fragmentainers/styles"`
 
 Parse a CSS numeric/length string into a typed value with `.value`, `.unit`,
 `.to()`, `.add()`, and `.sub()`. Uses native `CSSNumericValue.parse()` when
@@ -365,7 +371,7 @@ parseNumeric("calc(1in + 2mm)").to("px").value; // 103.55...
 
 ### cssValue(value, unit)
 
-`import { cssValue } from "fragmentainers/src/styles/css-values.js"`
+**Source:** `src/styles/css-values.js`
 
 Construct a CSS numeric value. Returns a native `CSSUnitValue` when available,
 otherwise a `UnitValue` polyfill with the same `.value`, `.unit`, `.to()`,
@@ -373,7 +379,7 @@ otherwise a `UnitValue` polyfill with the same `.value`, `.unit`, `.to()`,
 
 ### UnitValue
 
-`import { UnitValue } from "fragmentainers/src/styles/css-values.js"`
+**Source:** `src/styles/css-values.js`
 
 Polyfill for `CSSUnitValue` used when native CSS Typed OM is unavailable.
 Provides a subset of the Typed OM arithmetic/conversion interface.
@@ -386,9 +392,24 @@ Provides a subset of the Typed OM arithmetic/conversion interface.
 | `add(other)`      | `UnitValue` | Add another value; converts to px when units differ        |
 | `sub(other)`      | `UnitValue` | Subtract another value; converts to px when units differ   |
 
+### toPx(value, options?)
+
+`import { toPx } from "fragmentainers/styles"`
+
+Convert a CSS length to CSS pixels. Accepts a string, native Typed OM value,
+or `UnitValue`; returns `null` for unsupported or unresolved values.
+
+| Parameter                  | Type             | Description                                      |
+| -------------------------- | ---------------- | ------------------------------------------------ |
+| `value`                    | `string \| object` | CSS length to resolve                           |
+| `options.rootFontSize`     | `number`         | Root font size used for `rem` (default: `16`)    |
+| `options.percentBase`      | `number \| null` | Reference size used for percentages              |
+
+**Returns:** `number | null`
+
 ### computedStyleMap(element)
 
-`import { computedStyleMap } from "fragmentainers/src/styles/computed-style-map.js"`
+`import { computedStyleMap } from "fragmentainers/styles"`
 
 Polyfill for `element.computedStyleMap()` — returns a map whose `.get(property)`
 yields a `UnitValue` (numeric) or `{ value: keyword }` (keyword). Uses native
@@ -396,7 +417,7 @@ Typed OM when available.
 
 ### walkRules, walkSheets, insertWrappedRule
 
-`import { walkRules, walkSheets, insertWrappedRule } from "fragmentainers/src/styles/walk-rules.js"`
+**Source:** `src/styles/walk-rules.js`
 
 Shared helpers for walking CSS rule trees used by handlers and `@page`
 processing.
@@ -431,7 +452,7 @@ elements build them with `fragment.build(prevBreakToken)`.
 const fragments = createFragments(tree, constraintSpace);
 
 // With resolver: per-fragmentainer resolution
-const fragments = createFragments(tree, pageSizeResolver);
+const fragments = createFragments(tree, pageResolver);
 
 // With continuation: returns { fragments, continuation }
 const result = createFragments(tree, resolver, {
@@ -488,13 +509,17 @@ the element's own box — block-size, decorations, breaks inside the box — is
 | --------- | ------------ | ---------------------- |
 | `node`    | `LayoutNode` | Layout node to inspect |
 
-**Returns:** An algorithm **class** constructor. Instantiate with `new Algo(node, constraintSpace, breakToken)` (plus optional `earlyBreakTarget` for `BlockContainerAlgorithm`) and pass the instance to `runLayoutGenerator`.
+**Returns:** An algorithm **class** constructor. Instantiate with
+`new Algo(node, constraintSpace, breakToken, earlyBreakTarget?)` and pass the
+instance to `runLayoutGenerator`. Container algorithms forward an early-break
+target to descendants; `InlineContentAlgorithm` uses only the first three
+arguments.
 
 ---
 
 ### DOMLayoutNode(element)
 
-`import { DOMLayoutNode } from "fragmentainers"`
+`import { DOMLayoutNode } from "fragmentainers/layout"`
 
 Wrap a DOM element as a layout tree root. Properties are resolved lazily from
 `getComputedStyle()` during layout traversal.
@@ -511,11 +536,16 @@ const tree = new DOMLayoutNode(document.querySelector(".content"));
 
 ### DOMLayoutNode
 
-`import { DOMLayoutNode } from "fragmentainers"`
+`import { DOMLayoutNode } from "fragmentainers/layout"`
 
 Lazy wrapper around real DOM elements implementing the `LayoutNode` interface.
 Read-only -- no DOM mutation. Block sizes measured via `getBoundingClientRect`.
 Computed styles cached on first access, children wrapped lazily.
+
+`invalidateStructure()` clears structure-dependent child and measurement
+caches without replacing the wrapper. Segmented measurement uses it after a
+newly activated boundary element passes through handler DOM mutations, so
+existing break tokens keep a stable node identity.
 
 See [browser-engine-reference.md](browser-engine-reference.md) for the full
 `LayoutNode` interface definition.
@@ -539,6 +569,11 @@ new ConstraintSpace({
 	blockOffsetInFragmentainer,
 	fragmentationType,
 	isNewFormattingContext,
+	reservedBlockStart,
+	reservedBlockEnd,
+	cssInlineSize,
+	cssBlockSize,
+	fragmentainerContentStart,
 });
 ```
 
@@ -551,12 +586,17 @@ new ConstraintSpace({
 | `fragmentationType`          | `string`  | `"none"` | Use `FRAGMENTATION_NONE`, `FRAGMENTATION_PAGE`, or `FRAGMENTATION_COLUMN` |
 | `isNewFormattingContext`     | `boolean` | `false`  | Whether this establishes a new formatting context                         |
 | `bodyMarginBlockStart`       | `number`  | `0`      | Body/slot margin for first-page margin collapsing with the first child    |
+| `reservedBlockStart`         | `number`  | `0`      | Space reserved at the fragmentainer block start by handlers               |
+| `reservedBlockEnd`           | `number`  | `0`      | Space reserved at the fragmentainer block end by handlers                 |
+| `cssInlineSize`              | `string \| null` | `null` | Original CSS inline-size string used for browser-native unit conversion   |
+| `cssBlockSize`               | `string \| null` | `null` | Original CSS block-size string used for browser-native unit conversion    |
+| `fragmentainerContentStart`  | `number`  | `0`      | Earliest content position, used to avoid repeatedly pushing an unfit child |
 
 ---
 
 ### MarginState
 
-`import { MarginState } from "fragmentainers/src/layout/margin-collapsing.js"`
+**Source:** `src/layout/margin-collapsing.js`
 
 Stateful tracker for CSS2 §8.3.1 block margin collapsing. Used by
 `BlockContainerAlgorithm` to resolve collapsed margins between siblings, through
@@ -570,8 +610,10 @@ const margins = new MarginState(bodyMarginBlockStart);
 | ------------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------ |
 | `computeMarginBefore(child, params)`                         | `{ marginDelta, collapsedThrough }` | Resolve collapsed margin before a child                                  |
 | `collapseAdjustment(collapsedThrough, isResumingChild)`      | `number`                            | Through-collapse adjustment for constraint space                         |
-| `applyAfterLayout(child, collapsedThrough, isResumingChild)` | `number`                            | Update state after child layout, return subtraction for through-collapse |
-| `trailingMargin(hasBreak, hasChildren)`                      | `number`                            | Deferred last-child margin-end after the loop                            |
+| `applyAfterLayout(child, collapsedThrough, isResumingChild, childBroke?, context?)` | `number` | Update state after child layout, including through- and self-collapse compensation |
+| `trailingMargin(hasBreak, hasChildren, isForcedBreak?)`      | `number` | Deferred last-child margin-end; forced breaks preserve adjoining margins |
+| `shouldTruncateLastChildMarginEnd(hasBreak, isForcedBreak?)` | `boolean` | Whether an unforced break truncates the last child's end margin           |
+| `shouldTruncateChildMarginStart(params)`                     | `boolean` | Whether an unforced continuation truncates its first child's start margin |
 
 Uses `MarginStrut` internally: positive margins take `max`, negative margins take `min`, mixed margins sum `max(positives) + min(negatives)`.
 
@@ -579,9 +621,9 @@ Uses `MarginStrut` internally: positive margins take `max`, negative margins tak
 
 ### Fragment
 
-`import { Fragment } from "fragmentainers"`
+`import { Fragment } from "fragmentainers/fragmentation"`
 
-Immutable layout output. Represents a laid-out box or line within a single
+Layout output. Represents a laid-out box or line within a single
 fragmentainer. Forms a tree via `childFragments`.
 
 #### Constructor
@@ -598,10 +640,15 @@ new Fragment(node, blockSize, childFragments?)
 | `childFragments` | `Fragment[]`      | `[]`    | Child fragments within this fragment                                         |
 | `breakToken`     | `BreakToken \| null`      | `null`  | Continuation token if content overflowed                                     |
 | `constraints`    | `PageConstraints \| null` | `null`  | Page constraints (set by driver on root fragments)                           |
-| `multicolData`   | `object \| null`          | `null`  | Multicol layout data (`{ columnWidth, columnGap, columnCount }`)             |
+| `multicolData`   | `object \| null`          | `null`  | Multicol layout data (`{ columnWidth, columnGap, columnCount, columnHeight }`) |
 | `isRepeated`     | `boolean`                 | `false` | Repeated content (e.g. table thead across pages)                             |
 | `isBlank`        | `boolean`                 | `false` | Blank page inserted for side-specific break (`left`/`right`/`recto`/`verso`) |
 | `counterState`   | `object \| null`          | `null`  | Counter snapshot for this fragmentainer                                      |
+| `afterRender`    | `Function[] \| null`      | `null`  | Composition callbacks contributed by handlers and parallel flows              |
+| `isFirst` / `isLast` | `boolean`              | `false` | Document-boundary markers copied to fragment-container attributes              |
+| `blockOffset`    | `number`                   | `0`     | Block position within the parent fragment                                      |
+| `needsBlockClip` | `boolean`                  | `false` | Render this fragment as a clipped slice                                         |
+| `hasFixedBlockSize` | `boolean`               | `false` | Fragment belongs to a box with a specified/clamped block-size                   |
 
 ---
 
@@ -622,7 +669,7 @@ const result = yield new LayoutRequest(childNode, childConstraintSpace, childBre
 #### Constructor
 
 ```js
-new LayoutRequest(node, constraintSpace, breakToken?)
+new LayoutRequest(node, constraintSpace, breakToken?, earlyBreakTarget?)
 ```
 
 | Property          | Type                 | Description                          |
@@ -630,6 +677,7 @@ new LayoutRequest(node, constraintSpace, breakToken?)
 | `node`            | `LayoutNode`         | Child node to lay out                |
 | `constraintSpace` | `ConstraintSpace`    | Layout input for the child           |
 | `breakToken`      | `BreakToken \| null` | Continuation token (default: `null`) |
+| `earlyBreakTarget` | `EarlyBreak \| null` | Pass-2 target forwarded to the child (default: `null`) |
 
 ---
 
@@ -644,7 +692,7 @@ mappings and architectural details.
 
 ### BreakToken (base class)
 
-`import { BreakToken } from "fragmentainers"`
+`import { BreakToken } from "fragmentainers/fragmentation"`
 
 ```js
 new BreakToken(type, node);
@@ -660,6 +708,7 @@ new BreakToken(type, node);
 | `isRepeated`                | `boolean`        | `false` | This is a repeated fragment (e.g. table header)                                          |
 | `isAtBlockEnd`              | `boolean`        | `false` | Sibling has completed layout (parallel flows)                                            |
 | `hasSeenAllChildren`        | `boolean`        | `false` | All children visited at least once                                                       |
+| `wasSuppressed`             | `boolean`        | `false` | The preceding empty shell was not rendered, so start decorations are still owed         |
 | `isCausedByColumnSpanner`   | `boolean`        | `false` | Break caused by a column spanner                                                         |
 | `hasUnpositionedListMarker` | `boolean`        | `false` | List marker not yet placed                                                               |
 
@@ -667,7 +716,7 @@ new BreakToken(type, node);
 
 ### BlockBreakToken
 
-`import { BlockBreakToken } from "fragmentainers"`
+`import { BlockBreakToken } from "fragmentainers/fragmentation"`
 
 Extends `BreakToken` with `type = BREAK_TOKEN_BLOCK`. Used for block-level
 containers, flex items, grid items, table rows, and multicol containers.
@@ -682,6 +731,9 @@ new BlockBreakToken(node);
 | `sequenceNumber`    | `number`         | `0`     | Fragment sequence index                                |
 | `childBreakTokens`  | `BreakToken[]`   | `[]`    | Child tokens forming the break token tree              |
 | `algorithmData`     | `object \| null` | `null`  | Algorithm-specific state (flex, grid, table, multicol) |
+| `continuesInFlow`   | `boolean`        | getter  | The box's own in-flow extent still continues             |
+| `continuesAsOverflow` | `boolean`      | getter  | The box reached its block end but descendants continue as parallel overflow |
+| `isComplete`        | `boolean`        | getter  | The subtree finished earlier and only its parallel-flow track shell remains  |
 
 #### Static Methods
 
@@ -695,7 +747,7 @@ new BlockBreakToken(node);
 
 ### InlineBreakToken
 
-`import { InlineBreakToken } from "fragmentainers"`
+`import { InlineBreakToken } from "fragmentainers/fragmentation"`
 
 Extends `BreakToken` with `type = BREAK_TOKEN_INLINE`. Content-addressed via
 item index and text offset into `InlineItemsData` -- survives inline-size
@@ -724,7 +776,7 @@ re-runs layout to break at that point.
 
 ### EarlyBreak
 
-`import { EarlyBreak } from "fragmentainers"`
+`import { EarlyBreak } from "fragmentainers/fragmentation"`
 
 Represents a better breakpoint found during Pass 1.
 
@@ -743,7 +795,7 @@ new EarlyBreak(node, score, type);
 
 ### BreakScore
 
-`import { BreakScore } from "fragmentainers"`
+`import { BreakScore } from "fragmentainers/fragmentation"`
 
 Score constants for break quality ranking. Lower values are better.
 
@@ -758,7 +810,7 @@ Score constants for break quality ranking. Lower values are better.
 
 ## 5. Fragmentation (Fragment)
 
-The `Fragment` class converts the immutable fragment tree into visible DOM.
+The `Fragment` class converts the fragment tree into visible DOM.
 Analogous to the browser paint stage, but instead of producing display lists it
 clones DOM elements and lets the browser paint.
 
@@ -777,18 +829,11 @@ list continuation, and monolithic content clipping.
 
 **Returns:** `DocumentFragment`
 
-### Fragment.map(inputBreakToken, composedParent)
+During `build()`, every clone is registered in the flow's `CloneMap`; handlers
+such as `MutationSync` can therefore resolve composed elements back to their
+sources without a separate mapping pass.
 
-Walk the fragment tree and composed DOM in parallel, registering each
-clone→source pair in the handler registry's shared map. Used by handlers
-(e.g. `MutationSync`) to resolve composed elements back to their source.
-
-| Parameter         | Type                 | Description                                 |
-| ----------------- | -------------------- | ------------------------------------------- |
-| `inputBreakToken` | `BreakToken \| null` | Break token from the previous fragmentainer |
-| `composedParent`  | `Element`            | The composed DOM parent to walk in parallel |
-
-### Fragment.buildInlineContent(items, textContent, startOffset, endOffset, container, collapseWS?, pseudoContext?, hasTrailingCollapsibleSpace?, isHyphenated?, hyphenateCharacter?)
+### Fragment.buildInlineContent(items, textContent, startOffset, endOffset, container, options?)
 
 Static method. Reconstructs DOM from the flat `InlineItemsData` list within
 break token offset ranges.
@@ -800,11 +845,11 @@ break token offset ranges.
 | `startOffset`                 | `number`       | Start character offset                                                                                         |
 | `endOffset`                   | `number`       | End character offset                                                                                           |
 | `container`                   | `Element`      | Target container element                                                                                       |
-| `collapseWS`                  | `boolean`      | Collapse whitespace runs inside each text slice (default `false`)                                              |
-| `pseudoContext`               | `object\|null` | `{ isContinuation, willContinue }` — suppress `::before` on continuations and `::after` on non-last fragments  |
-| `hasTrailingCollapsibleSpace` | `boolean`      | Trim one trailing space from the last rendered text node (default `false`); set by the inline layout algorithm |
-| `isHyphenated`                | `boolean`      | Append `hyphenateCharacter` to the last rendered text node (default `false`); stripping a trailing U+00AD first |
-| `hyphenateCharacter`          | `string`       | Glyph appended when `isHyphenated` is true (default `"\u2010"`)                                                |
+| `options.collapseWS`                  | `boolean`      | Collapse whitespace runs inside each text slice (default `false`)                                              |
+| `options.pseudoContext`               | `object\|null` | `{ isContinuation, willContinue }` — suppress `::before` on continuations and `::after` on non-last fragments  |
+| `options.hasTrailingCollapsibleSpace` | `boolean`      | Trim one trailing space from the last rendered text node (default `false`); set by the inline layout algorithm |
+| `options.isHyphenated`                | `boolean`      | Append `hyphenateCharacter` to the last rendered text node (default `false`); stripping a trailing U+00AD first |
+| `options.hyphenateCharacter`          | `string`       | Glyph appended when `isHyphenated` is true (default `"\u2010"`)                                                |
 
 ### Fragment.hasBlockChildren
 
@@ -819,7 +864,7 @@ The two custom elements live under `src/components/`. They are auto-registered o
 
 ### ContentMeasureElement (`<content-measure>`)
 
-`import { ContentMeasureElement } from "fragmentainers"`
+`import { ContentMeasureElement } from "fragmentainers/components"`
 
 **Source:** `src/components/content-measure.js`
 
@@ -841,14 +886,13 @@ Managed internally by `Fragmenter`.
 
 | Property      | Type                       | Description                             |
 | ------------- | -------------------------- | --------------------------------------- |
-| `contentRoot` | `Element \| null`          | The slot element inside the shadow root |
-| `sourceRefs`  | `WeakMap<Element, string>` | Source element to ref string mapping    |
+| `contentRoot` | `Element \| null` | The slot element inside the shadow root |
 
 ---
 
 ### FragmentContainerElement (`<fragment-container>`)
 
-`import { FragmentContainerElement } from "fragmentainers"`
+`import { FragmentContainerElement } from "fragmentainers/components"`
 
 **Source:** `src/components/fragment-container.js`
 
@@ -872,9 +916,9 @@ from per-instance shadow adoption.
 | ------------------- | ----------------- | --------------------------------------------------------------------------------------------- |
 | `fragmentIndex`     | `number`          | Zero-based index of this fragmentainer. Setter mirrors to `data-fragment` attribute.          |
 | `namedPage`         | `string \| null`  | CSS named page type for this fragment (from `PageConstraints.namedPage`). Setter mirrors to `data-page-name` attribute. |
-| `constraints`       | `PageConstraints \| RegionConstraints \| ConstraintSpace \| null` | Resolver output / fragmentainer geometry for this fragment.   |
+| `constraints`       | `PageConstraints \| RegionConstraints \| { contentArea } \| null` | Resolver output / fragmentainer geometry for this fragment.   |
 | `expectedBlockSize` | `number` (setter) | Set the expected block size from layout. Used by the overflow detector.                       |
-| `overflowThreshold` | `number` (setter) | Minimum delta in px before `overflow` event fires (defaults to `DEFAULT_OVERFLOW_THRESHOLD`). |
+| `overflowThreshold` | `number` (setter) | Minimum delta in px before `overflow` fires. `FragmentationContext` sets the last inline line-height or `DEFAULT_OVERFLOW_THRESHOLD`; a standalone element starts at `0`. |
 
 #### Events
 
@@ -887,9 +931,9 @@ from per-instance shadow adoption.
 
 ## 7. Helpers
 
-### findChildBreakToken(parentBreakToken, childNode)
+### findChildBreakToken(parentBreakToken, childNode, taken?)
 
-`import { findChildBreakToken } from "fragmentainers"`
+`import { findChildBreakToken } from "fragmentainers/fragmentation"`
 
 Find a child's break token within a parent's break token by matching the
 `node` reference.
@@ -898,12 +942,13 @@ Find a child's break token within a parent's break token by matching the
 | ------------------ | ------------------------- | ------------------ |
 | `parentBreakToken` | `BlockBreakToken \| null` | Parent break token |
 | `childNode`        | `LayoutNode`              | Child node to find |
+| `taken`            | `Set<BreakToken> \| null` | Matches already consumed when anonymous siblings share a node |
 
 **Returns:** `BreakToken | null`
 
 ### isMonolithic(node)
 
-`import { isMonolithic } from "fragmentainers"`
+`import { isMonolithic } from "fragmentainers/layout"`
 
 Check if a node is monolithic (cannot be fragmented). True for replaced
 elements, scrollable elements, and elements with `overflow: hidden` plus an
@@ -913,7 +958,7 @@ explicit block size.
 
 ### getMonolithicBlockSize(node, constraintSpace)
 
-`import { getMonolithicBlockSize } from "fragmentainers"`
+`import { getMonolithicBlockSize } from "fragmentainers/layout"`
 
 Get the block size of a monolithic element without full layout.
 
@@ -924,22 +969,9 @@ Get the block size of a monolithic element without full layout.
 
 **Returns:** `number`
 
-### debugPrintTokenTree(breakToken, indent?)
-
-`import { debugPrintTokenTree } from "fragmentainers"`
-
-Print a human-readable tree of the break token hierarchy. Useful for debugging.
-
-| Parameter    | Type         | Default | Description       |
-| ------------ | ------------ | ------- | ----------------- |
-| `breakToken` | `BreakToken` | --      | Root break token  |
-| `indent`     | `number`     | `0`     | Indentation level |
-
-**Returns:** `string`
-
 ### isForcedBreakValue(value)
 
-`import { isForcedBreakValue } from "fragmentainers/src/fragmentation/tokens.js"`
+**Source:** `src/fragmentation/tokens.js`
 
 Check if a CSS `break-before`/`break-after` value is a forced break. Returns
 `true` for `"page"`, `"column"`, `"always"`, `"left"`, `"right"`, `"recto"`, `"verso"`.
@@ -948,7 +980,7 @@ Check if a CSS `break-before`/`break-after` value is a forced break. Returns
 
 ### isSideSpecificBreak(value)
 
-`import { isSideSpecificBreak } from "fragmentainers/src/resolvers/page-resolver.js"`
+**Source:** `src/resolvers/page-resolver.js`
 
 Check if a CSS break value requires a specific page side. Returns `true` for
 `"left"`, `"right"`, `"recto"`, `"verso"`.
@@ -957,7 +989,7 @@ Check if a CSS break value requires a specific page side. Returns `true` for
 
 ### requiredPageSide(value)
 
-`import { requiredPageSide } from "fragmentainers/src/resolvers/page-resolver.js"`
+**Source:** `src/resolvers/page-resolver.js`
 
 Return the required page side for a side-specific break value. Normalizes
 `recto` to `"right"` and `verso` to `"left"`.
@@ -966,7 +998,7 @@ Return the required page side for a side-specific break value. Normalizes
 
 ### resolveForcedBreakValue(breakToken)
 
-`import { resolveForcedBreakValue } from "fragmentainers/src/resolvers/page-resolver.js"`
+**Source:** `src/resolvers/page-resolver.js`
 
 Walk the break token tree to find the `forcedBreakValue` that triggered the
 break.
@@ -975,7 +1007,7 @@ break.
 
 ### resolveNextPageBreakBefore(rootNode, breakToken)
 
-`import { resolveNextPageBreakBefore } from "fragmentainers/src/resolvers/page-resolver.js"`
+**Source:** `src/resolvers/page-resolver.js`
 
 Resolve the `break-before` CSS value of the first child that will appear on
 the next page. Used to detect side-specific breaks when `blockOffset === 0`
@@ -985,7 +1017,7 @@ prevented the forced break from firing in `BlockContainerAlgorithm`.
 
 ### resolveColumnDimensions(U, specifiedWidth, specifiedCount, gap)
 
-`import { resolveColumnDimensions } from "fragmentainers/src/algorithms/multicol-container.js"`
+`import { resolveColumnDimensions } from "fragmentainers/algorithms"`
 
 CSS Multicol section 3 pseudo-algorithm. Resolves used column count and width from CSS
 properties and container width.
@@ -1001,23 +1033,18 @@ properties and container width.
 
 ### MutationSync
 
-`import { MutationSync } from "fragmentainers"`
+`import { MutationSync } from "fragmentainers/handlers"`
 
-Applies mutations observed on rendered clones back to the source DOM. Uses
-`data-ref` attributes to map clone elements to their source counterparts.
+Applies mutations observed on rendered clones back to the source DOM. The
+handler receives the flow's clone-to-source `CloneMap` through `init()`.
 
 #### Constructor
 
 ```js
-new MutationSync(refMap, sourceRoot, assignRef, removeRef);
+Fragmenter.handlers.push(MutationSync);
+const flow = new Fragmenter(content, options);
+const sync = flow.handlers.get(MutationSync);
 ```
-
-| Parameter    | Type                      | Description                                                                |
-| ------------ | ------------------------- | -------------------------------------------------------------------------- |
-| `refMap`     | `Map<string, Element>`    | Ref string to source element mapping (from `ContentMeasureElement.refMap`) |
-| `sourceRoot` | `Element`                 | Source content root element                                                |
-| `assignRef`  | `(el: Element) => string` | Callback to assign a ref to a new element                                  |
-| `removeRef`  | `(ref: string) => void`   | Callback to remove a ref                                                   |
 
 #### Methods
 
@@ -1029,7 +1056,7 @@ new MutationSync(refMap, sourceRoot, assignRef, removeRef);
 
 ### CounterState
 
-`import { CounterState } from "fragmentainers"`
+`import { CounterState } from "fragmentainers/fragmentation"`
 
 Flat counter state accumulator. Tracks counter values as a `Map<string, number>`
 across fragmentainers.
@@ -1041,11 +1068,12 @@ across fragmentainers.
 | `applyReset(entries)`     | `void`                   | Apply `counter-reset` directives                   |
 | `applyIncrement(entries)` | `void`                   | Apply `counter-increment` directives               |
 | `snapshot()`              | `Object<string, number>` | Return a frozen snapshot of current counter values |
+| `restore(snapshot)`       | `void`                   | Replace values from a prior snapshot               |
 | `isEmpty()`               | `boolean`                | True if no counters have been tracked              |
 
 ### parseCounterDirective(value)
 
-`import { parseCounterDirective } from "fragmentainers"`
+`import { parseCounterDirective } from "fragmentainers/fragmentation"`
 
 Parse a CSS counter directive string into an array of `{ name, value }` entries.
 
@@ -1057,7 +1085,7 @@ Parse a CSS counter directive string into an array of `{ name, value }` entries.
 
 ### walkFragmentTree(fragment, inputBreakToken, counterState)
 
-`import { walkFragmentTree } from "fragmentainers"`
+`import { walkFragmentTree } from "fragmentainers/fragmentation"`
 
 Walk a fragment tree in document order, applying counter operations to the
 given `CounterState`. Skips continuation elements (where `inputBreakToken` is
@@ -1073,11 +1101,9 @@ non-null) since those were already counted in a previous fragmentainer.
 
 ## 8. Constants
 
-Each constant is exported from the file that manages it — import directly from the source file.
-
 ### Fragmentation Types
 
-`import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE, FRAGMENTATION_COLUMN, FRAGMENTATION_REGION } from "fragmentainers/src/fragmentation/constraint-space.js"`
+`import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE, FRAGMENTATION_COLUMN, FRAGMENTATION_REGION } from "fragmentainers/fragmentation"`
 
 Used in `ConstraintSpace.fragmentationType`.
 
@@ -1090,7 +1116,7 @@ Used in `ConstraintSpace.fragmentationType`.
 
 ### Inline Item Types
 
-`import { INLINE_TEXT, INLINE_CONTROL, INLINE_OPEN_TAG, INLINE_CLOSE_TAG, INLINE_ATOMIC } from "fragmentainers/src/measurement/collect-inlines.js"`
+**Source:** `src/measurement/collect-inlines.js`
 
 Used in `InlineItemsData.items[].type`.
 
@@ -1104,7 +1130,7 @@ Used in `InlineItemsData.items[].type`.
 
 ### Break Token Types
 
-`import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "fragmentainers/src/fragmentation/tokens.js"`
+**Source:** `src/fragmentation/tokens.js`
 
 Used in `BreakToken.type`.
 
@@ -1115,7 +1141,7 @@ Used in `BreakToken.type`.
 
 ### Box Decoration Break
 
-`import { BOX_DECORATION_SLICE, BOX_DECORATION_CLONE } from "fragmentainers/src/layout/layout-node.js"`
+**Source:** `src/layout/layout-node.js`
 
 Used in `node.boxDecorationBreak`.
 
@@ -1126,7 +1152,7 @@ Used in `node.boxDecorationBreak`.
 
 ### Early Break Types
 
-`import { EARLY_BREAK_BEFORE, EARLY_BREAK_INSIDE } from "fragmentainers/src/fragmentation/break-scoring.js"`
+**Source:** `src/fragmentation/break-scoring.js`
 
 Used in `EarlyBreak.type`.
 
@@ -1139,7 +1165,7 @@ Used in `EarlyBreak.type`.
 
 Each algorithm data type is defined in the file that uses it:
 
-| Constant              | Value            | Import from                            |
+| Constant              | Value            | Defined in                             |
 | --------------------- | ---------------- | -------------------------------------- |
 | `ALGORITHM_FLEX`      | `"FlexData"`     | `src/algorithms/flex-container.js`         |
 | `ALGORITHM_FLEX_LINE` | `"FlexLineData"` | `src/algorithms/flex-container.js`         |
@@ -1151,7 +1177,7 @@ Used in `breakToken.algorithmData.type`.
 
 ### Overflow Threshold
 
-`import { DEFAULT_OVERFLOW_THRESHOLD } from "fragmentainers/src/fragmentation/fragmentation-context.js"`
+**Source:** `src/fragmentation/fragmentation-context.js`
 
 | Constant                     | Value               | Description                                                                                                    |
 | ---------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -1159,7 +1185,7 @@ Used in `breakToken.algorithmData.type`.
 
 ### Named Page Sizes
 
-`import { NAMED_SIZES } from "fragmentainers/src/resolvers/page-resolver.js"`
+**Source:** `src/resolvers/page-resolver.js`
 
 All dimensions are in CSS pixels at 96 DPI.
 
@@ -1197,12 +1223,12 @@ import {
 | ------------------------- | -------------------------------------------------------------- | ---------------------------------- |
 | `BlockContainerAlgorithm` | `(node, constraintSpace, breakToken, earlyBreakTarget?)`       | `src/algorithms/block-container.js`    |
 | `InlineContentAlgorithm`  | `(node, constraintSpace, breakToken)`                          | `src/algorithms/inline-content.js`     |
-| `TableRowAlgorithm`       | `(node, constraintSpace, breakToken)`                          | `src/algorithms/table-row.js`          |
-| `MulticolAlgorithm`       | `(node, constraintSpace, breakToken)`                          | `src/algorithms/multicol-container.js` |
-| `FlexAlgorithm`           | `(node, constraintSpace, breakToken)`                          | `src/algorithms/flex-container.js`     |
-| `GridAlgorithm`           | `(node, constraintSpace, breakToken)`                          | `src/algorithms/grid-container.js`     |
+| `TableRowAlgorithm`       | `(node, constraintSpace, breakToken, earlyBreakTarget?)`       | `src/algorithms/table-row.js`          |
+| `MulticolAlgorithm`       | `(node, constraintSpace, breakToken, earlyBreakTarget?)`       | `src/algorithms/multicol-container.js` |
+| `FlexAlgorithm`           | `(node, constraintSpace, breakToken, earlyBreakTarget?)`       | `src/algorithms/flex-container.js`     |
+| `GridAlgorithm`           | `(node, constraintSpace, breakToken, earlyBreakTarget?)`       | `src/algorithms/grid-container.js`     |
 
-Each class's `*layout()` generator returns `{ fragment: Fragment, breakToken: BreakToken | null, earlyBreak?: EarlyBreak }` via its final `return` value. Only `BlockContainerAlgorithm` accepts the `earlyBreakTarget` parameter for two-pass break optimization.
+Each class's `*layout()` generator returns `{ fragment: Fragment, breakToken: BreakToken | null, earlyBreak?: EarlyBreak }` via its final `return` value. `BlockContainerAlgorithm` owns Class A break scoring; flex, grid, multicol, and table-row algorithms accept and forward an `earlyBreakTarget` so nested block containers can honor it.
 
 ### Dispatch Order
 
@@ -1229,26 +1255,27 @@ Layout handlers extend the engine with custom behaviors. See
 
 Base class for all layout handlers. Subclass and override methods as needed.
 
-#### Properties
-
-| Property  | Type     | Description                                                           |
-| --------- | -------- | --------------------------------------------------------------------- |
-| `options` | `Object` | Options passed from `Fragmenter` via the registry. Default: `{}`. |
-
 #### Methods
 
 | Method                                                           | Returns                                                 | Description                                                                                          |
 | ---------------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `init(options, context)`                                         | `void`                                                  | Initialize a fresh per-flow instance with constructor options and its `FlowContext`.                 |
 | `claim(node)`                                                    | `boolean`                                               | Return `true` if this handler claims a child node (removes it from flow). Default: `false`.          |
 | `resetRules()`                                                   | `void`                                                  | Reset state from a previous `matchRule` pass. Called before each CSS rule walk.                      |
 | `matchRule(rule, context)`                                       | `void`                                                  | Inspect a CSS rule during the centralized rule walk. `context.wrappers` has grouping rule preambles. |
 | `appendRules(rules)`                                             | `void`                                                  | Push CSS rule text strings into `rules[]` to inject into a shared stylesheet.                        |
 | `prepareContent(content)`                                        | `void`                                                  | Called after rule processing with the full source content, before measurement. Mutate or mark it.    |
+| `beforeMeasurement(contentRoot)`                                 | `void`                                                  | Mutate the live measurement DOM before the forced reflow.                                            |
 | `afterMeasurementSetup(contentRoot)`                             | `void`                                                  | Called after measurement DOM is set up. Handlers can probe live elements via `getComputedStyle`.     |
 | `getAdoptedSheets()`                                             | `CSSStyleSheet[]`                                       | Return per-flow stylesheets to fold into the composite scoped sheet (`document.adoptedStyleSheets`). |
 | `layout(rootNode, constraintSpace, breakToken, layoutChild)`     | `{ reservedBlockStart, reservedBlockEnd, afterRender }` | Pre-layout hook. Called once per fragmentainer.                                                      |
 | `beforeChildren(node, constraintSpace, breakToken)`              | `{ node, constraintSpace, isRepeated } \| null`         | Called before the child loop. Return a layout descriptor to prepend, or `null`.                      |
 | `afterContentLayout(fragment, constraintSpace, inputBreakToken)` | `{ reservedBlockEnd, afterRender } \| null`             | Called after content layout. Return updated reservations to trigger re-layout.                       |
+| `getFlow()`                                                      | `FragmentFlow \| null`                                  | Return a handler-owned parallel flow, if any.                                                        |
+| `extractFlowChildren(fragment, inputBreakToken, cap)`            | `{ children, pushForward }`                             | Enqueue parallel-flow children and identify containing blocks that must move forward.                |
+| `getFlowCap(constraintSpace)`                                    | `number`                                                | Maximum block-size contribution for the parallel flow (default: `Infinity`).                         |
+| `composeFlowFragment(wrapper, fragment, inputBreakToken)`        | `void`                                                  | Compose a settled parallel-flow fragment into the fragmentainer.                                    |
+| `destroy()`                                                      | `void`                                                  | Release resources held by this handler instance.                                                     |
 
 ---
 
@@ -1310,12 +1337,12 @@ live in pagedjs, which appends them to the catalog.
 
 | Handler                  | Import                                                                                   | Description                                                                                     |
 | ------------------------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `RepeatedTableHeader`    | `import { RepeatedTableHeader } from "fragmentainers"`                                   | Repeat `<thead>` on continuation pages                                                          |
-| `FixedPosition`          | `import { FixedPosition } from "fragmentainers"`                                         | Repeat `position: fixed` elements on every page                                                 |
-| `StyleResolver`          | `import { StyleResolver } from "fragmentainers"`                                         | Per-element overrides for structural-pseudo rules (replaces the cloned-position match)          |
-| `EmulatePrintPixelRatio` | `import { EmulatePrintPixelRatio } from "fragmentainers"`                                | Line-height normalization for print-style flows (auto-enabled in Blink browsers; page-based only) |
-| `BodyRewriter`           | `import { BodyRewriter } from "fragmentainers"`                                          | Rewrites `body`/`html` rules to `:scope` (fragment-container) and `:host(content-measure) > slot` (measurer); page-based only |
-| `PseudoElements`         | `import { PseudoElements } from "fragmentainers"`                                        | Materializes `::before`/`::after` as `<frag-pseudo>` layout objects                             |
+| `RepeatedTableHeader`    | `import { RepeatedTableHeader } from "fragmentainers/handlers"`                          | Repeat `<thead>` on continuation pages                                                          |
+| `FixedPosition`          | `import { FixedPosition } from "fragmentainers/handlers"`                                | Repeat `position: fixed` elements on every page                                                 |
+| `StyleResolver`          | `import { StyleResolver } from "fragmentainers/handlers"`                                | Per-element overrides for structural-pseudo rules (replaces the cloned-position match)          |
+| `EmulatePrintPixelRatio` | `import { EmulatePrintPixelRatio } from "fragmentainers/handlers"`                       | Line-height normalization for print-style flows (auto-enabled in Blink browsers; page-based only) |
+| `BodyRewriter`           | `import { BodyRewriter } from "fragmentainers/handlers"`                                 | Rewrites `body`/`html` rules to `:scope` (fragment-container) and `:host(content-measure) > slot` (measurer); page-based only |
+| `PseudoElements`         | `import { PseudoElements } from "fragmentainers/handlers"`                               | Materializes `::before`/`::after` as `<frag-pseudo>` layout objects                             |
 | `PageFloat`              | `import { PageFloat } from "fragmentainers/handlers"`                                    | Not in catalog. Page-relative floats via `--float-reference: page` and `--float: top\|bottom`  |
 | `MutationSync`           | `import { MutationSync } from "fragmentainers/handlers"`                                 | Not in catalog. Syncs mutations from fragment-container clones back to source elements          |
 
@@ -1325,7 +1352,7 @@ live in pagedjs, which appends them to the catalog.
 
 ### FontMetrics
 
-`import { getSharedFontMetrics } from "fragmentainers/src/measurement/font-metrics.js"`
+**Source:** `src/measurement/font-metrics.js`
 
 Canvas-based font metric extraction. Measures the `fontBoundingBoxAscent + fontBoundingBoxDescent` ratio at a reference size and caches per font-family/weight/style combination. Results are rounded to the device pixel grid (floored at DPR 1, rounded at higher DPRs).
 

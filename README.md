@@ -15,6 +15,8 @@ npm install fragmentainers
 ### `Fragmenter`
 
 ```javascript
+import { Fragmenter } from "fragmentainers";
+
 const flow = new Fragmenter(content, options);
 for (const el of flow) {
 	/* ... */
@@ -33,7 +35,11 @@ for (const el of flow) {
 - **`constraintSpace`** — `ConstraintSpace` for sizing
 - **`resolver`** — A `PageResolver` or `RegionResolver` instance
 - **`width` / `height`** — Resolves to a constraint space for fixed size fragmentation
-- **`emulatePrintPixelRatio`** - Screen only matching of print line-height
+- **`type`** — Fragmentation type used with `width` / `height` (defaults to `"column"`)
+- **`devicePixelRatio`** — Target DPR for line-height rounding
+- **`emulatePrintPixelRatio`** — Screen-only matching of print line-height
+- **`styleSheet`** — Caller-owned sheet that receives the composite scoped rules
+- **`continuation`** — `{ fragmentainerIndex, blockOffset }` resume point from another flow
 
 ### Pagination with @page styles
 
@@ -69,8 +75,10 @@ for (const el of flow) {
 ```
 
 - **Images** — set `width` and `height` attributes on `<img>` elements when possible. Images with explicit dimensions are automatically set to `loading="lazy"` and don't need preloading. Images that are unable to be loaded will be removed from the flow as their size can not be calculated.
-- **Fonts** — Ensure web fonts are loaded before layout. `preloadFonts()` triggers loading for all unloaded font faces in `document.fonts`. For best performance, use `<link rel="preload" as="font">` in your HTML.
-- **Measurement** — Each segment of children between forced breaks is measured one segment at a time, so it can handle long content. For content without clear breaks, layout will be computed in a single measurement element which may cause slowdowns.
+- **Fonts** — Ensure web fonts are loaded before layout. `preloadFonts()` registers `@font-face` rules from the supplied content styles and waits for unloaded faces used by those styles. For best performance, use `<link rel="preload" as="font">` in your HTML.
+- **Measurement** — Top-level forced breaks and named-page changes divide long content into segments. One measurement element is rearranged as the break token advances, keeping only the active segment, persistent elements, and unfinished parallel-flow boxes live. Content without segment boundaries is measured as one segment.
+
+The measurement element is released automatically when iteration or `flow()` completes, and when a `for...of` loop exits early. Call `destroy()` when the flow is no longer needed to release handlers, generated styles, preloaded fonts, and retained layout state.
 
 ## Layout Handlers
 
@@ -124,6 +132,8 @@ The `emulatePrintPixelRatio` option attempts to normalize the two ratios to prov
 npm test                # unit/integration tests
 npm run lint            # eslint (separate from tests)
 ```
+
+Set `FRAG_TEST_PORT` to override the Playwright server port when running multiple checkouts concurrently.
 
 Tests use **Playwright** running in a browser. Each test imports a shared browser fixture and evaluates code inside the browser via `page.evaluate()`.
 

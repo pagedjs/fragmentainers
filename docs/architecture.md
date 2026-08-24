@@ -21,7 +21,7 @@ For mappings to browser engine equivalents in Blink, Gecko, and WebKit, see [bro
 7. [Parallel Flows](#7-parallel-flows)
 8. [Flow Thread Pattern](#8-flow-thread-pattern)
 9. [DOM Adapter](#9-dom-adapter)
-10. [Fragmentation](#10-composition)
+10. [Fragmentation](#10-fragmentation)
 11. [Layout Handlers](#11-layout-handlers)
 
 ---
@@ -55,7 +55,7 @@ Fragmenter
      └── DOMLayoutNode ──> next() / flow()  ────> Fragment[]
                                                           |
                                                           v
-                                                  composeFragment()
+                                                   Fragment.build()
                                                           |
                                                           v
                                                    DOM output
@@ -66,21 +66,22 @@ Fragmenter
 
 **Layout phase.** `Fragmenter` accepts a `DocumentFragment` or `Element`
 (elements are cloned internally). During `layout()`, it creates an off-screen
-`<content-measure>` element, injects the content and stylesheets via
-`injectFragment()`, and builds a `DOMLayoutNode` tree. `Fragmenter` extends
-`Iterator` — `next()` lays out one fragmentainer at a time, and `flow()` runs
-`next()` until content is exhausted, returning a `FragmentationContext`. Each
-iteration produces one `<fragment-container>` element. Call
-`destroy()` to remove the internal measurement container when done.
+`<content-measure>` element, injects the content and stylesheets, and builds a
+`DOMLayoutNode` tree. `Fragmenter` extends `Iterator` — `next()` lays out one
+fragmentainer at a time, while `flow()` runs the shared stepper to exhaustion
+and returns a `FragmentationContext`. Each iteration produces one
+`<fragment-container>` element. Measurement is released automatically when a
+run completes or iteration exits early; `destroy()` additionally tears down
+handlers, generated styles, preloaded fonts, and retained layout state.
 
 **Fragmentation phase.** `Fragment.build()` (`src/fragmentation/fragment.js`) walks each
 fragment tree and clones DOM elements into visible DOM. For pages,
 this produces `<fragment-container>` custom elements that host the cloned
 content as light-DOM children (projected through a `<slot>` in a thin
-shadow scaffold). For regions, the caller composes each fragment into the
-target region element directly. `Fragment.map()` registers clone→source
-mappings for handlers that need to resolve composed elements back to their
-source.
+shadow scaffold). For regions, the caller appends each resulting
+`<fragment-container>` to the corresponding target region. `Fragment.build()`
+registers clone→source mappings in the flow's `CloneMap` while it composes,
+allowing handlers to resolve rendered elements back to their sources.
 
 **Resolver pattern.** The engine supports multiple fragmentation modes through
 resolvers -- objects with a `resolve(index, ...)` method that returns
@@ -135,10 +136,9 @@ export class BlockContainerAlgorithm {
 }
 ```
 
-`BlockContainerAlgorithm` is the only algorithm that accepts an
-`earlyBreakTarget` — the other algorithms (`FlexAlgorithm`, `GridAlgorithm`,
-`InlineContentAlgorithm`, `MulticolAlgorithm`, `TableRowAlgorithm`) have a
-three-argument constructor.
+`BlockContainerAlgorithm` owns Class A break scoring. Flex, grid, multicol, and
+table-row algorithms also accept an `earlyBreakTarget` and forward it to their
+descendants; `InlineContentAlgorithm` has the three-argument constructor.
 
 ### LayoutRequest
 
@@ -149,11 +149,12 @@ When a generator needs a child laid out, it yields a `LayoutRequest`:
 const result = yield new LayoutRequest(child, childConstraintSpace, childBreakToken);
 ```
 
-`LayoutRequest` (in `src/layout/layout-request.js`) has three fields:
+`LayoutRequest` (in `src/layout/layout-request.js`) has four fields:
 
 - `node` -- the child `LayoutNode` to lay out
 - `constraintSpace` -- the `ConstraintSpace` describing available size
 - `breakToken` -- the child's break token from a previous fragmentainer, or `null`
+- `earlyBreakTarget` -- the optional Pass 2 target to forward to the child
 
 ### The driver: runLayoutGenerator
 
@@ -170,7 +171,12 @@ export function runLayoutGenerator(algorithm) {
 
 		// Look up the algorithm class for the child node, instantiate it, and recurse
 		const ChildAlgoClass = getLayoutAlgorithm(request.node);
-		const childAlgo = new ChildAlgoClass(request.node, request.constraintSpace, request.breakToken);
+		const childAlgo = new ChildAlgoClass(
+			request.node,
+			request.constraintSpace,
+			request.breakToken,
+			request.earlyBreakTarget,
+		);
 		const childResult = runLayoutGenerator(childAlgo);
 
 		// If child returned an earlyBreak, propagate it up immediately
@@ -246,7 +252,7 @@ Each step:
 9. Run handlers.afterContentLayout(); if the reservation moved, redo 7-8
 10. Accumulate counter state
 11. Advance breakToken and fragmentainerIndex
-12. Advance the measurer's segment; reinstall the composite sheet if it swapped
+12. Arrange the measurer for the break token's segment; reinstall the composite sheet if it changed
 13. Apply the zero-progress guard and decide whether iteration is finished
 14. Return the Fragment
 ```
@@ -279,12 +285,19 @@ emitting fragmentainers, with empty main content, until every flow has drained.
 
 ### Measurer segments
 
-Content whose top-level children carry forced breaks is measured one segment at
-a time. After every step the flow calls `measurer.advance(breakToken, tree)`;
-when the break token has reached the current segment's boundary the measurer
-swaps in the next segment's measurement container. That re-stamps handler data-refs and rebuilds the normalization
-sheets, so the flow reinstalls its composite stylesheet to keep the scoped rules
-matching the new refs.
+Top-level forced breaks and named-page changes divide content into measurement
+segments. The measurer owns one `<content-measure>` and rearranges its slot from
+the segment index and break token alone. The live slot contains the active
+segment, persistent elements, and any earlier top-level box that still has
+in-flow or parallel-overflow content. `measurer.arrange(breakToken, tree)` runs
+after every fragment and also when `reflow()` rewinds. A changed arrangement
+re-stamps handler data refs and normalization rules, so the flow reinstalls its
+composite stylesheet.
+
+When a boundary element becomes active for the first time, the measurer runs
+`beforeMeasurement()` and invalidates that element's cached child structure.
+This preserves pseudo-elements materialized by handlers without replacing the
+element's `DOMLayoutNode` identity used by existing break tokens.
 
 ### Constraint space resolution
 
@@ -306,12 +319,22 @@ every later one gets the full size. The outgoing resume point is on the flow's
 multiple independent elements across a shared sequence of pages (e.g., footnotes
 following body content).
 
+`reflow(fromIndex)` resumes from the fragment immediately before the requested
+absolute fragmentainer index and returns only the reflowed suffix. That previous
+fragment is passed to the new `FragmentationContext` so the first rebuilt
+element retains counter state and split-decoration continuity. Segmented
+measurement is rearranged to the same input token. With `{ rebuild: true }`,
+layout nodes and their tokens are replaced, so reflow restarts from the run's
+beginning.
+
 ### Zero-progress safety
 
 Real DOM content can contain elements with zero measured height (unloaded images,
 empty containers, absolutely positioned children). The loop tracks consecutive
-zero-progress fragmentainers and bails after 5 to prevent infinite loops. Blank
-pages do not count — they skip layout, so they say nothing about progress.
+zero-progress fragmentainers and bails after 5 to prevent infinite loops.
+Fragments carrying real descendant content after a fixed-size ancestor reaches
+its block end count as progress even when that ancestor contributes no extent.
+Blank pages do not count — they skip layout, so they say nothing about progress.
 
 ---
 
@@ -334,15 +357,20 @@ export function getLayoutAlgorithm(node) {
 Every element node is a block container to the driver; only the anonymous
 inline node (`isInlineNode`) goes to `InlineContentAlgorithm`. The block
 container owns the box — its specified block-size counts the extent of every
-fragment against it (CSS Fragmentation §5.3), and when the rest of the box does
-not fit after its content, the box breaks there (a Class C break point, §4.1)
-and continues as an empty fragment carrying the remaining extent and the
-block-end decorations. The inline algorithm only places lines and breaks
+fragment against it (CSS Fragmentation §5.3), clamped by `min-height` and
+`max-height`. When the rest of the box does not fit after its content, the box
+breaks there (a Class C break point, §4.1) and continues as an empty fragment
+carrying the remaining extent and block-end decorations. If content outlives a
+fixed-size box, the box reaches `isAtBlockEnd` and that descendant content
+continues as a parallel overflow flow with no additional box extent. Repeated
+`box-decoration-break: clone` insets wrap each fragment but do not count toward
+the consumed block-size. The inline algorithm only places lines and breaks
 between them (Class B).
 
-The driver instantiates the returned class with `(node, constraintSpace, breakToken)`
-(plus an optional `earlyBreakTarget` for `BlockContainerAlgorithm`) and calls
-`*layout()` to obtain the generator.
+The driver instantiates the returned class with
+`(node, constraintSpace, breakToken, earlyBreakTarget)` and calls `*layout()`
+to obtain the generator. The inline algorithm ignores the fourth argument;
+container algorithms either honor it or forward it to descendants.
 
 ### Why order matters
 
@@ -388,18 +416,19 @@ the child loop and called at four points per child:
 
 1. **`computeMarginBefore(child, params)`** — resolves the collapsed margin
    between the previous sibling's margin-end and the current child's
-   margin-start. Returns `{ marginDelta, collapsedThrough }`.
+   margin-start. Returns `{ marginDelta, collapsedThrough, consumedPrevMarginEnd }`.
 
 2. **`collapseAdjustment(collapsedThrough, isResumingChild)`** — computes the
    adjustment for through-collapse (parent's margin collapsing with first
    child's margin when no padding/border separates them).
 
-3. **`applyAfterLayout(child, collapsedThrough, isResumingChild)`** — updates
-   state after the child is laid out, storing the child's margin-end for the
-   next sibling.
+3. **`applyAfterLayout(child, collapsedThrough, isResumingChild, childBroke, context)`** — updates
+   state after the child is laid out, including self-collapsing boxes, and
+   stores the child's margin-end for the next sibling.
 
-4. **`trailingMargin(hasBreak, hasChildren)`** — after the child loop, adds
-   the last child's deferred margin-end when no break follows.
+4. **`trailingMargin(hasBreak, hasChildren, isForcedBreak)`** — after the child
+   loop, adds the last child's deferred margin-end when no break follows or the
+   break is forced.
 
 #### Through-collapse
 
@@ -412,9 +441,11 @@ accumulate margins for multi-level through-collapse.
 
 Per CSS Fragmentation L3 §5.2:
 
-- The first child on a **continuation page** has its margin-block-start
-  truncated (unless through-collapse is active or body margin is present).
-- The last child before a **break** has its margin-block-end truncated.
+- The first child after an **unforced continuation break** has its
+  margin-block-start truncated.
+- The last child before an **unforced break** has its margin-block-end
+  truncated.
+- Margins adjoining a forced Class A break are preserved.
 
 #### Body margin collapsing
 
@@ -461,15 +492,17 @@ Defined in `src/fragmentation/tokens.js`. Key fields:
 
 - **`consumedBlockSize`** -- cumulative block-axis space consumed by ALL
   previous fragments of this node. For a node with `height: 600px` that has
-  consumed 400px, there are 200px remaining. For `height: auto`, this tracks
-  how much content has been produced so far.
+  consumed 400px, there are 200px remaining. Insets repeated by
+  `box-decoration-break: clone` are excluded because they sit outside the
+  box's own block-size.
 
 - **`sequenceNumber`** -- per-node fragment counter. First fragment = 0,
   second = 1, etc. Used by the composition to determine split attributes.
 
 - **`childBreakTokens`** -- array of child break tokens. Each child is either
-  unfinished (resume it) or finished with `isAtBlockEnd: true` (skip it, but
-  keep it for parallel flow bookkeeping).
+  unfinished (resume its in-flow content), at its own block end while
+  descendants continue as parallel overflow, or fully complete but retained
+  for parallel-flow track bookkeeping.
 
 - **`algorithmData`** -- optional layout-mode-specific resumption state.
   Different algorithms (table, grid, flex, multicol) attach their own data
@@ -512,6 +545,7 @@ All break token types inherit these boolean flags from `BreakToken`:
 | `isForcedBreak`           | Break was caused by `break-before` / `break-after` CSS         |
 | `isAtBlockEnd`            | Node completed -- keep token for parallel flow bookkeeping     |
 | `hasSeenAllChildren`      | All children visited, even if some remain unfinished           |
+| `wasSuppressed`           | An empty shell was not rendered; start decorations are still owed |
 | `isRepeated`              | Repeated content (table headers/footers in each fragmentainer) |
 | `isCausedByColumnSpanner` | Break caused by a column-spanning element                      |
 
@@ -520,8 +554,9 @@ All break token types inherit these boolean flags from `BreakToken`:
 - When `isBreakBefore` is set on a child's token, pass `null` as that child's
   break token to the layout algorithm. The child starts fresh in the new
   fragmentainer.
-- `findChildBreakToken(parentBreakToken, childNode)` (in `src/fragmentation/tokens.js`)
-  locates the child's token within the parent's `childBreakTokens` array.
+- `findChildBreakToken(parentBreakToken, childNode, taken?)` (in
+  `src/fragmentation/tokens.js`) locates the child's token. The optional set
+  disambiguates anonymous flex-line and grid-row siblings that share a node.
 - When all placed children have completed but unvisited children remain,
   `createBreakBefore(nextChild)` is pushed so the next fragmentainer picks up
   at the correct child index.
@@ -605,24 +640,27 @@ completed without breaking. Completed items receive a token with
 `isAtBlockEnd: true`.
 
 On resumption in the next fragmentainer, the algorithm must know which items
-still have content and which are done. An `isAtBlockEnd` token produces a
-zero-height empty fragment for that item, keeping the parallel structure intact.
-Without it, the algorithm would lose track of item positions within the row.
+still have in-flow content, which continue only as overflow past their block
+end, and which are done. An `isAtBlockEnd` token contributes no new box extent,
+but composition keeps an empty box shell so the parallel track does not
+collapse or shift. Descendant overflow is built inside that shell.
 
 ### Table rows
 
 `TableRowAlgorithm` (in `src/algorithms/table-row.js`) implements this pattern. Each
 `<td>` / `<th>` is dispatched via `yield layoutChild(cell, ...)`. After all
 cells return, the row determines the break point. If any cell broke, every cell
-gets a break token. The `algorithmData` on the row's `BlockBreakToken` stores
-per-cell state for resumption.
+gets a break token under the row token; `algorithmData.type` identifies the
+table-row token.
 
 ### Flex and grid
 
 `FlexAlgorithm` handles `flex-direction: row` items as parallel flows and
 `flex-direction: column` items as a sequential flow thread (see
-[Flow Thread Pattern](#8-flow-thread-pattern)). `GridAlgorithm` groups
-items by row and treats each row's items as parallel flows.
+[Flow Thread Pattern](#8-flow-thread-pattern)). `GridAlgorithm` groups items by
+row and treats each row's items as parallel flows. Flex and grid container
+tokens nest the active line or row's item tokens beneath a single anonymous
+wrapper token, so each repeated line/row matches its own continuation state.
 
 ---
 
@@ -682,12 +720,11 @@ mutates the DOM.
 
 ### Lazy resolution
 
-All properties are computed on first access and cached:
+Most properties are computed on first access and cached:
 
-- **`_style`** -- result of `getComputedStyle(element)`, cached on first read
-- **`_styleMap`** -- CSS Typed OM values via `computedStyleMap(element)`, cached
-  on first read
-- **`_children`** -- child `DOMLayoutNode` wrappers, created on first access. A
+- **Computed style snapshot** -- CSS Typed OM values via
+  `computedStyleMap(element)`, cached in `#styleMap`
+- **`#children`** -- child `DOMLayoutNode` wrappers, created on first access. A
   block whose children are inline-level gets a single `AnonymousBlockNode`
   child holding all of them (CSS 2.1 §9.2.1.1); that node collects the
   `InlineItemsData` and is what the inline algorithm lays out.
@@ -712,6 +749,7 @@ Layout algorithms read these properties from `LayoutNode`:
 | `breakBefore` / `breakAfter` | `break-before` / `break-after` computed values |
 | `breakInside`                | `break-inside` computed value                  |
 | `blockSize`                  | Measured via `getBoundingClientRect`           |
+| `blockSizeLimits()`          | Border-box `height`, `min-height`, and `max-height` limits |
 | `children`                   | Array of child `DOMLayoutNode` wrappers        |
 | `inlineItemsData`            | Flat inline content representation             |
 
@@ -739,7 +777,7 @@ as a lazy layout tree root. The resulting node is the `rootNode` passed to
 
 ## 10. Fragmentation
 
-The `Fragment` class (`src/fragmentation/fragment.js`) converts the immutable fragment
+The `Fragment` class (`src/fragmentation/fragment.js`) converts the fragment
 tree produced by layout into visible DOM that the browser can paint. This is
 analogous to Chromium's `BoxFragmentPainter`, but instead of producing display
 lists we clone DOM elements and let the browser compose them.
@@ -763,11 +801,9 @@ Returns a `DocumentFragment` containing the composed DOM. For block containers,
 the element is cloned with `cloneNode(false)` (shallow), and children are
 composed recursively. This ensures each fragment gets its own DOM subtree.
 
-### Fragment.map()
-
-`map(inputBreakToken, composedParent)` walks the fragment tree and composed
-DOM in parallel, registering each clone→source pair in the flow's `CloneMap`. This mapping is used by handlers (e.g. `MutationSync`) to
-resolve composed elements back to their source.
+As `build()` clones elements, it registers each clone→source pair in the flow's
+`CloneMap`. This mapping is used by handlers such as `MutationSync`; there is no
+separate mapping pass.
 
 ### Inline content reconstruction
 
@@ -785,8 +821,8 @@ text nodes is needed.
 `FragmentationContext.createFragmentainer(index)` creates a `<fragment-container>`
 custom element. `fragment.build()` produces the composed DOM, which is
 appended as light-DOM children of the host (projected visually through the
-`<slot>` in the host's shadow scaffold), and `fragment.map()` registers the
-clone→source mappings. Stylesheets aren't adopted per-instance — the engine
+`<slot>` in the host's shadow scaffold), registering clone→source mappings as
+it goes. Stylesheets aren't adopted per-instance — the engine
 builds one composite scoped sheet per `Fragmenter` and adopts it on
 `document.adoptedStyleSheets` (see [§ Composite scoped sheet](#composite-scoped-sheet)
 below). Each `<fragment-container>` represents one page or column in the
@@ -815,8 +851,9 @@ rules.
 fragment-container subtrees and don't leak onto the host page. In source
 order:
 
-1. **`@layer { UA defaults }`** — restore `body`'s 8px margin on the host
-   (see `src/styles/ua-defaults.js`).
+1. **`@layer { UA defaults }`** — for page-based flows, restore `body`'s 8px
+   margin on the host (see `src/styles/ua-defaults.js`). Column and region
+   flows omit this layer.
 2. **Body-rewriter rules** — `body`/`html` author rules rewritten to
    `:scope` for the fragment-container side.
 3. **Neutralization** — for every author rule whose selector contains a
@@ -885,47 +922,52 @@ Handlers interact with the engine at these hook points, listed in lifecycle orde
    preambles (e.g., `["@media screen"]`). Handlers accumulate state here.
 
 3. **`appendRules(rules)`** — push CSS rule text strings into `rules[]` to be
-   inserted into a shared stylesheet prepended to the styles array.
+   inserted into a shared stylesheet appended to the styles array.
 
 4. **`prepareContent(content)`** — called after rule processing with the full
    source content, before it enters the measurement DOM. Handlers mutate the
    content or set markers (`markPersistent`, `markNativePseudo` from
-   `src/markers.js`) that the measurer and `PseudoElements` read later.
+   `fragmentainers/handlers`) that the measurer and `PseudoElements` read later.
 
-5. **`afterMeasurementSetup(contentRoot)`** — called after the measurement
+5. **`beforeMeasurement(contentRoot)`** — called after the active content is
+   injected but before the forced reflow. Handlers may materialize or mutate
+   measurement DOM here.
+
+6. **`afterMeasurementSetup(contentRoot)`** — called after the measurement
    container is fully set up (content injected, pseudo-elements materialized,
    styles resolved). The live DOM is available for `getComputedStyle()` queries.
    Handlers can probe elements and build internal state (e.g., generated
    stylesheets). Must not modify the measurer's adopted stylesheets.
 
-6. **`getAdoptedSheets()`** — returns `CSSStyleSheet[]` to fold into the
+7. **`getAdoptedSheets()`** — returns `CSSStyleSheet[]` to fold into the
    composite scoped sheet (`document.adoptedStyleSheets`). Called once per
    `Fragmenter` initialization.
 
-7. **`layout(rootNode, constraintSpace, breakToken, layoutChild)`** — called
+8. **`layout(rootNode, constraintSpace, breakToken, layoutChild)`** — called
    before the normal layout pass for each fragmentainer. Scans root children,
    claims nodes, lays out claimed content via the `layoutChild` callback, and
    returns space reservations (`reservedBlockStart`, `reservedBlockEnd`) plus an
    `afterRender` closure.
 
-8. **`claim(node)`** — during block container layout, each child is checked
+9. **`claim(node)`** — during block container layout, each child is checked
     against all handlers. If any handler returns `true`, the child is skipped in
     normal flow.
 
-9. **`beforeChildren(node, constraintSpace, breakToken)`** — called before the
+10. **`beforeChildren(node, constraintSpace, breakToken)`** — called before the
     child loop in `BlockContainerAlgorithm`. Returns a layout request descriptor for
     content to prepend (e.g., repeated table headers), or `null`.
 
-10. **`afterContentLayout(fragment, constraintSpace, inputBreakToken)`** — called
+11. **`afterContentLayout(fragment, constraintSpace, inputBreakToken)`** — called
     after content layout completes. Handlers can inspect the fragment and request
     additional block-end space (e.g., footnotes). Returning a different
     `reservedBlockEnd` triggers a re-layout.
 
 ### Handler options
 
-`Fragmenter` passes its constructor options to all registered handlers via
-`handlers.setOptions(options)`. Handlers read `this.options` to check for flags.
-This avoids tight coupling between `Fragmenter` and individual handlers.
+At layout initialization the registry creates fresh handler instances and calls
+`handler.init(options, context)`. `options` contains the `Fragmenter`
+constructor options plus the computed `isPageBased` flag; `context` contains
+the flow's handler registry, clone map, and `Fragmenter` reference.
 
 See [Layout Handlers](handlers.md) for the full handler interface and how to write
 custom handlers.

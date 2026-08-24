@@ -13,6 +13,10 @@ npm run specs    # specs
 npm run lint     # eslint (separate from tests)
 ```
 
+Both Playwright configs start a local static server. Set `FRAG_TEST_PORT` to
+override the defaults (`8787` for unit/integration tests and `8080` for specs),
+for example `FRAG_TEST_PORT=9000 npm test`.
+
 ---
 
 ## Specs

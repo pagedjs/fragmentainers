@@ -8,15 +8,17 @@ A handler hooks into the engine at these points:
 
 0. **Initialization** -- Each flow creates its own instance of every catalog class and calls `handler.init(options, context)` at layout initialization. `options` are the flow's constructor options (plus `isPageBased`); `context` is the flow's `FlowContext` (`handlers`, `cloneMap`, `flow`). Handlers use this for feature detection, reading options, and keeping the context for any layout nodes or parallel flows they create.
 
-1. **CSS rule matching** -- Before measurement begins, the engine walks all CSS rules in a single pass and calls `handler.matchRule(rule, context)` for each leaf style rule. Handlers accumulate state (selectors, descriptors) for use in later hooks. After the walk, `handler.injectSheets()` can return additional stylesheets to prepend.
+1. **CSS rule matching** -- Before measurement begins, the engine walks all CSS rules in a single pass and calls `handler.matchRule(rule, context)` for each leaf style rule. Handlers accumulate state (selectors, descriptors) for use in later hooks. After the walk, `handler.appendRules(rules)` can add rules to one shared sheet appended to the measurement styles.
 
 2. **Content preparation** -- After rule processing and before the measurer segments the content, the engine calls `handler.prepareContent(content)` with the full source content. The content is not yet in the measurement DOM, so `getComputedStyle()` is unavailable; handlers match via selectors accumulated in step 1 or inline styles. Handlers may mutate the content or set [markers](#markers) on it (e.g., `FixedPosition` marks `position: fixed` elements persistent).
 
-3. **Pre-layout scan** -- Before the normal layout pass, the engine calls `handler.layout()`. The handler scans the root node's children, lays out any it claims (via a provided callback), and returns space reservations. The engine adjusts the available space for remaining content.
+3. **Measurement hooks** -- Once the active segment is injected, `beforeMeasurement(contentRoot)` may mutate the live DOM before reflow. After reflow, `afterMeasurementSetup(contentRoot)` can inspect computed layout without mutating it. `getAdoptedSheets()` contributes per-flow sheets to visible composition.
 
-4. **Child skip** -- During block container layout, each child is checked against all handlers. If `handler.claim(child)` returns `true`, that child is skipped -- it doesn't consume space in the normal flow.
+4. **Pre-layout scan** -- Before the normal layout pass, the engine calls `handler.layout()`. The handler scans the root node's children, lays out any it claims (via a provided callback), and returns space reservations. The engine adjusts the available space for remaining content.
 
-5. **After-render** -- The handler's `layout()` method returns an `afterRender` closure. After the engine composes normal content into the fragmentainer, it calls this closure. The handler uses it to inject its own composed output (e.g., absolutely-positioned floats).
+5. **Child skip** -- During block container layout, each child is checked against all handlers. If `handler.claim(child)` returns `true`, that child is skipped -- it doesn't consume space in the normal flow.
+
+6. **Post-layout and rendering** -- `afterContentLayout()` can request a revised block-end reservation and trigger another layout pass. Once settled, `afterRender` and any `composeFlowFragment()` callbacks add handler-owned output to the composed fragmentainer.
 
 ## Handler Interface
 
@@ -62,6 +64,16 @@ A handler extends `LayoutHandler` and implements whichever methods it needs. All
   // it is injected into the measurement DOM. Mutate it or set markers.
   prepareContent(content) -> void,
 
+  // Called after content is injected but before the browser reflow.
+  // May materialize or mutate measurement DOM.
+  beforeMeasurement(contentRoot) -> void,
+
+  // Called after measurement setup and reflow. Probe computed styles here.
+  afterMeasurementSetup(contentRoot) -> void,
+
+  // Return per-flow sheets folded into the composite scoped sheet.
+  getAdoptedSheets() -> CSSStyleSheet[],
+
   // Called after content layout completes for a fragmentainer.
   // Inspect the fragment and optionally request additional block-end space.
   // Returning a different reservedBlockEnd triggers a re-layout.
@@ -69,6 +81,18 @@ A handler extends `LayoutHandler` and implements whichever methods it needs. All
     reservedBlockEnd: number,
     afterRender: (fragment, contentStyles) => void
   } | null,
+
+  // Optional handler-owned parallel flow lifecycle.
+  getFlow() -> FragmentFlow | null,
+  extractFlowChildren(fragment, inputBreakToken, cap) -> {
+    children: LayoutNode[],
+    pushForward: Element[]
+  },
+  getFlowCap(constraintSpace) -> number,
+  composeFlowFragment(wrapper, fragment, inputBreakToken) -> void,
+
+  // Release resources when the flow is destroyed or handlers reinitialize.
+  destroy() -> void,
 }
 ```
 
@@ -80,11 +104,11 @@ CSS rules are processed in a single pass by `HandlerRegistry.processRules(styles
 
 The `context.wrappers` array tracks the chain of grouping rule preambles, e.g. `["@media screen"]` for a rule inside `@media screen { ... }`. Handlers that re-emit rules preserve these wrappers so grouping-rule context survives.
 
-After the walk, the registry calls `appendRules(rules)` on each handler. Handlers push CSS rule text strings into the array. If any rules are collected, the registry creates a single `CSSStyleSheet`, inserts all rules, and prepends it to the styles array before measurement begins.
+After the walk, the registry calls `appendRules(rules)` on each handler. Handlers push CSS rule text strings into the array. If any rules are collected, the registry creates a single `CSSStyleSheet`, inserts all rules, and appends it to the styles array before measurement begins.
 
 ## Markers
 
-Features cooperate through DOM attribute markers rather than by calling each other. Anything that can touch the content before layout can set them: a handler in `prepareContent()`, or the caller before constructing a `Fragmenter`. Helpers are exported from the package root.
+Features cooperate through DOM attribute markers rather than by calling each other. Anything that can touch the content before layout can set them: a handler in `prepareContent()`, or the caller before constructing a `Fragmenter`. Import the helpers from `fragmentainers/handlers`.
 
 | Helper | Attribute | Effect |
 | --- | --- | --- |
@@ -175,7 +199,7 @@ class PageFit extends LayoutHandler {
 
 ## Writing Your Own Handler
 
-1. Create a class that extends `LayoutHandler` (from `src/handlers/handler.js`).
+1. Create a class that extends `LayoutHandler` from `fragmentainers/handlers`.
 2. Override `matchRule()` to inspect CSS rules and accumulate selectors or state.
 3. Override `claim()`, `layout()`, and/or `beforeChildren()` as needed.
 4. Use `node.getCustomProperty("my-prop")` to read CSS custom properties (the `--` prefix is added automatically). This uses the cached `getComputedStyle` on `DOMLayoutNode`, so repeated reads are free.
@@ -213,6 +237,7 @@ Handlers in the default catalog (`Fragmenter.handlers`, in order):
 | `StyleResolver`          | Per-element overrides for structural-pseudo rules                         |     —      |
 | `EmulatePrintPixelRatio` | Line-height normalization so screen rendering matches DPR-1 layout        |    yes     |
 | `BodyRewriter`           | Rewrites `body`/`html` rules to `:scope` and `:host(content-measure) > slot` |    yes     |
+| `PseudoElements`         | Materializes `::before` / `::after` as layout objects                       |     —      |
 
 Shipped but not in the default catalog (push them yourself):
 

@@ -49,7 +49,7 @@ export class BlockContainerAlgorithm {
 
 **Key conventions:**
 
-- **Constructor**: `(node, constraintSpace, breakToken)` for all algorithms; `BlockContainerAlgorithm` also accepts an optional `earlyBreakTarget` as a fourth argument
+- **Constructor**: `(node, constraintSpace, breakToken, earlyBreakTarget?)` for container algorithms. `InlineContentAlgorithm` uses the first three arguments because it never delegates to child algorithms.
 - **Generator method**: `*layout()` — no arguments; reads inputs from instance fields
 - **Yield**: `yield new LayoutRequest(childNode, childConstraintSpace, childBreakToken)` to request child layout
 - **Return**: `{ fragment, breakToken }` where `breakToken` is `null` if all content fit
@@ -85,6 +85,9 @@ Padding and border are handled differently based on `box-decoration-break`:
 - **`slice`** (default): Top padding/border on first fragment only, bottom on last fragment only
 - **`clone`**: Top and bottom padding/border on every fragment (repeated decorations)
 
+Repeated `clone` insets wrap each fragment but do not count toward
+`consumedBlockSize`, which tracks progress through the box's own block-size.
+
 ```javascript
 const isClone = node.boxDecorationBreak === BOX_DECORATION_CLONE;
 let blockOffset = breakToken && !isClone ? 0 : containerBoxStart;
@@ -95,7 +98,13 @@ let blockOffset = breakToken && !isClone ? 0 : containerBoxStart;
 When `children.length === 0`, the algorithm uses the node's intrinsic `blockSize`:
 
 - **Monolithic leaf** (replaced element, scrollable): In page mode, slices at fragmentainer boundary when element exceeds the full page. Otherwise placed whole.
-- **Non-monolithic leaf** (e.g., empty div with explicit height): Fragments across fragmentainers, splitting remaining height.
+- **Non-monolithic leaf** (e.g., empty div with explicit height): Applies its specified block-size clamped by `min-height` / `max-height`, then fragments the remaining extent across fragmentainers.
+
+Containers apply the same block-size limits after laying out their children.
+Content beyond a fixed-size box continues as a parallel overflow flow: later
+fragments retain the box shell but add no further box extent. A child that cannot
+fit even at the fragmentainer's content start is laid out there and allowed to
+overflow, preventing an endless sequence of break-before tokens.
 
 ### Break Scoring (Two-Pass)
 
@@ -199,7 +208,7 @@ The CSS `hyphenate-limit-*` properties are honored by the browser's own line-bre
 
 **File:** `src/algorithms/table-row.js`
 **Dispatch:** `node.isTableRow === true`
-**Class:** `TableRowAlgorithm` — `new TableRowAlgorithm(node, constraintSpace, breakToken)` → `*layout()`
+**Class:** `TableRowAlgorithm` — `new TableRowAlgorithm(node, constraintSpace, breakToken, earlyBreakTarget?)` → `*layout()`
 
 Implements the **parallel flow** pattern. Each cell is laid out independently, and the tallest cell drives the row height.
 
@@ -220,7 +229,9 @@ if (anyChildBroke) {
 }
 ```
 
-Completed cells get `isAtBlockEnd: true` so they produce zero-height empty fragments on resumption. This is essential — without it, the break token tree would be inconsistent and resumption would fail.
+Completed cells get `isAtBlockEnd: true`. On resumption their zero-extent box
+shell remains in the row so its track does not collapse; any unfinished
+descendants are composed inside that shell as overflow.
 
 ### Algorithm Data
 
@@ -232,7 +243,7 @@ The row's break token carries `algorithmData: { type: ALGORITHM_TABLE_ROW }` to 
 
 **File:** `src/algorithms/multicol-container.js`
 **Dispatch:** `node.isMulticolContainer === true` (checked first in dispatch chain)
-**Class:** `MulticolAlgorithm` — `new MulticolAlgorithm(node, constraintSpace, breakToken)` → `*layout()`
+**Class:** `MulticolAlgorithm` — `new MulticolAlgorithm(node, constraintSpace, breakToken, earlyBreakTarget?)` → `*layout()`
 
 Implements CSS Multi-column Layout fragmentation.
 
@@ -265,11 +276,17 @@ do {
 } while (contentToken !== null);
 ```
 
-The loop stops when content runs out (`contentToken === null`) or column count is reached (for `column-fill: auto`).
+The loop stops when content runs out (`contentToken === null`) or the resolved
+column count is reached, in both fill modes. Remaining content continues in the
+next outer fragmentainer. Height balancing for `column-fill: balance` is not yet
+modeled.
 
 ### Multicol Data
 
-The fragment carries `multicolData: { columnWidth, columnGap, columnCount }` so the compositor knows how to render columns. The break token carries `algorithmData.type: ALGORITHM_MULTICOL` with the resolved dimensions.
+The fragment carries
+`multicolData: { columnWidth, columnGap, columnCount, columnHeight }` so the
+compositor knows how to render columns. The break token carries
+`algorithmData.type: ALGORITHM_MULTICOL` with the resolved count, width, and gap.
 
 ---
 
@@ -277,7 +294,7 @@ The fragment carries `multicolData: { columnWidth, columnGap, columnCount }` so 
 
 **File:** `src/algorithms/flex-container.js`
 **Dispatch:** `node.isFlexContainer === true`
-**Class:** `FlexAlgorithm` — `new FlexAlgorithm(node, constraintSpace, breakToken)` → `*layout()`
+**Class:** `FlexAlgorithm` — `new FlexAlgorithm(node, constraintSpace, breakToken, earlyBreakTarget?)` → `*layout()`
 
 Handles both row and column flex directions differently.
 
@@ -289,7 +306,10 @@ Items within a flex line are laid out as parallel flows — the same pattern as 
 2. For each flex line, the `layoutFlexLine` helper method follows the table-row parallel flow pattern
 3. Stack flex lines in the block direction with Class A breaks between lines
 
-The break token carries `algorithmData: { type: ALGORITHM_FLEX, flexLineIndex }` to resume at the correct flex line.
+The container break token carries
+`algorithmData: { type: ALGORITHM_FLEX, flexLineIndex }` to resume at the
+correct line. When items in that line continue, their tokens are nested under a
+single line wrapper tagged `ALGORITHM_FLEX_LINE`.
 
 ### Column Direction (Flow Thread)
 
@@ -314,7 +334,7 @@ const result = yield new LayoutRequest(flowThread, this.#constraintSpace, conten
 
 **File:** `src/algorithms/grid-container.js`
 **Dispatch:** `node.isGridContainer === true`
-**Class:** `GridAlgorithm` — `new GridAlgorithm(node, constraintSpace, breakToken)` → `*layout()`
+**Class:** `GridAlgorithm` — `new GridAlgorithm(node, constraintSpace, breakToken, earlyBreakTarget?)` → `*layout()`
 
 Grid items sharing the same row are parallel flows. Rows are stacked in the block direction.
 
@@ -330,7 +350,11 @@ Items are grouped by their `gridRowStart` property via `groupGridRows()`. Items 
 
 ### Algorithm Data
 
-The break token carries `algorithmData: { type: ALGORITHM_GRID, rowIndex }` to resume at the correct grid row.
+The container break token carries `algorithmData: { type: ALGORITHM_GRID,
+rowIndex }` to resume at the correct row. Tokens for items in the active row are
+nested under one anonymous row wrapper. If every continuing item in the last row
+is already past its own block-end, the grid token is also marked
+`isAtBlockEnd`.
 
 ---
 

@@ -5,13 +5,13 @@ This document maps the fragmentainer engine's data structures, algorithms, and m
 ## Table of Contents
 
 1. [BreakToken / BlockBreakToken / InlineBreakToken](#1-break-tokens)
-2. [Fragment](#2-physicalfragment)
+2. [Fragment](#2-fragment)
 3. [ConstraintSpace](#3-constraintspace)
 4. [EarlyBreak / BreakScore](#4-earlybreak--breakscore)
 5. [LayoutRequest](#5-layoutrequest)
 6. [LayoutNode / DOMLayoutNode](#6-layoutnode--domlayoutnode)
 7. [InlineItemsData / InlineItem](#7-inlineitemsdata--inlineitem)
-8. [PageRule / PageConstraints / PageResolver](#8-pagerule--pageconstraints--pagesizeresolver)
+8. [PageRule / PageConstraints / PageResolver](#8-pagerule--pageconstraints--pageresolver)
 9. [Algorithm Data](#9-algorithm-data)
 10. [Fragmenter / FragmentationContext](#10-fragmenter--fragmentationcontext)
 11. [Architecture Diagram](#architecture-diagram)
@@ -36,6 +36,7 @@ Break tokens are continuation tokens that capture enough state to resume layout 
 | `isRepeated`                | `boolean`               | Repeated content (e.g. table `thead`/`tfoot` across pages)                               |
 | `isAtBlockEnd`              | `boolean`               | Node finished but a sibling in a parallel flow broke                                     |
 | `hasSeenAllChildren`        | `boolean`               | All children laid out (early exit signal)                                                |
+| `wasSuppressed`             | `boolean`               | The fragment's empty shell was omitted, so its start decorations have not rendered       |
 | `isCausedByColumnSpanner`   | `boolean`               | Break caused by a column-spanning element                                                |
 | `hasUnpositionedListMarker` | `boolean`               | Orphaned list marker needing placement                                                   |
 
@@ -47,6 +48,11 @@ Break tokens are continuation tokens that capture enough state to resume layout 
 | `sequenceNumber`    | `number`            | Fragment index (0, 1, 2, ...)                                |
 | `childBreakTokens`  | `BlockBreakToken[]` | Sparse tree of child tokens                                  |
 | `algorithmData`     | `object \| null`    | Algorithm-specific state (see [§9](#9-algorithm-data))       |
+
+`continuesInFlow` is true while the box's own extent continues.
+`continuesAsOverflow` identifies a block token whose box is at its block-end but
+whose descendants still continue, and `isComplete` identifies a block token
+whose box and subtree completed while a sibling parallel flow continued.
 
 **Static factories:**
 
@@ -84,7 +90,7 @@ Gecko does not use explicit break tokens. Instead it uses **continuation frames*
 
 Source: [`layout/generic/nsIFrame.h`](https://searchfox.org/mozilla-central/source/layout/generic/nsIFrame.h), [`layout/generic/nsContainerFrame.h`](https://searchfox.org/mozilla-central/source/layout/generic/nsContainerFrame.h)
 
-> **Key difference:** Blink's LayoutNG and this engine use an immutable token that captures resumption state. Gecko mutates the frame tree itself — creating a new frame object as the continuation, with consumed block size implicitly tracked by the frame's position in the flow.
+> **Key difference:** Blink's LayoutNG and this engine use explicit tokens that capture resumption state. Gecko mutates the frame tree itself — creating a new frame object as the continuation, with consumed block size implicitly tracked by the frame's position in the flow.
 
 ### WebKit Equivalent
 
@@ -118,7 +124,7 @@ Source: [`Source/WebCore/rendering/RenderBlockFlow.cpp`](https://github.com/WebK
 
 **Source:** `src/fragmentation/fragment.js`
 
-The immutable output of a layout algorithm. Represents one positioned portion of a CSS box within exactly one fragmentainer.
+The output of a layout algorithm. Represents one positioned portion of a CSS box within exactly one fragmentainer.
 
 | Property         | Type                      | Description                                                                                 |
 | ---------------- | ------------------------- | ------------------------------------------------------------------------------------------- |
@@ -127,11 +133,15 @@ The immutable output of a layout algorithm. Represents one positioned portion of
 | `inlineSize`     | `number`                  | Inline-axis size                                                                            |
 | `childFragments` | `Fragment[]`      | Nested child fragments                                                                      |
 | `breakToken`     | `BreakToken \| null`      | Continuation token for next fragmentainer                                                   |
-| `constraints`    | `PageConstraints \| null` | Fragmentainer constraint info                                                               |
-| `multicolData`   | `object \| null`          | `{ columnWidth, columnGap, columnCount }` for multicol containers                           |
+| `constraints`    | `PageConstraints \| RegionConstraints \| { contentArea } \| null` | Fragmentainer constraint info                                      |
+| `multicolData`   | `object \| null`          | `{ columnWidth, columnGap, columnCount, columnHeight }` for multicol containers             |
 | `isRepeated`     | `boolean`                 | Fragment is repeated content (e.g. table thead across pages)                                |
 | `isBlank`        | `boolean`                 | Fragment is a blank page inserted for side-specific breaks (`left`/`right`/`recto`/`verso`) |
 | `counterState`   | `object \| null`          | CSS counter state snapshot at end of fragment                                               |
+| `isFirst` / `isLast` | `boolean`              | Whether this is the first or last fragment of the flow                                      |
+| `blockOffset`    | `number`                   | Block offset assigned during fragmentainer composition                                      |
+| `needsBlockClip` | `boolean`                  | Whether composition must clip this fragment at its block boundary                           |
+| `hasFixedBlockSize` | `boolean`               | Whether fragments are slices of a specified block-size                                      |
 
 ### Blink Equivalent
 
@@ -140,13 +150,13 @@ The immutable output of a layout algorithm. Represents one positioned portion of
 
 ### Gecko Equivalent
 
-Gecko does not produce an immutable fragment tree. The **`nsIFrame`** itself is both the layout input and output — after `Reflow()`, the frame's rect (`GetRect()`) holds its positioned size. Each continuation frame effectively _is_ the fragment for its fragmentainer.
+Gecko does not produce a separate fragment tree. The **`nsIFrame`** itself is both the layout input and output — after `Reflow()`, the frame's rect (`GetRect()`) holds its positioned size. Each continuation frame effectively _is_ the fragment for its fragmentainer.
 
 - **`nsIFrame`** — [`layout/generic/nsIFrame.h`](https://searchfox.org/mozilla-central/source/layout/generic/nsIFrame.h) — base frame class; `GetRect()` returns position + size after reflow
 - **`nsBlockFrame`** — [`layout/generic/nsBlockFrame.h`](https://searchfox.org/mozilla-central/source/layout/generic/nsBlockFrame.h) — block-level frame with line list
 - **`ReflowOutput`** (formerly `nsHTMLReflowMetrics`) — [`layout/generic/ReflowOutput.h`](https://searchfox.org/mozilla-central/source/layout/generic/ReflowOutput.h) — output struct filled during `Reflow()` with the frame's desired size
 
-> **Key difference:** Blink/this engine separate layout output (immutable fragment) from the layout input (node/box). Gecko merges them — the frame is mutated in place.
+> **Key difference:** Blink and this engine separate layout output from the layout input (node/box). Gecko merges them — the frame is mutated in place.
 
 ### WebKit Equivalent
 
@@ -166,7 +176,7 @@ Like Gecko, WebKit does not have a separate fragment tree. The **`RenderBox`** i
 
 | Engine          | Fragment model                                                   | Mutability |
 | --------------- | ---------------------------------------------------------------- | ---------- |
-| **This engine** | `Fragment` tree (separate from input)                    | Immutable  |
+| **This engine** | `Fragment` tree (separate from input)                    | Mutable during layout/composition |
 | **Blink**       | `PhysicalBoxFragment` tree                                       | Immutable  |
 | **Gecko**       | `nsIFrame` continuation chain (frame _is_ the fragment)          | Mutable    |
 | **WebKit**      | `RenderBox` continuation chain (render object _is_ the fragment) | Mutable    |
@@ -187,6 +197,12 @@ Carries fragmentainer dimensions and fragmentation context to layout algorithms.
 | `blockOffsetInFragmentainer` | `number`                           | Current vertical position within fragmentainer    |
 | `fragmentationType`          | `"none"` \| `"page"` \| `"column"` | Active fragmentation mode                         |
 | `isNewFormattingContext`     | `boolean`                          | Whether this establishes a new formatting context |
+| `reservedBlockStart`         | `number`                           | Block-start space reserved by handlers             |
+| `reservedBlockEnd`           | `number`                           | Block-end space reserved by handlers               |
+| `bodyMarginBlockStart`       | `number`                           | First-page body margin participating in collapsing |
+| `fragmentainerContentStart`  | `number`                           | Earliest useful content offset in the fragmentainer |
+| `cssInlineSize`              | `string \| null`                  | Original CSS inline-size for native unit conversion |
+| `cssBlockSize`               | `string \| null`                  | Original CSS block-size for native unit conversion  |
 
 ### Blink Equivalent
 
@@ -217,7 +233,7 @@ Carries fragmentainer dimensions and fragmentation context to layout algorithms.
 
 | Engine          | Constraint delivery                         | Structure                                           |
 | --------------- | ------------------------------------------- | --------------------------------------------------- |
-| **This engine** | `ConstraintSpace` object per layout call    | Minimal (6 fields)                                  |
+| **This engine** | `ConstraintSpace` object per layout call    | Fragmentation geometry and reserved-space fields    |
 | **Blink**       | `ConstraintSpace` object per layout call    | Large (writing mode, exclusions, BFC offsets, etc.) |
 | **Gecko**       | `ReflowInput` constructed by parent         | Heavy (resolved metrics, computed offsets)          |
 | **WebKit**      | `LayoutState` stack + render object methods | Distributed across multiple objects                 |
@@ -305,6 +321,7 @@ Yielded from layout algorithm generators to the driver. Represents a request to 
 | `node`            | `LayoutNode`         | Child node to lay out            |
 | `constraintSpace` | `ConstraintSpace`    | Constraint space for the child   |
 | `breakToken`      | `BreakToken \| null` | Continuation token (if resuming) |
+| `earlyBreakTarget` | `EarlyBreak \| null` | Optional second-pass break target to forward |
 
 **Driver functions** (in `src/layout/layout-driver.js`):
 
@@ -508,9 +525,10 @@ Implements `@page` rule parsing, matching, cascading, and per-page constraint re
 | Property          | Type                         | Description                                                    |
 | ----------------- | ---------------------------- | -------------------------------------------------------------- |
 | `name`            | `string \| null`             | Named page type (`"chapter"`, `"cover"`) or null for universal |
-| `pseudoClasses`   | `string[]`                   | Subset of `:first`, `:left`, `:right`, `:blank`                |
-| `size`            | `string \| number[] \| null` | `"a4"`, `"letter landscape"`, `[width, height]`                |
-| `margin`          | `object \| null`             | `{ top, right, bottom, left }` in CSS px                       |
+| `pseudo`          | `string[]`                   | Subset of `:first`, `:left`, `:right`, `:blank`                |
+| `nth`             | `{ a, b } \| null`           | Parsed coefficients for `:nth(An+B)`                           |
+| `size`            | `string \| null`             | Raw CSS size value such as `"a4"` or `"letter landscape"`     |
+| `margin`          | `object \| null`             | Raw CSS lengths for `{ top, right, bottom, left }`             |
 | `pageOrientation` | `string \| null`             | `"rotate-left"`, `"rotate-right"`                              |
 
 ### PageConstraints
@@ -526,6 +544,7 @@ Implements `@page` rule parsing, matching, cascading, and per-page constraint re
 | `isVerso`     | `boolean`                      | Matches `:left` pseudo-class (verso page)                           |
 | `isRecto`     | `boolean`                      | Matches `:right` pseudo-class (recto page)                          |
 | `isBlank`     | `boolean`                      | Matches `:blank` pseudo-class (blank page from side-specific break) |
+| `matchedRules` | `PageRule[]`                  | Rules that matched this page, in document order                     |
 
 **Methods:**
 
@@ -599,6 +618,11 @@ Algorithm-specific state attached to break tokens for resuming container-specifi
 
 **Source:** `src/algorithms/flex-container.js`
 
+An active row-direction line nests its per-item tokens under a wrapper whose
+algorithm data is `{ type: ALGORITHM_FLEX_LINE }`. This keeps tokens from
+different anonymous lines distinct even though they share the flex container's
+layout node.
+
 ### Grid Data (`ALGORITHM_GRID`)
 
 | Property   | Type         | Description                       |
@@ -615,6 +639,10 @@ Algorithm-specific state attached to break tokens for resuming container-specifi
 | `type`   | `"TableRowData"` | Discriminator |
 
 Token's `childBreakTokens` carries per-cell tokens. All cells get tokens if any cell breaks (parallel flow rule).
+
+Grid uses the same anonymous-wrapper pattern for an active row. Completed table
+cells, flex items, and grid items receive `isAtBlockEnd` tokens so their box
+shells remain present while sibling flows continue.
 
 **Source:** `src/algorithms/table-row.js`
 
@@ -662,29 +690,46 @@ The spec term "fragmented flow" names the *content* being laid out, not the mach
 
 | Method                          | Description                                                                                                                                              |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `constructor(content, options)` | Accepts `DocumentFragment`, `Element`, or mock node. Options: `{ styles, resolver, constraintSpace, width, height, type, trackRefs }`                    |
+| `constructor(content, options)` | Accepts `DocumentFragment`, `Element`, or mock node. Options: `{ styles, resolver, constraintSpace, width, height, devicePixelRatio, emulatePrintPixelRatio, continuation, styleSheet }` |
 | `next()`                        | Lay out the next fragmentainer, returns its composed `<fragment-container>` `Element`. Automatically inserts blank pages for side-specific breaks (`left`/`right`/`recto`/`verso`). |
-| `flow()`                        | Runs fragmentation to completion, returns `FragmentationContext`                                                                                         |
+| `flow({ start, stop }?)`        | Runs fragmentation synchronously to completion and returns a `FragmentationContext`, optionally composing a range                                        |
 | `continuation`                  | Getter: the `{ fragmentainerIndex, blockOffset }` resume point for a flow picking up where this one stopped                                              |
 | `layout(forceUpdate?)`          | Initialize layout tree and internal `<content-measure>` (called lazily by `next()`)                                                                      |
-| `destroy()`                     | Remove the internal `<content-measure>` element                                                                                                          |
-| `reflow(fromIndex?, options?)`  | Reset stepper to re-layout from a specific fragmentainer, returns new `FragmentationContext`                                                             |
+| `preload(options?)`             | Asynchronously preload fonts and images; optional before synchronous layout                                                                              |
+| `preloadFonts(options?)` / `preloadImages(options?)` | Preload either resource class                                                                                                              |
+| `return(value?)`                | End iteration early and release measurement resources                                                                                                   |
+| `releaseMeasurer()`             | Release the active measurer while retaining the layout tree and composed state                                                                           |
+| `contentRoot`                   | Current measurement content root, or the preserved detached source content after release                                                                  |
+| `destroy()`                     | Release measurement, styles, handlers, and flow-owned resources                                                                                          |
+| `reflow(fromIndex?, { rebuild }?)` | Synchronously re-layout a suffix. `rebuild: true` rebuilds nodes and tokens from source content                                                       |
 
-Delegates measurement to a `Measurer` instance, which creates `<content-measure>` elements and handles sequential segmentation when forced breaks exist. Builds the layout tree, auto-creates a `PageResolver` from `@page` rules in styles when no resolver is provided, and runs the fragmentainer loop with two-pass `EarlyBreak` support. When a forced break has a side-specific value (`left`/`right`/`recto`/`verso`), `next()` inserts blank pages to land content on the correct page side.
+Delegates measurement to a `Measurer`, builds the layout tree, auto-creates a
+`PageResolver` from `@page` rules when no resolver is provided, and runs the
+fragmentainer loop with two-pass `EarlyBreak` support. Measurement is released
+automatically when iteration completes. A side-specific forced break
+(`left`/`right`/`recto`/`verso`) inserts blank pages as needed.
 
 ### Measurer
 
 **Source:** `src/measurement/measure.js`
 
-Owns the `<content-measure>` element lifecycle. A flow over an already-built layout tree has nothing to measure and drives a `NullMeasurer` (`src/measurement/null-measurer.js`) instead — same shape, every hook inert. On setup, resolves `break-before`, `break-after`, and `page` CSS properties from stylesheet rules for each top-level child element. When forced breaks split content into multiple segments, each segment gets its own `<content-measure>` — the browser only computes layout for one segment at a time. Previous segments' measurers are destroyed as the engine advances. For documents without forced breaks, a single `<content-measure>` is used (identical to previous behavior).
+Owns one `<content-measure>` element. On setup it resolves top-level
+`break-before`, `break-after`, `page`, and effective display values, then divides
+content into segments at forced breaks and named-page changes. `arrange()` moves
+only the active segment, persistent nodes, and unfinished earlier flows into the
+live measurement slot. A released measurer can be reattached for non-rebuilding
+reflow; an already-built mock layout tree uses `NullMeasurer`.
 
 | Method                      | Returns                    | Description                                                             |
 | --------------------------- | -------------------------- | ----------------------------------------------------------------------- |
-| `setup(constraintSpace?)`   | `Element`                  | Create measurement container(s), returns content root for tree building |
-| `advance(breakToken, tree)` | `boolean`                  | Swap to next segment if at a boundary; true when it swapped             |
+| `setup(constraintSpace?)`   | `Element`                  | Create the measurement container and return its content root            |
+| `arrange(breakToken, tree)` | `boolean`                  | Populate the break token's segment; true when the arrangement changed   |
 | `release()`                 | `{ content }`              | Destroy measurer, return all content as a DocumentFragment in order     |
 | `applyConstraintSpace(cs)`  | `void`                     | Sync the measurement container's inline size                            |
 | `getContentStyles()`        | `object`                   | Adopted stylesheets and nth-selector descriptors for rendering          |
+| `reattach()`                | `Element \| null`          | Restore a released measurement element for reflow                        |
+| `contentRoot`               | `Element \| null`          | Current live measurement root                                             |
+| `isSegmented` / `isActive`  | `boolean`                  | Segmentation and attachment state                                         |
 
 ### FragmentationContext
 
@@ -695,7 +740,10 @@ Owns the `<content-measure>` element lifecycle. A flow over an already-built lay
 | `fragments`                    | `Fragment[]`   | All fragmentainer fragments                                                                                                   |
 | `fragmentainerCount`           | `number`               | Number of fragmentainers                                                                                                      |
 | `createFragmentainer(index)`   | `Element`              | Composes one `<fragment-container>`. Blank pages get `data-blank-page` attribute. Sets `namedPage` property from constraints. |
-| `reflow(fromIndex?, options?)` | `FragmentationContext` | Re-layout from a specific fragmentainer, returns a new `FragmentationContext`                                                 |
+
+The constructor accepts `{ start, stop, previous }` as its third argument.
+`previous` supplies the fragment before a reflowed suffix so its first composed
+fragmentainer inherits counters and split-box continuation state.
 
 ### Blink Equivalent
 
