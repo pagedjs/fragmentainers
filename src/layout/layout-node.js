@@ -434,6 +434,9 @@ export class DOMLayoutNode extends LayoutNode {
 	get counterIncrement() {
 		return cssKeyword(this.#getStyleMap().get("counter-increment"), "none");
 	}
+	get counterSet() {
+		return cssKeyword(this.#getStyleMap().get("counter-set"), "none");
+	}
 
 	// Compositor-accessed styles (snapshot values so they survive detachment)
 

@@ -5,7 +5,13 @@ export { EarlyBreak, BreakScore } from "./break-scoring.js";
 export { Fragmenter } from "./fragmenter.js";
 export { createFragments } from "./create-fragments.js";
 export { FragmentationContext } from "./fragmentation-context.js";
-export { CounterState, parseCounterDirective, walkFragmentTree } from "./counter-state.js";
+export {
+	CounterState,
+	counterValue,
+	counterValues,
+	parseCounterDirective,
+	walkFragmentTree,
+} from "./counter-state.js";
 export { FragmentFlow } from "./fragment-flow.js";
 export { FlowContext } from "./flow-context.js";
 export { CloneMap } from "./clone-map.js";

@@ -1,6 +1,30 @@
 import { test, expect } from "../browser-fixture.js";
 
 test.describe("DOMLayoutNode", () => {
+	test("snapshots all three counter directives", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+			const element = document.createElement("div");
+			element.style.counterReset = "chapter 2";
+			element.style.counterSet = "chapter 5";
+			element.style.counterIncrement = "chapter 3";
+			document.body.appendChild(element);
+			const node = new DOMLayoutNode(element);
+			const directives = {
+				reset: node.counterReset,
+				set: node.counterSet,
+				increment: node.counterIncrement,
+			};
+			element.remove();
+			return directives;
+		});
+		expect(result).toEqual({
+			reset: "chapter 2",
+			set: "chapter 5",
+			increment: "chapter 3",
+		});
+	});
+
 	test.describe("debugName", () => {
 		test("formats tag#id.class1.class2", async ({ page }) => {
 			const result = await page.evaluate(async () => {

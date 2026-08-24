@@ -254,4 +254,7 @@ export class LayoutNode {
 	get counterIncrement() {
 		return "none";
 	}
+	get counterSet() {
+		return "none";
+	}
 }

@@ -92,37 +92,109 @@ test.describe("Fragmenter.reflow()", () => {
 		}
 	});
 
-	test("reflow() restores counter state from preceding fragment", async ({ page }) => {
+	test("tracks nested same-name counter scopes across fragmentainers", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
+			const { Fragmenter, counterValues } = await import("/src/fragmentation/index.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
 			template.innerHTML = `<div style="margin:0;padding:0">
-        <div style="counter-reset:paragraph 0;margin:0;padding:0">
-          <div style="height:200px;counter-increment:paragraph 1;margin:0;padding:0"></div>
-          <div style="height:200px;counter-increment:paragraph 1;margin:0;padding:0"></div>
-          <div style="height:200px;counter-increment:paragraph 1;margin:0;padding:0"></div>
-        </div>
-      </div>`;
+	        <div style="counter-reset:chapter 0;margin:0;padding:0">
+	          <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>
+	          <section style="margin:0;padding:0">
+	            <div style="counter-reset:chapter 10;margin:0;padding:0">
+	              <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>
+	              <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>
+	            </div>
+	          </section>
+	          <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>
+	        </div>
+	      </div>`;
 
-			const layout = new Fragmenter(template.content, { width: 600, height: 300 });
-			const fragments = layout.flow().fragments;
-
-			const countersBefore = fragments[0].counterState;
-			const reflowed = layout.reflow(1);
-
-			let reflowedHasCounterState = false;
-			if (countersBefore) {
-				reflowedHasCounterState = reflowed.fragments[0].counterState !== undefined;
-			}
+			const layout = new Fragmenter(template.content, { width: 600, height: 100 });
+			const context = layout.flow();
+			const values = context.fragments.map((fragment) =>
+				counterValues(fragment.counterState, "chapter"),
+			);
 			layout.destroy();
-			return { hadCountersBefore: !!countersBefore, reflowedHasCounterState };
+			return values;
 		});
 
-		if (result.hadCountersBefore) {
-			expect(result.reflowedHasCounterState).toBe(true);
+		expect(result).toEqual([[1], [1, 11], [1], []]);
+	});
+
+	test("reflow restores exact scoped counter snapshots at every restart index", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { Fragmenter, counterValues } = await import("/src/fragmentation/index.js");
+			await import("/src/components/fragment-container.js");
+
+			const template = document.createElement("template");
+			template.innerHTML = `<div style="margin:0;padding:0">
+	        <div style="counter-reset:chapter 0;margin:0;padding:0">
+	          <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>
+	          <section style="margin:0;padding:0">
+	            <div style="counter-reset:chapter 10;margin:0;padding:0">
+	              <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>
+	              <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>
+	            </div>
+	          </section>
+	          <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>
+	        </div>
+	      </div>`;
+
+			const layout = new Fragmenter(template.content, { width: 600, height: 100 });
+			const read = (context) =>
+				context.fragments.map((fragment) => counterValues(fragment.counterState, "chapter"));
+			const initial = layout.flow();
+			const expected = read(initial);
+			const restarts = [];
+			for (let index = 0; index < initial.fragments.length; index++) {
+				restarts.push(read(layout.reflow(index)));
+			}
+			layout.destroy();
+			return { expected, restarts };
+		});
+
+		expect(result.expected).toEqual([[1], [1, 11], [1], []]);
+		for (let index = 0; index < result.expected.length; index++) {
+			expect(result.restarts[index]).toEqual(result.expected.slice(index));
 		}
+	});
+
+	test("reflow restores top-level counter snapshots after the measurer reattaches", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { Fragmenter, counterValues } = await import("/src/fragmentation/index.js");
+			await import("/src/components/fragment-container.js");
+
+			const template = document.createElement("template");
+			template.innerHTML = `
+	      <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>
+	      <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>
+	      <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>
+	      <div style="height:100px;counter-increment:chapter 1;margin:0;padding:0"></div>`;
+
+			const layout = new Fragmenter(template.content, { width: 600, height: 100 });
+			const read = (context) =>
+				context.fragments.map((fragment) => counterValues(fragment.counterState, "chapter"));
+			const initial = layout.flow();
+			const expected = read(initial);
+			const restarts = [];
+			for (let index = 0; index < initial.fragments.length; index++) {
+				restarts.push(read(layout.reflow(index)));
+			}
+			layout.destroy();
+			return { expected, restarts };
+		});
+
+		expect(result.expected).toEqual([[1], [2], [3], [4]]);
+		expect(result.restarts[0]).toEqual(result.expected);
+		expect(result.restarts[1]).toEqual([[2], [3], [4]]);
+		expect(result.restarts[2]).toEqual([[3], [4]]);
+		expect(result.restarts[3]).toEqual([[4]]);
 	});
 
 	test("reflow(0) on single-fragment content produces identical result", async ({ page }) => {

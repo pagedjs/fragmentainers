@@ -76,6 +76,26 @@ test.describe("parseCounterDirective", () => {
 		expect(result).toEqual([]);
 	});
 
+	test("filters engine-owned custom-property counter names", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
+			return parseCounterDirective("--paged-tc-1 4 chapter 2 --private 8");
+		});
+		expect(result).toEqual([{ name: "chapter", value: 2 }]);
+	});
+
+	test("uses the caller's default for omitted integers", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
+			return {
+				reset: parseCounterDirective("chapter"),
+				increment: parseCounterDirective("chapter", 1),
+			};
+		});
+		expect(result.reset).toEqual([{ name: "chapter", value: 0 }]);
+		expect(result.increment).toEqual([{ name: "chapter", value: 1 }]);
+	});
+
 	test("parses negative values", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { parseCounterDirective } = await import("/src/fragmentation/counter-state.js");
@@ -220,6 +240,102 @@ test.describe("CounterState", () => {
 		});
 		expect(result).toEqual({ p: 4 });
 	});
+
+	test("counter-set updates the innermost counter and creates a missing counter", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
+			const state = new CounterState();
+			const outer = {};
+			const inner = {};
+			state.applyReset([{ name: "chapter", value: 1 }], outer);
+			state.applyReset([{ name: "chapter", value: 10 }], inner);
+			state.applySet([{ name: "chapter", value: 12 }], inner);
+			state.applySet([{ name: "figure", value: 4 }], inner);
+			return {
+				chapter: state.value("chapter"),
+				chapters: state.values("chapter"),
+				figure: state.value("figure"),
+			};
+		});
+		expect(result).toEqual({ chapter: 12, chapters: [1, 12], figure: 4 });
+	});
+
+	test("same-scope resets replace while descendant resets nest", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
+			const state = new CounterState();
+			const documentScope = {};
+			const sectionScope = {};
+			state.applyReset([{ name: "chapter", value: 1 }], documentScope);
+			state.applyReset([{ name: "chapter", value: 2 }], documentScope);
+			const afterSibling = state.values("chapter");
+			state.applyReset([{ name: "chapter", value: 10 }], sectionScope);
+			const nested = state.values("chapter");
+			state.closeScope(sectionScope);
+			return {
+				afterSibling,
+				nested,
+				afterClose: state.values("chapter"),
+			};
+		});
+		expect(result.afterSibling).toEqual([2]);
+		expect(result.nested).toEqual([2, 10]);
+		expect(result.afterClose).toEqual([2]);
+	});
+
+	test("snapshot preserves scoped stacks and restores them independently", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { CounterState, counterValue, counterValues } = await import(
+				"/src/fragmentation/counter-state.js"
+			);
+			const outer = {};
+			const inner = {};
+			const state = new CounterState();
+			state.applyReset([{ name: "chapter", value: 2 }], outer);
+			state.applyReset([{ name: "chapter", value: 7 }], inner);
+			const snapshot = state.snapshot();
+			const restored = new CounterState();
+			restored.restore(snapshot);
+			restored.applyIncrement([{ name: "chapter", value: 1 }]);
+			const restoredValues = restored.values("chapter");
+			restored.closeScope(inner);
+			return {
+				isFrozen: Object.isFrozen(snapshot),
+				valuesFrozen: Object.isFrozen(counterValues(snapshot, "chapter")),
+				scalarProjection: snapshot.chapter,
+				snapshotValue: counterValue(snapshot, "chapter"),
+				snapshotValues: counterValues(snapshot, "chapter"),
+				restoredValues,
+				afterClose: restored.values("chapter"),
+			};
+		});
+		expect(result).toEqual({
+			isFrozen: true,
+			valuesFrozen: true,
+			scalarProjection: 7,
+			snapshotValue: 7,
+			snapshotValues: [2, 7],
+			restoredValues: [2, 8],
+			afterClose: [2],
+		});
+	});
+
+	test("direct operations also ignore excluded names", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
+			const state = new CounterState();
+			state.applyReset([
+				{ name: "list-item", value: 2 },
+				{ name: "--paged-tc-1", value: 3 },
+			]);
+			state.applyIncrement([{ name: "--paged-tc-2", value: 1 }]);
+			state.applySet([{ name: "--paged-tc-3", value: 4 }]);
+			return { empty: state.isEmpty(), snapshot: state.snapshot() };
+		});
+		expect(result).toEqual({ empty: true, snapshot: {} });
+	});
 });
 
 test.describe("walkFragmentTree", () => {
@@ -264,7 +380,7 @@ test.describe("walkFragmentTree", () => {
 			const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
 
 			const sectionBT = new BlockBreakToken(section);
-			const tree = frag(section, [frag(p1)]);
+			const tree = frag(section, [frag(p1)], sectionBT);
 			const state = new CounterState();
 			walkFragmentTree(tree, sectionBT, state);
 			return state.snapshot();
@@ -304,6 +420,7 @@ test.describe("walkFragmentTree", () => {
 		const result = await page.evaluate(async () => {
 			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			function frag(node, children = [], bt = null) {
@@ -316,7 +433,7 @@ test.describe("walkFragmentTree", () => {
 			const lineFragment = new Fragment(null, 20);
 			const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
 
-			const tree = frag(root, [lineFragment, frag(p1)]);
+			const tree = frag(root, [lineFragment, frag(p1)], new BlockBreakToken(root));
 			const state = new CounterState();
 			walkFragmentTree(tree, null, state);
 			return state.snapshot();
@@ -358,5 +475,152 @@ test.describe("walkFragmentTree", () => {
 		});
 		expect(result.snap1).toEqual({ paragraph: 2 });
 		expect(result.snap2).toEqual({ paragraph: 3 });
+	});
+
+	test("applies reset, set, then increment on the same element", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			const node = blockNode({
+				counterReset: "chapter 2",
+				counterSet: "chapter 5",
+				counterIncrement: "chapter 3",
+			});
+			const fragment = new Fragment(node, 100);
+			const state = new CounterState();
+			walkFragmentTree(fragment, null, state);
+			return state.value("chapter");
+		});
+		expect(result).toBe(8);
+	});
+
+	test("closes descendant scopes before returning to an outer sibling", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			const outer = blockNode({ counterReset: "chapter 0" });
+			const section = blockNode();
+			const inner = blockNode({ counterReset: "chapter 10", counterIncrement: "chapter 1" });
+			const sibling = blockNode({ counterIncrement: "chapter 1" });
+			const sectionFragment = new Fragment(section, 50, [new Fragment(inner, 20)]);
+			const rootFragment = new Fragment(outer, 100, [sectionFragment, new Fragment(sibling, 20)]);
+			// Retain the document scope so the final scalar remains observable.
+			rootFragment.breakToken = new BlockBreakToken(outer);
+
+			const state = new CounterState();
+			walkFragmentTree(rootFragment, null, state);
+			return { value: state.value("chapter"), values: state.values("chapter") };
+		});
+		expect(result).toEqual({ value: 1, values: [1] });
+	});
+
+	test("retains active scopes across a continuation and closes them when it finishes", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			const doc = blockNode();
+			const outer = blockNode({ counterReset: "chapter 0" });
+			const section = blockNode({ counterReset: "chapter 10" });
+			const item = blockNode({ counterIncrement: "chapter 1" });
+
+			const itemToken = new BlockBreakToken(item);
+			const sectionToken = new BlockBreakToken(section);
+			sectionToken.childBreakTokens = [itemToken];
+			const outerToken = new BlockBreakToken(outer);
+			outerToken.childBreakTokens = [sectionToken];
+			const docToken = new BlockBreakToken(doc);
+			docToken.childBreakTokens = [outerToken];
+
+			const firstItem = new Fragment(item, 20);
+			firstItem.breakToken = itemToken;
+			const firstSection = new Fragment(section, 50, [firstItem]);
+			firstSection.breakToken = sectionToken;
+			const firstOuter = new Fragment(outer, 100, [firstSection]);
+			firstOuter.breakToken = outerToken;
+			const firstDoc = new Fragment(doc, 100, [firstOuter]);
+			firstDoc.breakToken = docToken;
+
+			const state = new CounterState();
+			walkFragmentTree(firstDoc, null, state);
+			const afterFirst = state.values("chapter");
+
+			const lastItem = new Fragment(item, 20);
+			const lastSection = new Fragment(section, 50, [lastItem]);
+			const lastOuter = new Fragment(outer, 100, [lastSection]);
+			const lastDoc = new Fragment(doc, 100, [lastOuter]);
+			walkFragmentTree(lastDoc, docToken, state);
+			return { afterFirst, afterLast: state.values("chapter") };
+		});
+		expect(result.afterFirst).toEqual([0, 11]);
+		expect(result.afterLast).toEqual([0]);
+	});
+
+	test("keeps document-level scopes open when the root fragment completes", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			const root = blockNode();
+			const first = blockNode({ counterReset: "chapter 0", counterIncrement: "chapter 1" });
+			const second = blockNode({ counterIncrement: "chapter 1" });
+			const rootFragment = new Fragment(root, 100, [
+				new Fragment(first, 20),
+				new Fragment(second, 20),
+			]);
+
+			const state = new CounterState();
+			walkFragmentTree(rootFragment, null, state);
+			return state.values("chapter");
+		});
+		expect(result).toEqual([2]);
+	});
+
+	test("keeps DOM-parent keying for children promoted out of a top-level display: contents box", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:600px";
+			container.innerHTML = `<div style="display:contents">
+        <div style="height:20px;counter-reset:chapter 5;counter-increment:chapter 1;margin:0;padding:0"></div>
+      </div>
+      <div style="height:20px;counter-increment:chapter 1;margin:0;padding:0"></div>`;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container);
+			const pages = createFragments(
+				root,
+				new ConstraintSpace({
+					availableInlineSize: 600,
+					availableBlockSize: 500,
+					fragmentainerBlockSize: 500,
+					fragmentationType: "page",
+				}),
+			);
+
+			const state = new CounterState();
+			walkFragmentTree(pages[0], null, state, container);
+			const values = state.values("chapter");
+			container.remove();
+			return { pageCount: pages.length, values };
+		});
+		expect(result.pageCount).toBe(1);
+		expect(result.values).toEqual([1]);
 	});
 });

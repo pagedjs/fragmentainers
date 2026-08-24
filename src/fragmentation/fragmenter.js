@@ -816,7 +816,7 @@ export class Fragmenter extends Iterator {
 
 		// Counter state accumulation
 		const prevBT = this.#prevFragment?.breakToken ?? null;
-		walkFragmentTree(result.fragment, prevBT, this.#counterState);
+		walkFragmentTree(result.fragment, prevBT, this.#counterState, this.#measurer?.contentRoot ?? null);
 		if (!this.#counterState.isEmpty()) {
 			result.fragment.counterState = this.#counterState.snapshot();
 		}

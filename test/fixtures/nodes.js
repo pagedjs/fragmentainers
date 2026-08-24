@@ -51,6 +51,7 @@ const DEFAULTS = {
 	widows: 2,
 	counterReset: "none",
 	counterIncrement: "none",
+	counterSet: "none",
 	marginBlockStart: 0,
 	marginBlockEnd: 0,
 	paddingBlockStart: 0,
