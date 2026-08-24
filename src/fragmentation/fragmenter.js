@@ -388,6 +388,11 @@ export class Fragmenter extends Iterator {
 	 */
 	reflow(fromIndex = 0, { rebuild = false } = {}) {
 		if (rebuild) {
+			// A rebuild re-derives the tree from source content, which lives in
+			// the measurer until it is released. Releasing first reassembles
+			// #content whole; without it #layout() rebuilds from a stub that has
+			// no contentRoot.
+			this.releaseMeasurer();
 			this.#tree = null;
 			this.#layout(true);
 		} else {
