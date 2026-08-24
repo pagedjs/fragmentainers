@@ -192,7 +192,7 @@ test.describe("extractNthDescriptors", () => {
 		expect(result).toBe(2);
 	});
 
-	test("skips rules with no nth pseudos", async ({ page }) => {
+	test("skips rules without source-dependent selectors", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { extractNthDescriptors } = await import("/src/handlers/style-resolver.js");
 			const sheet = new CSSStyleSheet();
@@ -200,6 +200,25 @@ test.describe("extractNthDescriptors", () => {
 			return extractNthDescriptors([sheet]).length;
 		});
 		expect(result).toBe(0);
+	});
+
+	test("captures selectors with sibling combinators", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { extractNthDescriptors } = await import("/src/handlers/style-resolver.js");
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync("h2 + p, h2 ~ aside { color: red; }");
+			return extractNthDescriptors([sheet]).map((descriptor) => descriptor.compounds);
+		});
+		expect(result).toEqual([
+			[
+				{ strippedCompound: "h2", combinator: "+", nthParts: [] },
+				{ strippedCompound: "p", combinator: null, nthParts: [] },
+			],
+			[
+				{ strippedCompound: "h2", combinator: "~", nthParts: [] },
+				{ strippedCompound: "aside", combinator: null, nthParts: [] },
+			],
+		]);
 	});
 
 	test("skips rules whose nth is nested inside :not()", async ({ page }) => {
@@ -236,6 +255,69 @@ test.describe("extractNthDescriptors", () => {
 });
 
 test.describe("StyleResolver — pre-stamping", () => {
+	test("keeps sibling matches captured before the source tree is partitioned", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { StyleResolver } = await import("/src/handlers/style-resolver.js");
+			const resolver = new StyleResolver();
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync("h2 + p { color: red; }");
+			for (const rule of sheet.cssRules) resolver.matchRule(rule, { wrappers: [] });
+
+			const source = document.createDocumentFragment();
+			const heading = document.createElement("h2");
+			const following = document.createElement("p");
+			source.append(heading, following);
+			resolver.prepareContent(source);
+
+			const activeSegment = document.createElement("div");
+			activeSegment.appendChild(following);
+			document.body.appendChild(activeSegment);
+			resolver.afterMeasurementSetup(activeSegment);
+			const ref = following.getAttribute("data-ref");
+			const cssText = resolver.getAdoptedSheets()[0].cssRules[0].cssText;
+			activeSegment.remove();
+			return { ref, cssText };
+		});
+
+		expect(result.ref).toBe("0");
+		expect(result.cssText).toContain('p[data-ref="0"]');
+		expect(result.cssText).not.toContain("h2 +");
+	});
+
+	test("keeps descriptor refs stable across segment activations", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { StyleResolver } = await import("/src/handlers/style-resolver.js");
+			const resolver = new StyleResolver();
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync("h2 ~ p { color: red; }");
+			for (const rule of sheet.cssRules) resolver.matchRule(rule, { wrappers: [] });
+
+			const source = document.createDocumentFragment();
+			const heading = document.createElement("h2");
+			const first = document.createElement("p");
+			const second = document.createElement("p");
+			source.append(heading, first, second);
+			resolver.prepareContent(source);
+
+			const activeSegment = document.createElement("div");
+			document.body.appendChild(activeSegment);
+			activeSegment.appendChild(first);
+			resolver.afterMeasurementSetup(activeSegment);
+			const firstRef = first.getAttribute("data-ref");
+			first.remove();
+			activeSegment.appendChild(second);
+			resolver.afterMeasurementSetup(activeSegment);
+			const secondRef = second.getAttribute("data-ref");
+			const cssText = resolver.getAdoptedSheets()[0].cssRules[0].cssText;
+			activeSegment.remove();
+			return { firstRef, secondRef, cssText };
+		});
+
+		expect(result.firstRef).toBe("0");
+		expect(result.secondRef).toBe("0");
+		expect(result.cssText).not.toContain('data-ref="1"');
+	});
+
 	test("stamps data-ref on source elements during afterMeasurementSetup", async ({ page }) => {
 		const stamps = await page.evaluate(async () => {
 			const { StyleResolver } = await import("/src/handlers/style-resolver.js");
@@ -406,6 +488,18 @@ test.describe("emitNeutralizationCss", () => {
 		expect(out).not.toMatch(/^p\s/);
 	});
 
+	test("neutralizes sibling-selector branches without including plain selectors", async ({ page }) => {
+		const out = await page.evaluate(async () => {
+			const { emitNeutralizationCss } = await import("/src/styles/neutralize-structural-pseudos.js");
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync("h2 + p, h2 ~ aside, main { color: red; }");
+			return emitNeutralizationCss([sheet]);
+		});
+		expect(out).toContain("h2 + p");
+		expect(out).toContain("h2 ~ aside");
+		expect(out).not.toContain("main");
+	});
+
 	test("preserves @media wrappers", async ({ page }) => {
 		const out = await page.evaluate(async () => {
 			const { emitNeutralizationCss } = await import("/src/styles/neutralize-structural-pseudos.js");
@@ -424,6 +518,28 @@ test.describe("emitNeutralizationCss", () => {
 });
 
 test.describe("StyleResolver selector rewrite", () => {
+	test("drops the prefix through the rightmost sibling combinator", async ({ page }) => {
+		const ruleText = await page.evaluate(async () => {
+			const { StyleResolver } = await import("/src/handlers/style-resolver.js");
+			const resolver = new StyleResolver();
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync("section h2 + p.note > em { color: red; }");
+			for (const rule of sheet.cssRules) resolver.matchRule(rule, { wrappers: [] });
+
+			const root = document.createElement("div");
+			root.innerHTML = "<section><h2>Title</h2><p class=\"note\"><em>x</em></p></section>";
+			document.body.appendChild(root);
+			resolver.prepareContent(root);
+			resolver.afterMeasurementSetup(root);
+			const text = resolver.getAdoptedSheets()[0].cssRules[0].cssText;
+			root.remove();
+			return text;
+		});
+
+		expect(ruleText).toContain('p.note > em[data-ref="0"]');
+		expect(ruleText).not.toContain("section h2 +");
+	});
+
 	test("substitutes structural pseudo with [data-ref] and keeps surrounding compounds", async ({ page }) => {
 		const ruleText = await page.evaluate(async () => {
 			const { StyleResolver } = await import("/src/handlers/style-resolver.js");
@@ -623,5 +739,50 @@ test.describe("end-to-end cascade", () => {
 		});
 		await teardownCascade(page);
 		expect(observed[1]).toBe("rgb(255, 0, 0)");
+	});
+
+	test("replays an adjacent-sibling match when the siblings land on different pages", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync(`
+				section, h2, p { margin: 0; padding: 0; }
+				h2, p { height: 80px; }
+				p { color: rgb(0, 0, 0); }
+				h2 + p { color: rgb(255, 0, 0); }
+			`);
+
+			const template = document.createElement("template");
+			template.innerHTML = `
+				<section>
+					<h2>Heading</h2>
+					<p id="following">Following</p>
+					<p id="other">Other</p>
+				</section>
+			`;
+			const layout = new Fragmenter(template.content, {
+				width: 300,
+				height: 100,
+				styles: [sheet],
+			});
+			const flow = layout.flow();
+			for (const fragmentainer of flow) document.body.appendChild(fragmentainer);
+			const following = flow.find((el) => el.querySelector("#following"));
+			const other = flow.find((el) => el.querySelector("#other"));
+			const out = {
+				pageCount: flow.length,
+				followingColor: getComputedStyle(following.querySelector("#following")).color,
+				otherColor: getComputedStyle(other.querySelector("#other")).color,
+			};
+			for (const fragmentainer of flow) fragmentainer.remove();
+			layout.destroy();
+			return out;
+		});
+
+		expect(result.pageCount).toBeGreaterThanOrEqual(3);
+		expect(result.followingColor).toBe("rgb(255, 0, 0)");
+		expect(result.otherColor).toBe("rgb(0, 0, 0)");
 	});
 });

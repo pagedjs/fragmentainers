@@ -8,19 +8,18 @@ import {
 import { parseAnPlusB, matchesAnPlusB } from "../styles/an-plus-b.js";
 
 /**
- * Replays structural-pseudo matches per element after fragmentation.
+ * Replays source-tree selector matches per element after fragmentation.
  *
- * During `afterMeasurementSetup`, walks the source DOM once and stamps
- * `data-ref="N"` on every element whose source cascade matches a rule
- * containing `:nth-child`, `:last-of-type`, etc. `cloneNode` carries
- * the attribute into each fragment.
+ * Structural-pseudo matches are resolved from original sibling positions.
+ * Sibling-combinator matches are captured by `prepareContent`, before the
+ * measurer partitions top-level content into segments. `data-ref="N"`
+ * stamps then travel into each fragment through `cloneNode`.
  *
  * The per-element override sheet emits the original rule's selector
- * with the structural-pseudo segment swapped for `[data-ref="N"]`, so
- * the source-position-correct value re-applies on the clone via the
- * composite scoped sheet. Pairs with `emitNeutralizationCss`, which
- * unsets the original structural-pseudo rules so cloned-only matches
- * can't leak through.
+ * with source-dependent parts removed and `[data-ref="N"]` attached to
+ * the matched subject, so the source-tree value re-applies on the clone.
+ * Pairs with `emitNeutralizationCss`, which prevents clone-local selector
+ * matches from leaking through.
  */
 
 export { parseAnPlusB, matchesAnPlusB };
@@ -67,8 +66,8 @@ function parseNthParts(pseudo, args) {
  * @returns {{ childIndex, typeIndex, childFromEnd, typeFromEnd, totalChildren, totalOfType } | null}
  */
 export function computeOriginalPosition(sourceEl) {
-	if (!sourceEl || !sourceEl.parentElement) return null;
-	const parent = sourceEl.parentElement;
+	const parent = sourceEl?.parentElement ?? sourceEl?.parentNode;
+	if (!parent?.children) return null;
 	const siblings = parent.children;
 	const tagName = sourceEl.tagName;
 	const totalChildren = siblings.length;
@@ -133,19 +132,23 @@ function compileSelector(selector) {
 	const tokens = tokenizeSelector(selector);
 	if (tokens.length === 0) return null;
 	const compounds = [];
-	let foundAny = false;
-	for (const tok of tokens) {
+	let hasStructural = false;
+	let replayStart = 0;
+	for (let i = 0; i < tokens.length; i++) {
+		const tok = tokens[i];
 		const extracted = extractCompoundNth(tok.compound);
 		if (!extracted) return null;
-		if (extracted.nthParts.length > 0) foundAny = true;
+		if (extracted.nthParts.length > 0) hasStructural = true;
+		if (tok.combinator === "+" || tok.combinator === "~") replayStart = i + 1;
 		compounds.push({
 			strippedCompound: extracted.strippedCompound,
 			combinator: tok.combinator,
 			nthParts: extracted.nthParts,
 		});
 	}
-	if (!foundAny) return null;
-	return { compounds };
+	const hasSibling = replayStart > 0;
+	if (!hasStructural && !hasSibling) return null;
+	return { compounds, hasSibling, replayStart };
 }
 
 function safeMatches(el, selector) {
@@ -219,14 +222,13 @@ function declarationsAsImportant(style) {
 	return parts.join(" ");
 }
 
-// Rebuild a selector from `strippedCompound` parts joined by their
-// combinators, with `[data-ref="N"]` appended to the subject (rightmost)
-// compound so the rule pins to one element rather than re-evaluating
-// position on the clone.
-function buildRefSelector(compounds, ref) {
+// Rebuild the clone-stable suffix of a selector, with `[data-ref="N"]`
+// appended to its subject. Sibling-dependent prefixes are omitted because
+// the source sibling may be in a different fragmentainer.
+function buildRefSelector(compounds, ref, start = 0) {
 	let out = "";
 	const last = compounds.length - 1;
-	for (let i = 0; i <= last; i++) {
+	for (let i = start; i <= last; i++) {
 		const c = compounds[i];
 		const compound = i === last ? `${c.strippedCompound}[data-ref="${ref}"]` : c.strippedCompound;
 		out += compound;
@@ -261,11 +263,17 @@ export function extractNthDescriptors(sheets) {
 class StyleResolver extends LayoutHandler {
 	#descriptors = [];
 	#nextRefId = 0;
+	#refByDescriptorSet = new Map();
+	#sourceSiblingMatches = new WeakMap();
+	#sourceElements = new WeakSet();
 	#sheet = null;
 
 	resetRules() {
 		this.#descriptors = [];
 		this.#nextRefId = 0;
+		this.#refByDescriptorSet.clear();
+		this.#sourceSiblingMatches = new WeakMap();
+		this.#sourceElements = new WeakSet();
 		this.#sheet = null;
 	}
 
@@ -277,10 +285,32 @@ class StyleResolver extends LayoutHandler {
 			if (!compiled) continue;
 			this.#descriptors.push({
 				compounds: compiled.compounds,
+				hasSibling: compiled.hasSibling,
+				replayStart: compiled.replayStart,
 				declarations: declarationsAsImportant(rule.style),
 				wrappers: [...context.wrappers],
 				refs: new Set(),
 			});
+		}
+	}
+
+	prepareContent(contentRoot) {
+		const siblingDescriptors = [];
+		for (let d = 0; d < this.#descriptors.length; d++) {
+			if (this.#descriptors[d].hasSibling) siblingDescriptors.push(d);
+		}
+		if (siblingDescriptors.length === 0) return;
+
+		for (const el of contentRoot.querySelectorAll("*")) {
+			this.#sourceElements.add(el);
+			this.#sourceSiblingMatches.delete(el);
+			let matched = null;
+			for (const d of siblingDescriptors) {
+				if (!matchesCompoundChain(el, this.#descriptors[d].compounds)) continue;
+				if (!matched) matched = new Set();
+				matched.add(d);
+			}
+			if (matched) this.#sourceSiblingMatches.set(el, matched);
 		}
 	}
 
@@ -303,14 +333,18 @@ class StyleResolver extends LayoutHandler {
 			return;
 		}
 		// Elements that match the same set of descriptors share one ref (and thus
-		// one selector clause) instead of minting a unique ref each — a zebra
-		// table collapses from one rule-clause per row to a single shared one.
-		const refByDescriptorSet = new Map();
+		// one selector clause). The map persists while segments are activated so
+		// an identical source match keeps the same stamp throughout the flow.
 		for (const el of contentRoot.querySelectorAll("*")) {
 			let key = "";
 			const matched = [];
 			for (let d = 0; d < this.#descriptors.length; d++) {
-				if (matchesCompoundChain(el, this.#descriptors[d].compounds)) {
+				const desc = this.#descriptors[d];
+				const isMatch =
+					desc.hasSibling && this.#sourceElements.has(el)
+						? (this.#sourceSiblingMatches.get(el)?.has(d) ?? false)
+						: matchesCompoundChain(el, desc.compounds);
+				if (isMatch) {
 					matched.push(d);
 					key += `${d},`;
 				}
@@ -319,10 +353,10 @@ class StyleResolver extends LayoutHandler {
 				if (el.hasAttribute("data-ref")) el.removeAttribute("data-ref");
 				continue;
 			}
-			let ref = refByDescriptorSet.get(key);
+			let ref = this.#refByDescriptorSet.get(key);
 			if (ref === undefined) {
 				ref = String(this.#nextRefId++);
-				refByDescriptorSet.set(key, ref);
+				this.#refByDescriptorSet.set(key, ref);
 				for (const d of matched) this.#descriptors[d].refs.add(ref);
 			}
 			el.setAttribute("data-ref", ref);
@@ -334,7 +368,9 @@ class StyleResolver extends LayoutHandler {
 		const ruleTexts = [];
 		for (const desc of this.#descriptors) {
 			if (desc.refs.size === 0) continue;
-			const sel = [...desc.refs].map((r) => buildRefSelector(desc.compounds, r)).join(", ");
+			const sel = [...desc.refs]
+				.map((r) => buildRefSelector(desc.compounds, r, desc.replayStart))
+				.join(", ");
 			let rt = `${sel} { ${desc.declarations} }`;
 			for (let i = desc.wrappers.length - 1; i >= 0; i--) {
 				rt = `${desc.wrappers[i]} { ${rt} }`;

@@ -1,9 +1,16 @@
 import { walkSheets } from "./walk-rules.js";
-import { splitSelectorList, STRUCTURAL_PSEUDO_RE } from "./selector-utils.js";
+import {
+	splitSelectorList,
+	tokenizeSelector,
+	STRUCTURAL_PSEUDO_RE,
+} from "./selector-utils.js";
 
-function selectorHasStructural(selector) {
+function selectorNeedsReplay(selector) {
 	STRUCTURAL_PSEUDO_RE.lastIndex = 0;
-	return STRUCTURAL_PSEUDO_RE.test(selector);
+	if (STRUCTURAL_PSEUDO_RE.test(selector)) return true;
+	return tokenizeSelector(selector).some(
+		(token) => token.combinator === "+" || token.combinator === "~",
+	);
 }
 
 function unsetDeclarations(style) {
@@ -23,11 +30,10 @@ function wrap(ruleText, wrappers) {
 }
 
 /**
- * For each author rule whose selector list contains compound selectors
- * with structural pseudos (`:nth-child`, `:first-child`, etc.), emit a
- * neutralizing override that unsets the same properties on the same
- * structural-pseudo selectors. Compound selectors without structural
- * pseudos are left alone (they cascade normally from the original sheet).
+ * For each author rule whose selector depends on source-tree positions,
+ * emit a neutralizing override that unsets the same properties on clones.
+ * This covers structural pseudos and sibling combinators, both of which can
+ * match differently after content is split across fragmentainers.
  *
  * Per-property `unset` (not `all: unset`) so unrelated properties from
  * other rules survive. `!important` so the override beats any author
@@ -40,11 +46,11 @@ export function emitNeutralizationCss(sheets) {
 	const parts = [];
 	walkSheets(sheets, (rule, wrappers) => {
 		if (!rule.selectorText) return;
-		const structuralSelectors = splitSelectorList(rule.selectorText).filter(selectorHasStructural);
-		if (structuralSelectors.length === 0) return;
+		const replaySelectors = splitSelectorList(rule.selectorText).filter(selectorNeedsReplay);
+		if (replaySelectors.length === 0) return;
 		const declarations = unsetDeclarations(rule.style);
 		if (!declarations) return;
-		const ruleText = `${structuralSelectors.join(", ")} { ${declarations} }`;
+		const ruleText = `${replaySelectors.join(", ")} { ${declarations} }`;
 		parts.push(wrap(ruleText, wrappers));
 	});
 	return parts.join("\n");
