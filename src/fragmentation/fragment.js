@@ -98,8 +98,8 @@ export class Fragment {
 			cloneMap.track(emptied, this.node.element);
 			if (this.childFragments.length > 0) {
 				this.#buildChildren(emptied, inputBreakToken, cloneMap);
-				applyPastBlockEnd(emptied);
 			}
+			applyPastBlockEnd(emptied);
 			parentEl.appendChild(emptied);
 			return;
 		}
