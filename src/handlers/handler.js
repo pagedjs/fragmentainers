@@ -79,8 +79,36 @@ export class LayoutHandler {
 	 * stylesheets (to avoid measurer reflow).
 	 *
 	 * @param {Element} contentRoot — the measurement slot element
+	 * @param {{ pass: number, segment: number }} context
 	 */
 	afterMeasurementSetup() {}
+
+	/**
+	 * Called before a deferred layout pass re-lays fragmentainers.
+	 *
+	 * @param {{ pass: number, fromIndex: number }} context
+	 */
+	beforeLayoutPass() {}
+
+	/**
+	 * Called after layout reaches the end of the flow.
+	 *
+	 * @param {{ pass: number, fromIndex: number, fragments: readonly import('../fragmentation/fragment.js').Fragment[], locate: Function }} context
+	 * @returns {{ invalidate?: Element[], rebuild?: boolean }|null}
+	 */
+	afterLayoutPass() {
+		return null;
+	}
+
+	/**
+	 * Called when the registered pass budget is exhausted.
+	 *
+	 * @param {{ pass: number, fromIndex: number, fragments: readonly import('../fragmentation/fragment.js').Fragment[], locate: Function }} context
+	 * @returns {{ accept: true, reason?: string }|null}
+	 */
+	onPassLimit() {
+		return null;
+	}
 
 	/**
 	 * Return CSSStyleSheets to be adopted on each fragment-container's

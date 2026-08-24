@@ -341,7 +341,10 @@ export class Measurer {
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
 
-		this.#handlers.afterMeasurementSetup(measurer.contentRoot);
+		this.#handlers.afterMeasurementSetup(measurer.contentRoot, {
+			pass: this.#context.layoutPass,
+			segment: 0,
+		});
 
 		return measurer.contentRoot;
 	}
@@ -458,7 +461,10 @@ export class Measurer {
 			this.#activatedElements.add(element);
 		}
 		void this.#measureElement.offsetHeight;
-		this.#handlers.afterMeasurementSetup(slot);
+		this.#handlers.afterMeasurementSetup(slot, {
+			pass: this.#context.layoutPass,
+			segment: this.#currentSegment,
+		});
 	}
 
 	/**

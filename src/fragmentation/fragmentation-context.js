@@ -1,3 +1,5 @@
+import { locate } from "./locate.js";
+
 // Default overflow threshold: browser default line height (16px * 1.2).
 // Used when the fragment's root node has no computed lineHeight.
 export const DEFAULT_OVERFLOW_THRESHOLD = 16 * 1.2;
@@ -22,6 +24,7 @@ export class FragmentationContext extends Array {
 	#previous = null;
 	#contentStyles;
 	#handlers;
+	#indexOffset = 0;
 
 	static get [Symbol.species]() {
 		return Array;
@@ -30,7 +33,7 @@ export class FragmentationContext extends Array {
 	/**
 	 * @param {import("./fragment.js").Fragment[]} fragments
 	 * @param {{ sheets: CSSStyleSheet[] }|null} contentStyles
-	 * @param {{ start?: number, stop?: number, previous?: import("./fragment.js").Fragment|null, handlers?: import("../handlers/registry.js").HandlerRegistry|null }} [range]
+	 * @param {{ start?: number, stop?: number, previous?: import("./fragment.js").Fragment|null, handlers?: import("../handlers/registry.js").HandlerRegistry|null, indexOffset?: number }} [range]
 	 *   `previous` is the fragment preceding index 0 of `fragments` — set when
 	 *   this context holds a slice of a longer flow (reflow), so the first
 	 *   fragmentainer still resumes its counters and split decorations.
@@ -38,13 +41,14 @@ export class FragmentationContext extends Array {
 	constructor(
 		fragments,
 		contentStyles,
-		{ start = 0, stop, previous = null, handlers = null } = {},
+		{ start = 0, stop, previous = null, handlers = null, indexOffset = 0 } = {},
 	) {
 		super();
 		this.#fragments = fragments;
 		this.#previous = previous;
 		this.#contentStyles = contentStyles;
 		this.#handlers = handlers;
+		this.#indexOffset = indexOffset;
 		if (contentStyles) {
 			const end = stop ?? fragments.length;
 			for (let i = start; i < end; i++) {
@@ -61,6 +65,14 @@ export class FragmentationContext extends Array {
 	/** @returns {number} */
 	get fragmentainerCount() {
 		return this.#fragments.length;
+	}
+
+	/** Locate every fragmentainer occupied by a source element. */
+	locate(element) {
+		return locate(this.#fragments, element, {
+			previous: this.#previous,
+			indexOffset: this.#indexOffset,
+		});
 	}
 
 	/**

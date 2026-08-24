@@ -17,11 +17,63 @@ import { Measurer } from "../measurement/measure.js";
 import { NullMeasurer } from "../measurement/null-measurer.js";
 import { setTargetDevicePixelRatio } from "../measurement/line-box.js";
 import { FlowContext } from "./flow-context.js";
+import { locate } from "./locate.js";
 import { defaultHandlers } from "../handlers/catalog.js";
 import { UA_DEFAULTS } from "../styles/ua-defaults.js";
 import { buildCompositeText } from "../styles/composite-sheet.js";
 
 const MAX_ZERO_PROGRESS = 5;
+
+function structurallyEqual(left, right) {
+	if (Object.is(left, right)) return true;
+	if (left === null || right === null || typeof left !== "object" || typeof right !== "object") {
+		return false;
+	}
+	if (left.node !== undefined || right.node !== undefined) {
+		if (left.node !== right.node) return false;
+	}
+	if (Array.isArray(left) !== Array.isArray(right)) return false;
+	const leftKeys = Object.keys(left);
+	const rightKeys = Object.keys(right);
+	if (leftKeys.length !== rightKeys.length) return false;
+	for (const key of leftKeys) {
+		if (!Object.hasOwn(right, key)) return false;
+		if (key === "node") continue;
+		if (!structurallyEqual(left[key], right[key])) return false;
+	}
+	return true;
+}
+
+function fragmentOutputsEqual(left, right) {
+	if (!structurallyEqual(left.breakToken, right.breakToken)) return false;
+	if (left.pushedBreakMark !== right.pushedBreakMark) return false;
+	if (left.flowSnapshots.length !== right.flowSnapshots.length) return false;
+	for (let i = 0; i < left.flowSnapshots.length; i++) {
+		if (!structurallyEqual(left.flowSnapshots[i].breakToken, right.flowSnapshots[i].breakToken)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+function elementLabel(element) {
+	if (!(element instanceof Element)) return String(element);
+	const id = element.id ? `#${element.id}` : "";
+	return `${element.tagName.toLowerCase()}${id}`;
+}
+
+export class LayoutPassLimitError extends Error {
+	constructor(maxPasses, handlers, elements) {
+		const handlerNames = [...new Set(handlers.map((handler) => handler.constructor.name))];
+		const elementNames = [...new Set(elements.map(elementLabel))];
+		const details = [handlerNames.join(", "), elementNames.join(", ")].filter(Boolean).join(": ");
+		super(`Layout pass limit (${maxPasses}) exceeded${details ? `: ${details}` : ""}`);
+		this.name = "LayoutPassLimitError";
+		this.maxPasses = maxPasses;
+		this.handlers = Object.freeze([...handlers]);
+		this.elements = Object.freeze([...elements]);
+	}
+}
 
 function hasPlacedContent(fragment) {
 	return fragment.blockSize > 0 || fragment.childFragments.some(hasPlacedContent);
@@ -199,6 +251,8 @@ export class Fragmenter extends Iterator {
 	#zeroProgressCount = 0;
 	#pushedBreaks = [];
 	#initialFlowSnapshots = null;
+	#bufferedElements = null;
+	#bufferedIndex = 0;
 
 	/**
 	 * @param {DocumentFragment|Element|object} content - Content to fragment
@@ -294,6 +348,22 @@ export class Fragmenter extends Iterator {
 	}
 
 	/**
+	 * Register this flow for deferred layout settlement. The budget is owned by
+	 * the flow, not a handler: it survives every `processRules` and no
+	 * `onPassLimit` fallback is consulted when it is exhausted.
+	 *
+	 * @param {number} maxPasses positive integer
+	 */
+	registerLayoutPass(maxPasses) {
+		this.#flowContext.registerLayoutPass(maxPasses);
+	}
+
+	/** The zero-based deferred layout pass currently running. */
+	get layoutPass() {
+		return this.#flowContext.layoutPass;
+	}
+
+	/**
 	 * Lay out the next fragmentainer and return an iterator result.
 	 *
 	 * Returns `{ value: <fragment-container>, done: false }` for each
@@ -307,16 +377,38 @@ export class Fragmenter extends Iterator {
 	 * @returns {{ value: Element|undefined, done: boolean }}
 	 */
 	next() {
+		if (this.#bufferedElements) {
+			if (this.#bufferedIndex < this.#bufferedElements.length) {
+				return { value: this.#bufferedElements[this.#bufferedIndex++], done: false };
+			}
+			return { value: undefined, done: true };
+		}
+
 		// Lazy initialization
 		if (!this.#done && (!this.#tree || !this.#measureElement)) this.#layout();
 
 		// Already exhausted
 		if (this.#done) return { value: undefined, done: true };
 
+		// Registered flows must settle before exposing any composed output.
+		if (this.#flowContext.layoutPassBudget > 0) {
+			this.#runToEnd();
+			this.#settleLayout(this.#startIndex);
+			this.releaseMeasurer();
+			this.#context = new FragmentationContext([...this.#fragments], this.#contentStyles, {
+				handlers: this.#flowContext.handlers,
+				indexOffset: this.#startIndex,
+			});
+			this.#bufferedElements = this.#context;
+			this.#bufferedIndex = 0;
+			return this.next();
+		}
+
 		// Initialize context on first call
 		if (!this.#context) {
 			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles, {
 				handlers: this.#flowContext.handlers,
+				indexOffset: this.#startIndex,
 			});
 		}
 
@@ -362,10 +454,8 @@ export class Fragmenter extends Iterator {
 	 */
 	flow({ start, stop } = {}) {
 		this.#layout();
-
-		while (!this.#done) {
-			this.#step();
-		}
+		this.#runToEnd();
+		this.#settleLayout(this.#startIndex);
 
 		// Layout is done — release the measurer. Composition only needs
 		// cloneNode/getAttribute/tagName, which work on detached elements.
@@ -375,6 +465,7 @@ export class Fragmenter extends Iterator {
 			start,
 			stop,
 			handlers: this.#flowContext.handlers,
+			indexOffset: this.#startIndex,
 		});
 	}
 
@@ -394,11 +485,164 @@ export class Fragmenter extends Iterator {
 	 * @returns {FragmentationContext}
 	 */
 	reflow(fromIndex = 0, { rebuild = false } = {}) {
+		this.#flowContext.layoutPass = 0;
+		const { position, previous } = this.#restartLayout(fromIndex, { rebuild });
+		this.#runToEnd();
+		this.#settleLayout(this.#startIndex + position);
+		const fragments = this.#fragments.slice(position);
+		const prev = position > 0 ? this.#fragments[position - 1] : previous;
+
+		// Layout is done — release the measurer before composition.
+		this.releaseMeasurer();
+
+		return new FragmentationContext(fragments, this.#contentStyles, {
+			previous: prev,
+			handlers: this.#flowContext.handlers,
+			indexOffset: this.#startIndex + position,
+		});
+	}
+
+	#runToEnd() {
+		while (!this.#done) this.#step();
+		this.#setTotalPages();
+	}
+
+	#passContext(pass, fromIndex) {
+		const fragments = Object.freeze([...this.#fragments]);
+		return Object.freeze({
+			pass,
+			fromIndex,
+			fragments,
+			locate: (element) =>
+				Object.freeze(
+					locate(fragments, element, { indexOffset: this.#startIndex }).map((location) =>
+						Object.freeze(location),
+					),
+				),
+		});
+	}
+
+	#settleLayout(initialFromIndex) {
+		if (this.#flowContext.layoutPassBudget === 0) return;
+
+		let pass = this.#flowContext.layoutPass;
+		let fromIndex = initialFromIndex;
+		while (true) {
+			const budget = this.#flowContext.layoutPassBudget;
+			if (budget === 0) return;
+			const context = this.#passContext(pass, fromIndex);
+			const changes = this.#flowContext.handlers.afterLayoutPass(context);
+			const rebuild = changes.some(({ result }) => result.rebuild === true);
+			const invalidations = changes.flatMap(({ result }) =>
+				Array.isArray(result.invalidate) ? result.invalidate : [],
+			);
+			if (!rebuild && invalidations.length === 0) return;
+
+			if (pass >= budget) {
+				const fallbacks = this.#flowContext.handlers.onPassLimit(
+					context,
+					this.#flowContext.layoutPassHandlers,
+				);
+				if (fallbacks.some(({ result }) => result.accept === true)) return;
+				throw new LayoutPassLimitError(
+					budget,
+					changes.map(({ handler }) => handler),
+					invalidations,
+				);
+			}
+
+			pass++;
+			this.#flowContext.layoutPass = pass;
+			if (rebuild) {
+				fromIndex = this.#startIndex;
+				this.#flowContext.handlers.beforeLayoutPass({ pass, fromIndex });
+				this.#restartLayout(fromIndex, { rebuild: true });
+				this.#runToEnd();
+				continue;
+			}
+
+			const indices = new Set();
+			for (const element of invalidations) {
+				for (const location of context.locate(element)) indices.add(location.index);
+			}
+			if (indices.size === 0) return;
+			const ordered = [...indices].sort((left, right) => left - right);
+			fromIndex = ordered[0];
+			this.#flowContext.handlers.beforeLayoutPass({ pass, fromIndex });
+			this.#revalidateFragments(ordered);
+		}
+	}
+
+	#revalidateFragments(indices) {
+		const fragments = [...this.#fragments];
+		let pushedBreaks = [...this.#pushedBreaks];
+
+		for (const absoluteIndex of indices) {
+			const position = absoluteIndex - this.#startIndex;
+			if (position < 0 || position >= fragments.length) continue;
+
+			this.#restoreFullState(fragments, pushedBreaks);
+			this.#restartLayout(absoluteIndex);
+			if (this.#done) continue;
+			const oldFragment = fragments[position];
+			const candidate = this.#step();
+
+			if (!fragmentOutputsEqual(candidate, oldFragment)) {
+				this.#runToEnd();
+				return;
+			}
+
+			fragments[position] = candidate;
+			pushedBreaks = [
+				...this.#pushedBreaks,
+				...pushedBreaks.slice(oldFragment.pushedBreakMark),
+			];
+		}
+
+		this.#restoreFullState(fragments, pushedBreaks);
+	}
+
+	#restoreFullState(fragments, pushedBreaks) {
+		for (let i = this.#pushedBreaks.length - 1; i >= 0; i--) {
+			const { node, breakBefore } = this.#pushedBreaks[i];
+			node.breakBefore = breakBefore;
+		}
+		for (const { node } of pushedBreaks) node.breakBefore = "page";
+		this.#pushedBreaks = [...pushedBreaks];
+		this.#fragments = [...fragments];
+
+		const last = this.#fragments.at(-1) ?? null;
+		this.#breakToken = last?.breakToken ?? null;
+		this.#prevFragment = last;
+		this.#fragmentainerIndex = this.#startIndex + this.#fragments.length;
+		this.#counterState = new CounterState();
+		if (last?.counterState) this.#counterState.restore(last.counterState);
+		this.#pageCounter = last?.page ?? this.#startIndex;
+
+		const snapshots = last?.flowSnapshots ?? this.#initialFlowSnapshots;
+		if (snapshots) {
+			const entries = this.#flowContext.handlers.getFlows();
+			for (let i = 0; i < entries.length; i++) entries[i].flow.restore(snapshots[i]);
+		}
+		this.#mainDone = this.#fragments.some(
+			(fragment) => !fragment.isBlank && fragment.breakToken === null,
+		);
+		const pendingFlow = this.#flowContext.handlers
+			.getFlows()
+			.some(({ flow }) => flow.breakToken !== null);
+		this.#done = Boolean(last?.isLast) || (this.#mainDone && !pendingFlow);
+		this.#zeroProgressCount = 0;
+		this.#setTotalPages();
+	}
+
+	#restartLayout(fromIndex, { rebuild = false } = {}) {
 		if (rebuild) {
-			// A rebuild re-derives the tree from source content, which lives in
-			// the measurer until it is released. Releasing first reassembles
-			// #content whole; without it #layout() rebuilds from a stub that has
-			// no contentRoot.
+			if (this.#initialFlowSnapshots) {
+				const entries = this.#flowContext.handlers.getFlows();
+				for (let i = 0; i < entries.length; i++) {
+					entries[i].flow.restore(this.#initialFlowSnapshots[i]);
+				}
+			}
 			this.releaseMeasurer();
 			this.#tree = null;
 			this.#initialFlowSnapshots = null;
@@ -406,34 +650,22 @@ export class Fragmenter extends Iterator {
 		} else {
 			this.#layout();
 		}
-		// #fragments is indexed from the start of this run, which is only the
-		// same as the fragmentainer index when the run started at zero.
+
 		const requested = Math.min(
 			Math.max(fromIndex - this.#startIndex, 0),
 			this.#fragments.length,
 		);
-		// Rebuilding replaces every layout node, so fragments produced before
-		// it — and the break tokens they carry — name nodes that no longer
-		// exist. Nothing can be resumed from them and the flow restarts.
 		const position =
 			requested === 0 || this.#fragments[requested - 1]?.node === this.#tree ? requested : 0;
 		const prev = position > 0 ? this.#fragments[position - 1] : null;
 		this.#breakToken = prev?.breakToken ?? null;
-		// Segmented measurement holds its own cursor over the source DOM.
-		// Hand it the token being resumed from — the same call #step() makes
-		// after every fragment — so it arranges itself for that segment.
 		if (this.#measurer.arrange(this.#breakToken, this.#tree)) this.#installStyleSheet();
 		this.#fragmentainerIndex = this.#startIndex + position;
 		this.#prevFragment = prev;
 		this.#counterState = new CounterState();
-		if (prev?.counterState) {
-			this.#counterState.restore(prev.counterState);
-		}
+		if (prev?.counterState) this.#counterState.restore(prev.counterState);
 		this.#pageCounter = prev?.page ?? this.#startIndex;
 
-		// Fragment checkpoints describe their output state, so the fragment
-		// before the restart supplies its flows. The initial checkpoint also
-		// preserves queues populated by a handler before the first page.
 		const flowSnapshots = prev?.flowSnapshots ?? this.#initialFlowSnapshots;
 		if (flowSnapshots) {
 			const flowEntries = this.#flowContext.handlers.getFlows();
@@ -442,18 +674,13 @@ export class Fragmenter extends Iterator {
 			}
 		}
 
-		// Break pushes before the restart remain part of the retained prefix.
-		// Later pushes are unwound in reverse mutation order and re-derived.
 		const pushedBreakMark = prev?.pushedBreakMark ?? 0;
 		for (let i = this.#pushedBreaks.length - 1; i >= pushedBreakMark; i--) {
 			const { node, breakBefore } = this.#pushedBreaks[i];
 			node.breakBefore = breakBefore;
 		}
 		this.#pushedBreaks.length = pushedBreakMark;
-
 		this.#fragments.length = position;
-		// A null token on a non-blank retained fragment means the main flow
-		// ended there; later fragmentainers may only be draining parallel flows.
 		this.#mainDone = this.#fragments.some(
 			(fragment) => !fragment.isBlank && fragment.breakToken === null,
 		);
@@ -462,22 +689,10 @@ export class Fragmenter extends Iterator {
 			.some(({ flow }) => flow.breakToken !== null);
 		this.#done = this.#mainDone && !pendingFlow;
 		this.#context = null;
+		this.#bufferedElements = null;
+		this.#bufferedIndex = 0;
 		this.#zeroProgressCount = 0;
-
-		// Re-run layout to completion
-		const newFragments = [];
-		while (!this.#done) {
-			newFragments.push(this.#step());
-		}
-		this.#setTotalPages();
-
-		// Layout is done — release the measurer before composition.
-		this.releaseMeasurer();
-
-		return new FragmentationContext(newFragments, this.#contentStyles, {
-			previous: prev,
-			handlers: this.#flowContext.handlers,
-		});
+		return { position, previous: prev };
 	}
 
 	/**
@@ -528,6 +743,13 @@ export class Fragmenter extends Iterator {
 	 * @returns {import('./fragment.js').Fragment}
 	 */
 	#step() {
+		// Capture the handler-prepared baseline before either a normal or blank
+		// first fragmentainer advances a parallel flow.
+		if (this.#initialFlowSnapshots === null) {
+			this.#initialFlowSnapshots = this.#flowContext.handlers
+				.getFlows()
+				.map(({ flow }) => flow.snapshot());
+		}
 		const fragment = this.#nextFragment();
 		// Store the settled output state used to resume the following fragment.
 		fragment.flowSnapshots = this.#flowContext.handlers
@@ -1140,6 +1362,8 @@ export class Fragmenter extends Iterator {
 		this.#tree = null;
 		this.#prevFragment = null;
 		this.#context = null;
+		this.#bufferedElements = null;
+		this.#bufferedIndex = 0;
 	}
 
 	/**

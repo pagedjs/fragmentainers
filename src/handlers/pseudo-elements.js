@@ -22,6 +22,9 @@ import { hasNativePseudo } from "../markers.js";
 import { splitSelectorList } from "../styles/selector-utils.js";
 
 const PSEUDO_TAG = "FRAG-PSEUDO";
+const CONTENT_MODE_PROPERTY = "--frag-pseudo-content-mode";
+const CONTENT_MODE_LITERAL = "literal";
+const CONTENT_MODE_RELOCATED = "relocated";
 
 /**
  * Parse a CSS `content` property value into its constituent parts.
@@ -105,6 +108,8 @@ export class PseudoElements extends LayoutHandler {
 		const content = rule.style.getPropertyValue("content").trim();
 		const hasContent = content.length > 0;
 		const contentIsStringOnly = hasContent && parseContentValue(content).isStringOnly;
+		const contentPriority = rule.style.getPropertyPriority("content");
+		const contentPrioritySuffix = contentPriority ? ` !${contentPriority}` : "";
 
 		for (const sel of selectors) {
 			const pseudo = extractPseudo(sel);
@@ -115,7 +120,7 @@ export class PseudoElements extends LayoutHandler {
 
 			styleSelectors.push(fragSel);
 
-			if (hasContent && !contentIsStringOnly) {
+			if (hasContent) {
 				relocateSelectors.push(`${fragSel}::${pseudo}`);
 			}
 		}
@@ -132,6 +137,10 @@ export class PseudoElements extends LayoutHandler {
 			const priority = rule.style.getPropertyPriority(prop);
 			styleDecls.push(`${prop}: ${val}${priority ? " !" + priority : ""}`);
 		}
+		if (hasContent) {
+			const mode = contentIsStringOnly ? CONTENT_MODE_LITERAL : CONTENT_MODE_RELOCATED;
+			styleDecls.push(`${CONTENT_MODE_PROPERTY}: ${mode}${contentPrioritySuffix}`);
+		}
 		if (styleDecls.length > 0) {
 			this.#rules.push(
 				wrapRule(
@@ -142,9 +151,10 @@ export class PseudoElements extends LayoutHandler {
 		}
 
 		if (relocateSelectors.length > 0) {
+			const relocatedContent = contentIsStringOnly ? "none" : content;
 			this.#rules.push(
 				wrapRule(
-					`${relocateSelectors.join(", ")} { content: ${content}; }`,
+					`${relocateSelectors.join(", ")} { content: ${relocatedContent}${contentPrioritySuffix}; }`,
 					context.wrappers,
 				),
 			);
@@ -188,8 +198,19 @@ export class PseudoElements extends LayoutHandler {
 		synthetic.dataset.pseudo = which;
 
 		const parsed = parseContentValue(content);
+		if (which === "before") {
+			el.insertBefore(synthetic, el.firstChild);
+		} else {
+			el.appendChild(synthetic);
+		}
+		const contentMode = getComputedStyle(synthetic)
+			.getPropertyValue(CONTENT_MODE_PROPERTY)
+			.trim();
+		const materializeAsText =
+			contentMode === CONTENT_MODE_LITERAL ||
+			(contentMode !== CONTENT_MODE_RELOCATED && parsed.isStringOnly);
 
-		if (parsed.isStringOnly) {
+		if (materializeAsText) {
 			synthetic.textContent = parsed.text;
 			const display = pseudoStyle.display;
 			if (display && display !== "inline") {
@@ -207,12 +228,6 @@ export class PseudoElements extends LayoutHandler {
 			} else if (display === "inline-block") {
 				synthetic.style.display = "inline-block";
 			}
-		}
-
-		if (which === "before") {
-			el.insertBefore(synthetic, el.firstChild);
-		} else {
-			el.appendChild(synthetic);
 		}
 
 		el.setAttribute(`data-frag-resolved-${which}`, "");

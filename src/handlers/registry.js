@@ -155,6 +155,12 @@ export class HandlerRegistry {
 	processRules(styles) {
 		this.#ensureReady();
 		const hs = this.#handlers;
+		this.#context?.resetLayoutPasses();
+		if (this.#injectedSheet) {
+			const previousIndex = styles.indexOf(this.#injectedSheet);
+			if (previousIndex !== -1) styles.splice(previousIndex, 1);
+			this.#injectedSheet = null;
+		}
 
 		for (const handler of hs) {
 			handler.styles = styles;
@@ -165,7 +171,11 @@ export class HandlerRegistry {
 			if (rule.selectorText === undefined) return;
 			const ctx = { wrappers };
 			for (const handler of hs) {
-				handler.matchRule(rule, ctx);
+				if (this.#context) {
+					this.#context.withActiveHandler(handler, () => handler.matchRule(rule, ctx));
+				} else {
+					handler.matchRule(rule, ctx);
+				}
 			}
 		});
 
@@ -173,7 +183,6 @@ export class HandlerRegistry {
 		for (const handler of hs) {
 			handler.appendRules(rules);
 		}
-		this.#injectedSheet = null;
 		if (rules.length > 0) {
 			const sheet = new CSSStyleSheet();
 			for (const rule of rules) {
@@ -218,10 +227,34 @@ export class HandlerRegistry {
 	 *
 	 * @param {Element} contentRoot — the measurement slot element
 	 */
-	afterMeasurementSetup(contentRoot) {
+	afterMeasurementSetup(contentRoot, context = { pass: 0, segment: 0 }) {
 		for (const handler of this.#handlers) {
-			handler.afterMeasurementSetup(contentRoot);
+			handler.afterMeasurementSetup(contentRoot, context);
 		}
+	}
+
+	beforeLayoutPass(context) {
+		this.#ensureReady();
+		for (const handler of this.#handlers) handler.beforeLayoutPass(context);
+	}
+
+	afterLayoutPass(context) {
+		this.#ensureReady();
+		const results = [];
+		for (const handler of this.#handlers) {
+			const result = handler.afterLayoutPass(context);
+			if (result) results.push({ handler, result });
+		}
+		return results;
+	}
+
+	onPassLimit(context, handlers) {
+		const results = [];
+		for (const handler of handlers) {
+			const result = handler.onPassLimit(context);
+			if (result) results.push({ handler, result });
+		}
+		return results;
 	}
 
 	/**
@@ -266,6 +299,7 @@ export class HandlerRegistry {
 	 * @returns {Array<{ handler: LayoutHandler, flow: import('../fragmentation/fragment-flow.js').FragmentFlow }>}
 	 */
 	getFlows() {
+		this.#ensureReady();
 		const result = [];
 		for (const handler of this.#handlers) {
 			const flow = handler.getFlow();

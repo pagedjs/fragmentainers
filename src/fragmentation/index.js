@@ -2,7 +2,7 @@ export { BreakToken, BlockBreakToken, InlineBreakToken, findChildBreakToken } fr
 export { Fragment } from "./fragment.js";
 export { ConstraintSpace } from "./constraint-space.js";
 export { EarlyBreak, BreakScore } from "./break-scoring.js";
-export { Fragmenter } from "./fragmenter.js";
+export { Fragmenter, LayoutPassLimitError } from "./fragmenter.js";
 export { createFragments } from "./create-fragments.js";
 export { FragmentationContext } from "./fragmentation-context.js";
 export {
@@ -15,6 +15,7 @@ export {
 export { FragmentFlow } from "./fragment-flow.js";
 export { FlowContext } from "./flow-context.js";
 export { CloneMap } from "./clone-map.js";
+export { locate } from "./locate.js";
 export {
 	FRAGMENTATION_NONE,
 	FRAGMENTATION_PAGE,
