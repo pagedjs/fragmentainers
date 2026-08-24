@@ -356,6 +356,43 @@ test.describe("PageResolver", () => {
 		expect(result).toBe(500);
 	});
 
+	test("cascades page counter directives independently", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([
+				{ counterReset: "chapter 1", counterIncrement: "page 1" },
+				{ counterReset: "none" },
+				{
+					pseudo: ["right"],
+					counterReset: "chapter 3",
+					counterIncrement: "page 2",
+				},
+				{ pseudo: ["first"], counterIncrement: "page 0" },
+			]);
+			const firstRight = resolver.resolve(0, null, null);
+			const left = resolver.resolve(1, null, null);
+			return {
+				firstRight: {
+					counterReset: firstRight.counterReset,
+					counterIncrement: firstRight.counterIncrement,
+				},
+				left: {
+					counterReset: left.counterReset,
+					counterIncrement: left.counterIncrement,
+				},
+			};
+		});
+
+		expect(result.firstRight).toEqual({
+			counterReset: "chapter 3",
+			counterIncrement: "page 0",
+		});
+		expect(result.left).toEqual({
+			counterReset: "none",
+			counterIncrement: "page 1",
+		});
+	});
+
 	test("invalid pseudo-class causes rule to be dropped", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { parsePageRulesFromCSS } = await import("/src/resolvers/page-resolver.js");
@@ -752,6 +789,36 @@ test.describe("PageResolver constructor with plain objects", () => {
 		});
 		expect(result).toEqual(["500px 500px"]);
 	});
+
+	test("plain objects preserve absent and explicit page counter directives", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const absent = new PageResolver([]).resolve(0, null, null);
+			const resolver = new PageResolver([
+				{ counterReset: "none", counterIncrement: "page 0" },
+			]);
+			const rule = resolver.pageRules[0];
+			const resolved = resolver.resolve(0, null, null);
+			return {
+				absent: {
+					counterReset: absent.counterReset,
+					counterIncrement: absent.counterIncrement,
+				},
+				rule: {
+					counterReset: rule.counterReset,
+					counterIncrement: rule.counterIncrement,
+				},
+				resolved: {
+					counterReset: resolved.counterReset,
+					counterIncrement: resolved.counterIncrement,
+				},
+			};
+		});
+
+		expect(result.absent).toEqual({ counterReset: null, counterIncrement: null });
+		expect(result.rule).toEqual({ counterReset: "none", counterIncrement: "page 0" });
+		expect(result.resolved).toEqual({ counterReset: "none", counterIncrement: "page 0" });
+	});
 });
 
 test.describe("PageResolver.fromStyleSheets", () => {
@@ -774,6 +841,41 @@ test.describe("PageResolver.fromStyleSheets", () => {
 		expect(result[1].name).toBe(null);
 		expect(result[1].pseudo).toEqual(["left"]);
 		expect(result[1].margin.left).toBe("30mm");
+	});
+
+	test("extracts page counter directives without conflating absent and none", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync(`
+				@page { counter-reset: chapter 2; }
+				@page :first { counter-reset: none; counter-increment: page 0 chapter 2; }
+				@page :left { size: A4; }
+			`);
+			const resolver = PageResolver.fromStyleSheets([sheet]);
+			return {
+				rules: resolver.pageRules.map((rule) => ({
+					counterReset: rule.counterReset,
+					counterIncrement: rule.counterIncrement,
+				})),
+				first: {
+					counterReset: resolver.resolve(0, null, null).counterReset,
+					counterIncrement: resolver.resolve(0, null, null).counterIncrement,
+				},
+			};
+		});
+
+		expect(result.rules).toEqual([
+			{ counterReset: "chapter 2", counterIncrement: null },
+			{ counterReset: "none", counterIncrement: "page 0 chapter 2" },
+			{ counterReset: null, counterIncrement: null },
+		]);
+		expect(result.first).toEqual({
+			counterReset: "none",
+			counterIncrement: "page 0 chapter 2",
+		});
 	});
 });
 

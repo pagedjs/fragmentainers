@@ -30,15 +30,28 @@ const MARGIN_SIDES = ["top", "right", "bottom", "left"];
  * @property {string|null} size - CSS size value ("A4", "210mm 297mm", ...), or null
  * @property {{ top: string|null, right: string|null, bottom: string|null, left: string|null }|null} margin - CSS lengths, or null
  * @property {string|null} pageOrientation - 'rotate-left', 'rotate-right', or null
+ * @property {string|null} counterReset - CSS counter-reset value, or null when absent
+ * @property {string|null} counterIncrement - CSS counter-increment value, or null when absent
  */
 export class PageRule {
-	constructor({ name, pseudo, nth, size, margin, pageOrientation } = {}) {
+	constructor({
+		name,
+		pseudo,
+		nth,
+		size,
+		margin,
+		pageOrientation,
+		counterReset,
+		counterIncrement,
+	} = {}) {
 		this.name = name || null;
 		this.pseudo = pseudo ?? [];
 		this.nth = nth ?? null;
 		this.size = size ?? null;
 		this.margin = margin ?? null;
 		this.pageOrientation = pageOrientation ?? null;
+		this.counterReset = counterReset ?? null;
+		this.counterIncrement = counterIncrement ?? null;
 	}
 
 	/**
@@ -87,6 +100,8 @@ export class PageConstraints {
 	 * @param {boolean} opts.isRecto
 	 * @param {boolean} [opts.isBlank]
 	 * @param {PageRule[]} [opts.matchedRules] - The @page rules that matched this page
+	 * @param {string|null} [opts.counterReset] - Resolved page-context counter reset
+	 * @param {string|null} [opts.counterIncrement] - Resolved page-context counter increment
 	 */
 	constructor({
 		pageIndex,
@@ -99,6 +114,8 @@ export class PageConstraints {
 		isRecto,
 		isBlank = false,
 		matchedRules = [],
+		counterReset = null,
+		counterIncrement = null,
 	}) {
 		this.pageIndex = pageIndex;
 		this.namedPage = namedPage;
@@ -110,6 +127,8 @@ export class PageConstraints {
 		this.isRecto = isRecto;
 		this.isBlank = isBlank;
 		this.matchedRules = matchedRules;
+		this.counterReset = counterReset;
+		this.counterIncrement = counterIncrement;
 	}
 
 	/** Build a ConstraintSpace for layout from these page constraints. */
@@ -202,6 +221,8 @@ export class PageResolver {
 			isRecto: !verso,
 			isBlank,
 			matchedRules: matchingRules,
+			counterReset: resolved.counterReset,
+			counterIncrement: resolved.counterIncrement,
 		});
 	}
 
@@ -237,6 +258,8 @@ export class PageResolver {
 			size: null,
 			margin: null,
 			pageOrientation: null,
+			counterReset: null,
+			counterIncrement: null,
 		};
 
 		const sorted = [...matchingRules].sort((a, b) => a.compareSpecificity(b));
@@ -255,6 +278,8 @@ export class PageResolver {
 				}
 			}
 			if (rule.pageOrientation != null) result.pageOrientation = rule.pageOrientation;
+			if (rule.counterReset != null) result.counterReset = rule.counterReset;
+			if (rule.counterIncrement != null) result.counterIncrement = rule.counterIncrement;
 		}
 
 		return result;
@@ -450,6 +475,8 @@ function pageRuleFromCSSPageRule(cssPageRule) {
 		size: style.getPropertyValue("size").trim() || null,
 		margin: hasMargin ? margin : null,
 		pageOrientation: style.getPropertyValue("page-orientation").trim() || null,
+		counterReset: style.getPropertyValue("counter-reset").trim() || null,
+		counterIncrement: style.getPropertyValue("counter-increment").trim() || null,
 	});
 }
 

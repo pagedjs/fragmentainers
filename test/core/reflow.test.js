@@ -197,6 +197,48 @@ test.describe("Fragmenter.reflow()", () => {
 		expect(result.restarts[3]).toEqual([[4]]);
 	});
 
+	test("reflow restores canonical page counters at every restart index", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+			const root = blockNode({
+				children: Array.from({ length: 4 }, () => blockNode({ blockSize: 100 })),
+			});
+			const resolver = new PageResolver(
+				[
+					{ counterIncrement: "page 2" },
+					{ pseudo: ["first"], counterReset: "page 4" },
+				],
+				{ inlineSize: 300, blockSize: 100 },
+			);
+			const layout = new Fragmenter(root, { resolver });
+			const read = (context) =>
+				context.fragments.map((fragment) => ({
+					page: fragment.page,
+					pages: fragment.pages,
+				}));
+			const initial = layout.flow();
+			const expected = read(initial);
+			const restarts = [];
+			for (let index = 0; index < initial.fragments.length; index++) {
+				restarts.push(read(layout.reflow(index)));
+			}
+			layout.destroy();
+			return { expected, restarts };
+		});
+
+		expect(result.expected).toEqual([
+			{ page: 6, pages: 4 },
+			{ page: 8, pages: 4 },
+			{ page: 10, pages: 4 },
+			{ page: 12, pages: 4 },
+		]);
+		for (let index = 0; index < result.expected.length; index++) {
+			expect(result.restarts[index]).toEqual(result.expected.slice(index));
+		}
+	});
+
 	test("reflow(0) on single-fragment content produces identical result", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");

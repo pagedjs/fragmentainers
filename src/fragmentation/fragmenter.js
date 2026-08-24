@@ -8,7 +8,7 @@ import {
 	requiredPageSide,
 	isSideSpecificBreak,
 } from "../resolvers/page-resolver.js";
-import { CounterState, walkFragmentTree } from "./counter-state.js";
+import { CounterState, parseCounterDirective, walkFragmentTree } from "./counter-state.js";
 import { ConstraintSpace, FRAGMENTATION_COLUMN } from "./constraint-space.js";
 import { Fragment } from "./fragment.js";
 import "../components/content-measure.js";
@@ -179,6 +179,7 @@ export class Fragmenter extends Iterator {
 	#mainDone = false;
 	#fragmentainerIndex = 0;
 	#counterState = null;
+	#pageCounter = 0;
 	#contentStyles = null;
 	#isPageBased = false;
 	#startIndex = 0;
@@ -230,6 +231,7 @@ export class Fragmenter extends Iterator {
 		this.#startIndex = options.continuation?.fragmentainerIndex ?? 0;
 		this.#startOffset = options.continuation?.blockOffset ?? 0;
 		this.#fragmentainerIndex = this.#startIndex;
+		this.#pageCounter = this.#startIndex;
 
 		if (options.styleSheet) {
 			this.#styleSheet = options.styleSheet;
@@ -277,6 +279,7 @@ export class Fragmenter extends Iterator {
 			});
 			this.#resolver = null;
 		}
+		this.#isPageBased = this.#resolver instanceof PageResolver;
 		// Page resolver auto-created in layout() from styles if neither set
 	}
 
@@ -423,6 +426,7 @@ export class Fragmenter extends Iterator {
 		if (prev?.counterState) {
 			this.#counterState.restore(prev.counterState);
 		}
+		this.#pageCounter = prev?.page ?? this.#startIndex;
 
 		// Fragment checkpoints describe their output state, so the fragment
 		// before the restart supplies its flows. The initial checkpoint also
@@ -462,6 +466,7 @@ export class Fragmenter extends Iterator {
 		while (!this.#done) {
 			newFragments.push(this.#step());
 		}
+		this.#setTotalPages();
 
 		// Layout is done — release the measurer before composition.
 		this.releaseMeasurer();
@@ -553,6 +558,7 @@ export class Fragmenter extends Iterator {
 				);
 				this.#done = true;
 				fragment.isLast = true;
+				this.#setTotalPages();
 				return fragment;
 			}
 		} else {
@@ -564,8 +570,33 @@ export class Fragmenter extends Iterator {
 			this.#done = true;
 			fragment.isLast = true;
 		}
+		this.#setTotalPages();
 
 		return fragment;
+	}
+
+	#advancePageCounter(fragment, constraints) {
+		if (!this.#isPageBased || !(this.#resolver instanceof PageResolver)) return;
+
+		for (const entry of parseCounterDirective(constraints.counterReset, 0)) {
+			if (entry.name === "page") this.#pageCounter = entry.value;
+		}
+
+		if (constraints.counterIncrement === null) {
+			this.#pageCounter++;
+		} else {
+			for (const entry of parseCounterDirective(constraints.counterIncrement, 1)) {
+				if (entry.name === "page") this.#pageCounter += entry.value;
+			}
+		}
+
+		fragment.page = this.#pageCounter;
+	}
+
+	#setTotalPages() {
+		if (!this.#done || !this.#isPageBased) return;
+		const total = this.#startIndex + this.#fragments.length;
+		for (const fragment of this.#fragments) fragment.pages = total;
 	}
 
 	/**
@@ -755,6 +786,7 @@ export class Fragmenter extends Iterator {
 					blankFragment.isBlank = true;
 					blankFragment.constraints = blankConstraints;
 					blankFragment.breakToken = this.#breakToken;
+					this.#advancePageCounter(blankFragment, blankConstraints);
 					if (!this.#counterState.isEmpty()) {
 						blankFragment.counterState = this.#counterState.snapshot();
 					}
@@ -813,6 +845,7 @@ export class Fragmenter extends Iterator {
 				},
 			};
 		}
+		this.#advancePageCounter(result.fragment, result.fragment.constraints);
 
 		// Counter state accumulation
 		const prevBT = this.#prevFragment?.breakToken ?? null;
