@@ -525,6 +525,18 @@ export class DOMLayoutNode extends LayoutNode {
 		this.#cumulativeHeights = null;
 	}
 
+	/**
+	 * Discard structure-dependent snapshots after this element's children
+	 * change. The DOMLayoutNode itself stays stable so existing break tokens
+	 * can still identify it when layout resumes.
+	 */
+	invalidateStructure() {
+		this.#children = null;
+		this.#isInlineFormattingContext = null;
+		this.#intrinsicBlockSizeCache = null;
+		this.#cumulativeHeights = null;
+	}
+
 	// Block size
 
 	get blockSize() {

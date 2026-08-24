@@ -258,6 +258,7 @@ export class Measurer {
 	#persistent = [];
 	#nodes = null;
 	#segmentOf = null;
+	#activatedElements = new WeakSet();
 
 	#context;
 
@@ -432,10 +433,14 @@ export class Measurer {
 	#arrange(segIndex, breakToken) {
 		const keep = breakToken ? unfinishedElements(breakToken) : new Set();
 		const slot = this.#measureElement.contentRoot;
+		const activating = [];
 		for (const node of this.#nodes) {
 			const seg = this.#segmentOf.get(node);
 			if (seg === PERSISTENT || seg === segIndex || (seg < segIndex && keep.has(node))) {
 				slot.appendChild(node);
+				if (node.nodeType === Node.ELEMENT_NODE && !this.#activatedElements.has(node)) {
+					activating.push(node);
+				}
 			} else {
 				node.remove();
 			}
@@ -443,6 +448,15 @@ export class Measurer {
 		this.#currentSegment = segIndex;
 
 		this.#handlers.beforeMeasurement(slot);
+		// The next segment's boundary node is exposed to layout as a
+		// disconnected lookahead. Margin collapsing can cache its child tree
+		// before handlers materialize pseudos when the segment becomes active.
+		// Refresh newly connected nodes once, after those DOM mutations. Later
+		// arrangements retain their child identities for resumed break tokens.
+		for (const element of activating) {
+			this.#nodeMap.get(element)?.invalidateStructure();
+			this.#activatedElements.add(element);
+		}
 		void this.#measureElement.offsetHeight;
 		this.#handlers.afterMeasurementSetup(slot);
 	}
