@@ -522,7 +522,8 @@ export class BlockContainerAlgorithm {
 		if (
 			this.#hasFixedBlockSize &&
 			fits &&
-			(this.#blockOffset >= remaining || (!contentDone && this.#hasPlacedContent()))
+			this.#hasPlacedContent() &&
+			(this.#blockOffset >= remaining || !contentDone)
 		) {
 			this.#blockOffset = remaining;
 			this.#isAtBlockEnd = !contentDone;
@@ -706,7 +707,7 @@ export class BlockContainerAlgorithm {
 	}
 
 	#shouldPushBreakInsideAvoid(child, childBT, remainingSpace) {
-		if (isMonolithic(child) || childBT || this.#blockOffset === 0) return false;
+		if (isMonolithic(child) || childBT || !this.#hasContentAbove()) return false;
 		if (!isAvoidBreakValue(child.breakInside, this.#constraintSpace.fragmentationType)) {
 			return false;
 		}
@@ -722,7 +723,21 @@ export class BlockContainerAlgorithm {
 			blockOffsetInFragmentainer:
 				this.#containerOffsetInFragmentainer + this.#blockOffset - collapseAdj,
 			fragmentationType: this.#constraintSpace.fragmentationType,
+			fragmentainerContentStart: this.#constraintSpace.fragmentainerContentStart,
 		});
+	}
+
+	/**
+	 * Whether content precedes this child in the fragmentainer. With none,
+	 * pushing cannot help — the next fragmentainer offers no more room — so
+	 * the child is laid out here and overflows instead. The space above may
+	 * be the body margin rather than content, and the box's own block-start
+	 * inset is not content either: a box whose inset alone fills its
+	 * block-size would otherwise push the same child forever.
+	 */
+	#hasContentAbove() {
+		const contentStart = this.#constraintSpace.fragmentainerContentStart || 0;
+		return this.#containerOffsetInFragmentainer > contentStart || this.#hasPlacedContent();
 	}
 
 	#fragmentainerExhausted() {
@@ -921,7 +936,7 @@ export class BlockContainerAlgorithm {
 			// Monolithic content: push or overflow
 			if (isMonolithic(child) && !effectiveChildBreakToken) {
 				const childSize = getMonolithicBlockSize(child, this.#constraintSpace);
-				if (childSize > remainingSpace && this.#blockOffset > 0) {
+				if (childSize > remainingSpace && this.#hasContentAbove()) {
 					this.#childBreakTokens.push(BlockBreakToken.createBreakBefore(child, false));
 					break;
 				}

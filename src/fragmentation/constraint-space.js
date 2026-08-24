@@ -20,6 +20,7 @@ export class ConstraintSpace {
 		reservedBlockEnd = 0,
 		cssInlineSize = null,
 		cssBlockSize = null,
+		fragmentainerContentStart = 0,
 	} = {}) {
 		this.availableInlineSize = availableInlineSize;
 		this.availableBlockSize = availableBlockSize;
@@ -31,6 +32,12 @@ export class ConstraintSpace {
 		this.reservedBlockEnd = reservedBlockEnd;
 		/** Body margin-block-start for first-page collapsing (0 on non-first pages). */
 		this.bodyMarginBlockStart = 0;
+		/**
+		 * Where content can start in this fragmentainer: the body margin the
+		 * first page carries, and 0 elsewhere. A box at this offset has
+		 * nothing above it, so a break before its first child is futile.
+		 */
+		this.fragmentainerContentStart = fragmentainerContentStart;
 		/** Original CSS inline size string (e.g. "65mm") for browser-native unit conversion. */
 		this.cssInlineSize = cssInlineSize;
 		/** Original CSS block size string (e.g. "181mm") for browser-native unit conversion. */

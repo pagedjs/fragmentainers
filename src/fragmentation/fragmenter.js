@@ -756,6 +756,7 @@ export class Fragmenter extends Iterator {
 		if (!this.#breakToken && this.#tree.marginBlockStart) {
 			constraintSpace = Object.assign(new ConstraintSpace(), constraintSpace);
 			constraintSpace.bodyMarginBlockStart = this.#tree.marginBlockStart;
+			constraintSpace.fragmentainerContentStart = this.#tree.marginBlockStart;
 		}
 
 		// Sync DOM measurement container
