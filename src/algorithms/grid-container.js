@@ -81,6 +81,7 @@ export class GridAlgorithm {
 				this.#buildContainerBreakToken(
 					rowIdx,
 					rowResult.breakToken ? [rowResult.breakToken] : [],
+					rowResult.breakToken?.isAtBlockEnd && rowIdx === gridRows.length - 1,
 				);
 				break;
 			}
@@ -170,11 +171,14 @@ export class GridAlgorithm {
 		return { fragment: rowFragment, breakToken: rowToken, anyBroke };
 	}
 
-	#buildContainerBreakToken(rowIndex, childBreakTokens = []) {
+	#buildContainerBreakToken(rowIndex, childBreakTokens = [], isAtBlockEnd = false) {
 		const token = new BlockBreakToken(this.#node);
 		token.consumedBlockSize = (this.#breakToken?.consumedBlockSize || 0) + this.#blockOffset;
 		token.sequenceNumber = (this.#breakToken?.sequenceNumber ?? -1) + 1;
 		token.hasSeenAllChildren = false;
+		// With its last row at its block-end the grid's own extent is complete
+		// too; it continues only to carry the items' parallel flows (§2.1).
+		token.isAtBlockEnd = isAtBlockEnd;
 		token.childBreakTokens = childBreakTokens;
 		token.algorithmData = {
 			type: ALGORITHM_GRID,
