@@ -65,14 +65,23 @@ export class GridAlgorithm {
 		for (let rowIdx = this.#startRow; rowIdx < gridRows.length; rowIdx++) {
 			const rowItems = gridRows[rowIdx];
 
+			// The container token nests the broken row's per-item tokens under a
+			// single row wrapper (childBreakTokens[0]); only the resumed row has
+			// saved item tokens, so later rows start fresh.
+			const rowBreakToken =
+				rowIdx === this.#startRow ? (this.#breakToken?.childBreakTokens?.[0] ?? null) : null;
+
 			// Lay out this grid row as parallel flows (table-row pattern)
-			const rowResult = yield* this.layoutGridRow(rowItems, this.#blockOffset);
+			const rowResult = yield* this.layoutGridRow(rowItems, this.#blockOffset, rowBreakToken);
 
 			this.#rowFragments.push(rowResult.fragment);
 			this.#blockOffset += rowResult.fragment.blockSize;
 
 			if (rowResult.anyBroke) {
-				this.#buildContainerBreakToken(rowIdx, rowResult.breakToken?.childBreakTokens ?? []);
+				this.#buildContainerBreakToken(
+					rowIdx,
+					rowResult.breakToken ? [rowResult.breakToken] : [],
+				);
 				break;
 			}
 
@@ -90,18 +99,19 @@ export class GridAlgorithm {
 		}
 	}
 
-	*layoutGridRow(rowItems, blockOffset) {
+	*layoutGridRow(rowItems, blockOffset, rowBreakToken = null) {
 		const itemFragments = [];
 		const itemBreakTokens = [];
 		let maxItemBlockSize = 0;
 		let anyBroke = false;
+		let anyBrokeInFlow = false;
 
 		const itemCount = rowItems.length;
 		const itemInlineSize = this.#constraintSpace.availableInlineSize / itemCount;
 
 		for (let i = 0; i < itemCount; i++) {
 			const item = rowItems[i];
-			const itemBreakToken = findChildBreakToken(this.#breakToken, item);
+			const itemBreakToken = findChildBreakToken(rowBreakToken, item);
 			const effectiveItemBreakToken = itemBreakToken?.isBreakBefore ? null : itemBreakToken;
 
 			const itemConstraint = new ConstraintSpace({
@@ -126,6 +136,7 @@ export class GridAlgorithm {
 			if (result.breakToken) {
 				itemBreakTokens.push(result.breakToken);
 				anyBroke = true;
+				if (result.breakToken.continuesInFlow) anyBrokeInFlow = true;
 			} else {
 				itemBreakTokens.push(null);
 			}
@@ -148,11 +159,10 @@ export class GridAlgorithm {
 
 		let rowToken = null;
 		if (anyBroke) {
-			// The container flattens this token away (layoutRows keeps only its
-			// childBreakTokens), so a row-level at-block-end would never be
-			// read. Grid needs the token nested, as flex nests its line token,
-			// before it can report a row completing into a parallel flow.
 			rowToken = new BlockBreakToken(this.#node);
+			// Every item at its block-end leaves the row's own extent complete:
+			// it continues only to carry their parallel flows (§2.1).
+			rowToken.isAtBlockEnd = !anyBrokeInFlow;
 			rowToken.childBreakTokens = itemBreakTokens;
 			rowToken.hasSeenAllChildren = true;
 		}

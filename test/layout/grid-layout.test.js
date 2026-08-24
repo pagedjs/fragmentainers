@@ -283,7 +283,7 @@ test.describe("layoutGridContainer", () => {
 		expect(result.blockSize).toBe(100);
 	});
 
-	test("container break token carries per-item tokens for a broken row", async ({ page }) => {
+	test("container break token nests the broken row's per-item tokens", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { runLayoutGenerator } = await import("/src/layout/layout-driver.js");
 			const { GridAlgorithm } = await import("/src/algorithms/grid-container.js");
@@ -304,9 +304,16 @@ test.describe("layoutGridContainer", () => {
 				fragmentationType: "page",
 			});
 			const r = runLayoutGenerator(new GridAlgorithm(root, cs, null));
-			return { childTokenCount: r.breakToken?.childBreakTokens.length ?? 0 };
+			const rowToken = r.breakToken?.childBreakTokens[0];
+			return {
+				childTokenCount: r.breakToken?.childBreakTokens.length ?? 0,
+				rowIsContainer: rowToken?.node === root,
+				itemTokenCount: rowToken?.childBreakTokens.length ?? 0,
+			};
 		});
-		expect(result.childTokenCount).toBe(2);
+		// A grid row is anonymous, so its token stands between the container
+		// and the items and carries the container's own node.
+		expect(result).toEqual({ childTokenCount: 1, rowIsContainer: true, itemTokenCount: 2 });
 	});
 
 	test("a broken grid row resumes its items instead of re-laying from scratch", async ({ page }) => {
