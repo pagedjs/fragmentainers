@@ -315,7 +315,9 @@ export class Fragmenter extends Iterator {
 
 		// Initialize context on first call
 		if (!this.#context) {
-			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles);
+			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles, {
+				handlers: this.#flowContext.handlers,
+			});
 		}
 
 		this.#step();
@@ -372,6 +374,7 @@ export class Fragmenter extends Iterator {
 		return new FragmentationContext([...this.#fragments], this.#contentStyles, {
 			start,
 			stop,
+			handlers: this.#flowContext.handlers,
 		});
 	}
 
@@ -471,7 +474,10 @@ export class Fragmenter extends Iterator {
 		// Layout is done — release the measurer before composition.
 		this.releaseMeasurer();
 
-		return new FragmentationContext(newFragments, this.#contentStyles, { previous: prev });
+		return new FragmentationContext(newFragments, this.#contentStyles, {
+			previous: prev,
+			handlers: this.#flowContext.handlers,
+		});
 	}
 
 	/**

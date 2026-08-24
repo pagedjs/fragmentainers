@@ -21,6 +21,7 @@ export class FragmentationContext extends Array {
 	#fragments;
 	#previous = null;
 	#contentStyles;
+	#handlers;
 
 	static get [Symbol.species]() {
 		return Array;
@@ -29,16 +30,21 @@ export class FragmentationContext extends Array {
 	/**
 	 * @param {import("./fragment.js").Fragment[]} fragments
 	 * @param {{ sheets: CSSStyleSheet[] }|null} contentStyles
-	 * @param {{ start?: number, stop?: number, previous?: import("./fragment.js").Fragment|null }} [range]
+	 * @param {{ start?: number, stop?: number, previous?: import("./fragment.js").Fragment|null, handlers?: import("../handlers/registry.js").HandlerRegistry|null }} [range]
 	 *   `previous` is the fragment preceding index 0 of `fragments` — set when
 	 *   this context holds a slice of a longer flow (reflow), so the first
 	 *   fragmentainer still resumes its counters and split decorations.
 	 */
-	constructor(fragments, contentStyles, { start = 0, stop, previous = null } = {}) {
+	constructor(
+		fragments,
+		contentStyles,
+		{ start = 0, stop, previous = null, handlers = null } = {},
+	) {
 		super();
 		this.#fragments = fragments;
 		this.#previous = previous;
 		this.#contentStyles = contentStyles;
+		this.#handlers = handlers;
 		if (contentStyles) {
 			const end = stop ?? fragments.length;
 			for (let i = start; i < end; i++) {
@@ -89,20 +95,21 @@ export class FragmentationContext extends Array {
 			el.setAttribute("data-blank-page", "");
 			el.expectedBlockSize = contentArea.blockSize;
 			el.overflowThreshold = 0;
-			return el;
-		}
+		} else {
+			const prevBreakToken = prev?.breakToken ?? null;
+			el.appendChild(fragment.build(prevBreakToken));
 
-		const prevBreakToken = prev?.breakToken ?? null;
-		el.appendChild(fragment.build(prevBreakToken));
-
-		if (fragment.afterRender) {
-			for (const callback of fragment.afterRender) {
-				callback(el, this.#contentStyles);
+			if (fragment.afterRender) {
+				for (const callback of fragment.afterRender) {
+					callback(el, this.#contentStyles);
+				}
 			}
+
+			el.expectedBlockSize = contentArea.blockSize;
+			el.overflowThreshold = findLastIFCLineHeight(fragment) || DEFAULT_OVERFLOW_THRESHOLD;
 		}
 
-		el.expectedBlockSize = contentArea.blockSize;
-		el.overflowThreshold = findLastIFCLineHeight(fragment) || DEFAULT_OVERFLOW_THRESHOLD;
+		this.#handlers?.afterCompose(el, fragment);
 		return el;
 	}
 }

@@ -254,6 +254,13 @@ export class HandlerRegistry {
 		return hasResult ? { reservedBlockEnd, afterRenderCallbacks } : null;
 	}
 
+	afterCompose(element, fragment) {
+		this.#ensureReady();
+		for (const handler of this.#handlers) {
+			handler.afterCompose(element, fragment);
+		}
+	}
+
 	/**
 	 * Return handlers that run a parallel flow, paired with their flow.
 	 * @returns {Array<{ handler: LayoutHandler, flow: import('../fragmentation/fragment-flow.js').FragmentFlow }>}

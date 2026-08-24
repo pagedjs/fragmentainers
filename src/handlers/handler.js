@@ -153,6 +153,15 @@ export class LayoutHandler {
 	composeFlowFragment() {}
 
 	/**
+	 * Called after a fragment-container has been fully composed. Engine-owned
+	 * properties, fragment content, and afterRender callbacks are complete.
+	 *
+	 * @param {Element} element
+	 * @param {import('../fragmentation/fragment.js').Fragment} fragment
+	 */
+	afterCompose() {}
+
+	/**
 	 * Clean up any resources held by this handler instance.
 	 * Called by the registry before replacing instances on re-init.
 	 */
