@@ -19,6 +19,7 @@ function formatCounterSet(snapshot) {
  */
 export class FragmentationContext extends Array {
 	#fragments;
+	#previous = null;
 	#contentStyles;
 
 	static get [Symbol.species]() {
@@ -28,11 +29,15 @@ export class FragmentationContext extends Array {
 	/**
 	 * @param {import("./fragment.js").Fragment[]} fragments
 	 * @param {{ sheets: CSSStyleSheet[] }|null} contentStyles
-	 * @param {{ start?: number, stop?: number }} [range]
+	 * @param {{ start?: number, stop?: number, previous?: import("./fragment.js").Fragment|null }} [range]
+	 *   `previous` is the fragment preceding index 0 of `fragments` — set when
+	 *   this context holds a slice of a longer flow (reflow), so the first
+	 *   fragmentainer still resumes its counters and split decorations.
 	 */
-	constructor(fragments, contentStyles, { start = 0, stop } = {}) {
+	constructor(fragments, contentStyles, { start = 0, stop, previous = null } = {}) {
 		super();
 		this.#fragments = fragments;
+		this.#previous = previous;
 		this.#contentStyles = contentStyles;
 		if (contentStyles) {
 			const end = stop ?? fragments.length;
@@ -74,7 +79,8 @@ export class FragmentationContext extends Array {
 		if (fragment.isFirst) el.setAttribute("data-first", "");
 		if (fragment.isLast) el.setAttribute("data-last", "");
 
-		const counterSnapshot = index > 0 ? this.#fragments[index - 1].counterState : null;
+		const prev = index > 0 ? this.#fragments[index - 1] : this.#previous;
+		const counterSnapshot = prev?.counterState ?? null;
 		if (counterSnapshot && Object.keys(counterSnapshot).length > 0) {
 			el.style.counterSet = formatCounterSet(counterSnapshot);
 		}
@@ -86,7 +92,7 @@ export class FragmentationContext extends Array {
 			return el;
 		}
 
-		const prevBreakToken = index > 0 ? this.#fragments[index - 1].breakToken : null;
+		const prevBreakToken = prev?.breakToken ?? null;
 		el.appendChild(fragment.build(prevBreakToken));
 
 		if (fragment.afterRender) {

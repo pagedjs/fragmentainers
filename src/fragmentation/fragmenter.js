@@ -434,7 +434,7 @@ export class Fragmenter extends Iterator {
 		// Layout is done — release the measurer before composition.
 		this.releaseMeasurer();
 
-		return new FragmentationContext(newFragments, this.#contentStyles);
+		return new FragmentationContext(newFragments, this.#contentStyles, { previous: prev });
 	}
 
 	/**
