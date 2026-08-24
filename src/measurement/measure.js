@@ -229,6 +229,9 @@ function unfinishedElements(breakToken) {
 	return elements;
 }
 
+// Segment index for a persistent element: live in every segment.
+const PERSISTENT = -1;
+
 const SKIP_TAGS = new Set(["script", "style", "template"]);
 const SKIP_DISPLAYS = new Set(["table-column", "table-column-group", "none"]);
 
@@ -253,9 +256,8 @@ export class Measurer {
 	#flowElements = null;
 	#breakProps = null;
 	#persistent = [];
-	#finished = null;
-	#pending = null;
-	#retained = new Map();
+	#nodes = null;
+	#segmentOf = null;
 
 	#context;
 
@@ -351,9 +353,6 @@ export class Measurer {
 			this.#segments.push({ start, end });
 		}
 
-		this.#finished = document.createDocumentFragment();
-		this.#pending = document.createDocumentFragment();
-
 		// Build DOMLayoutNode wrappers for all top-level children
 		// (both flow and persistent)
 		this.#allNodes = [];
@@ -366,6 +365,7 @@ export class Measurer {
 		// #segments indices are into flowElements, not #allElements.
 		// Store the flow elements list for segment operations.
 		this.#flowElements = flowElements;
+		this.#indexNodes();
 
 		// Set override break/page on all boundary children (lookahead nodes)
 		for (let i = 1; i < this.#segments.length; i++) {
@@ -376,120 +376,112 @@ export class Measurer {
 			node.page = this.#breakProps[boundaryIdx].page;
 		}
 
-		// Move non-first-segment flow elements to pending
-		const firstEnd = this.#segments[0].end;
-		for (let i = flowElements.length - 1; i >= firstEnd; i--) {
-			this.#pending.insertBefore(flowElements[i], this.#pending.firstChild);
-		}
-
-		// Create measurer with first segment's content (remaining flow
-		// elements + persistent elements stay in #content)
+		// The container starts empty; #arrange fills it with the first
+		// segment's share of the content.
 		const measurer = this.#createMeasurer();
-		measurer.injectFragment(this.#content, this.#styles);
-
+		measurer.setupEmpty(this.#styles);
 		document.body.appendChild(measurer);
-
-		this.#handlers.beforeMeasurement(measurer.contentRoot);
-		this.#reflowAtWidth(measurer, constraintSpace);
+		if (constraintSpace) measurer.applyConstraintSpace(constraintSpace);
 
 		this.#measureElement = measurer;
+		this.#arrange(0, null);
 		this.#contentStyles = measurer.getContentStyles();
-		this.#currentSegment = 0;
-
-		this.#handlers.afterMeasurementSetup(measurer.contentRoot);
 
 		return measurer.contentRoot;
 	}
 
 	/**
-	 * Called after each next() call. If segmented, checks whether the
-	 * break token indicates we've reached the segment boundary and
-	 * swaps to the next segment's measurer.
+	 * Index the top-level content once: the canonical document order, which
+	 * every arrangement is rebuilt from, and the segment each node belongs
+	 * to. Persistent elements belong to every segment. A node that is not a
+	 * flow element — whitespace, <style>, display: none — travels with the
+	 * flow element it follows.
+	 */
+	#indexNodes() {
+		this.#nodes = Array.from(this.#content.childNodes);
+		this.#segmentOf = new Map();
+		const segmentOfFlow = new Map();
+		for (let s = 0; s < this.#segments.length; s++) {
+			const { start, end } = this.#segments[s];
+			for (let i = start; i < end; i++) segmentOfFlow.set(this.#flowElements[i], s);
+		}
+		const persistentSet = new Set(this.#persistent);
+		let segIndex = 0;
+		for (const node of this.#nodes) {
+			if (persistentSet.has(node)) {
+				this.#segmentOf.set(node, PERSISTENT);
+				continue;
+			}
+			if (segmentOfFlow.has(node)) segIndex = segmentOfFlow.get(node);
+			this.#segmentOf.set(node, segIndex);
+		}
+	}
+
+	/**
+	 * Arrange the measurement container for `segIndex`, re-partitioning every
+	 * top-level node from the canonical order: live in the slot are this
+	 * segment's flow elements, the persistent elements, and any earlier box
+	 * the break token leaves unfinished — a parallel flow (CSS Fragmentation
+	 * §2.1) laid out alongside this segment. The rest is detached; #nodes
+	 * holds it and remembers where it goes.
+	 *
+	 * The arrangement is a function of (segIndex, breakToken) alone, so
+	 * stepping forward a segment and rewinding to an earlier one are the
+	 * same operation.
+	 */
+	#arrange(segIndex, breakToken) {
+		const keep = breakToken ? unfinishedElements(breakToken) : new Set();
+		const slot = this.#measureElement.contentRoot;
+		for (const node of this.#nodes) {
+			const seg = this.#segmentOf.get(node);
+			if (seg === PERSISTENT || seg === segIndex || (seg < segIndex && keep.has(node))) {
+				slot.appendChild(node);
+			} else {
+				node.remove();
+			}
+		}
+		this.#currentSegment = segIndex;
+
+		this.#handlers.beforeMeasurement(slot);
+		void this.#measureElement.offsetHeight;
+		this.#handlers.afterMeasurementSetup(slot);
+	}
+
+	/**
+	 * Arrange measurement for the fragment that resumes from `breakToken`.
+	 * The flow calls this after every fragment — stepping forward when the
+	 * token reaches the next segment's boundary child — and reflow() calls it
+	 * with the token it rewound to, which steps back.
 	 *
 	 * @param {import('../fragmentation/tokens.js').BlockBreakToken|null} breakToken
 	 * @param {DOMLayoutNode} tree — root layout node
+	 * @returns {boolean} whether the arrangement changed
 	 */
-	advance(breakToken, tree) {
-		if (!this.#segments || this.#currentSegment >= this.#segments.length - 1) return false;
-		if (!this.#isAtBoundary(breakToken)) return false;
+	arrange(breakToken, tree) {
+		if (!this.#segments) return false;
+		const segIndex = this.#segmentForToken(breakToken);
+		if (segIndex === this.#currentSegment) return false;
 
-		this.#currentSegment++;
-		const seg = this.#segments[this.#currentSegment];
-
-		// Move completed flow elements from the current measurer to finished.
-		// Persistent elements stay — they'll be moved to the new measurer. So
-		// does a box that still has content to lay out: a parallel flow (CSS
-		// Fragmentation §2.1) is laid out alongside the next segment and must
-		// remain measurable until it finishes.
-		const slot = this.#measureElement.contentRoot;
-		const persistentSet = new Set(this.#persistent);
-		const unfinished = unfinishedElements(breakToken);
-		const toKeep = [];
-		while (slot.firstChild) {
-			const element = slot.firstChild;
-			if (persistentSet.has(element) || unfinished.has(element)) {
-				this.#holdPlace(element);
-				toKeep.push(element);
-				slot.removeChild(element);
-			} else {
-				this.#finish(element);
-			}
-		}
-
-		// Remove old measurer
-		this.#measureElement.remove();
-
-		// Create new measurer with next segment's flow elements + persistent
-		const frag = document.createDocumentFragment();
-		for (const el of toKeep) {
-			frag.appendChild(el);
-		}
-		for (let i = seg.start; i < seg.end; i++) {
-			frag.appendChild(this.#flowElements[i]);
-		}
-
-		const measurer = this.#createMeasurer();
-		const newSlot = measurer.setupEmpty(this.#styles);
-		newSlot.appendChild(frag);
-
-		document.body.appendChild(measurer);
-
-		this.#handlers.beforeMeasurement(newSlot);
-		void measurer.offsetHeight;
-
-		this.#measureElement = measurer;
-
-		this.#handlers.afterMeasurementSetup(newSlot);
-
-		// Rebuild root's children from the nodeMap
-		tree.setChildren(this.#buildSegmentChildren(this.#currentSegment));
+		this.#arrange(segIndex, breakToken);
+		tree.setChildren(this.#buildSegmentChildren(segIndex));
 		return true;
 	}
 
 	/**
-	 * Mark where an element belongs among the finished content while it stays
-	 * measurable: it is released later than its segment-mates but still sits
-	 * before them in the document.
+	 * The segment owning the resume point a break token names: the furthest
+	 * along of the top-level boxes it mentions. A break-before token on the
+	 * next segment's boundary child names that segment; a box left unfinished
+	 * behind the frontier does not pull the cursor back.
 	 */
-	#holdPlace(element) {
-		if (this.#retained.has(element)) return;
-		const marker = document.createComment("");
-		this.#finished.appendChild(marker);
-		this.#retained.set(element, marker);
-	}
-
-	/**
-	 * Move an element into the finished content, at the place held for it if
-	 * it was retained across a segment.
-	 */
-	#finish(element) {
-		const marker = this.#retained.get(element);
-		if (marker) {
-			marker.replaceWith(element);
-			this.#retained.delete(element);
-		} else {
-			this.#finished.appendChild(element);
+	#segmentForToken(breakToken) {
+		if (!breakToken) return 0;
+		let segIndex = -1;
+		for (const token of breakToken.childBreakTokens) {
+			const element = token.node?.element;
+			const seg = element ? this.#segmentOf.get(element) : undefined;
+			if (seg !== undefined && seg > segIndex) segIndex = seg;
 		}
+		return segIndex < 0 ? this.#currentSegment : segIndex;
 	}
 
 	/**
@@ -535,23 +527,7 @@ export class Measurer {
 	 */
 	get initialChildren() {
 		if (!this.#segments) return null;
-		return this.#buildSegmentChildren(0);
-	}
-
-	/**
-	 * Check if a break token indicates we've reached the current
-	 * segment's boundary (forced break at the lookahead child).
-	 */
-	#isAtBoundary(breakToken) {
-		if (!breakToken) return false;
-		const childTokens = breakToken.childBreakTokens;
-		if (!childTokens || childTokens.length === 0) return false;
-		const lastChild = childTokens[childTokens.length - 1];
-		if (!lastChild.isBreakBefore) return false;
-		const nextSegStart = this.#segments[this.#currentSegment + 1]?.start;
-		if (nextSegStart === undefined) return false;
-		const boundaryEl = this.#flowElements[nextSegStart];
-		return lastChild.node === this.#nodeMap.get(boundaryEl);
+		return this.#buildSegmentChildren(this.#currentSegment);
 	}
 
 	/**
@@ -565,28 +541,16 @@ export class Measurer {
 		if (!this.#measureElement) return { content: this.#content };
 
 		const frag = document.createDocumentFragment();
+		const slot = this.#measureElement.contentRoot;
 
+		// Segmented content is scattered across the slot and the detached
+		// remainder, so reassemble it in the canonical order rather than the
+		// slot's; anything measurement added on top follows.
 		if (this.#segments) {
-			const slot = this.#measureElement.contentRoot;
-			for (const [element, marker] of this.#retained) {
-				if (element.parentNode === slot) marker.replaceWith(element);
-				else marker.remove();
-			}
-			this.#retained.clear();
-			if (this.#finished.childNodes.length > 0) {
-				frag.appendChild(this.#finished);
-			}
-			while (slot.firstChild) {
-				frag.appendChild(slot.firstChild);
-			}
-			if (this.#pending.childNodes.length > 0) {
-				frag.appendChild(this.#pending);
-			}
-		} else {
-			const slot = this.#measureElement.contentRoot;
-			while (slot.firstChild) {
-				frag.appendChild(slot.firstChild);
-			}
+			for (const node of this.#nodes) frag.appendChild(node);
+		}
+		while (slot.firstChild) {
+			frag.appendChild(slot.firstChild);
 		}
 
 		this.#measureElement.remove();
@@ -607,23 +571,15 @@ export class Measurer {
 	reattach() {
 		if (this.#measureElement) return this.#measureElement.contentRoot;
 
-		if (this.#segments) {
-			this.#finished = document.createDocumentFragment();
-			this.#pending = document.createDocumentFragment();
-			this.#retained.clear();
-			const firstEnd = this.#segments[0].end;
-			for (let i = this.#flowElements.length - 1; i >= firstEnd; i--) {
-				this.#pending.insertBefore(this.#flowElements[i], this.#pending.firstChild);
-			}
-			this.#currentSegment = 0;
-		}
-
 		const measurer = this.#createMeasurer();
-		measurer.injectFragment(this.#content, this.#styles);
+		if (this.#segments) measurer.setupEmpty(this.#styles);
+		else measurer.injectFragment(this.#content, this.#styles);
 		document.body.appendChild(measurer);
-		void measurer.offsetHeight;
-
 		this.#measureElement = measurer;
+
+		if (this.#segments) this.#arrange(0, null);
+		else void measurer.offsetHeight;
+
 		return measurer.contentRoot;
 	}
 

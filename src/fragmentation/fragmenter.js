@@ -411,6 +411,10 @@ export class Fragmenter extends Iterator {
 			requested === 0 || this.#fragments[requested - 1]?.node === this.#tree ? requested : 0;
 		const prev = position > 0 ? this.#fragments[position - 1] : null;
 		this.#breakToken = prev?.breakToken ?? null;
+		// Segmented measurement holds its own cursor over the source DOM.
+		// Hand it the token being resumed from — the same call #step() makes
+		// after every fragment — so it arranges itself for that segment.
+		if (this.#measurer.arrange(this.#breakToken, this.#tree)) this.#installStyleSheet();
 		this.#fragmentainerIndex = this.#startIndex + position;
 		this.#prevFragment = prev;
 		this.#counterState = new CounterState();
@@ -502,10 +506,12 @@ export class Fragmenter extends Iterator {
 			this.#mainDone = true;
 		}
 
-		// Segment advancement (sync). A new segment re-stamps handler data-refs
-		// (StyleResolver) and rebuilds normalization sheets, so reinstall the
-		// composite sheet to keep those rules matching the new refs.
-		if (this.#measurer.advance(fragment.breakToken, this.#tree)) {
+		// Arrange measurement for the fragment this token resumes into; a null
+		// token has nothing to resume, so the last segment stays put. A new
+		// segment re-stamps handler data-refs (StyleResolver) and rebuilds
+		// normalization sheets, so reinstall the composite sheet to keep those
+		// rules matching the new refs.
+		if (fragment.breakToken && this.#measurer.arrange(fragment.breakToken, this.#tree)) {
 			this.#installStyleSheet();
 		}
 

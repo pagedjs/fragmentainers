@@ -21,7 +21,7 @@ export class NullMeasurer {
 
 	applyConstraintSpace() {}
 
-	advance() {
+	arrange() {
 		return false;
 	}
 
