@@ -148,10 +148,20 @@ export class InlineBreakToken extends BreakToken {
 
 /**
  * Find a child's break token within a parent's break token.
+ *
+ * Anonymous boxes — grid rows, flex lines — have no layout node of their own
+ * and borrow their container's, so two sibling fragments can carry the same
+ * node. `taken` records the tokens already matched in one pass so the second
+ * sibling does not resume from the first one's token.
  */
-export function findChildBreakToken(parentBreakToken, childNode) {
+export function findChildBreakToken(parentBreakToken, childNode, taken = null) {
 	if (!parentBreakToken) return null;
-	return parentBreakToken.childBreakTokens.find((t) => t.node === childNode) || null;
+	for (const token of parentBreakToken.childBreakTokens) {
+		if (token.node !== childNode || taken?.has(token)) continue;
+		taken?.add(token);
+		return token;
+	}
+	return null;
 }
 
 /**

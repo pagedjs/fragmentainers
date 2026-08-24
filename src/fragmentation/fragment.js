@@ -192,12 +192,15 @@ export class Fragment {
 	 * Build the block-level child fragments into the clone of this box.
 	 */
 	#buildChildren(el, inputBreakToken, cloneMap) {
+		// Grid rows and flex lines are anonymous: several child fragments can
+		// share this node, and each must take its own token.
+		const taken = new Set();
 		for (const child of this.childFragments) {
 			if (!child.node) continue;
 			// Skip materialized pseudo elements at wrong split boundaries
 			if (child.node.element && !this.#shouldBuildPseudo(child.node.element, inputBreakToken))
 				continue;
-			const childInputBT = findChildBreakToken(inputBreakToken, child.node);
+			const childInputBT = findChildBreakToken(inputBreakToken, child.node, taken);
 			child.#buildInto(childInputBT, el, cloneMap);
 		}
 	}
