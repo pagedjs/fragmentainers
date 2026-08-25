@@ -144,6 +144,59 @@ test.describe("PseudoElements content classification", () => {
 		expect(result.after.width).toBeCloseTo(result.after.controls.updated, 1);
 	});
 
+	// attr() resolves against the element whose pseudo is styled, so relocating
+	// it would read the <frag-pseudo> and always come back empty.
+	test("materializes attr content as text, read from the source element", async ({ page }) => {
+		const result = await inspectMaterializedPseudo(page, {
+			css: `
+				.target, [data-control] { display: inline-block; font: 20px/1 monospace; }
+				.target::before { content: attr(data-label); }
+			`,
+			html: `
+				<span class="target" data-label="tagged"></span>
+				<span data-control="tagged">tagged</span>
+			`,
+		});
+
+		expect(result.before.text).toBe("tagged");
+		expect(result.before.relocatedContent).toBe("none");
+		expect(result.before.originalContent).toBe("none");
+		expect(result.before.width).toBeCloseTo(result.before.controls.tagged, 1);
+	});
+
+	test("materializes attr content joined with literal strings", async ({ page }) => {
+		const result = await inspectMaterializedPseudo(page, {
+			css: `
+				.target, [data-control] { display: inline-block; font: 20px/1 monospace; }
+				.target::after { content: "[" attr(data-label) "]"; }
+			`,
+			html: `
+				<span class="target" data-label="tagged"></span>
+				<span data-control="bracketed">[tagged]</span>
+			`,
+			pseudo: "after",
+		});
+
+		expect(result.before.text).toBe("[tagged]");
+		expect(result.before.width).toBeCloseTo(result.before.controls.bracketed, 1);
+	});
+
+	test("renders nothing for attr content whose attribute is absent", async ({ page }) => {
+		const result = await inspectMaterializedPseudo(page, {
+			css: `
+				.target, [data-control] { display: inline-block; font: 20px/1 monospace; }
+				.target::before { content: attr(data-missing); }
+			`,
+			html: `
+				<span class="target"></span>
+				<span data-control="empty"></span>
+			`,
+		});
+
+		expect(result.before.text).toBe("");
+		expect(result.before.width).toBeCloseTo(result.before.controls.empty, 1);
+	});
+
 	test("keeps literal content as materialized text only", async ({ page }) => {
 		const result = await inspectMaterializedPseudo(page, {
 			css: `
