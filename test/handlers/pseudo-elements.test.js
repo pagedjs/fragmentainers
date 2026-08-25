@@ -256,6 +256,114 @@ test.describe("PseudoElements content classification", () => {
 	});
 });
 
+test.describe("frag-pseudo element API", () => {
+	async function readPseudoText(page, { css, html, pseudo = "before" }) {
+		return page.evaluate(
+			async ({ css: sourceCSS, html: sourceHTML, pseudo: which }) => {
+				const { PseudoElements } = await import("/src/handlers/pseudo-elements.js");
+				const { pseudoFor, FragPseudoElement } = await import(
+					"/src/components/frag-pseudo.js"
+				);
+				const sourceSheet = new CSSStyleSheet();
+				sourceSheet.replaceSync(sourceCSS);
+				const handler = new PseudoElements();
+				handler.resetRules();
+				for (const rule of sourceSheet.cssRules) {
+					handler.matchRule(rule, { wrappers: [] });
+				}
+				const companionRules = [];
+				handler.appendRules(companionRules);
+
+				const style = document.createElement("style");
+				style.textContent = `${sourceCSS}\n${companionRules.join("\n")}`;
+				document.head.appendChild(style);
+				const root = document.createElement("div");
+				root.innerHTML = sourceHTML;
+				document.body.appendChild(root);
+				handler.beforeMeasurement(root);
+
+				const target = root.querySelector(".target");
+				const materialized = pseudoFor(target, which);
+				const result = {
+					found: materialized !== null,
+					upgraded: materialized instanceof FragPseudoElement,
+					pseudo: materialized?.pseudo ?? null,
+					text: materialized?.text ?? null,
+					missingSide: pseudoFor(target, which === "before" ? "after" : "before"),
+				};
+				result.missingSide = result.missingSide === null;
+
+				root.remove();
+				style.remove();
+				return result;
+			},
+			{ css, html, pseudo },
+		);
+	}
+
+	test("reads text the engine materialized directly", async ({ page }) => {
+		const result = await readPseudoText(page, {
+			css: ".target::before { content: \"literal\"; }",
+			html: "<span class=\"target\"></span>",
+		});
+
+		expect(result.found).toBe(true);
+		expect(result.upgraded).toBe(true);
+		expect(result.pseudo).toBe("before");
+		expect(result.text).toBe("literal");
+		expect(result.missingSide).toBe(true);
+	});
+
+	test("reads text the engine relocated onto the generated pseudo", async ({ page }) => {
+		const result = await readPseudoText(page, {
+			css: ".target { --label: \"generated\"; } .target::before { content: var(--label); }",
+			html: "<span class=\"target\"></span>",
+		});
+
+		expect(result.text).toBe("generated");
+	});
+
+	test("joins the parts of multi-string relocated content", async ({ page }) => {
+		const result = await readPseudoText(page, {
+			css: ".target { --label: \"two\"; } .target::after { content: \"one \" var(--label); }",
+			html: "<span class=\"target\"></span>",
+			pseudo: "after",
+		});
+
+		expect(result.text).toBe("one two");
+	});
+
+	// A bundled copy of the engine alongside the source is a supported way to
+	// load a page, and defining a custom element name twice throws.
+	test("survives the module being loaded a second time", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			await import("/src/components/frag-pseudo.js");
+			let error = null;
+			try {
+				await import("/src/components/frag-pseudo.js?duplicate");
+			} catch (thrown) {
+				error = String(thrown);
+			}
+			return { error, defined: customElements.get("frag-pseudo") !== undefined };
+		});
+
+		expect(result.error).toBe(null);
+		expect(result.defined).toBe(true);
+	});
+
+	// A counter has no value outside a laid-out flow, and an unresolved
+	// function is not text to hand back.
+	test("reads unresolved counter content as empty", async ({ page }) => {
+		const result = await readPseudoText(page, {
+			css: ".target { counter-reset: item 7; } .target::before { content: counter(item); }",
+			html: "<span class=\"target\"></span>",
+		});
+
+		expect(result.found).toBe(true);
+		expect(result.text).toBe("");
+	});
+});
+
 test.describe("native pseudo preservation", () => {
 	test("skips materialization for marked native pseudos", async ({ page }) => {
 		const result = await page.evaluate(async () => {

@@ -10,3 +10,4 @@ export { PseudoElements } from "./pseudo-elements.js";
 export { PageFloat } from "./page-float.js";
 export { MutationSync } from "./mutation-sync.js";
 export { markPersistent, markNativePseudo } from "../markers.js";
+export { FragPseudoElement, pseudoFor } from "../components/frag-pseudo.js";

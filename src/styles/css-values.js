@@ -128,3 +128,77 @@ export function toPx(value, { rootFontSize = 16, percentBase = null } = {}) {
 		return null;
 	}
 }
+
+/**
+ * Parse a CSS `content` property value into its constituent parts.
+ * Returns { isStringOnly, text } where isStringOnly is true when the
+ * value is composed entirely of quoted strings (no counter/attr/url).
+ *
+ * @param {string} raw — value from getComputedStyle or CSSStyleRule
+ * @returns {{ isStringOnly: boolean, text: string }}
+ */
+export function parseContentValue(raw) {
+	if (!raw || raw === "none" || raw === "normal" || raw === '""') {
+		return { isStringOnly: false, text: "" };
+	}
+
+	const parts = [];
+	let remaining = raw.trim();
+	let allStrings = true;
+
+	while (remaining.length > 0) {
+		const dq = remaining.match(/^"((?:[^"\\]|\\.)*)"/);
+		if (dq) {
+			parts.push(dq[1].replace(/\\(.)/g, "$1"));
+			remaining = remaining.slice(dq[0].length).trim();
+			continue;
+		}
+		const sq = remaining.match(/^'((?:[^'\\]|\\.)*)'/);
+		if (sq) {
+			parts.push(sq[1].replace(/\\(.)/g, "$1"));
+			remaining = remaining.slice(sq[0].length).trim();
+			continue;
+		}
+
+		allStrings = false;
+		break;
+	}
+
+	return {
+		isStringOnly: allStrings && parts.length > 0,
+		text: parts.join(""),
+	};
+}
+
+const STRING_TOKEN = /^"(?:[^"\\]|\\.)*"|^'(?:[^'\\]|\\.)*'/;
+const ATTR_TOKEN = /^attr\(\s*[^()]*\)/i;
+
+/**
+ * Check whether a `content` value renders as fixed text.
+ *
+ * Strings qualify, and so does `attr()`: it resolves against the element
+ * whose pseudo is being styled, so a relocated rule would read it off the
+ * <frag-pseudo> rather than the source element and always come back empty.
+ * Computed style substitutes it before materialization, so taking it as text
+ * is both the only correct reading and the one already available.
+ *
+ * `var()` and `counter()` are excluded on purpose — they have to keep
+ * re-resolving as custom properties and counters change.
+ *
+ * @param {string} raw — value from a CSSStyleRule
+ * @returns {boolean}
+ */
+export function contentRendersAsText(raw) {
+	if (!raw || raw === "none" || raw === "normal") return false;
+
+	let remaining = raw.trim();
+	let parts = 0;
+	while (remaining.length > 0) {
+		const token = STRING_TOKEN.exec(remaining) ?? ATTR_TOKEN.exec(remaining);
+		if (!token) return false;
+		remaining = remaining.slice(token[0].length).trim();
+		parts += 1;
+	}
+
+	return parts > 0;
+}

@@ -207,4 +207,8 @@ export class FragmentContainerElement extends HTMLElement {
 	}
 }
 
-customElements.define("fragment-container", FragmentContainerElement);
+// A page can legitimately load this module twice — a bundled copy alongside
+// the source, say — and defining a name twice throws. First definition wins.
+if (!customElements.get("fragment-container")) {
+	customElements.define("fragment-container", FragmentContainerElement);
+}

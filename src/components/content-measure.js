@@ -130,4 +130,8 @@ export class ContentMeasureElement extends HTMLElement {
 	}
 }
 
-customElements.define("content-measure", ContentMeasureElement);
+// A page can legitimately load this module twice — a bundled copy alongside
+// the source, say — and defining a name twice throws. First definition wins.
+if (!customElements.get("content-measure")) {
+	customElements.define("content-measure", ContentMeasureElement);
+}
