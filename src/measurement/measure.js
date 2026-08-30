@@ -3,6 +3,7 @@ import { isForcedBreakValue } from "../fragmentation/tokens.js";
 import { splitSelectorList } from "../styles/selector-utils.js";
 import { walkSheets, wrappersActive } from "../styles/walk-rules.js";
 import { isPersistent } from "../markers.js";
+import { uaDisplay } from "../styles/ua-defaults.js";
 import { FlowContext } from "../fragmentation/flow-context.js";
 import "../components/content-measure.js";
 
@@ -182,7 +183,9 @@ function resolveDisplayValues(elements, styles) {
 		matched.sort(cascadeLess);
 		const inlineD = el.style.display;
 		const inlineImp = el.style.getPropertyPriority("display") === "important";
-		let display = null;
+		// The UA origin sits below the author origin, so it only seeds the
+		// value: any author or inline declaration replaces it.
+		let display = uaDisplay(el);
 		for (const r of matched) if (!r.imp) display = r.display;
 		if (inlineD && !inlineImp) display = inlineD;
 		for (const r of matched) if (r.imp) display = r.display;
@@ -307,8 +310,15 @@ export class Measurer {
 
 		// Resolve break properties only for non-persistent elements
 		const displays = resolveDisplayValues(elements, this.#styles);
+		// A skip-tag element generates no box, and #buildSegmentChildren drops
+		// it when the segment's children are built. Left in the flow list it
+		// would still take break properties and split a run of same-named pages
+		// around content that never composes.
 		const flowElements = elements.filter(
-			(el, i) => !persistentSet.has(el) && displays[i] !== "none",
+			(el, i) =>
+				!persistentSet.has(el) &&
+				!SKIP_DISPLAYS.has(displays[i]) &&
+				!SKIP_TAGS.has(el.tagName.toLowerCase()),
 		);
 		this.#breakProps = resolveBreakProperties(flowElements, this.#styles);
 		const boundaries = findSegmentBoundaries(this.#breakProps);

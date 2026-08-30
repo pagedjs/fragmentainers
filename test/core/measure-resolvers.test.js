@@ -187,3 +187,64 @@ test.describe("measure-time cascade order (LAY-8)", () => {
 		expect(result.segmented).toBe(true);
 	});
 });
+
+test.describe("non-box elements and named-page segmentation", () => {
+	/**
+	 * Build `<div class="a">`, the given middle element, `<div class="a">`, and
+	 * report whether the two same-named pages ended up in separate segments.
+	 * `extraCss` and `prepare` cover cases the tag alone cannot express.
+	 */
+	async function segmentsAround(page, middleTag, { extraCss = "", markHidden = false } = {}) {
+		return page.evaluate(async ({ tag, css, hide }) => {
+			const { Measurer } = await import("/src/measurement/measure.js");
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync(`.a { page: chapter; }${css}`);
+			const frag = document.createDocumentFragment();
+			const a = document.createElement("div");
+			a.className = "a";
+			const middle = document.createElement(tag);
+			if (hide) middle.hidden = true;
+			middle.className = `${middle.className} mid`.trim();
+			const b = document.createElement("div");
+			b.className = "a";
+			frag.append(a, middle, b);
+			const m = new Measurer(frag, [sheet]);
+			m.setup();
+			const segmented = m.isSegmented;
+			m.release();
+			return segmented;
+		}, { tag: middleTag, css: extraCss, hide: markHidden });
+	}
+
+	// Elements the engine skips by tag, before any style is resolved.
+	for (const tag of ["style", "script", "template"]) {
+		test(`a <${tag}> between same-named pages does not split them`, async ({ page }) => {
+			expect(await segmentsAround(page, tag)).toBe(false);
+		});
+	}
+
+	// Elements hidden by the UA sheet, which is unreachable off the document.
+	for (const tag of ["link", "meta", "title", "base", "noscript", "col", "colgroup"]) {
+		test(`a UA-hidden <${tag}> between same-named pages does not split them`, async ({ page }) => {
+			expect(await segmentsAround(page, tag)).toBe(false);
+		});
+	}
+
+	test("a [hidden] element between same-named pages does not split them", async ({ page }) => {
+		expect(await segmentsAround(page, "div", { markHidden: true })).toBe(false);
+	});
+
+	test("a display: table-column element between them does not split them", async ({ page }) => {
+		const css = " .mid { display: table-column; }";
+		expect(await segmentsAround(page, "div", { extraCss: css })).toBe(false);
+	});
+
+	test("an author display beats the UA origin and splits them again", async ({ page }) => {
+		const css = " .mid { display: block; }";
+		expect(await segmentsAround(page, "link", { extraCss: css })).toBe(true);
+	});
+
+	test("control: a box-generating element between them does split them", async ({ page }) => {
+		expect(await segmentsAround(page, "div")).toBe(true);
+	});
+});
