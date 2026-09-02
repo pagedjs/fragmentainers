@@ -24,32 +24,21 @@ import { buildCompositeText } from "../styles/composite-sheet.js";
 
 const MAX_ZERO_PROGRESS = 5;
 
-function structurallyEqual(left, right) {
-	if (Object.is(left, right)) return true;
-	if (left === null || right === null || typeof left !== "object" || typeof right !== "object") {
-		return false;
-	}
-	if (left.node !== undefined || right.node !== undefined) {
-		if (left.node !== right.node) return false;
-	}
-	if (Array.isArray(left) !== Array.isArray(right)) return false;
-	const leftKeys = Object.keys(left);
-	const rightKeys = Object.keys(right);
-	if (leftKeys.length !== rightKeys.length) return false;
-	for (const key of leftKeys) {
-		if (!Object.hasOwn(right, key)) return false;
-		if (key === "node") continue;
-		if (!structurallyEqual(left[key], right[key])) return false;
-	}
-	return true;
+function breakTokensEqual(left, right) {
+	if (left === null || right === null) return left === right;
+	return left.equals(right);
 }
 
+// Whether re-laying a fragmentainer left its boundary where it was: the same
+// resume point for the main flow and for every parallel flow, and the same
+// count of pushed forced breaks. A fragment that matches can be swapped in
+// without re-laying the rest of the flow.
 function fragmentOutputsEqual(left, right) {
-	if (!structurallyEqual(left.breakToken, right.breakToken)) return false;
+	if (!breakTokensEqual(left.breakToken, right.breakToken)) return false;
 	if (left.pushedBreakMark !== right.pushedBreakMark) return false;
 	if (left.flowSnapshots.length !== right.flowSnapshots.length) return false;
 	for (let i = 0; i < left.flowSnapshots.length; i++) {
-		if (!structurallyEqual(left.flowSnapshots[i].breakToken, right.flowSnapshots[i].breakToken)) {
+		if (!breakTokensEqual(left.flowSnapshots[i].breakToken, right.flowSnapshots[i].breakToken)) {
 			return false;
 		}
 	}

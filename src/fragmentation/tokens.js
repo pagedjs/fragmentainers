@@ -45,6 +45,40 @@ export class BreakToken {
 		return !this.isAtBlockEnd;
 	}
 
+	/**
+	 * Whether `other` resumes layout at the same place with the same state.
+	 * Compares the fields the token declares, so an ad-hoc property a caller
+	 * hung on one token does not make two otherwise identical tokens differ.
+	 *
+	 * @param {BreakToken} other
+	 * @returns {boolean}
+	 */
+	equals(other) {
+		return (
+			this.type === other.type &&
+			this.node === other.node &&
+			this.isBreakBefore === other.isBreakBefore &&
+			this.isForcedBreak === other.isForcedBreak &&
+			this.forcedBreakValue === other.forcedBreakValue &&
+			this.isRepeated === other.isRepeated &&
+			this.isAtBlockEnd === other.isAtBlockEnd &&
+			this.hasSeenAllChildren === other.hasSeenAllChildren
+		);
+	}
+}
+
+// Both null, or the same own keys with identical values. Non-primitives
+// compare by reference: a rebuilt object is a difference even if it holds
+// the same data.
+function algorithmDataEqual(left, right) {
+	if (left === null || right === null) return left === right;
+	const leftKeys = Object.keys(left);
+	if (leftKeys.length !== Object.keys(right).length) return false;
+	for (const key of leftKeys) {
+		if (!Object.hasOwn(right, key)) return false;
+		if (!Object.is(left[key], right[key])) return false;
+	}
+	return true;
 }
 
 /**
@@ -84,6 +118,30 @@ export class BlockBreakToken extends BreakToken {
 	 */
 	get isComplete() {
 		return this.isAtBlockEnd && this.childBreakTokens.length === 0;
+	}
+
+	/**
+	 * Whether `other` resumes block layout at the same place with the same
+	 * state, comparing the child token tree pairwise.
+	 *
+	 * `algorithmData` is compared shallowly: same own keys, each value
+	 * identical under `Object.is`. An algorithm that nests state inside an
+	 * object, Map or Set there gets no comparison of the nested contents —
+	 * two runs that rebuild it are unequal, and two runs that share it are
+	 * equal whatever it now holds.
+	 *
+	 * @param {BlockBreakToken} other
+	 * @returns {boolean}
+	 */
+	equals(other) {
+		if (!super.equals(other)) return false;
+		if (this.consumedBlockSize !== other.consumedBlockSize) return false;
+		if (this.sequenceNumber !== other.sequenceNumber) return false;
+		if (this.childBreakTokens.length !== other.childBreakTokens.length) return false;
+		for (let i = 0; i < this.childBreakTokens.length; i++) {
+			if (!this.childBreakTokens[i].equals(other.childBreakTokens[i])) return false;
+		}
+		return algorithmDataEqual(this.algorithmData, other.algorithmData);
 	}
 
 	/**
@@ -143,6 +201,25 @@ export class InlineBreakToken extends BreakToken {
 		 * break advanced past a collapsible line-end space.
 		 */
 		this.hasTrailingCollapsibleSpace = false;
+	}
+
+	/**
+	 * Whether `other` resumes inline layout at the same content position with
+	 * the same line-end state.
+	 *
+	 * @param {InlineBreakToken} other
+	 * @returns {boolean}
+	 */
+	equals(other) {
+		return (
+			super.equals(other) &&
+			this.itemIndex === other.itemIndex &&
+			this.textOffset === other.textOffset &&
+			this.flags === other.flags &&
+			this.isHyphenated === other.isHyphenated &&
+			this.hyphenateCharacter === other.hyphenateCharacter &&
+			this.hasTrailingCollapsibleSpace === other.hasTrailingCollapsibleSpace
+		);
 	}
 }
 
