@@ -242,8 +242,7 @@ export class Fragmenter extends Iterator {
 	#zeroProgressCount = 0;
 	#pushedBreaks = [];
 	#initialFlowSnapshots = null;
-	#bufferedElements = null;
-	#bufferedIndex = 0;
+	#buffered = null;
 
 	/**
 	 * @param {DocumentFragment|Element|object} content - Content to fragment
@@ -368,12 +367,7 @@ export class Fragmenter extends Iterator {
 	 * @returns {{ value: Element|undefined, done: boolean }}
 	 */
 	next() {
-		if (this.#bufferedElements) {
-			if (this.#bufferedIndex < this.#bufferedElements.length) {
-				return { value: this.#bufferedElements[this.#bufferedIndex++], done: false };
-			}
-			return { value: undefined, done: true };
-		}
+		if (this.#buffered) return this.#buffered.next();
 
 		// Lazy initialization
 		if (!this.#done && (!this.#tree || !this.#measureElement)) this.#layout();
@@ -391,9 +385,8 @@ export class Fragmenter extends Iterator {
 				handlers: this.#flowContext.handlers,
 				indexOffset: this.#startIndex,
 			});
-			this.#bufferedElements = this.#context;
-			this.#bufferedIndex = 0;
-			return this.next();
+			this.#buffered = this.#context[Symbol.iterator]();
+			return this.#buffered.next();
 		}
 
 		// Initialize context on first call
@@ -503,19 +496,16 @@ export class Fragmenter extends Iterator {
 		this.#setTotalPages();
 	}
 
+	// `#restartLayout` truncates `#fragments` in place, so a hook holding the
+	// live array would watch it shrink mid-pass.
 	#passContext(pass, fromIndex) {
-		const fragments = Object.freeze([...this.#fragments]);
-		return Object.freeze({
+		const fragments = [...this.#fragments];
+		return {
 			pass,
 			fromIndex,
 			fragments,
-			locate: (element) =>
-				Object.freeze(
-					locate(fragments, element, { indexOffset: this.#startIndex }).map((location) =>
-						Object.freeze(location),
-					),
-				),
-		});
+			locate: (element) => locate(fragments, element, { indexOffset: this.#startIndex }),
+		};
 	}
 
 	#settleLayout(initialFromIndex) {
@@ -598,6 +588,42 @@ export class Fragmenter extends Iterator {
 		this.#restoreFullState(fragments, pushedBreaks);
 	}
 
+	/**
+	 * Point the stepper at the fragment after `prev`. `#fragments` must
+	 * already hold exactly the retained fragments: the resume index and the
+	 * main-flow completion flag are read off it, while the break token,
+	 * counters and parallel-flow snapshots come from `prev`.
+	 *
+	 * `#done` is left at the shared term — main flow finished with nothing
+	 * pending in a parallel flow — for the caller to widen.
+	 *
+	 * @param {import('./fragment.js').Fragment|null} prev — the last retained
+	 *   fragment, or null when resuming from the start of the flow
+	 */
+	#resumeFrom(prev) {
+		this.#breakToken = prev?.breakToken ?? null;
+		this.#prevFragment = prev;
+		this.#fragmentainerIndex = this.#startIndex + this.#fragments.length;
+		this.#counterState = new CounterState();
+		if (prev?.counterState) this.#counterState.restore(prev.counterState);
+		this.#pageCounter = prev?.page ?? this.#startIndex;
+
+		const snapshots = prev?.flowSnapshots ?? this.#initialFlowSnapshots;
+		if (snapshots) {
+			const entries = this.#flowContext.handlers.getFlows();
+			for (let i = 0; i < entries.length; i++) entries[i].flow.restore(snapshots[i]);
+		}
+
+		this.#mainDone = this.#fragments.some(
+			(fragment) => !fragment.isBlank && fragment.breakToken === null,
+		);
+		const pendingFlow = this.#flowContext.handlers
+			.getFlows()
+			.some(({ flow }) => flow.breakToken !== null);
+		this.#done = this.#mainDone && !pendingFlow;
+		this.#zeroProgressCount = 0;
+	}
+
 	#restoreFullState(fragments, pushedBreaks) {
 		for (let i = this.#pushedBreaks.length - 1; i >= 0; i--) {
 			const { node, breakBefore } = this.#pushedBreaks[i];
@@ -608,26 +634,10 @@ export class Fragmenter extends Iterator {
 		this.#fragments = [...fragments];
 
 		const last = this.#fragments.at(-1) ?? null;
-		this.#breakToken = last?.breakToken ?? null;
-		this.#prevFragment = last;
-		this.#fragmentainerIndex = this.#startIndex + this.#fragments.length;
-		this.#counterState = new CounterState();
-		if (last?.counterState) this.#counterState.restore(last.counterState);
-		this.#pageCounter = last?.page ?? this.#startIndex;
-
-		const snapshots = last?.flowSnapshots ?? this.#initialFlowSnapshots;
-		if (snapshots) {
-			const entries = this.#flowContext.handlers.getFlows();
-			for (let i = 0; i < entries.length; i++) entries[i].flow.restore(snapshots[i]);
-		}
-		this.#mainDone = this.#fragments.some(
-			(fragment) => !fragment.isBlank && fragment.breakToken === null,
-		);
-		const pendingFlow = this.#flowContext.handlers
-			.getFlows()
-			.some(({ flow }) => flow.breakToken !== null);
-		this.#done = Boolean(last?.isLast) || (this.#mainDone && !pendingFlow);
-		this.#zeroProgressCount = 0;
+		this.#resumeFrom(last);
+		// A retained last fragment ends the flow even when a parallel flow
+		// still carries a break token.
+		if (last?.isLast) this.#done = true;
 		this.#setTotalPages();
 	}
 
@@ -654,21 +664,6 @@ export class Fragmenter extends Iterator {
 		const position =
 			requested === 0 || this.#fragments[requested - 1]?.node === this.#tree ? requested : 0;
 		const prev = position > 0 ? this.#fragments[position - 1] : null;
-		this.#breakToken = prev?.breakToken ?? null;
-		if (this.#measurer.arrange(this.#breakToken, this.#tree)) this.#compositeDirty = true;
-		this.#fragmentainerIndex = this.#startIndex + position;
-		this.#prevFragment = prev;
-		this.#counterState = new CounterState();
-		if (prev?.counterState) this.#counterState.restore(prev.counterState);
-		this.#pageCounter = prev?.page ?? this.#startIndex;
-
-		const flowSnapshots = prev?.flowSnapshots ?? this.#initialFlowSnapshots;
-		if (flowSnapshots) {
-			const flowEntries = this.#flowContext.handlers.getFlows();
-			for (let i = 0; i < flowEntries.length; i++) {
-				flowEntries[i].flow.restore(flowSnapshots[i]);
-			}
-		}
 
 		const pushedBreakMark = prev?.pushedBreakMark ?? 0;
 		for (let i = this.#pushedBreaks.length - 1; i >= pushedBreakMark; i--) {
@@ -677,17 +672,11 @@ export class Fragmenter extends Iterator {
 		}
 		this.#pushedBreaks.length = pushedBreakMark;
 		this.#fragments.length = position;
-		this.#mainDone = this.#fragments.some(
-			(fragment) => !fragment.isBlank && fragment.breakToken === null,
-		);
-		const pendingFlow = this.#flowContext.handlers
-			.getFlows()
-			.some(({ flow }) => flow.breakToken !== null);
-		this.#done = this.#mainDone && !pendingFlow;
+
+		this.#resumeFrom(prev);
+		if (this.#measurer.arrange(this.#breakToken, this.#tree)) this.#compositeDirty = true;
 		this.#context = null;
-		this.#bufferedElements = null;
-		this.#bufferedIndex = 0;
-		this.#zeroProgressCount = 0;
+		this.#buffered = null;
 		return { position, previous: prev };
 	}
 
@@ -725,6 +714,23 @@ export class Fragmenter extends Iterator {
 			fragmentainerIndex: filled ? lastIndex + 1 : lastIndex,
 			blockOffset: filled ? 0 : lastOffset,
 		};
+	}
+
+	/**
+	 * A snapshot of the Fragments laid out so far, in fragmentainer order.
+	 *
+	 * Iteration is one-shot — the stepper is exhausted once a `for...of`
+	 * finishes — so this is how a caller reads the layout result (block
+	 * sizes, break tokens, constraints) back afterwards.
+	 *
+	 * A `<fragment-container>`'s `fragmentIndex` is relative to its own
+	 * context, so indexing this array with one is valid only for a context
+	 * covering the whole flow — not for the slice a `reflow` returns.
+	 *
+	 * @returns {import('./fragment.js').Fragment[]}
+	 */
+	get fragments() {
+		return [...this.#fragments];
 	}
 
 	/**
@@ -1362,8 +1368,7 @@ export class Fragmenter extends Iterator {
 		this.#tree = null;
 		this.#prevFragment = null;
 		this.#context = null;
-		this.#bufferedElements = null;
-		this.#bufferedIndex = 0;
+		this.#buffered = null;
 	}
 
 	/**

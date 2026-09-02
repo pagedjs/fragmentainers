@@ -597,6 +597,38 @@ test.describe("Fragmenter.flow() (browser)", () => {
 	});
 });
 
+test.describe("fragments accessor", () => {
+	test("reads the Fragments back after iteration exhausted the stepper", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
+			await import("/src/components/fragment-container.js");
+
+			const template = document.createElement("template");
+			template.innerHTML =
+				'<div style="margin:0; padding:0;"><div style="height: 300px; margin: 0;"></div></div>';
+			const flow = new Fragmenter(template.content, { width: 400, height: 100 });
+
+			const iterated = [...flow].length;
+			const fragments = flow.fragments;
+			const out = {
+				iterated,
+				count: fragments.length,
+				again: [...flow].length,
+				blockSizes: fragments.every((fragment) => fragment.blockSize > 0),
+				hasConstraints: fragments.every((fragment) => Boolean(fragment.constraints)),
+			};
+			flow.destroy();
+			return out;
+		});
+
+		expect(result.iterated).toBeGreaterThan(1);
+		expect(result.count).toBe(result.iterated);
+		expect(result.again).toBe(0);
+		expect(result.blockSizes).toBe(true);
+		expect(result.hasConstraints).toBe(true);
+	});
+});
+
 test.describe("namedPage property", () => {
 	test("fragment-container has a namedPage property", async ({ page }) => {
 		const result = await page.evaluate(async () => {
