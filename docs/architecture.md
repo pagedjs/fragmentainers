@@ -545,9 +545,7 @@ All break token types inherit these boolean flags from `BreakToken`:
 | `isForcedBreak`           | Break was caused by `break-before` / `break-after` CSS         |
 | `isAtBlockEnd`            | Node completed -- keep token for parallel flow bookkeeping     |
 | `hasSeenAllChildren`      | All children visited, even if some remain unfinished           |
-| `wasSuppressed`           | An empty shell was not rendered; start decorations are still owed |
 | `isRepeated`              | Repeated content (table headers/footers in each fragmentainer) |
-| `isCausedByColumnSpanner` | Break caused by a column-spanning element                      |
 
 ### Resumption rules
 
@@ -879,7 +877,7 @@ visual artifacts at break boundaries:
 - **`::before` / `::after`** -- suppressed on continuation fragments to prevent
   duplicate generated content
 - **Counters and list markers** -- reset or hidden on continuation fragments
-- **`text-align-last: justify`** -- applied on `[data-split-to][data-justify-last]`
+- **`text-align-last: justify`** -- applied on `[data-align-last="justify"]`
   elements so that the last visible line of a justified paragraph is fully
   justified when the paragraph continues in the next fragmentainer
 

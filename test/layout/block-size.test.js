@@ -224,7 +224,7 @@ test.describe("Specified block-size under fragmentation", () => {
 
 			expect(html[0]).toMatch(/^<div><p>1<\/p>(<p>\d<\/p>){5}<\/div><p class="sib" data-split-to="">one<br>/);
 			expect(html[1]).toMatch(
-				/^<div data-split-from="" style="height: 0px !important;[^"]*"><p>7<\/p><p>8<\/p><\/div><p class="sib" data-split-from="">five<br>six<\/p>$/,
+				/^<div data-split-from="" data-past-block-end=""><p>7<\/p><p>8<\/p><\/div><p class="sib" data-split-from="">five<br>six<\/p>$/,
 			);
 		});
 

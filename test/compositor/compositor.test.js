@@ -51,10 +51,10 @@ test.describe("hasBlockChildren", () => {
 	});
 });
 
-test.describe("empty container shell detection", () => {
-	test("detects an empty container with pushed children", async ({ page }) => {
+test.describe("rendersNothing", () => {
+	test("an empty container whose children were all pushed renders nothing", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { rendersNothing, Fragment } = await import("/src/fragmentation/fragment.js");
 			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -64,18 +64,14 @@ test.describe("empty container shell detection", () => {
 			fragment.breakToken = new BlockBreakToken(container);
 			fragment.breakToken.childBreakTokens = [BlockBreakToken.createBreakBefore(child)];
 
-			return (
-				fragment.childFragments.length === 0 &&
-				fragment.breakToken !== null &&
-				fragment.node.children?.length > 0
-			);
+			return rendersNothing(fragment, null);
 		});
 		expect(result).toBe(true);
 	});
 
-	test("does not flag a leaf node being sliced", async ({ page }) => {
+	test("a leaf node being sliced renders", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { rendersNothing, Fragment } = await import("/src/fragmentation/fragment.js");
 			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
@@ -84,53 +80,154 @@ test.describe("empty container shell detection", () => {
 			fragment.breakToken = new BlockBreakToken(leaf);
 			fragment.breakToken.consumedBlockSize = 200;
 
-			return (
-				fragment.childFragments.length === 0 &&
-				fragment.breakToken !== null &&
-				fragment.node.children?.length > 0
-			);
+			return rendersNothing(fragment, null);
 		});
 		expect(result).toBe(false);
 	});
 
-	test("does not flag a container with placed children", async ({ page }) => {
+	test("a container with a placed child renders", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { rendersNothing, Fragment } = await import("/src/fragmentation/fragment.js");
 			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const child = blockNode({ debugName: "child" });
 			const container = blockNode({ debugName: "container", children: [child] });
-			const childFrag = new Fragment(child, 50);
-			const fragment = new Fragment(container, 50, [childFrag]);
+			const fragment = new Fragment(container, 50, [new Fragment(child, 50)]);
 			fragment.breakToken = new BlockBreakToken(container);
 
-			return (
-				fragment.childFragments.length === 0 &&
-				fragment.breakToken !== null &&
-				fragment.node.children?.length > 0
-			);
+			return rendersNothing(fragment, null);
 		});
 		expect(result).toBe(false);
 	});
 
-	test("does not flag a completed container (no break token)", async ({ page }) => {
+	test("a completed container renders", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { rendersNothing, Fragment } = await import("/src/fragmentation/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
 
 			const child = blockNode({ debugName: "child" });
 			const container = blockNode({ debugName: "container", children: [child] });
-			const childFrag = new Fragment(child, 50);
-			const fragment = new Fragment(container, 50, [childFrag]);
 
-			return (
-				fragment.childFragments.length === 0 &&
-				fragment.breakToken !== null &&
-				fragment.node.children?.length > 0
-			);
+			return rendersNothing(new Fragment(container, 50, [new Fragment(child, 50)]), null);
 		});
 		expect(result).toBe(false);
+	});
+
+	test("a container renders nothing when every child renders nothing", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { rendersNothing, Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			const grandchild = blockNode({ debugName: "grandchild" });
+			const child = blockNode({ debugName: "child", children: [grandchild] });
+			const container = blockNode({ debugName: "container", children: [child] });
+
+			const childFragment = new Fragment(child, 0, []);
+			childFragment.breakToken = new BlockBreakToken(child);
+			childFragment.breakToken.childBreakTokens = [BlockBreakToken.createBreakBefore(grandchild)];
+
+			const fragment = new Fragment(container, 0, [childFragment]);
+			fragment.breakToken = new BlockBreakToken(container);
+			fragment.breakToken.childBreakTokens = [childFragment.breakToken];
+
+			return rendersNothing(fragment, null);
+		});
+		expect(result).toBe(true);
+	});
+
+	test("a block-clip slice of an emptied container renders", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { rendersNothing, Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			const child = blockNode({ debugName: "child" });
+			const container = blockNode({ debugName: "container", children: [child] });
+			const fragment = new Fragment(container, 40, []);
+			fragment.needsBlockClip = true;
+			fragment.breakToken = new BlockBreakToken(container);
+
+			return rendersNothing(fragment, null);
+		});
+		expect(result).toBe(false);
+	});
+
+	test("a box past its block-end renders its emptied box", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { rendersNothing, Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			const container = blockNode({
+				debugName: "container",
+				element: document.createElement("div"),
+			});
+			const input = new BlockBreakToken(container);
+			input.isAtBlockEnd = true;
+
+			return rendersNothing(new Fragment(container, 0, []), input);
+		});
+		expect(result).toBe(false);
+	});
+
+	test("a box past its block-end with no element of its own renders nothing", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { rendersNothing, Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			const container = blockNode({ debugName: "container" });
+			const input = new BlockBreakToken(container);
+			input.isAtBlockEnd = true;
+
+			return rendersNothing(new Fragment(container, 0, []), input);
+		});
+		expect(result).toBe(true);
+	});
+
+	test("an inline node whose text all moved on renders nothing", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { rendersNothing, Fragment } = await import("/src/fragmentation/fragment.js");
+			const { InlineBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { inlineNode, textToInlineItems } = await import("/test/fixtures/nodes.js");
+
+			const node = inlineNode({ inlineItemsData: textToInlineItems("one two three") });
+			const fragment = new Fragment(node, 0, []);
+			fragment.breakToken = new InlineBreakToken(node);
+
+			return rendersNothing(fragment, null);
+		});
+		expect(result).toBe(true);
+	});
+
+	test("an inline node renders the text between its offsets", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { rendersNothing, Fragment } = await import("/src/fragmentation/fragment.js");
+			const { InlineBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { inlineNode, textToInlineItems } = await import("/test/fixtures/nodes.js");
+
+			const node = inlineNode({ inlineItemsData: textToInlineItems("one two three") });
+			const fragment = new Fragment(node, 20, []);
+			fragment.breakToken = new InlineBreakToken(node);
+			fragment.breakToken.textOffset = 7;
+
+			return rendersNothing(fragment, null);
+		});
+		expect(result).toBe(false);
+	});
+
+	test("an inline node with no items renders nothing", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { rendersNothing, Fragment } = await import("/src/fragmentation/fragment.js");
+			const { inlineNode } = await import("/test/fixtures/nodes.js");
+
+			const node = inlineNode({ inlineItemsData: { items: [], textContent: "" } });
+
+			return rendersNothing(new Fragment(node, 0, []), null);
+		});
+		expect(result).toBe(true);
 	});
 });
 
@@ -507,19 +604,15 @@ test.describe("Fragment.build", () => {
 
 			const out = {
 				hasSplitTo: composed.hasAttribute("data-split-to"),
-				hasJustifyLast: composed.hasAttribute("data-justify-last"),
-				alignLast: composed.dataset.alignLastSplitElement,
+				alignLast: composed.dataset.alignLast,
 				styleAlignLast: composed.style.getPropertyValue("text-align-last"),
-				stylePriority: composed.style.getPropertyPriority("text-align-last"),
 			};
 			container.remove();
 			return out;
 		});
 		expect(result.hasSplitTo).toBe(true);
-		expect(result.hasJustifyLast).toBe(true);
 		expect(result.alignLast).toBe("justify");
-		expect(result.styleAlignLast).toBe("justify");
-		expect(result.stylePriority).toBe("important");
+		expect(result.styleAlignLast).toBe("");
 	});
 
 	test("applies explicit text-align-last on the deepest split element", async ({ page }) => {
@@ -551,9 +644,7 @@ test.describe("Fragment.build", () => {
 
 			const out = {
 				hasSplitTo: composed.hasAttribute("data-split-to"),
-				hasJustifyLast: composed.hasAttribute("data-justify-last"),
-				alignLast: composed.dataset.alignLastSplitElement,
-				styleAlignLast: composed.style.getPropertyValue("text-align-last"),
+				alignLast: composed.dataset.alignLast,
 				stylePriority: composed.style.getPropertyPriority("text-align-last"),
 			};
 			container.remove();
@@ -561,13 +652,13 @@ test.describe("Fragment.build", () => {
 		});
 
 		expect(result.hasSplitTo).toBe(true);
-		expect(result.hasJustifyLast).toBe(false);
 		expect(result.alignLast).toBe("center");
-		expect(result.styleAlignLast).toBe("center");
-		expect(result.stylePriority).toBe("important");
+		// The author's own inline text-align-last is cloned along; only the
+		// compositor's !important declaration must be gone.
+		expect(result.stylePriority).toBe("");
 	});
 
-	test("sets data-justify-last only on the deepest split element", async ({ page }) => {
+	test("sets data-align-last only on the deepest split element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
@@ -614,31 +705,27 @@ test.describe("Fragment.build", () => {
 
 			const out = {
 				sectionHasSplitTo: composedSection.hasAttribute("data-split-to"),
-				sectionHasJustifyLast: composedSection.hasAttribute("data-justify-last"),
-				sectionAlignLast: composedSection.dataset.alignLastSplitElement,
+				sectionAlignLast: composedSection.dataset.alignLast,
 				wrapperHasSplitTo: composedWrapper.hasAttribute("data-split-to"),
-				wrapperHasJustifyLast: composedWrapper.hasAttribute("data-justify-last"),
-				wrapperAlignLast: composedWrapper.dataset.alignLastSplitElement,
+				wrapperAlignLast: composedWrapper.dataset.alignLast,
 				paragraphHasSplitTo: composedParagraph.hasAttribute("data-split-to"),
-				paragraphHasJustifyLast: composedParagraph.hasAttribute("data-justify-last"),
-				paragraphAlignLast: composedParagraph.dataset.alignLastSplitElement,
+				paragraphAlignLast: composedParagraph.dataset.alignLast,
+				paragraphStyleAlignLast: composedParagraph.style.getPropertyValue("text-align-last"),
 			};
 			container.remove();
 			return out;
 		});
 
 		expect(result.sectionHasSplitTo).toBe(true);
-		expect(result.sectionHasJustifyLast).toBe(false);
 		expect(result.sectionAlignLast).toBe(undefined);
 		expect(result.wrapperHasSplitTo).toBe(true);
-		expect(result.wrapperHasJustifyLast).toBe(false);
 		expect(result.wrapperAlignLast).toBe(undefined);
 		expect(result.paragraphHasSplitTo).toBe(true);
-		expect(result.paragraphHasJustifyLast).toBe(true);
 		expect(result.paragraphAlignLast).toBe("justify");
+		expect(result.paragraphStyleAlignLast).toBe("");
 	});
 
-	test("does not set data-justify-last when text-align is not justify", async ({ page }) => {
+	test("does not set data-align-last when text-align is not justify", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { splitTextBlock } = await import("/test/fixtures/fragments.js");
@@ -666,20 +753,20 @@ test.describe("Fragment.build", () => {
 
 			const out = {
 				hasSplitTo: composed.hasAttribute("data-split-to"),
-				hasJustifyLast: composed.hasAttribute("data-justify-last"),
-				alignLast: composed.dataset.alignLastSplitElement,
+				hasAlignLast: composed.hasAttribute("data-align-last"),
+				alignLast: composed.dataset.alignLast,
 				styleAlignLast: composed.style.getPropertyValue("text-align-last"),
 			};
 			container.remove();
 			return out;
 		});
 		expect(result.hasSplitTo).toBe(true);
-		expect(result.hasJustifyLast).toBe(false);
+		expect(result.hasAlignLast).toBe(false);
 		expect(result.alignLast).toBe(undefined);
 		expect(result.styleAlignLast).toBe("");
 	});
 
-	test("sets data-justify-last after element is detached from DOM", async ({ page }) => {
+	test("sets data-align-last after element is detached from DOM", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { splitTextBlock } = await import("/test/fixtures/fragments.js");
@@ -712,19 +799,15 @@ test.describe("Fragment.build", () => {
 
 			const out = {
 				hasSplitTo: composed.hasAttribute("data-split-to"),
-				hasJustifyLast: composed.hasAttribute("data-justify-last"),
-				alignLast: composed.dataset.alignLastSplitElement,
+				alignLast: composed.dataset.alignLast,
 				styleAlignLast: composed.style.getPropertyValue("text-align-last"),
-				stylePriority: composed.style.getPropertyPriority("text-align-last"),
 			};
 			container.remove();
 			return out;
 		});
 		expect(result.hasSplitTo).toBe(true);
-		expect(result.hasJustifyLast).toBe(true);
 		expect(result.alignLast).toBe("justify");
-		expect(result.styleAlignLast).toBe("justify");
-		expect(result.stylePriority).toBe("important");
+		expect(result.styleAlignLast).toBe("");
 	});
 
 	test("sets data-truncate-margin on fragment with truncateMarginBlockStart", async ({
@@ -834,5 +917,202 @@ test.describe("Fragment.build", () => {
 			return out;
 		});
 		expect(result.hasTruncateMarginEnd).toBe(true);
+	});
+});
+
+// The <ol> starts 160px down a 200px page: its block-start padding and border
+// fit, but no line does, so its first fragment composes to nothing and the
+// decorations belong to the slice on page 2.
+const SHELL_CSS = `
+	@page { size: 300px 200px; margin: 0; }
+	body, div, ol, li, p { margin: 0; }
+	* { font: 16px/20px monospace; }
+	ol { padding-top: 20px; border-top: 4px solid red; padding-left: 30px; }
+`;
+const SHELL_HTML =
+	'<div style="height:160px"></div>' +
+	"<ol><li>alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi</li></ol>";
+
+test.describe("block-start decorations across fragmentainers", () => {
+	test("a box whose first slice is an empty shell resumes without data-split-from", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(
+			async ({ css, html }) => {
+				const { Fragmenter, PageResolver } = await import("/src/index.js");
+				const sheet = new CSSStyleSheet();
+				sheet.replaceSync(css);
+				const template = document.createElement("template");
+				template.innerHTML = html;
+				const flow = new Fragmenter(template.content, {
+					resolver: PageResolver.fromStyleSheets([sheet]),
+					styles: [sheet],
+				});
+
+				// stop: 0 runs layout without composing anything.
+				const ctx = flow.flow({ start: 0, stop: 0 });
+				const olToken = ctx.fragments[0].breakToken.childBreakTokens[0];
+				const recorded = {
+					tag: olToken.node.element.tagName,
+					consumedBlockSize: olToken.consumedBlockSize,
+					isAtBlockEnd: olToken.isAtBlockEnd,
+				};
+
+				const pages = [];
+				for (let i = 0; i < ctx.fragmentainerCount; i++) {
+					pages.push(ctx.createFragmentainer(i).innerHTML);
+				}
+				flow.destroy();
+				return { recorded, pages };
+			},
+			{ css: SHELL_CSS, html: SHELL_HTML },
+		);
+
+		expect(result.recorded).toEqual({
+			tag: "OL",
+			consumedBlockSize: 0,
+			isAtBlockEnd: false,
+		});
+		expect(result.pages.length).toBe(2);
+		expect(result.pages[0]).not.toContain("<ol");
+		expect(result.pages[1]).toContain("<ol");
+		expect(result.pages[1]).not.toContain("data-split-from");
+	});
+
+	test("composing a subrange gives the same result as composing the whole flow", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(
+			async ({ css, html }) => {
+				const { Fragmenter, PageResolver } = await import("/src/index.js");
+
+				function snapshot(token) {
+					if (!token) return null;
+					const entry = {};
+					for (const [key, value] of Object.entries(token)) {
+						if (key === "node" || key === "childBreakTokens") continue;
+						if (value === null || typeof value !== "object") entry[key] = value;
+					}
+					entry.children = token.childBreakTokens?.map(snapshot) ?? null;
+					return entry;
+				}
+
+				function start(range) {
+					const sheet = new CSSStyleSheet();
+					sheet.replaceSync(css);
+					const template = document.createElement("template");
+					template.innerHTML = html;
+					const flow = new Fragmenter(template.content, {
+						resolver: PageResolver.fromStyleSheets([sheet]),
+						styles: [sheet],
+					});
+					return { flow, ctx: flow.flow(range) };
+				}
+
+				const whole = start({ start: 0, stop: 0 });
+				const beforeCompose = whole.ctx.fragments.map((f) => snapshot(f.breakToken));
+				const wholePages = [];
+				for (let i = 0; i < whole.ctx.fragmentainerCount; i++) {
+					wholePages.push(whole.ctx.createFragmentainer(i).innerHTML);
+				}
+				const afterCompose = whole.ctx.fragments.map((f) => snapshot(f.breakToken));
+				whole.flow.destroy();
+
+				const subrange = start({ start: 1 });
+				const subrangePage = subrange.ctx[0].innerHTML;
+				subrange.flow.destroy();
+
+				return {
+					tokensUnchanged: JSON.stringify(beforeCompose) === JSON.stringify(afterCompose),
+					wholePage: wholePages[1],
+					subrangePage,
+				};
+			},
+			{ css: SHELL_CSS, html: SHELL_HTML },
+		);
+
+		expect(result.tokensUnchanged).toBe(true);
+		expect(result.subrangePage).toBe(result.wholePage);
+		expect(result.subrangePage).not.toContain("data-split-from");
+	});
+
+	test("a box resumed after an empty shell is still marked as split", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { Fragment } = await import("/src/fragmentation/fragment.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const host = document.createElement("div");
+			host.style.cssText = "position:absolute;left:-9999px";
+			host.innerHTML = "<section><p>Alpha</p><p>Beta</p></section>";
+			document.body.appendChild(host);
+
+			const rootNode = new DOMLayoutNode(host);
+			const sectionNode = rootNode.children[0];
+			const [alpha, beta] = sectionNode.children;
+
+			// Page 1: the section renders, showing its first paragraph.
+			const section1 = new Fragment(sectionNode, 20, [new Fragment(alpha, 20)]);
+			section1.breakToken = new BlockBreakToken(sectionNode);
+			section1.breakToken.consumedBlockSize = 20;
+			section1.breakToken.childBreakTokens = [BlockBreakToken.createBreakBefore(beta)];
+			const page1 = new Fragment(rootNode, 20, [section1]);
+			page1.breakToken = new BlockBreakToken(rootNode);
+			page1.breakToken.consumedBlockSize = 20;
+			page1.breakToken.childBreakTokens = [section1.breakToken];
+
+			// Page 2: the second paragraph found no room, so the section is a shell.
+			// consumedBlockSize is cumulative: page 1's extent stays on the token.
+			const beta2 = new Fragment(beta, 0, []);
+			beta2.breakToken = new BlockBreakToken(beta);
+			const section2 = new Fragment(sectionNode, 0, [beta2]);
+			section2.breakToken = new BlockBreakToken(sectionNode);
+			section2.breakToken.consumedBlockSize = 20;
+			section2.breakToken.childBreakTokens = [beta2.breakToken];
+			const page2 = new Fragment(rootNode, 0, [section2]);
+			page2.breakToken = new BlockBreakToken(rootNode);
+			page2.breakToken.consumedBlockSize = 20;
+			page2.breakToken.childBreakTokens = [section2.breakToken];
+
+			// Page 3: the section resumes with the second paragraph.
+			const page3 = new Fragment(rootNode, 20, [
+				new Fragment(sectionNode, 20, [new Fragment(beta, 20)]),
+			]);
+
+			// A section whose first slice was a shell: nothing was placed, so
+			// BlockContainerAlgorithm left the token at zero extent.
+			const shellFirstToken = new BlockBreakToken(rootNode);
+			shellFirstToken.childBreakTokens = [new BlockBreakToken(sectionNode)];
+			const afterShellFirst = new Fragment(rootNode, 20, [
+				new Fragment(sectionNode, 20, [new Fragment(alpha, 20)]),
+			]);
+
+			const compose = (fragment, inputBreakToken) => {
+				const holder = document.createElement("div");
+				holder.appendChild(fragment.build(inputBreakToken));
+				return holder.innerHTML;
+			};
+			const pages = [
+				compose(page1, null),
+				compose(page2, page1.breakToken),
+				compose(page3, page2.breakToken),
+			];
+
+			const out = {
+				pages,
+				betaHasChildren: beta.children.length > 0,
+				afterShellFirst: compose(afterShellFirst, shellFirstToken),
+			};
+			host.remove();
+			return out;
+		});
+
+		expect(result.betaHasChildren).toBe(true);
+		expect(result.pages[0]).toContain("<p>Alpha</p>");
+		expect(result.pages[0]).not.toContain("data-split-from");
+		expect(result.pages[1]).toBe("");
+		expect(result.pages[2]).toContain('<section data-split-from=""');
+		expect(result.afterShellFirst).toContain("<section");
+		expect(result.afterShellFirst).not.toContain("data-split-from");
 	});
 });

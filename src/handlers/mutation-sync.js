@@ -5,8 +5,8 @@ const COMPOSITOR_ATTRS = new Set([
 	"data-ref",
 	"data-split-from",
 	"data-split-to",
-	"data-justify-last",
-	"data-align-last-split-element",
+	"data-align-last",
+	"data-past-block-end",
 ]);
 
 /**

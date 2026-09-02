@@ -708,9 +708,6 @@ new BreakToken(type, node);
 | `isRepeated`                | `boolean`        | `false` | This is a repeated fragment (e.g. table header)                                          |
 | `isAtBlockEnd`              | `boolean`        | `false` | Sibling has completed layout (parallel flows)                                            |
 | `hasSeenAllChildren`        | `boolean`        | `false` | All children visited at least once                                                       |
-| `wasSuppressed`             | `boolean`        | `false` | The preceding empty shell was not rendered, so start decorations are still owed         |
-| `isCausedByColumnSpanner`   | `boolean`        | `false` | Break caused by a column spanner                                                         |
-| `hasUnpositionedListMarker` | `boolean`        | `false` | List marker not yet placed                                                               |
 
 ---
 

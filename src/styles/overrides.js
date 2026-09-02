@@ -13,6 +13,21 @@
  * Pattern from pagedjs (https://github.com/pagedjs/pagedjs).
  */
 
+/** The `text-align-last` keywords `Fragment` can resolve for a split box. */
+const TEXT_ALIGN_LAST_KEYWORDS = [
+	"justify",
+	"center",
+	"left",
+	"right",
+	"start",
+	"end",
+	"match-parent",
+];
+
+const ALIGN_LAST_RULES = TEXT_ALIGN_LAST_KEYWORDS.map(
+	(keyword) => `[data-align-last="${keyword}"] {\n  text-align-last: ${keyword} !important;\n}`,
+).join("\n\n");
+
 const OVERRIDES_TEXT = `
 [data-split-from] {
   text-indent: unset !important;
@@ -73,12 +88,30 @@ li[data-split-from] {
   border-block-end: none !important;
 }
 
-[data-split-to][data-justify-last] {
-  text-align-last: justify !important;
-}
-
 [data-split-to]::after {
   content: unset !important;
+}
+
+/* The split box's last line here is not its last line: the compositor tags the
+   deepest split element with the keyword resolved from text-align-last and
+   text-align. Not gated on [data-split-to] — a box at its block-end carries
+   the keyword while only its overflow continues. */
+${ALIGN_LAST_RULES}
+
+/* Past its block-end a box has no extent and no decorations; what is built
+   into it is overflow (CSS Fragmentation §2.1). The shadow is cast by a box
+   that has no extent here. The outline is not: Chromium draws it around the
+   zero-extent fragment, so it stays. */
+[data-past-block-end] {
+  height: 0 !important;
+  min-height: 0 !important;
+  margin-block-start: 0 !important;
+  margin-block-end: 0 !important;
+  padding-block-start: 0 !important;
+  padding-block-end: 0 !important;
+  border-block-start: none !important;
+  border-block-end: none !important;
+  box-shadow: none !important;
 }
 
 /* Materialized pseudo element suppression */

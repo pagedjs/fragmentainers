@@ -85,7 +85,7 @@ export class Fragment {
 	 * @param {import("./clone-map.js").CloneMap} cloneMap
 	 */
 	#buildInto(inputBreakToken, parentEl, cloneMap) {
-		if (!this.node) return;
+		if (rendersNothing(this, inputBreakToken)) return;
 
 		// A done token (isAtBlockEnd) means this box's own extent finished on an
 		// earlier fragmentainer in a parallel flow — a completed table cell, flex
@@ -95,7 +95,6 @@ export class Fragment {
 		// siblings that do continue. Overflowing content still continuing is
 		// built into it as overflow of a box with no extent of its own.
 		if (inputBreakToken?.type === BREAK_TOKEN_BLOCK && inputBreakToken.isAtBlockEnd) {
-			if (!this.node.element) return;
 			const emptied = this.node.element.cloneNode(false);
 			this.#applySplitAttributes(emptied, inputBreakToken);
 			if (emptied.tagName === "OL") this.#applyListContinuation(emptied, inputBreakToken);
@@ -103,7 +102,9 @@ export class Fragment {
 			if (this.childFragments.length > 0) {
 				this.#buildChildren(emptied, inputBreakToken, cloneMap);
 			}
-			applyPastBlockEnd(emptied);
+			// The override sheet zeroes the box's extent, margins, borders and
+			// shadow off this attribute (CSS Fragmentation §2.1).
+			emptied.setAttribute("data-past-block-end", "");
 			parentEl.appendChild(emptied);
 			return;
 		}
@@ -124,12 +125,6 @@ export class Fragment {
 				this.#applyListContinuation(el, inputBreakToken);
 			}
 			this.#buildChildren(el, inputBreakToken, cloneMap);
-			// Skip empty container shells — all built children were themselves
-			// empty and skipped (e.g. an <ol> whose only <li> had no visible text).
-			if (el.childNodes.length === 0 && this.breakToken && !this.needsBlockClip) {
-				this.breakToken.wasSuppressed = true;
-				return;
-			}
 			cloneMap.track(el, node.element);
 			if (node.isTable && consumedBlockSize(inputBreakToken) > 0 && !this.needsBlockClip) {
 				// A table's specified height is a minimum for the whole table, not
@@ -155,16 +150,6 @@ export class Fragment {
 			} else {
 				parentEl.appendChild(el);
 			}
-		} else if (
-			this.childFragments.length === 0 &&
-			this.breakToken &&
-			node.children?.length > 0 &&
-			!this.needsBlockClip
-		) {
-			// Empty container shell — all children pushed to next fragmentainer.
-			// Don't build; content will appear on the next page/column. A block-clip
-			// slice is not a shell: it falls through so the visible slice renders.
-			return;
 		} else if (this.childFragments.length === 0 && this.needsBlockClip && !isMonolithic(node)) {
 			// The rest of a box whose block-size outran the fragmentainer after
 			// all its content was placed (CSS Fragmentation §5.3): an empty box
@@ -202,8 +187,12 @@ export class Fragment {
 		for (const child of this.childFragments) {
 			if (!child.node) continue;
 			// Skip materialized pseudo elements at wrong split boundaries
-			if (child.node.element && !this.#shouldBuildPseudo(child.node.element, inputBreakToken))
+			if (
+				child.node.element &&
+				!shouldBuildPseudo(child.node.element, inputBreakToken, this.breakToken)
+			) {
 				continue;
+			}
 			const childInputBT = findChildBreakToken(inputBreakToken, child.node, taken);
 			child.#buildInto(childInputBT, el, cloneMap);
 		}
@@ -217,7 +206,6 @@ export class Fragment {
 	#buildInline(inputBreakToken, parentEl) {
 		const node = this.node;
 		const data = node.inlineItemsData;
-		if (!data || !data.items || data.items.length === 0) return;
 
 		const startOffset =
 			inputBreakToken && inputBreakToken.type === BREAK_TOKEN_INLINE
@@ -227,13 +215,6 @@ export class Fragment {
 			this.breakToken && this.breakToken.type === BREAK_TOKEN_INLINE
 				? this.breakToken.textOffset
 				: data.textContent.length;
-
-		// No visible text in this fragment and content continues on the next
-		// fragmentainer — skip to avoid empty element shells (e.g. an <li>
-		// that shows only its ::marker with no text).
-		if (startOffset >= endOffset && this.breakToken) {
-			return;
-		}
 
 		const collapseWS = !node.whiteSpace.startsWith("pre");
 		const isInlineToken = this.breakToken?.type === BREAK_TOKEN_INLINE;
@@ -366,25 +347,6 @@ export class Fragment {
 	}
 
 	/**
-	 * Determine whether a materialized pseudo element should be built
-	 * into the current fragment. ::before is excluded on continuation
-	 * fragments; ::after is excluded on non-last fragments.
-	 *
-	 * @param {Element} element — the <frag-pseudo> element
-	 * @param {import("./tokens.js").BreakToken|null} inputBreakToken — parent's input break token
-	 * @returns {boolean} true if the pseudo should be included
-	 */
-	#shouldBuildPseudo(element, inputBreakToken) {
-		if (!isPseudoElement(element)) return true;
-		const which = element.dataset.pseudo;
-		// ::before only appears on the first fragment (no inputBreakToken)
-		if (which === "before" && inputBreakToken && !inputBreakToken.isBreakBefore) return false;
-		// ::after only appears on the last fragment (no output breakToken)
-		if (which === "after" && this.breakToken) return false;
-		return true;
-	}
-
-	/**
 	 * Mark cloned elements with data-split-from / data-split-to attributes
 	 * so the override stylesheet can suppress first/last-fragment-only CSS.
 	 *
@@ -392,13 +354,16 @@ export class Fragment {
 	 * @param {import("./tokens.js").BreakToken|null} inputBreakToken - non-null if continuation
 	 */
 	#applySplitAttributes(el, inputBreakToken) {
+		// A shell continuation is never marked split: BlockContainerAlgorithm
+		// zeroes the box's block offset when nothing was placed, so a fragment
+		// that composed as an empty shell leaves a token with no consumed
+		// extent and not at its block-end.
 		const isContinuation =
 			inputBreakToken &&
 			!inputBreakToken.isBreakBefore &&
 			(inputBreakToken.type === BREAK_TOKEN_INLINE
 				? inputBreakToken.textOffset > 0
-				: (inputBreakToken.consumedBlockSize > 0 || inputBreakToken.isAtBlockEnd) &&
-					!inputBreakToken.wasSuppressed);
+				: inputBreakToken.consumedBlockSize > 0 || inputBreakToken.isAtBlockEnd);
 		if (isContinuation) {
 			el.setAttribute("data-split-from", "");
 		}
@@ -429,11 +394,7 @@ export class Fragment {
 		const alignLast = this.#resolvedTextAlignLastForSplit();
 		if (!alignLast) return;
 
-		el.dataset.alignLastSplitElement = alignLast;
-		el.style.setProperty("text-align-last", alignLast, "important");
-		if (alignLast === "justify") {
-			el.setAttribute("data-justify-last", "");
-		}
+		el.setAttribute("data-align-last", alignLast);
 	}
 
 	#resolvedTextAlignLastForSplit() {
@@ -626,23 +587,92 @@ function consumedBlockSize(inputBreakToken) {
 }
 
 /**
- * Past its block-end (CSS Fragmentation §2.1) a box has no extent and no
- * decorations; the content built into it is overflow.
+ * Whether a materialized pseudo element belongs in the fragment being built.
+ * ::before is excluded on continuation fragments; ::after is excluded on
+ * fragments whose box continues.
+ *
+ * @param {Element} element - the <frag-pseudo> element
+ * @param {import("./tokens.js").BreakToken|null} inputBreakToken - the containing
+ *   fragment's input break token
+ * @param {import("./tokens.js").BreakToken|null} outputBreakToken - the containing
+ *   fragment's own break token
+ * @returns {boolean} true if the pseudo should be included
  */
-function applyPastBlockEnd(el) {
-	for (const property of [
-		"height",
-		"min-height",
-		"margin-block-start",
-		"margin-block-end",
-		"padding-block-start",
-		"padding-block-end",
-	]) {
-		el.style.setProperty(property, "0", "important");
+function shouldBuildPseudo(element, inputBreakToken, outputBreakToken) {
+	if (!isPseudoElement(element)) return true;
+	const which = element.dataset.pseudo;
+	// ::before only appears on the first fragment (no inputBreakToken)
+	if (which === "before" && inputBreakToken && !inputBreakToken.isBreakBefore) return false;
+	// ::after only appears on the last fragment (no output breakToken)
+	if (which === "after" && outputBreakToken) return false;
+	return true;
+}
+
+/**
+ * Whether composing this fragment would put nothing in the output.
+ *
+ * A box whose content was all pushed to the next fragmentainer composes as an
+ * empty shell — an `<ol>` whose only `<li>` had no visible text, say — and is
+ * dropped so the box's block-start decorations are painted on the slice that
+ * shows content instead. The decision is a pure function of the fragment and
+ * the token it resumed from, so composition can skip a shell without observing
+ * what it just built and without touching layout output. Mirrors the branches
+ * of `Fragment#buildInto`.
+ *
+ * @param {Fragment} fragment
+ * @param {import("./tokens.js").BreakToken|null} inputBreakToken - the token this
+ *   fragment resumes from, i.e. the previous fragmentainer's token for this box
+ * @returns {boolean}
+ */
+export function rendersNothing(fragment, inputBreakToken) {
+	if (!fragment.node) return true;
+	const node = fragment.node;
+
+	// Past its block-end the box still composes, emptied, to hold its track
+	// open (§2.1) — unless it has no element to clone.
+	if (inputBreakToken?.type === BREAK_TOKEN_BLOCK && inputBreakToken.isAtBlockEnd) {
+		return !node.element;
 	}
-	el.style.setProperty("border-block-start", "none", "important");
-	el.style.setProperty("border-block-end", "none", "important");
-	// The shadow is cast by a box that has no extent here. The outline is
-	// not: Chromium draws it around the zero-extent fragment, so it stays.
-	el.style.setProperty("box-shadow", "none", "important");
+
+	if (fragment.multicolData) return false;
+
+	if (node.isInlineNode) {
+		const data = node.inlineItemsData;
+		if (!data?.items?.length) return true;
+		const startOffset =
+			inputBreakToken?.type === BREAK_TOKEN_INLINE ? inputBreakToken.textOffset : 0;
+		const endOffset =
+			fragment.breakToken?.type === BREAK_TOKEN_INLINE
+				? fragment.breakToken.textOffset
+				: data.textContent.length;
+		// No visible text and content continuing on the next fragmentainer: an
+		// <li> showing only its ::marker, say.
+		return startOffset >= endOffset && !!fragment.breakToken;
+	}
+
+	if (fragment.hasBlockChildren) {
+		if (!fragment.breakToken || fragment.needsBlockClip) return false;
+		const taken = new Set();
+		for (const child of fragment.childFragments) {
+			if (!child.node) continue;
+			if (
+				child.node.element &&
+				!shouldBuildPseudo(child.node.element, inputBreakToken, fragment.breakToken)
+			) {
+				continue;
+			}
+			const childInputBT = findChildBreakToken(inputBreakToken, child.node, taken);
+			if (!rendersNothing(child, childInputBT)) return false;
+		}
+		return true;
+	}
+
+	// A block-clip slice is not a shell: it renders the visible slice of a box
+	// whose content was all placed.
+	return (
+		fragment.childFragments.length === 0 &&
+		!!fragment.breakToken &&
+		node.children?.length > 0 &&
+		!fragment.needsBlockClip
+	);
 }

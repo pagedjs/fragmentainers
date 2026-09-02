@@ -30,11 +30,6 @@ export class BreakToken {
 		// and without isAtBlockEnd, the box's block-size is what continues:
 		// consumedBlockSize counts the extent placed so far against it (§5.3).
 		this.hasSeenAllChildren = false;
-		// The fragment this token came from was dropped as an empty shell, so
-		// the box's block-start decorations have not been rendered yet.
-		this.wasSuppressed = false;
-		this.isCausedByColumnSpanner = false;
-		this.hasUnpositionedListMarker = false;
 	}
 
 	/**

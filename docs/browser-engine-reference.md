@@ -36,9 +36,6 @@ Break tokens are continuation tokens that capture enough state to resume layout 
 | `isRepeated`                | `boolean`               | Repeated content (e.g. table `thead`/`tfoot` across pages)                               |
 | `isAtBlockEnd`              | `boolean`               | Node finished but a sibling in a parallel flow broke                                     |
 | `hasSeenAllChildren`        | `boolean`               | All children laid out (early exit signal)                                                |
-| `wasSuppressed`             | `boolean`               | The fragment's empty shell was omitted, so its start decorations have not rendered       |
-| `isCausedByColumnSpanner`   | `boolean`               | Break caused by a column-spanning element                                                |
-| `hasUnpositionedListMarker` | `boolean`               | Orphaned list marker needing placement                                                   |
 
 ### BlockBreakToken (extends BreakToken)
 
