@@ -34,7 +34,8 @@ export class FragPseudoElement extends HTMLElement {
 		if (this.textContent) return this.textContent;
 		const which = this.pseudo;
 		if (!which) return "";
-		return parseContentValue(getComputedStyle(this, `::${which}`).content).text;
+		const parsed = parseContentValue(getComputedStyle(this, `::${which}`).content);
+		return parsed.isStringOnly ? parsed.text : "";
 	}
 }
 

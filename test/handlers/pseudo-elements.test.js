@@ -362,6 +362,18 @@ test.describe("frag-pseudo element API", () => {
 		expect(result.found).toBe(true);
 		expect(result.text).toBe("");
 	});
+
+	// Partly resolved is still unresolved: handing back just the string parts
+	// would read as "Chapter " with the number silently dropped.
+	test("reads mixed string and counter content as empty", async ({ page }) => {
+		const result = await readPseudoText(page, {
+			css: ".target { counter-reset: item 7; } .target::before { content: \"Chapter \" counter(item); }",
+			html: "<span class=\"target\"></span>",
+		});
+
+		expect(result.found).toBe(true);
+		expect(result.text).toBe("");
+	});
 });
 
 test.describe("native pseudo preservation", () => {
