@@ -16,6 +16,8 @@
  * projected content) — the host is size-contained and fixed-size.
  */
 
+import { defineElement } from "./define.js";
+
 const HOST_STYLES = `
   :host {
     display: block;
@@ -207,8 +209,4 @@ export class FragmentContainerElement extends HTMLElement {
 	}
 }
 
-// A page can legitimately load this module twice — a bundled copy alongside
-// the source, say — and defining a name twice throws. First definition wins.
-if (!customElements.get("fragment-container")) {
-	customElements.define("fragment-container", FragmentContainerElement);
-}
+defineElement("fragment-container", FragmentContainerElement);

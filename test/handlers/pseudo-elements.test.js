@@ -333,22 +333,35 @@ test.describe("frag-pseudo element API", () => {
 		expect(result.text).toBe("one two");
 	});
 
-	// A bundled copy of the engine alongside the source is a supported way to
-	// load a page, and defining a custom element name twice throws.
+	// Two copies of the engine on one page is a setup bug, not a supported
+	// configuration: the second class never takes the name, so instanceof and
+	// module state diverge between the copies. Tolerated and warned about so
+	// the page keeps working instead of dying on the name clash.
 	test("survives the module being loaded a second time", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			await import("/src/components/frag-pseudo.js");
+			const warnings = [];
+			const originalWarn = console.warn;
+			console.warn = (...args) => warnings.push(args.join(" "));
 			let error = null;
 			try {
 				await import("/src/components/frag-pseudo.js?duplicate");
 			} catch (thrown) {
 				error = String(thrown);
+			} finally {
+				console.warn = originalWarn;
 			}
-			return { error, defined: customElements.get("frag-pseudo") !== undefined };
+			return {
+				error,
+				warnings,
+				defined: customElements.get("frag-pseudo") !== undefined,
+			};
 		});
 
 		expect(result.error).toBe(null);
 		expect(result.defined).toBe(true);
+		expect(result.warnings).toHaveLength(1);
+		expect(result.warnings[0]).toContain("frag-pseudo");
 	});
 
 	// A counter has no value outside a laid-out flow, and an unresolved

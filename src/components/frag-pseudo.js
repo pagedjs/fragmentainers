@@ -1,4 +1,5 @@
 import { parseContentValue } from "../styles/css-values.js";
+import { defineElement } from "./define.js";
 
 /**
  * A materialized ::before or ::after.
@@ -52,8 +53,4 @@ export function pseudoFor(element, which) {
 	);
 }
 
-// A page can legitimately load this module twice — a bundled copy alongside
-// the source, say — and defining a name twice throws. First definition wins.
-if (!customElements.get("frag-pseudo")) {
-	customElements.define("frag-pseudo", FragPseudoElement);
-}
+defineElement("frag-pseudo", FragPseudoElement);
