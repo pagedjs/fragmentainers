@@ -155,7 +155,6 @@ export class HandlerRegistry {
 	processRules(styles) {
 		this.#ensureReady();
 		const hs = this.#handlers;
-		this.#context?.resetLayoutPasses();
 		if (this.#injectedSheet) {
 			const previousIndex = styles.indexOf(this.#injectedSheet);
 			if (previousIndex !== -1) styles.splice(previousIndex, 1);
@@ -171,11 +170,7 @@ export class HandlerRegistry {
 			if (rule.selectorText === undefined) return;
 			const ctx = { wrappers };
 			for (const handler of hs) {
-				if (this.#context) {
-					this.#context.withActiveHandler(handler, () => handler.matchRule(rule, ctx));
-				} else {
-					handler.matchRule(rule, ctx);
-				}
+				handler.matchRule(rule, ctx);
 			}
 		});
 
@@ -248,9 +243,10 @@ export class HandlerRegistry {
 		return results;
 	}
 
-	onPassLimit(context, handlers) {
+	onPassLimit(context) {
+		this.#ensureReady();
 		const results = [];
-		for (const handler of handlers) {
+		for (const handler of this.#handlers) {
 			const result = handler.onPassLimit(context);
 			if (result) results.push({ handler, result });
 		}

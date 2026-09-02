@@ -338,9 +338,10 @@ export class Fragmenter extends Iterator {
 	}
 
 	/**
-	 * Register this flow for deferred layout settlement. The budget is owned by
-	 * the flow, not a handler: it survives every `processRules` and no
-	 * `onPassLimit` fallback is consulted when it is exhausted.
+	 * Register this flow for deferred layout settlement, raising the pass
+	 * budget to at least `maxPasses`. Callers that own the flow rather than a
+	 * handler register here; handlers register from their own hooks through
+	 * `context.flow.registerLayoutPass`.
 	 *
 	 * @param {number} maxPasses positive integer
 	 */
@@ -514,27 +515,24 @@ export class Fragmenter extends Iterator {
 		let pass = this.#flowContext.layoutPass;
 		let fromIndex = initialFromIndex;
 		while (true) {
+			// A rebuild re-runs processRules, which can raise the budget.
 			const budget = this.#flowContext.layoutPassBudget;
-			if (budget === 0) return;
 			const context = this.#passContext(pass, fromIndex);
 			const changes = this.#flowContext.handlers.afterLayoutPass(context);
-			const rebuild = changes.some(({ result }) => result.rebuild === true);
-			const invalidations = changes.flatMap(({ result }) =>
-				Array.isArray(result.invalidate) ? result.invalidate : [],
-			);
+			let rebuild = false;
+			const invalidations = [];
+			const reporters = [];
+			for (const { handler, result } of changes) {
+				if (result.rebuild === true) rebuild = true;
+				if (Array.isArray(result.invalidate)) invalidations.push(...result.invalidate);
+				reporters.push(handler);
+			}
 			if (!rebuild && invalidations.length === 0) return;
 
 			if (pass >= budget) {
-				const fallbacks = this.#flowContext.handlers.onPassLimit(
-					context,
-					this.#flowContext.layoutPassHandlers,
-				);
+				const fallbacks = this.#flowContext.handlers.onPassLimit(context);
 				if (fallbacks.some(({ result }) => result.accept === true)) return;
-				throw new LayoutPassLimitError(
-					budget,
-					changes.map(({ handler }) => handler),
-					invalidations,
-				);
+				throw new LayoutPassLimitError(budget, reporters, invalidations);
 			}
 
 			pass++;
