@@ -4,9 +4,15 @@ import { locate } from "./locate.js";
 // Used when the fragment's root node has no computed lineHeight.
 export const DEFAULT_OVERFLOW_THRESHOLD = 16 * 1.2;
 
-function formatCounterSet(snapshot) {
+/**
+ * Serialize a counter snapshot's innermost values as a `counter-set` value.
+ *
+ * @param {Readonly<Record<string, number>>} values - `CounterSnapshot.values`
+ * @returns {string}
+ */
+function formatCounterSet(values) {
 	const parts = [];
-	for (const [name, value] of Object.entries(snapshot)) {
+	for (const [name, value] of Object.entries(values)) {
 		parts.push(`${name} ${value}`);
 	}
 	return parts.join(" ");
@@ -99,8 +105,8 @@ export class FragmentationContext extends Array {
 
 		const prev = index > 0 ? this.#fragments[index - 1] : this.#previous;
 		const counterSnapshot = prev?.counterState ?? null;
-		if (counterSnapshot && Object.keys(counterSnapshot).length > 0) {
-			el.style.counterSet = formatCounterSet(counterSnapshot);
+		if (counterSnapshot && Object.keys(counterSnapshot.values).length > 0) {
+			el.style.counterSet = formatCounterSet(counterSnapshot.values);
 		}
 
 		if (fragment.isBlank) {

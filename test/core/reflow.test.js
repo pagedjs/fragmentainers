@@ -94,7 +94,7 @@ test.describe("Fragmenter.reflow()", () => {
 
 	test("tracks nested same-name counter scopes across fragmentainers", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragmenter, counterValues } = await import("/src/fragmentation/index.js");
+			const { Fragmenter } = await import("/src/fragmentation/index.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
@@ -113,8 +113,8 @@ test.describe("Fragmenter.reflow()", () => {
 
 			const layout = new Fragmenter(template.content, { width: 600, height: 100 });
 			const context = layout.flow();
-			const values = context.fragments.map((fragment) =>
-				counterValues(fragment.counterState, "chapter"),
+			const values = context.fragments.map(
+				(fragment) => fragment.counterState?.stack("chapter") ?? [],
 			);
 			layout.destroy();
 			return values;
@@ -127,7 +127,7 @@ test.describe("Fragmenter.reflow()", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { Fragmenter, counterValues } = await import("/src/fragmentation/index.js");
+			const { Fragmenter } = await import("/src/fragmentation/index.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
@@ -146,7 +146,7 @@ test.describe("Fragmenter.reflow()", () => {
 
 			const layout = new Fragmenter(template.content, { width: 600, height: 100 });
 			const read = (context) =>
-				context.fragments.map((fragment) => counterValues(fragment.counterState, "chapter"));
+				context.fragments.map((fragment) => fragment.counterState?.stack("chapter") ?? []);
 			const initial = layout.flow();
 			const expected = read(initial);
 			const restarts = [];
@@ -167,7 +167,7 @@ test.describe("Fragmenter.reflow()", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { Fragmenter, counterValues } = await import("/src/fragmentation/index.js");
+			const { Fragmenter } = await import("/src/fragmentation/index.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
@@ -179,7 +179,7 @@ test.describe("Fragmenter.reflow()", () => {
 
 			const layout = new Fragmenter(template.content, { width: 600, height: 100 });
 			const read = (context) =>
-				context.fragments.map((fragment) => counterValues(fragment.counterState, "chapter"));
+				context.fragments.map((fragment) => fragment.counterState?.stack("chapter") ?? []);
 			const initial = layout.flow();
 			const expected = read(initial);
 			const restarts = [];

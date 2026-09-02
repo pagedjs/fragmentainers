@@ -296,8 +296,8 @@ via inline `style.counterSet` on the host:
 // fragmentation-context.js
 const previous = index > 0 ? this.#fragments[index - 1] : this.#previous;
 const counterSnapshot = previous?.counterState ?? null;
-if (counterSnapshot && Object.keys(counterSnapshot).length > 0) {
-	el.style.counterSet = formatCounterSet(counterSnapshot);
+if (counterSnapshot && Object.keys(counterSnapshot.values).length > 0) {
+	el.style.counterSet = formatCounterSet(counterSnapshot.values);
 }
 ```
 

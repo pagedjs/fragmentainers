@@ -110,7 +110,7 @@ test.describe("CounterState", () => {
 		const result = await page.evaluate(async () => {
 			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
-			return { isEmpty: state.isEmpty(), snapshot: state.snapshot() };
+			return { isEmpty: state.isEmpty(), snapshot: state.snapshot().values };
 		});
 		expect(result.isEmpty).toBe(true);
 		expect(result.snapshot).toEqual({});
@@ -121,7 +121,7 @@ test.describe("CounterState", () => {
 			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyReset([{ name: "p", value: 0 }]);
-			return { isEmpty: state.isEmpty(), snapshot: state.snapshot() };
+			return { isEmpty: state.isEmpty(), snapshot: state.snapshot().values };
 		});
 		expect(result.isEmpty).toBe(false);
 		expect(result.snapshot).toEqual({ p: 0 });
@@ -132,7 +132,7 @@ test.describe("CounterState", () => {
 			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyIncrement([{ name: "p", value: 1 }]);
-			return state.snapshot();
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({ p: 1 });
 	});
@@ -144,7 +144,7 @@ test.describe("CounterState", () => {
 			state.applyReset([{ name: "p", value: 0 }]);
 			state.applyIncrement([{ name: "p", value: 1 }]);
 			state.applyIncrement([{ name: "p", value: 1 }]);
-			return state.snapshot();
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({ p: 2 });
 	});
@@ -158,7 +158,7 @@ test.describe("CounterState", () => {
 				{ name: "s", value: 0 },
 			]);
 			state.applyIncrement([{ name: "p", value: 1 }]);
-			return state.snapshot();
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({ p: 1, s: 0 });
 	});
@@ -168,7 +168,7 @@ test.describe("CounterState", () => {
 			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const state = new CounterState();
 			state.applyIncrement([{ name: "p", value: 5 }]);
-			return state.snapshot();
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({ p: 5 });
 	});
@@ -179,7 +179,7 @@ test.describe("CounterState", () => {
 			const state = new CounterState();
 			state.applyIncrement([{ name: "p", value: 10 }]);
 			state.applyReset([{ name: "p", value: 0 }]);
-			return state.snapshot();
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({ p: 0 });
 	});
@@ -192,7 +192,7 @@ test.describe("CounterState", () => {
 			const snap = state.snapshot();
 			const isFrozen = Object.isFrozen(snap);
 			state.applyIncrement([{ name: "p", value: 1 }]);
-			return { isFrozen, snapP: snap.p };
+			return { isFrozen, snapP: snap.value("p") };
 		});
 		expect(result.isFrozen).toBe(true);
 		expect(result.snapP).toBe(0);
@@ -201,9 +201,14 @@ test.describe("CounterState", () => {
 	test("restore() populates counters from a snapshot", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { CounterState } = await import("/src/fragmentation/counter-state.js");
+			const source = new CounterState();
+			source.applyReset([
+				{ name: "p", value: 5 },
+				{ name: "s", value: 2 },
+			]);
 			const state = new CounterState();
-			state.restore({ p: 5, s: 2 });
-			return state.snapshot();
+			state.restore(source.snapshot());
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({ p: 5, s: 2 });
 	});
@@ -211,10 +216,12 @@ test.describe("CounterState", () => {
 	test("restore() clears existing state", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { CounterState } = await import("/src/fragmentation/counter-state.js");
+			const source = new CounterState();
+			source.applyReset([{ name: "p", value: 1 }]);
 			const state = new CounterState();
 			state.applyReset([{ name: "old", value: 99 }]);
-			state.restore({ p: 1 });
-			return state.snapshot();
+			state.restore(source.snapshot());
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({ p: 1 });
 	});
@@ -233,10 +240,12 @@ test.describe("CounterState", () => {
 	test("accumulates after restore", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { CounterState } = await import("/src/fragmentation/counter-state.js");
+			const source = new CounterState();
+			source.applyReset([{ name: "p", value: 3 }]);
 			const state = new CounterState();
-			state.restore({ p: 3 });
+			state.restore(source.snapshot());
 			state.applyIncrement([{ name: "p", value: 1 }]);
-			return state.snapshot();
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({ p: 4 });
 	});
@@ -287,9 +296,7 @@ test.describe("CounterState", () => {
 
 	test("snapshot preserves scoped stacks and restores them independently", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { CounterState, counterValue, counterValues } = await import(
-				"/src/fragmentation/counter-state.js"
-			);
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
 			const outer = {};
 			const inner = {};
 			const state = new CounterState();
@@ -303,10 +310,10 @@ test.describe("CounterState", () => {
 			restored.closeScope(inner);
 			return {
 				isFrozen: Object.isFrozen(snapshot),
-				valuesFrozen: Object.isFrozen(counterValues(snapshot, "chapter")),
-				scalarProjection: snapshot.chapter,
-				snapshotValue: counterValue(snapshot, "chapter"),
-				snapshotValues: counterValues(snapshot, "chapter"),
+				valuesFrozen: Object.isFrozen(snapshot.values),
+				scalarProjection: snapshot.values.chapter,
+				snapshotValue: snapshot.value("chapter"),
+				snapshotStack: snapshot.stack("chapter"),
 				restoredValues,
 				afterClose: restored.values("chapter"),
 			};
@@ -316,10 +323,27 @@ test.describe("CounterState", () => {
 			valuesFrozen: true,
 			scalarProjection: 7,
 			snapshotValue: 7,
-			snapshotValues: [2, 7],
+			snapshotStack: [2, 7],
 			restoredValues: [2, 8],
 			afterClose: [2],
 		});
+	});
+
+	test("restore refuses a structural copy of a snapshot", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { CounterState } = await import("/src/fragmentation/counter-state.js");
+			const state = new CounterState();
+			state.applyReset([{ name: "chapter", value: 2 }], {});
+			const copy = { ...state.snapshot() };
+			const restored = new CounterState();
+			try {
+				restored.restore(copy);
+				return { threw: false, isEmpty: restored.isEmpty() };
+			} catch (error) {
+				return { threw: true, isTypeError: error instanceof TypeError };
+			}
+		});
+		expect(result).toEqual({ threw: true, isTypeError: true });
 	});
 
 	test("direct operations also ignore excluded names", async ({ page }) => {
@@ -332,7 +356,7 @@ test.describe("CounterState", () => {
 			]);
 			state.applyIncrement([{ name: "--paged-tc-2", value: 1 }]);
 			state.applySet([{ name: "--paged-tc-3", value: 4 }]);
-			return { empty: state.isEmpty(), snapshot: state.snapshot() };
+			return { empty: state.isEmpty(), snapshot: state.snapshot().values };
 		});
 		expect(result).toEqual({ empty: true, snapshot: {} });
 	});
@@ -358,7 +382,7 @@ test.describe("walkFragmentTree", () => {
 			const tree = frag(section, [frag(p1), frag(p2)]);
 			const state = new CounterState();
 			walkFragmentTree(tree, null, state);
-			return state.snapshot();
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({ paragraph: 2 });
 	});
@@ -383,7 +407,7 @@ test.describe("walkFragmentTree", () => {
 			const tree = frag(section, [frag(p1)], sectionBT);
 			const state = new CounterState();
 			walkFragmentTree(tree, sectionBT, state);
-			return state.snapshot();
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({ paragraph: 1 });
 	});
@@ -411,7 +435,7 @@ test.describe("walkFragmentTree", () => {
 			const tree = frag(section, [frag(p1)]);
 			const state = new CounterState();
 			walkFragmentTree(tree, sectionBT, state);
-			return state.snapshot();
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({});
 	});
@@ -436,7 +460,7 @@ test.describe("walkFragmentTree", () => {
 			const tree = frag(root, [lineFragment, frag(p1)], new BlockBreakToken(root));
 			const state = new CounterState();
 			walkFragmentTree(tree, null, state);
-			return state.snapshot();
+			return state.snapshot().values;
 		});
 		expect(result).toEqual({ paragraph: 1 });
 	});
@@ -464,12 +488,12 @@ test.describe("walkFragmentTree", () => {
 			const bt = new BlockBreakToken(section);
 			const tree1 = frag(section, [frag(p1), frag(p2)], bt);
 			walkFragmentTree(tree1, null, state);
-			const snap1 = state.snapshot();
+			const snap1 = state.snapshot().values;
 
 			const sectionBT = new BlockBreakToken(section);
 			const tree2 = frag(section, [frag(p3)]);
 			walkFragmentTree(tree2, sectionBT, state);
-			const snap2 = state.snapshot();
+			const snap2 = state.snapshot().values;
 
 			return { snap1, snap2 };
 		});

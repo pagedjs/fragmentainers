@@ -2,7 +2,6 @@ import { findChildBreakToken } from "./tokens.js";
 
 const ROOT_SCOPE = Symbol("counter-root-scope");
 const DOCUMENT_SCOPE = Symbol("counter-document-scope");
-const snapshotStacks = new WeakMap();
 
 function isTrackedCounter(name) {
 	return name !== "list-item" && !name.startsWith("--");
@@ -35,36 +34,59 @@ export function parseCounterDirective(value, defaultValue = 0) {
 	return entries;
 }
 
-function frozenSnapshotEntry(frames) {
-	const copiedFrames = Object.freeze(
-		frames.map(({ value, scope }) => Object.freeze({ value, scope })),
-	);
-	return Object.freeze({
-		frames: copiedFrames,
-		values: Object.freeze(copiedFrames.map(({ value }) => value)),
-	});
-}
+/**
+ * Immutable scoped counter values captured at a fragmentainer boundary.
+ * Produced by `CounterState.snapshot()` and stored on `Fragment.counterState`.
+ *
+ * `values` is the innermost scalar projection that seeds a fragmentainer's
+ * `counter-set`; `frames` keeps the outer-to-inner stacks that make a restore
+ * lossless. The scope identities in `frames` are object references, so a
+ * structural copy (spread, structuredClone, serialization) cannot carry them:
+ * `restore` rejects anything but an instance instead of silently flattening
+ * every counter into the root scope.
+ */
+export class CounterSnapshot {
+	/** @type {Readonly<Record<string, number>>} */
+	values;
 
-function snapshotEntry(snapshot, name) {
-	return snapshot && typeof snapshot === "object"
-		? snapshotStacks.get(snapshot)?.get(name) ?? null
-		: null;
-}
+	/** @type {Map<string, ReadonlyArray<Readonly<{ value: number, scope: object|symbol }>>>} */
+	frames;
 
-/** Return the innermost value for a counter snapshot. */
-export function counterValue(snapshot, name) {
-	const entry = snapshotEntry(snapshot, name);
-	if (entry) return entry.values.at(-1) ?? 0;
-	const value = snapshot?.[name];
-	return Number.isFinite(value) ? value : 0;
-}
+	/**
+	 * @param {Map<string, { value: number, scope: object|symbol }[]>} counters -
+	 *   The accumulator's live stacks. Frames are copied and frozen so later
+	 *   counter operations cannot reach an already-recorded snapshot.
+	 */
+	constructor(counters) {
+		const values = {};
+		const frames = new Map();
+		for (const [name, stack] of counters) {
+			const copied = Object.freeze(
+				stack.map(({ value, scope }) => Object.freeze({ value, scope })),
+			);
+			frames.set(name, copied);
+			values[name] = copied.at(-1).value;
+		}
+		this.values = Object.freeze(values);
+		this.frames = frames;
+		Object.freeze(this);
+	}
 
-/** Return the outer-to-inner values for a counter snapshot. */
-export function counterValues(snapshot, name) {
-	const entry = snapshotEntry(snapshot, name);
-	if (entry) return entry.values;
-	const value = snapshot?.[name];
-	return Object.freeze(Number.isFinite(value) ? [value] : []);
+	/**
+	 * @param {string} name
+	 * @returns {number} Innermost value, or zero when the counter does not exist.
+	 */
+	value(name) {
+		return this.frames.get(name)?.at(-1)?.value ?? 0;
+	}
+
+	/**
+	 * @param {string} name
+	 * @returns {number[]} Outer-to-inner values, empty when the counter does not exist.
+	 */
+	stack(name) {
+		return (this.frames.get(name) ?? []).map(({ value }) => value);
+	}
 }
 
 /**
@@ -72,8 +94,7 @@ export function counterValues(snapshot, name) {
  *
  * Each name owns an outer-to-inner stack. A stack frame is keyed by the
  * element whose child scope created it, so sibling resets replace one another
- * while descendant resets nest. Scope identities remain internal; snapshots
- * expose the innermost scalar values as enumerable properties for composition.
+ * while descendant resets nest.
  */
 export class CounterState {
 	/** @type {Map<string, { value: number, scope: object|symbol }[]>} */
@@ -87,12 +108,13 @@ export class CounterState {
 	 * @param {Element} element
 	 */
 	prepareForElement(element) {
-		if (!element) return;
+		if (!element || this.#counters.size === 0) return;
 		for (const [name, frames] of this.#counters) {
 			const kept = frames.filter(({ scope }) => {
 				if (scope === ROOT_SCOPE || typeof scope?.contains !== "function") return true;
 				return scope === element || scope.contains(element);
 			});
+			if (kept.length === frames.length) continue;
 			if (kept.length > 0) this.#counters.set(name, kept);
 			else this.#counters.delete(name);
 		}
@@ -153,52 +175,34 @@ export class CounterState {
 		return Object.freeze((this.#counters.get(name) ?? []).map(({ value }) => value));
 	}
 
-	// Map-like aliases make the scalar/stack distinction explicit to callers.
-	get(name) {
-		return this.value(name);
-	}
-
-	getAll(name) {
-		return this.values(name);
+	/**
+	 * Capture the scoped stacks for a fragmentainer boundary.
+	 *
+	 * @returns {CounterSnapshot}
+	 */
+	snapshot() {
+		return new CounterSnapshot(this.#counters);
 	}
 
 	/**
-	 * Return a deeply frozen, restoration-lossless snapshot. Enumerable entries
-	 * remain the innermost scalar projection consumed by FragmentationContext;
-	 * scoped stacks are retained as private snapshot metadata.
+	 * Replace all state with the frames a snapshot recorded.
+	 *
+	 * @param {CounterSnapshot|null} snapshot
+	 * @throws {TypeError} Anything else has lost the scope identities a lossless
+	 *   restore needs, so it is refused rather than restored flat.
 	 */
-	snapshot() {
-		const result = {};
-		const stacks = new Map();
-		for (const [name, frames] of this.#counters) {
-			const entry = frozenSnapshotEntry(frames);
-			stacks.set(name, entry);
-			result[name] = entry.values.at(-1);
-		}
-		snapshotStacks.set(result, stacks);
-		return Object.freeze(result);
-	}
-
-	/** Restore scoped state, accepting legacy flat snapshots as a fallback. */
 	restore(snapshot) {
 		this.#counters.clear();
 		if (!snapshot) return;
-
-		const stacks = snapshotStacks.get(snapshot);
-		if (stacks) {
-			for (const [name, { frames }] of stacks) {
-				this.#counters.set(
-					name,
-					frames.map(({ value, scope }) => ({ value, scope })),
-				);
-			}
-			return;
+		if (!(snapshot instanceof CounterSnapshot)) {
+			throw new TypeError("CounterState.restore expects a CounterSnapshot");
 		}
 
-		for (const [name, value] of Object.entries(snapshot)) {
-			if (isTrackedCounter(name) && Number.isFinite(value)) {
-				this.#counters.set(name, [{ value, scope: ROOT_SCOPE }]);
-			}
+		for (const [name, frames] of snapshot.frames) {
+			this.#counters.set(
+				name,
+				frames.map(({ value, scope }) => ({ value, scope })),
+			);
 		}
 	}
 

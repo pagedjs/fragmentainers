@@ -6,9 +6,8 @@ export { Fragmenter, LayoutPassLimitError } from "./fragmenter.js";
 export { createFragments } from "./create-fragments.js";
 export { FragmentationContext } from "./fragmentation-context.js";
 export {
+	CounterSnapshot,
 	CounterState,
-	counterValue,
-	counterValues,
 	parseCounterDirective,
 	walkFragmentTree,
 } from "./counter-state.js";

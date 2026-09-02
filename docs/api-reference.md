@@ -20,7 +20,7 @@ Additional package entry points expose the rest of the public API:
 
 | Subpath | Exports |
 | --- | --- |
-| `fragmentainers/fragmentation` | `BreakToken`, `BlockBreakToken`, `InlineBreakToken`, `findChildBreakToken`, `Fragment`, `ConstraintSpace`, `FRAGMENTATION_*`, `EarlyBreak`, `BreakScore`, `Fragmenter`, `createFragments`, `FragmentFlow`, `FlowContext`, `CloneMap`, `FragmentationContext`, `CounterState`, `parseCounterDirective`, `walkFragmentTree` |
+| `fragmentainers/fragmentation` | `BreakToken`, `BlockBreakToken`, `InlineBreakToken`, `findChildBreakToken`, `Fragment`, `ConstraintSpace`, `FRAGMENTATION_*`, `EarlyBreak`, `BreakScore`, `Fragmenter`, `createFragments`, `FragmentFlow`, `FlowContext`, `CloneMap`, `FragmentationContext`, `CounterState`, `CounterSnapshot`, `parseCounterDirective`, `walkFragmentTree` |
 | `fragmentainers/layout` | `LayoutRequest`, `createFragments`, `runLayoutGenerator`, `getLayoutAlgorithm`, `isMonolithic`, `getMonolithicBlockSize`, `buildCumulativeHeights`, `LayoutNode`, `DOMLayoutNode`, `AnonymousBlockNode`, `FlowThreadNode` |
 | `fragmentainers/algorithms` | `BlockContainerAlgorithm`, `FlexAlgorithm`, `GridAlgorithm`, `InlineContentAlgorithm`, `MulticolAlgorithm`, `TableRowAlgorithm`, `resolveColumnDimensions` |
 | `fragmentainers/resolvers` | `PageResolver`, `PageRule`, `RegionResolver`, `RegionConstraints` |
@@ -643,7 +643,7 @@ new Fragment(node, blockSize, childFragments?)
 | `multicolData`   | `object \| null`          | `null`  | Multicol layout data (`{ columnWidth, columnGap, columnCount, columnHeight }`) |
 | `isRepeated`     | `boolean`                 | `false` | Repeated content (e.g. table thead across pages)                             |
 | `isBlank`        | `boolean`                 | `false` | Blank page inserted for side-specific break (`left`/`right`/`recto`/`verso`) |
-| `counterState`   | `object \| null`          | `null`  | Counter snapshot for this fragmentainer                                      |
+| `counterState`   | `CounterSnapshot \| null` | `null`  | Counter snapshot for this fragmentainer                                      |
 | `afterRender`    | `Function[] \| null`      | `null`  | Composition callbacks contributed by handlers and parallel flows              |
 | `isFirst` / `isLast` | `boolean`              | `false` | Document-boundary markers copied to fragment-container attributes              |
 | `blockOffset`    | `number`                   | `0`     | Block position within the parent fragment                                      |
@@ -1055,18 +1055,42 @@ const sync = flow.handlers.get(MutationSync);
 
 `import { CounterState } from "fragmentainers/fragmentation"`
 
-Flat counter state accumulator. Tracks counter values as a `Map<string, number>`
-across fragmentainers.
+Scoped counter accumulator. Each counter name owns an outer-to-inner stack of
+instances, keyed by the element whose child scope created them, so sibling
+resets replace one another while descendant resets nest.
 
 #### Methods
 
-| Method                    | Returns                  | Description                                        |
-| ------------------------- | ------------------------ | -------------------------------------------------- |
-| `applyReset(entries)`     | `void`                   | Apply `counter-reset` directives                   |
-| `applyIncrement(entries)` | `void`                   | Apply `counter-increment` directives               |
-| `snapshot()`              | `Object<string, number>` | Return a frozen snapshot of current counter values |
-| `restore(snapshot)`       | `void`                   | Replace values from a prior snapshot               |
-| `isEmpty()`               | `boolean`                | True if no counters have been tracked              |
+| Method                           | Returns           | Description                                            |
+| -------------------------------- | ----------------- | ------------------------------------------------------ |
+| `applyReset(entries, scope)`     | `void`            | Apply `counter-reset` directives                       |
+| `applySet(entries, scope)`       | `void`            | Apply `counter-set` directives                         |
+| `applyIncrement(entries, scope)` | `void`            | Apply `counter-increment` directives                   |
+| `value(name)`                    | `number`          | Innermost value, or zero                               |
+| `values(name)`                   | `number[]`        | Frozen outer-to-inner value stack                      |
+| `closeScope(scope)`              | `void`            | Drop instances created by a completed scope            |
+| `prepareForElement(el)`          | `void`            | Drop instances whose DOM scope does not contain `el`   |
+| `snapshot()`                     | `CounterSnapshot` | Capture the scoped stacks for a fragmentainer boundary |
+| `restore(snapshot)`              | `void`            | Replace all state from a `CounterSnapshot`, or `null`  |
+| `isEmpty()`                      | `boolean`         | True if no counters have been tracked                  |
+
+### CounterSnapshot
+
+`import { CounterSnapshot } from "fragmentainers/fragmentation"`
+
+Immutable scoped counter values captured at a fragmentainer boundary, produced
+by `CounterState.snapshot()` and stored on `Fragment.counterState`.
+
+| Property / Method | Type                                           | Description                                            |
+| ----------------- | ---------------------------------------------- | ------------------------------------------------------ |
+| `values`          | `Readonly<Record<string, number>>`             | Innermost value per counter name (seeds `counter-set`) |
+| `frames`          | `Map<string, ReadonlyArray<{ value, scope }>>` | Outer-to-inner stacks, with their scope identities     |
+| `value(name)`     | `number`                                       | Innermost value, or zero                               |
+| `stack(name)`     | `number[]`                                     | Outer-to-inner values                                  |
+
+Scopes are object references, so a structural copy (spread, `structuredClone`,
+serialization) cannot carry them: `CounterState.restore` throws a `TypeError` on
+anything but a `CounterSnapshot` instance.
 
 ### parseCounterDirective(value)
 

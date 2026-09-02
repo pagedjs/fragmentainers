@@ -134,7 +134,7 @@ The output of a layout algorithm. Represents one positioned portion of a CSS box
 | `multicolData`   | `object \| null`          | `{ columnWidth, columnGap, columnCount, columnHeight }` for multicol containers             |
 | `isRepeated`     | `boolean`                 | Fragment is repeated content (e.g. table thead across pages)                                |
 | `isBlank`        | `boolean`                 | Fragment is a blank page inserted for side-specific breaks (`left`/`right`/`recto`/`verso`) |
-| `counterState`   | `object \| null`          | CSS counter state snapshot at end of fragment                                               |
+| `counterState`   | `CounterSnapshot \| null` | CSS counter state snapshot at end of fragment                                               |
 | `isFirst` / `isLast` | `boolean`              | Whether this is the first or last fragment of the flow                                      |
 | `blockOffset`    | `number`                   | Block offset assigned during fragmentainer composition                                      |
 | `needsBlockClip` | `boolean`                  | Whether composition must clip this fragment at its block boundary                           |
