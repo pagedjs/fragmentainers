@@ -267,6 +267,7 @@ class StyleResolver extends LayoutHandler {
 	#sourceSiblingMatches = new WeakMap();
 	#sourceElements = new WeakSet();
 	#sheet = null;
+	#stampedRoot = null;
 
 	resetRules() {
 		this.#descriptors = [];
@@ -314,8 +315,24 @@ class StyleResolver extends LayoutHandler {
 		}
 	}
 
+	/**
+	 * Stamp refs while the engine is still batching DOM writes, so the
+	 * attribute changes ride the arrangement's one reflow instead of
+	 * forcing a style recalc at layout's first read.
+	 *
+	 * @param {Element} contentRoot
+	 */
+	beforeMeasurement(contentRoot) {
+		this.#stamp(contentRoot);
+		this.#stampedRoot = contentRoot;
+	}
+
 	afterMeasurementSetup(contentRoot) {
-		this.resolveStyles(contentRoot);
+		// A root beforeMeasurement stamped keeps its refs; a direct call
+		// (a caller driving the handler alone) still gets both halves.
+		if (this.#stampedRoot !== contentRoot) this.#stamp(contentRoot);
+		this.#stampedRoot = null;
+		this.#sheet = this.#buildSheet();
 	}
 
 	/**
@@ -326,6 +343,11 @@ class StyleResolver extends LayoutHandler {
 	 * @param {Element} contentRoot
 	 */
 	resolveStyles(contentRoot) {
+		this.#stamp(contentRoot);
+		this.#sheet = this.#buildSheet();
+	}
+
+	#stamp(contentRoot) {
 		if (this.#descriptors.length === 0) {
 			for (const el of contentRoot.querySelectorAll("[data-ref]")) {
 				el.removeAttribute("data-ref");
@@ -361,7 +383,6 @@ class StyleResolver extends LayoutHandler {
 			}
 			el.setAttribute("data-ref", ref);
 		}
-		this.#sheet = this.#buildSheet();
 	}
 
 	#buildSheet() {

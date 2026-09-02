@@ -59,11 +59,15 @@ export class LayoutHandler {
 	prepareContent() {}
 
 	/**
-	 * Called after content has been injected into the measurement container
-	 * and the browser has computed styles, but before measurement begins.
-	 * Handlers can mutate the DOM here (e.g. materialize synthetic elements).
-	 * A reflow is triggered after this hook, so changes are reflected in
-	 * getContentStyles().
+	 * Called after the active content has been injected into the measurement
+	 * container, before the one reflow that layout's geometry reads depend on.
+	 * This is the arrangement's write phase: handlers mutate the DOM here
+	 * (materialize synthetic elements, stamp attributes, attach an auxiliary
+	 * measurer) and every write rides that reflow. A geometry read here —
+	 * offsetHeight, getBoundingClientRect() — forces a layout of its own in
+	 * the middle of the batch. When the flow's inline size is fixed it is
+	 * already on the host, so a handler that needs it reads
+	 * `contentRoot.getRootNode().host.style.width`, a style read.
 	 *
 	 * @param {Element} contentRoot — the measurement slot element
 	 */

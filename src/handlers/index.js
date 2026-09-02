@@ -6,7 +6,7 @@ export { FixedPosition } from "./fixed-position.js";
 export { StyleResolver } from "./style-resolver.js";
 export { EmulatePrintPixelRatio } from "./normalize.js";
 export { BodyRewriter } from "./body-rewriter.js";
-export { PseudoElements } from "./pseudo-elements.js";
+export { PseudoElements, isPseudoElement } from "./pseudo-elements.js";
 export { PageFloat } from "./page-float.js";
 export { MutationSync } from "./mutation-sync.js";
 export { markPersistent, markNativePseudo } from "../markers.js";

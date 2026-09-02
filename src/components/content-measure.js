@@ -65,10 +65,9 @@ export class ContentMeasureElement extends HTMLElement {
 
 	/**
 	 * Synchronize this measurement container with a fragmentainer's
-	 * constraint space. Updates the container's inline size and forces
-	 * a synchronous browser reflow so that subsequent
-	 * getBoundingClientRect() and Range.getClientRects() calls return
-	 * values at the correct width.
+	 * constraint space by updating its inline size. The browser lays out at
+	 * the new width on the next geometry read, so a caller batching several
+	 * writes before that read pays for one layout, not one per write.
 	 *
 	 * No-ops when the inline size hasn't changed.
 	 *
@@ -79,7 +78,6 @@ export class ContentMeasureElement extends HTMLElement {
 		if (this.#currentInlineSize === inlineSize) return;
 		this.#currentInlineSize = inlineSize;
 		this.style.width = constraintSpace.cssInlineSize || `${inlineSize}px`;
-		void this.offsetHeight; // Force synchronous reflow
 	}
 
 	/**

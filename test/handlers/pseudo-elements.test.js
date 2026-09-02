@@ -215,7 +215,7 @@ test.describe("PseudoElements content classification", () => {
 		expect(result.before.width).toBeCloseTo(result.before.controls.literal, 1);
 	});
 
-	test("keeps the content marker in the important cascade", async ({ page }) => {
+	test("keeps an important var() rule relocated over a later literal", async ({ page }) => {
 		const result = await inspectMaterializedPseudo(page, {
 			css: `
 				.target, [data-control] { display: inline-block; font: 20px/1 monospace; }

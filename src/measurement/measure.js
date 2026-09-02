@@ -329,24 +329,18 @@ export class Measurer {
 		return this.#setupSegmented(boundaries, flowElements, constraintSpace);
 	}
 
-	// Apply the target width before the measurement reflow (when known) so the
-	// browser lays out once at the real width instead of once at the contained
-	// 0px host size and again when the per-fragment width is applied.
-	// applyConstraintSpace forces its own reflow, so it replaces the bare one.
-	#reflowAtWidth(measurer, constraintSpace) {
-		if (constraintSpace) measurer.applyConstraintSpace(constraintSpace);
-		else void measurer.offsetHeight;
-	}
-
 	#setupSingle(constraintSpace) {
 		const measurer = this.#createMeasurer();
 		measurer.injectFragment(this.#content, this.#styles);
 		document.body.appendChild(measurer);
 
-		// Let handlers mutate the DOM (pseudo-element materialization
-		// happens here). Reflow so the changes are reflected in styles.
+		// Every write lands before the one reflow: the width (when known, so
+		// the browser never lays out at the contained 0px host size), then the
+		// handlers' DOM mutations. Handlers that size auxiliary measurers read
+		// the width off the host in beforeMeasurement.
+		if (constraintSpace) measurer.applyConstraintSpace(constraintSpace);
 		this.#handlers.beforeMeasurement(measurer.contentRoot);
-		this.#reflowAtWidth(measurer, constraintSpace);
+		void measurer.offsetHeight;
 
 		this.#measureElement = measurer;
 		this.#contentStyles = measurer.getContentStyles();
@@ -470,6 +464,9 @@ export class Measurer {
 			this.#nodeMap.get(element)?.invalidateStructure();
 			this.#activatedElements.add(element);
 		}
+		// The one reflow of the arrangement. Writes after it (a handler sheet,
+		// the composite) are deferred to composition so no geometry read in
+		// the segment's layout forces a second one.
 		void this.#measureElement.offsetHeight;
 		this.#handlers.afterMeasurementSetup(slot, {
 			pass: this.#context.layoutPass,

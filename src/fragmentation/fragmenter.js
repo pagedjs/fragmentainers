@@ -230,6 +230,8 @@ export class Fragmenter extends Iterator {
 	#styleSheet = null;
 	#ownsStyleSheet = false;
 	#compositeRuleIndex = null;
+	#compositeDirty = false;
+	#compositeText = null;
 	#adoptedSheets = [];
 	#preloadedFonts = [];
 	#fontDisplayEdits = [];
@@ -384,6 +386,7 @@ export class Fragmenter extends Iterator {
 			this.#runToEnd();
 			this.#settleLayout(this.#startIndex);
 			this.releaseMeasurer();
+			this.#ensureStyleSheet();
 			this.#context = new FragmentationContext([...this.#fragments], this.#contentStyles, {
 				handlers: this.#flowContext.handlers,
 				indexOffset: this.#startIndex,
@@ -395,6 +398,7 @@ export class Fragmenter extends Iterator {
 
 		// Initialize context on first call
 		if (!this.#context) {
+			this.#ensureStyleSheet();
 			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles, {
 				handlers: this.#flowContext.handlers,
 				indexOffset: this.#startIndex,
@@ -406,6 +410,7 @@ export class Fragmenter extends Iterator {
 		// Create element and push to internal context (if contentStyles available)
 		let el;
 		if (this.#contentStyles) {
+			this.#ensureStyleSheet();
 			el = this.#context.createFragmentainer(this.#fragments.length - 1);
 			this.#context.push(el);
 		}
@@ -449,6 +454,7 @@ export class Fragmenter extends Iterator {
 		// Layout is done — release the measurer. Composition only needs
 		// cloneNode/getAttribute/tagName, which work on detached elements.
 		this.releaseMeasurer();
+		this.#ensureStyleSheet();
 
 		return new FragmentationContext([...this.#fragments], this.#contentStyles, {
 			start,
@@ -483,6 +489,7 @@ export class Fragmenter extends Iterator {
 
 		// Layout is done — release the measurer before composition.
 		this.releaseMeasurer();
+		this.#ensureStyleSheet();
 
 		return new FragmentationContext(fragments, this.#contentStyles, {
 			previous: prev,
@@ -648,7 +655,7 @@ export class Fragmenter extends Iterator {
 			requested === 0 || this.#fragments[requested - 1]?.node === this.#tree ? requested : 0;
 		const prev = position > 0 ? this.#fragments[position - 1] : null;
 		this.#breakToken = prev?.breakToken ?? null;
-		if (this.#measurer.arrange(this.#breakToken, this.#tree)) this.#installStyleSheet();
+		if (this.#measurer.arrange(this.#breakToken, this.#tree)) this.#compositeDirty = true;
 		this.#fragmentainerIndex = this.#startIndex + position;
 		this.#prevFragment = prev;
 		this.#counterState = new CounterState();
@@ -754,15 +761,6 @@ export class Fragmenter extends Iterator {
 		// about main-flow progress.
 		if (fragment.breakToken === null && !fragment.isBlank) {
 			this.#mainDone = true;
-		}
-
-		// Arrange measurement for the fragment this token resumes into; a null
-		// token has nothing to resume, so the last segment stays put. A new
-		// segment re-stamps handler data-refs (StyleResolver) and rebuilds
-		// normalization sheets, so reinstall the composite sheet to keep those
-		// rules matching the new refs.
-		if (fragment.breakToken && this.#measurer.arrange(fragment.breakToken, this.#tree)) {
-			this.#installStyleSheet();
 		}
 
 		// Zero-progress guard. Overflow continuing past a box's block-end
@@ -974,6 +972,19 @@ export class Fragmenter extends Iterator {
 	 * @returns {import('./fragment.js').Fragment}
 	 */
 	#nextFragment() {
+		// Arrange measurement for the fragment this token resumes into; a null
+		// token has nothing to resume, so the last segment stays put. Arranging
+		// here, at the start of the fragmentainer, lets the arrangement's reflow
+		// absorb whatever the consumer wrote between steps (an appended page)
+		// instead of adding a layout of its own. A new segment re-stamps handler
+		// data-refs and rebuilds normalization sheets, so the composite is
+		// rebuilt at the next composition; mutating a document sheet forces a
+		// layout, which this fragmentainer's geometry reads would otherwise
+		// pay a second time.
+		if (this.#breakToken && this.#measurer.arrange(this.#breakToken, this.#tree)) {
+			this.#compositeDirty = true;
+		}
+
 		// Check if a side-specific break requires a blank page before layout.
 		// Only resolvers that number page sides can answer this; a region
 		// resolver has no recto/verso.
@@ -1157,7 +1168,7 @@ export class Fragmenter extends Iterator {
 			this.#tree = this.#rootNode(contentRoot);
 			this.#measureElement = { applyConstraintSpace: () => {} };
 			this.#contentStyles = this.#measurer.getContentStyles();
-			this.#installStyleSheet();
+			this.#compositeDirty = true;
 
 			// If segmented, override root's children with the first segment
 			const initialChildren = this.#measurer.initialChildren;
@@ -1388,13 +1399,25 @@ export class Fragmenter extends Iterator {
 	 * and adopts it on `document.adoptedStyleSheets`. Reflow replaces the
 	 * previously-installed composite rule.
 	 */
-	#installStyleSheet() {
+	/**
+	 * Install the composite sheet if measurement changed it since the last
+	 * composition. Called only at composition points: the composite is
+	 * `@scope (fragment-container)`, so measurement never depends on it,
+	 * while every mutation of a document sheet forces a full layout.
+	 */
+	#ensureStyleSheet() {
+		if (!this.#compositeDirty) return;
+		this.#compositeDirty = false;
 		const text = buildCompositeText(
 			this.#contentStyles,
 			this.#flowContext.handlers.getAdoptedSheets(),
 			this.#flowContext.handlers.getInjectedSheet(),
 			{ isPageBased: this.#isPageBased },
 		);
+		// A segment that added no refs and no normalization rules leaves the
+		// text as it was; reinstalling it would only cost the layout.
+		if (text === this.#compositeText && this.#compositeRuleIndex != null) return;
+		this.#compositeText = text;
 		if (!this.#styleSheet) {
 			this.#styleSheet = new CSSStyleSheet();
 			this.#ownsStyleSheet = true;
@@ -1415,6 +1438,8 @@ export class Fragmenter extends Iterator {
 
 	#teardownStyleSheet() {
 		this.#compositeRuleIndex = null;
+		this.#compositeText = null;
+		this.#compositeDirty = false;
 		if (!this.#styleSheet || !this.#ownsStyleSheet) return;
 		document.adoptedStyleSheets = document.adoptedStyleSheets.filter((s) => s !== this.#styleSheet);
 		this.#styleSheet = null;

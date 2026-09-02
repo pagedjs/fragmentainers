@@ -240,19 +240,22 @@ against, so that flow drives a `NullMeasurer` and produces no elements.
 Each step:
 
 ```
-1. If a side-specific break needs a blank page, emit one and skip layout
-2. Resolve the ConstraintSpace for this fragmentainer (via resolver or fixed)
-3. On the run's first fragmentainer, apply the continuation's block offset
-4. Carry the root's block-start margin for first-child margin collapsing
-5. Sync the DOM measurement container to the new inline size
-6. Reserve block-start/block-end space via handlers.layout()
-7. Run Pass 1: runLayoutGenerator(new RootAlgoClass(rootNode, adjustedSpace, breakToken))
-8. If result.earlyBreak exists:
+1. Arrange the measurer for the break token's segment: one batch of DOM writes,
+   one reflow. A changed arrangement marks the composite sheet for rebuild at
+   the next composition (never during layout: a document sheet mutation forces
+   a full layout)
+2. If a side-specific break needs a blank page, emit one and skip layout
+3. Resolve the ConstraintSpace for this fragmentainer (via resolver or fixed)
+4. On the run's first fragmentainer, apply the continuation's block offset
+5. Carry the root's block-start margin for first-child margin collapsing
+6. Sync the DOM measurement container to the new inline size
+7. Reserve block-start/block-end space via handlers.layout()
+8. Run Pass 1: runLayoutGenerator(new RootAlgoClass(rootNode, adjustedSpace, breakToken))
+9. If result.earlyBreak exists:
      Run Pass 2: runLayoutGenerator(new RootAlgoClass(..., result.earlyBreak))
-9. Run handlers.afterContentLayout(); if the reservation moved, redo 7-8
-10. Accumulate counter state
-11. Advance breakToken and fragmentainerIndex
-12. Arrange the measurer for the break token's segment; reinstall the composite sheet if it changed
+10. Run handlers.afterContentLayout(); if the reservation moved, redo 8-9
+11. Accumulate counter state
+12. Advance breakToken and fragmentainerIndex
 13. Apply the zero-progress guard and decide whether iteration is finished
 14. Return the Fragment
 ```
@@ -290,9 +293,15 @@ segments. The measurer owns one `<content-measure>` and rearranges its slot from
 the segment index and break token alone. The live slot contains the active
 segment, persistent elements, and any earlier top-level box that still has
 in-flow or parallel-overflow content. `measurer.arrange(breakToken, tree)` runs
-after every fragment and also when `reflow()` rewinds. A changed arrangement
-re-stamps handler data refs and normalization rules, so the flow reinstalls its
-composite stylesheet.
+at the start of every fragment and also when `reflow()` rewinds. An arrangement
+is one batch of DOM writes (node moves, `beforeMeasurement()` mutations such as
+pseudo materialization and `data-ref` stamps) followed by one reflow; layout's
+geometry reads then find the tree clean. Arranging at the start of a fragment
+lets that reflow also absorb whatever a consumer wrote between steps, such as an
+appended page. A changed arrangement re-stamps handler data refs and
+normalization rules, so the flow rebuilds its composite stylesheet, but only at
+the next composition: mutating a document stylesheet forces a full layout, which
+the segment's own reads would otherwise pay a second time.
 
 When a boundary element becomes active for the first time, the measurer runs
 `beforeMeasurement()` and invalidates that element's cached child structure.

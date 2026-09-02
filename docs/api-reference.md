@@ -876,7 +876,7 @@ Managed internally by `Fragmenter`.
 | --------------------------------------- | ----------------------------- | ------------------------------------------------------------------------- |
 | `injectFragment(fragment, styles?)`     | `Element`                     | Inject a `DocumentFragment` with `CSSStyleSheet[]`; returns `contentRoot` |
 | `setupEmpty(styles?)`                   | `Element`                     | Set up stylesheets and clear content; returns `contentRoot`               |
-| `applyConstraintSpace(constraintSpace)` | `void`                        | Sync inline size and force reflow                                         |
+| `applyConstraintSpace(constraintSpace)` | `void`                        | Sync inline size; the next geometry read lays out at it                   |
 | `getContentStyles()`                    | `{ sheets: CSSStyleSheet[] }` | Get adopted stylesheets for composition                                   |
 
 #### Properties
