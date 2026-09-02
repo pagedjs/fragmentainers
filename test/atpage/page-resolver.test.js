@@ -1041,6 +1041,110 @@ test.describe("resolveNamedPageForBreakToken", () => {
 		});
 		expect(result).toBe("appendix");
 	});
+
+	test("inherits the named page of the box the break is inside", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { resolveNamedPageForBreakToken } = await import("/src/resolvers/page-resolver.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			// A section that continues onto the next page: the box starting that
+			// page is a paragraph with no page of its own.
+			const first = blockNode({ debugName: "p1", blockSize: 200 });
+			const second = blockNode({ debugName: "p2" });
+			const section = blockNode({
+				debugName: "section",
+				page: "chapter",
+				children: [first, second],
+			});
+			const root = blockNode({ children: [section] });
+
+			const bt = new BlockBreakToken(root);
+			const sectionToken = new BlockBreakToken(section);
+			const firstToken = new BlockBreakToken(first);
+			firstToken.consumedBlockSize = 100;
+			sectionToken.childBreakTokens.push(firstToken);
+			bt.childBreakTokens.push(sectionToken);
+
+			return resolveNamedPageForBreakToken(root, bt);
+		});
+		expect(result).toBe("chapter");
+	});
+
+	test("drops the inherited name once the walk leaves the named box", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { resolveNamedPageForBreakToken } = await import("/src/resolvers/page-resolver.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			// The section is finished; the next box is its unnamed sibling.
+			const paragraph = blockNode({ debugName: "p", blockSize: 200 });
+			const section = blockNode({
+				debugName: "section",
+				page: "chapter",
+				children: [paragraph],
+			});
+			const after = blockNode({ debugName: "after" });
+			const root = blockNode({ children: [section, after] });
+
+			const bt = new BlockBreakToken(root);
+			const sectionToken = new BlockBreakToken(section);
+			sectionToken.childBreakTokens.push(BlockBreakToken.createBreakBefore(paragraph, true));
+			bt.childBreakTokens.push(sectionToken);
+
+			return resolveNamedPageForBreakToken(root, bt);
+		});
+		expect(result).toBe("chapter");
+	});
+
+	test("a break before an unnamed box after the section is not named", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { resolveNamedPageForBreakToken } = await import("/src/resolvers/page-resolver.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			const paragraph = blockNode({ debugName: "p", blockSize: 200 });
+			const section = blockNode({
+				debugName: "section",
+				page: "chapter",
+				children: [paragraph],
+			});
+			const after = blockNode({ debugName: "after" });
+			const root = blockNode({ children: [section, after] });
+
+			const bt = new BlockBreakToken(root);
+			bt.childBreakTokens.push(BlockBreakToken.createBreakBefore(after, true));
+
+			return resolveNamedPageForBreakToken(root, bt);
+		});
+		expect(result).toBe(null);
+	});
+
+	test("a nested named box wins over the section it is inside", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { resolveNamedPageForBreakToken } = await import("/src/resolvers/page-resolver.js");
+			const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+			const { blockNode } = await import("/test/fixtures/nodes.js");
+
+			const inner = blockNode({ debugName: "figure", page: "plate", blockSize: 200 });
+			const section = blockNode({
+				debugName: "section",
+				page: "chapter",
+				children: [inner],
+			});
+			const root = blockNode({ children: [section] });
+
+			const bt = new BlockBreakToken(root);
+			const sectionToken = new BlockBreakToken(section);
+			const innerToken = new BlockBreakToken(inner);
+			innerToken.consumedBlockSize = 100;
+			sectionToken.childBreakTokens.push(innerToken);
+			bt.childBreakTokens.push(sectionToken);
+
+			return resolveNamedPageForBreakToken(root, bt);
+		});
+		expect(result).toBe("plate");
+	});
 });
 
 test.describe("Named page forced breaks", () => {

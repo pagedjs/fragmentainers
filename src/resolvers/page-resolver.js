@@ -583,7 +583,7 @@ export function resolveNextPageBreakBefore(rootNode, breakToken) {
 	}
 	if (current.type === BREAK_TOKEN_INLINE) return null;
 
-	const nextChild = findNextUnvisitedChild(rootNode, breakToken);
+	const nextChild = findNextUnvisited(rootNode, breakToken).node;
 	return nextChild?.breakBefore || null;
 }
 
@@ -598,10 +598,31 @@ export function getNamedPage(node) {
 }
 
 /**
+ * Used value of `page` for a node: its own named page, else the nearest
+ * ancestor's. CSS Paged Media §3.2 — `page: auto` takes the value of the
+ * nearest ancestor with a non-auto value — so content continuing out of a
+ * named section keeps that name on every page it spans, not just the one
+ * the section starts on.
+ *
+ * @param {import("../layout/layout-node.js").LayoutNode|null} node
+ * @param {import("../layout/layout-node.js").LayoutNode[]} ancestors - Root first.
+ * @returns {string|null}
+ */
+function usedNamedPage(node, ancestors) {
+	const own = getNamedPage(node);
+	if (own) return own;
+	for (let i = ancestors.length - 1; i >= 0; i--) {
+		const inherited = getNamedPage(ancestors[i]);
+		if (inherited) return inherited;
+	}
+	return null;
+}
+
+/**
  * Walk the break token tree to find the named page for the next page.
  *
- * Determines which element will be first on the next page and reads its
- * CSS `page` property to drive @page rule resolution.
+ * Determines which element will be first on the next page and reads the
+ * used value of its CSS `page` property to drive @page rule resolution.
  *
  * @param {import("../layout/layout-node.js").LayoutNode} rootNode
  * @param {import("../fragmentation/tokens.js").BlockBreakToken|null} breakToken
@@ -609,35 +630,47 @@ export function getNamedPage(node) {
  */
 export function resolveNamedPageForBreakToken(rootNode, breakToken) {
 	if (!breakToken) {
-		const firstChild = rootNode.children[0];
-		return getNamedPage(firstChild);
+		return usedNamedPage(rootNode.children[0], [rootNode]);
 	}
 
+	// Ancestors of the node that starts the next page, collected on the way
+	// down: the token tree mirrors the box tree, so the descent path is that
+	// node's ancestor chain.
+	const ancestors = [rootNode];
 	let current = breakToken;
 	while (current.childBreakTokens && current.childBreakTokens.length > 0) {
 		const lastChild = current.childBreakTokens[current.childBreakTokens.length - 1];
 		if (lastChild.isBreakBefore) {
-			return getNamedPage(lastChild.node);
+			return usedNamedPage(lastChild.node, ancestors);
 		}
+		ancestors.push(lastChild.node);
 		current = lastChild;
 	}
 
 	if (current.type === BREAK_TOKEN_INLINE) {
-		return getNamedPage(current.node);
+		// The inline's own node is the last thing pushed, not an ancestor.
+		return usedNamedPage(current.node, ancestors.slice(0, -1));
 	}
 
-	return getNamedPage(findNextUnvisitedChild(rootNode, breakToken));
+	const next = findNextUnvisited(rootNode, breakToken);
+	if (next.node) return usedNamedPage(next.node, next.ancestors);
+
+	// Nothing unvisited above: the next page resumes inside the deepest box
+	// the token names, which `ancestors` ends with.
+	return usedNamedPage(null, ancestors);
 }
 
 /**
- * Find the next child that hasn't been fully laid out, given a break token.
- * Walks from the deepest break token child up to find a next sibling.
+ * Find the next child that hasn't been fully laid out, given a break token,
+ * plus the ancestor chain of the node it found. Walks from the deepest break
+ * token child up to find a next sibling; how far it climbed is what decides
+ * which enclosing boxes the next page is still inside.
  *
  * @param {import("../layout/layout-node.js").LayoutNode} rootNode
  * @param {import("../fragmentation/tokens.js").BlockBreakToken} breakToken
- * @returns {import("../layout/layout-node.js").LayoutNode|null}
+ * @returns {{ node: import("../layout/layout-node.js").LayoutNode|null, ancestors: import("../layout/layout-node.js").LayoutNode[] }}
  */
-function findNextUnvisitedChild(rootNode, breakToken) {
+function findNextUnvisited(rootNode, breakToken) {
 	const path = [];
 	let current = breakToken;
 	let parentNode = rootNode;
@@ -653,9 +686,12 @@ function findNextUnvisitedChild(rootNode, breakToken) {
 		const children = parent.children;
 		const idx = children.indexOf(childToken.node);
 		if (idx !== -1 && idx + 1 < children.length) {
-			return children[idx + 1];
+			return {
+				node: children[idx + 1],
+				ancestors: path.slice(0, i + 1).map((step) => step.parentNode),
+			};
 		}
 	}
 
-	return null;
+	return { node: null, ancestors: [] };
 }
