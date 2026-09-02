@@ -353,9 +353,19 @@ export class InlineContentAlgorithm {
 		const breakLineIndex = this.#consumedLines + linesToPlace;
 		let breakFlatOffset = measurer.offsetAtLine(inlineItems.items, measured.tops, breakLineIndex);
 		if (breakFlatOffset == null) {
-			throw new Error(
-				`offsetAtLine failed to resolve break offset (breakLineIndex=${breakLineIndex}, lineCount=${measured.tops.length})`,
-			);
+			// No DOM text offset covers the break: the run is atomic inlines end to
+			// end, or its text renders through a native pseudo whose line count came
+			// from the height fallback. Either way the run cannot be split.
+			if (this.#constraintSpace.blockOffsetInFragmentainer > 0) return null;
+			// Top of the fragmentainer: with no earlier one to push back to, the run
+			// overflows — refusing it would stall the fragmentation loop.
+			for (let i = linesToPlace; i < this.#remainingLines; i++) {
+				this.#lineFragments.push(new Fragment(null, this.#lineExtent(this.#consumedLines + i)));
+			}
+			this.#blockOffset = this.#extentOf(this.#consumedLines, this.#remainingLines);
+			this.#itemIndex = inlineItems.items.length;
+			this.#textOffset = inlineItems.textContent.length;
+			return false;
 		}
 
 		// Advance past a leading collapsed space so page N+1 doesn't

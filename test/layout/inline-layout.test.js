@@ -449,4 +449,113 @@ test.describe("Inline content layout (browser)", () => {
 		// Page 2: 30px padding-top + one 20px line.
 		expect(result.p1ParagraphBlockSize).toBe(50);
 	});
+
+	// A run of atomic inlines produces line boxes but no INLINE_TEXT items, so no
+	// DOM offset addresses a break between its lines: the run is unbreakable, and
+	// where it lands decides whether it is pushed or overflows.
+	test("pushes an unbreakable text-free line run to the next fragmentainer", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:100px";
+			// Two 60px inline-blocks wrap to two lines in a 100px line box, with no
+			// whitespace between the tags so the paragraph holds no text node at all.
+			const box = '<span style="display:inline-block;width:60px;height:12px"></span>';
+			container.innerHTML =
+				'<div style="margin:0;padding:0">' +
+				'<div style="height:60px;margin:0;padding:0"></div>' +
+				`<p style="font:16px/20px monospace;margin:0;padding:0">${box}${box}</p>` +
+				"</div>";
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			let out;
+			try {
+				// 85px fragmentainer after a 60px spacer: room for one of the two lines.
+				const pages = createFragments(
+					root,
+					new ConstraintSpace({
+						availableInlineSize: 100,
+						availableBlockSize: 85,
+						fragmentainerBlockSize: 85,
+						fragmentationType: "page",
+					}),
+				);
+				const paragraph = pages[1]?.childFragments[0] ?? null;
+				out = {
+					pageCount: pages.length,
+					p0ParagraphBlockSize: pages[0].childFragments[1]?.blockSize ?? null,
+					paragraphBlockSize: paragraph?.blockSize ?? null,
+					lineCount: paragraph?.childFragments[0]?.childFragments.length ?? null,
+					breakToken: paragraph?.breakToken ?? null,
+				};
+			} catch (error) {
+				out = { error: error.message };
+			}
+			container.remove();
+			return out;
+		});
+
+		expect(result.error).toBeUndefined();
+		expect(result.pageCount).toBe(2);
+		// Page 1 places nothing — no line can be broken off the run.
+		expect(result.p0ParagraphBlockSize).toBe(0);
+		// Page 2 carries the whole run: both 20px lines, nothing left over.
+		expect(result.paragraphBlockSize).toBe(40);
+		expect(result.lineCount).toBe(2);
+		expect(result.breakToken).toBe(null);
+	});
+
+	test("overflows an unbreakable text-free line run at the top of a fragmentainer", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { createFragments } = await import("/src/fragmentation/create-fragments.js");
+			const { ConstraintSpace } = await import("/src/fragmentation/constraint-space.js");
+			const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+
+			const container = document.createElement("div");
+			container.style.cssText = "position:absolute;left:-9999px;width:100px";
+			const box = '<span style="display:inline-block;width:60px;height:12px"></span>';
+			container.innerHTML = `<p style="font:16px/20px monospace;margin:0;padding:0">${box}${box}</p>`;
+			document.body.appendChild(container);
+
+			const root = new DOMLayoutNode(container.firstElementChild);
+			let out;
+			try {
+				// 25px fragmentainer with nothing above: room for one 20px line, and no
+				// earlier fragmentainer to push the run back to.
+				const pages = createFragments(
+					root,
+					new ConstraintSpace({
+						availableInlineSize: 100,
+						availableBlockSize: 25,
+						fragmentainerBlockSize: 25,
+						fragmentationType: "page",
+					}),
+				);
+				out = {
+					pageCount: pages.length,
+					paragraphBlockSize: pages[0].blockSize,
+					lineCount: pages[0].childFragments[0]?.childFragments.length ?? null,
+					breakToken: pages[0].breakToken ?? null,
+				};
+			} catch (error) {
+				out = { error: error.message };
+			}
+			container.remove();
+			return out;
+		});
+
+		expect(result.error).toBeUndefined();
+		// Nowhere to push to, so both lines are placed and the run overflows the
+		// 25px fragmentainer instead of looping on a break that cannot be taken.
+		expect(result.pageCount).toBe(1);
+		expect(result.paragraphBlockSize).toBe(40);
+		expect(result.lineCount).toBe(2);
+		expect(result.breakToken).toBe(null);
+	});
 });
