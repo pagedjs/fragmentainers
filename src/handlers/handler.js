@@ -59,15 +59,27 @@ export class LayoutHandler {
 	prepareContent() {}
 
 	/**
+	 * Called whenever the engine sizes the measurement container: at setup,
+	 * before the reflow the arrangement's writes ride, and at the start of
+	 * every fragmentainer, before its geometry reads. A handler that keeps an
+	 * auxiliary measurer sizes it here so the write shares that flush; a
+	 * `<content-measure>` ignores an unchanged inline size, so the steady
+	 * state costs nothing. Region and custom resolvers give setup no space,
+	 * so the first call may be the first fragmentainer's.
+	 *
+	 * @param {import('../fragmentation/constraint-space.js').ConstraintSpace} constraintSpace
+	 */
+	applyConstraintSpace() {}
+
+	/**
 	 * Called after the active content has been injected into the measurement
 	 * container, before the one reflow that layout's geometry reads depend on.
 	 * This is the arrangement's write phase: handlers mutate the DOM here
 	 * (materialize synthetic elements, stamp attributes, attach an auxiliary
 	 * measurer) and every write rides that reflow. A geometry read here —
 	 * offsetHeight, getBoundingClientRect() — forces a layout of its own in
-	 * the middle of the batch. When the flow's inline size is fixed it is
-	 * already on the host, so a handler that needs it reads
-	 * `contentRoot.getRootNode().host.style.width`, a style read.
+	 * the middle of the batch. The flow's inline size arrives through
+	 * applyConstraintSpace, which fires before this hook.
 	 *
 	 * @param {Element} contentRoot — the measurement slot element
 	 */

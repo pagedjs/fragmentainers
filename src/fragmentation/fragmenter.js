@@ -1113,6 +1113,27 @@ export class Fragmenter extends Iterator {
 	}
 
 	/**
+	 * The constraint space measurement is set up against, so the setup reflow
+	 * lays out at the real inline size instead of the contained 0px host size
+	 * and the first fragmentainer forces no second one. An explicit space is
+	 * exact. A page resolver's space for the start index is a forecast: the
+	 * tree that names the first page does not exist yet, so a named first page
+	 * of another size is corrected by #nextFragment at the cost of the reflow
+	 * the seed otherwise saves. Region and custom resolvers are not consulted:
+	 * their resolve() may read the document or need fragmentainers that exist
+	 * only once layout runs.
+	 *
+	 * @returns {ConstraintSpace|null}
+	 */
+	#seedConstraintSpace() {
+		if (this.#constraintSpace) return this.#constraintSpace;
+		if (this.#resolver instanceof PageResolver) {
+			return this.#resolver.resolve(this.#startIndex, null, null).toConstraintSpace();
+		}
+		return null;
+	}
+
+	/**
 	 * Internal sync initialization.
 	 */
 	#layout(forceUpdate = false) {
@@ -1132,7 +1153,7 @@ export class Fragmenter extends Iterator {
 			// The tree's DOMLayoutNode wrappers still reference the same
 			// element objects; moving them back into the measurer restores
 			// live measurement capability.
-			const contentRoot = this.#measurer.reattach();
+			const contentRoot = this.#measurer.reattach(this.#seedConstraintSpace());
 			this.#measureElement = { applyConstraintSpace: () => {} };
 			this.#contentStyles = this.#measurer.getContentStyles();
 			if (forceUpdate) {
@@ -1163,11 +1184,12 @@ export class Fragmenter extends Iterator {
 			}
 			this.#flowContext.handlers.init({ ...this.#options, isPageBased: this.#isPageBased });
 			this.#flowContext.cloneMap.clear();
+			// Auto-create resolver from @page rules in styles if neither set
+			if (!this.#resolver && !this.#constraintSpace) {
+				this.#resolver = PageResolver.fromStyleSheets(styles);
+			}
 			this.#measurer = new Measurer(content, layoutStyles, this.#flowContext);
-			// Pass the known constraint (set for explicit-size / constraintSpace
-			// flows) so measurement reflows at the real width, not 0px.
-			// Resolver-based @page flows resolve width per fragment, so it stays null.
-			const contentRoot = this.#measurer.setup(this.#constraintSpace);
+			const contentRoot = this.#measurer.setup(this.#seedConstraintSpace());
 
 			this.#tree = this.#rootNode(contentRoot);
 			this.#measureElement = { applyConstraintSpace: () => {} };
@@ -1178,11 +1200,6 @@ export class Fragmenter extends Iterator {
 			const initialChildren = this.#measurer.initialChildren;
 			if (initialChildren) {
 				this.#tree.setChildren(initialChildren);
-			}
-
-			// Auto-create resolver from @page rules in styles if neither set
-			if (!this.#resolver && !this.#constraintSpace) {
-				this.#resolver = PageResolver.fromStyleSheets(styles);
 			}
 		} else {
 			// A pre-built layout tree (createFragments, unit tests). Nothing to

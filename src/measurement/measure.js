@@ -335,10 +335,10 @@ export class Measurer {
 		document.body.appendChild(measurer);
 
 		// Every write lands before the one reflow: the width (when known, so
-		// the browser never lays out at the contained 0px host size), then the
-		// handlers' DOM mutations. Handlers that size auxiliary measurers read
-		// the width off the host in beforeMeasurement.
-		if (constraintSpace) measurer.applyConstraintSpace(constraintSpace);
+		// the browser never lays out at the contained 0px host size), which
+		// handlers with auxiliary measurers receive at the same time, then
+		// the handlers' DOM mutations.
+		if (constraintSpace) this.#applyConstraintSpace(measurer, constraintSpace);
 		this.#handlers.beforeMeasurement(measurer.contentRoot);
 		void measurer.offsetHeight;
 
@@ -389,7 +389,7 @@ export class Measurer {
 		const measurer = this.#createMeasurer();
 		measurer.setupEmpty(this.#styles);
 		document.body.appendChild(measurer);
-		if (constraintSpace) measurer.applyConstraintSpace(constraintSpace);
+		if (constraintSpace) this.#applyConstraintSpace(measurer, constraintSpace);
 
 		this.#measureElement = measurer;
 		this.#arrange(0, null);
@@ -593,15 +593,18 @@ export class Measurer {
 	 * DOMLayoutNode wrappers and break tokens remain valid. Segmented
 	 * flows restart at the first segment.
 	 *
+	 * @param {import('../fragmentation/constraint-space.js').ConstraintSpace|null} [constraintSpace]
+	 *   inline size to reflow at, when known; null reflows at the contained size
 	 * @returns {Element} the content root (slot element)
 	 */
-	reattach() {
+	reattach(constraintSpace = null) {
 		if (this.#measureElement) return this.#measureElement.contentRoot;
 
 		const measurer = this.#createMeasurer();
 		if (this.#segments) measurer.setupEmpty(this.#styles);
 		else measurer.injectFragment(this.#content, this.#styles);
 		document.body.appendChild(measurer);
+		if (constraintSpace) this.#applyConstraintSpace(measurer, constraintSpace);
 		this.#measureElement = measurer;
 
 		if (this.#segments) this.#arrange(0, null);
@@ -610,9 +613,20 @@ export class Measurer {
 		return measurer.contentRoot;
 	}
 
-	/** Sync the measurement container's inline size with the constraint space. */
+	/**
+	 * Sync the measurement container's inline size with the constraint space
+	 * and hand the space to the handlers, whose own measurers follow it.
+	 *
+	 * @param {import('../fragmentation/constraint-space.js').ConstraintSpace} constraintSpace
+	 */
 	applyConstraintSpace(constraintSpace) {
-		this.#measureElement?.applyConstraintSpace(constraintSpace);
+		if (!this.#measureElement) return;
+		this.#applyConstraintSpace(this.#measureElement, constraintSpace);
+	}
+
+	#applyConstraintSpace(measurer, constraintSpace) {
+		measurer.applyConstraintSpace(constraintSpace);
+		this.#handlers.applyConstraintSpace(constraintSpace);
 	}
 
 	/** The current measurement container's content root (slot element). */

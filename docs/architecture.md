@@ -936,35 +936,40 @@ Handlers interact with the engine at these hook points, listed in lifecycle orde
    content or set markers (`markPersistent`, `markNativePseudo` from
    `fragmentainers/handlers`) that the measurer and `PseudoElements` read later.
 
-5. **`beforeMeasurement(contentRoot)`** — called after the active content is
+5. **`applyConstraintSpace(constraintSpace)`** — called when the engine sizes
+   the measurement container: at setup, before the reflow, and at the start of
+   every fragmentainer before its geometry reads. Handlers that keep an
+   auxiliary measurer size it here so the write rides the engine's flush.
+
+6. **`beforeMeasurement(contentRoot)`** — called after the active content is
    injected but before the forced reflow. Handlers may materialize or mutate
    measurement DOM here.
 
-6. **`afterMeasurementSetup(contentRoot)`** — called after the measurement
+7. **`afterMeasurementSetup(contentRoot)`** — called after the measurement
    container is fully set up (content injected, pseudo-elements materialized,
    styles resolved). The live DOM is available for `getComputedStyle()` queries.
    Handlers can probe elements and build internal state (e.g., generated
    stylesheets). Must not modify the measurer's adopted stylesheets.
 
-7. **`getAdoptedSheets()`** — returns `CSSStyleSheet[]` to fold into the
+8. **`getAdoptedSheets()`** — returns `CSSStyleSheet[]` to fold into the
    composite scoped sheet (`document.adoptedStyleSheets`). Called once per
    `Fragmenter` initialization.
 
-8. **`layout(rootNode, constraintSpace, breakToken, layoutChild)`** — called
+9. **`layout(rootNode, constraintSpace, breakToken, layoutChild)`** — called
    before the normal layout pass for each fragmentainer. Scans root children,
    claims nodes, lays out claimed content via the `layoutChild` callback, and
    returns space reservations (`reservedBlockStart`, `reservedBlockEnd`) plus an
    `afterRender` closure.
 
-9. **`claim(node)`** — during block container layout, each child is checked
+10. **`claim(node)`** — during block container layout, each child is checked
     against all handlers. If any handler returns `true`, the child is skipped in
     normal flow.
 
-10. **`beforeChildren(node, constraintSpace, breakToken)`** — called before the
+11. **`beforeChildren(node, constraintSpace, breakToken)`** — called before the
     child loop in `BlockContainerAlgorithm`. Returns a layout request descriptor for
     content to prepend (e.g., repeated table headers), or `null`.
 
-11. **`afterContentLayout(fragment, constraintSpace, inputBreakToken)`** — called
+12. **`afterContentLayout(fragment, constraintSpace, inputBreakToken)`** — called
     after content layout completes. Handlers can inspect the fragment and request
     additional block-end space (e.g., footnotes). Returning a different
     `reservedBlockEnd` triggers a re-layout.

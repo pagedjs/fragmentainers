@@ -96,4 +96,67 @@ test.describe("measurement write batching", () => {
 		// between them only reads.
 		expect(layouts).toBeLessThanOrEqual(2);
 	});
+
+	test("a resolver flow spends no layout on the width", async ({ page }) => {
+		const { layouts, result } = await countDuring(page, async () => {
+			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
+			const sheet = new CSSStyleSheet();
+			sheet.replaceSync(`
+				@page { size: 300px 260px; margin: 0; }
+				div { height: 100px; margin: 0; } div::before { content: "x"; }
+			`);
+			const frag = document.createDocumentFragment();
+			for (let i = 0; i < 12; i++) {
+				const d = document.createElement("div");
+				d.textContent = "block";
+				frag.appendChild(d);
+			}
+			window.flow = new Fragmenter(frag, { styles: [sheet] });
+			let pages = 0;
+			while (!window.flow.next().done) pages++;
+			void document.body.offsetHeight;
+			return { pages };
+		});
+
+		expect(result.pages).toBeGreaterThan(1);
+		// Setup is seeded with the first page's width, so its reflow already
+		// lays out at the real size and the first fragmentainer's width write
+		// is a no-op: the same two layouts as a fixed-width flow.
+		expect(layouts).toBeLessThanOrEqual(2);
+	});
+
+	test("a segmented resolver flow spends no layout on the width", async ({ page }) => {
+		const segments = 3;
+		const { layouts, result } = await countDuring(
+			page,
+			async ({ segments, blocks }) => {
+				const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
+				const sheet = new CSSStyleSheet();
+				sheet.replaceSync(`
+					@page { size: 300px 260px; margin: 0; }
+					div { height: 100px; margin: 0; } div::before { content: "x"; }
+					h2 { height: 50px; margin: 0; break-before: page; }
+				`);
+				const frag = document.createDocumentFragment();
+				for (let s = 0; s < segments; s++) {
+					const h = document.createElement("h2");
+					h.textContent = `Section ${s}`;
+					frag.appendChild(h);
+					for (let i = 0; i < blocks; i++) {
+						const d = document.createElement("div");
+						d.textContent = "block";
+						frag.appendChild(d);
+					}
+				}
+				window.flow = new Fragmenter(frag, { styles: [sheet] });
+				const pages = window.flow.flow().length;
+				void document.body.offsetHeight;
+				return { pages };
+			},
+			{ segments, blocks: 4 },
+		);
+
+		expect(result.pages).toBeGreaterThan(segments);
+		expect(layouts).toBeLessThanOrEqual(segments + 1);
+	});
 });

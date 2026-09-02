@@ -204,6 +204,19 @@ export class HandlerRegistry {
 	}
 
 	/**
+	 * Hand every handler the constraint space the measurement container was
+	 * just sized to.
+	 *
+	 * @param {import('../fragmentation/constraint-space.js').ConstraintSpace} constraintSpace
+	 */
+	applyConstraintSpace(constraintSpace) {
+		this.#ensureReady();
+		for (const handler of this.#handlers) {
+			handler.applyConstraintSpace(constraintSpace);
+		}
+	}
+
+	/**
 	 * Let handlers mutate the measurement DOM after content injection
 	 * but before measurement. Pseudo-element materialization happens
 	 * here. The caller should trigger a reflow afterwards.

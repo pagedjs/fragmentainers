@@ -1262,6 +1262,7 @@ Base class for all layout handlers. Subclass and override methods as needed.
 | `matchRule(rule, context)`                                       | `void`                                                  | Inspect a CSS rule during the centralized rule walk. `context.wrappers` has grouping rule preambles. |
 | `appendRules(rules)`                                             | `void`                                                  | Push CSS rule text strings into `rules[]` to inject into a shared stylesheet.                        |
 | `prepareContent(content)`                                        | `void`                                                  | Called after rule processing with the full source content, before measurement. Mutate or mark it.    |
+| `applyConstraintSpace(constraintSpace)`                          | `void`                                                  | The measurement container was sized to this space (setup and every fragmentainer). Size auxiliary measurers here. |
 | `beforeMeasurement(contentRoot)`                                 | `void`                                                  | Mutate the live measurement DOM before the forced reflow.                                            |
 | `afterMeasurementSetup(contentRoot)`                             | `void`                                                  | Called after measurement DOM is set up. Handlers can probe live elements via `getComputedStyle`.     |
 | `getAdoptedSheets()`                                             | `CSSStyleSheet[]`                                       | Return per-flow stylesheets to fold into the composite scoped sheet (`document.adoptedStyleSheets`). |
@@ -1306,6 +1307,7 @@ at construction. The registry is iterable over the instances.
 | `getInjectedSheet()`                                             | `CSSStyleSheet \| null`  | The sheet appended by the most recent `processRules()` call (handler-`appendRules` output) |
 | `claim(node)`                                                    | `boolean`                | Check if any handler claims this node                                                      |
 | `prepareContent(content)`                                        | `void`                   | Let every handler prepare the source content                                               |
+| `applyConstraintSpace(constraintSpace)`                          | `void`                   | Hand handlers the constraint space the measurement container was sized to                  |
 | `beforeMeasurement(contentRoot)`                                 | `void`                   | Let handlers mutate the measurement DOM before measurement                                 |
 | `afterMeasurementSetup(contentRoot)`                             | `void`                   | Let handlers probe the live measurement DOM                                                |
 | `getAdoptedSheets()`                                             | `CSSStyleSheet[]`        | Collect per-flow stylesheets from handlers (folded into the composite scoped sheet)        |

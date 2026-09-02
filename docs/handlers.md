@@ -12,7 +12,7 @@ A handler hooks into the engine at these points:
 
 2. **Content preparation** -- After rule processing and before the measurer segments the content, the engine calls `handler.prepareContent(content)` with the full source content. The content is not yet in the measurement DOM, so `getComputedStyle()` is unavailable; handlers match via selectors accumulated in step 1 or inline styles. Handlers may mutate the content or set [markers](#markers) on it (e.g., `FixedPosition` marks `position: fixed` elements persistent).
 
-3. **Measurement hooks** -- Once the active segment is injected, `beforeMeasurement(contentRoot)` may mutate the live DOM. It is the arrangement's write phase: every write rides the one reflow that follows, so a geometry read there forces an extra layout (a handler that needs the inline size reads it off the host's `style.width`). After reflow, `afterMeasurementSetup(contentRoot)` can inspect computed layout without mutating it. `getAdoptedSheets()` contributes per-flow sheets to visible composition.
+3. **Measurement hooks** -- Once the active segment is injected, `beforeMeasurement(contentRoot)` may mutate the live DOM. It is the arrangement's write phase: every write rides the one reflow that follows, so a geometry read there forces an extra layout. `applyConstraintSpace(constraintSpace)` fires first, at setup and again at the start of every fragmentainer, so a handler that measures against the inline size sizes its own measurer there. After reflow, `afterMeasurementSetup(contentRoot)` can inspect computed layout without mutating it. `getAdoptedSheets()` contributes per-flow sheets to visible composition.
 
 4. **Pre-layout scan** -- Before the normal layout pass, the engine calls `handler.layout()`. The handler scans the root node's children, lays out any it claims (via a provided callback), and returns space reservations. The engine adjusts the available space for remaining content.
 
@@ -63,6 +63,11 @@ A handler extends `LayoutHandler` and implements whichever methods it needs. All
   // Called after processRules() with the full source content, before
   // it is injected into the measurement DOM. Mutate it or set markers.
   prepareContent(content) -> void,
+
+  // Called when the engine sizes the measurement container: at setup,
+  // before the reflow, and at the start of every fragmentainer. Size an
+  // auxiliary measurer here so the write rides the engine's flush.
+  applyConstraintSpace(constraintSpace) -> void,
 
   // Called after content is injected but before the browser reflow.
   // May materialize or mutate measurement DOM.
