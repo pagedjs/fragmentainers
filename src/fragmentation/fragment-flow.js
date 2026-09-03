@@ -85,8 +85,12 @@ export class FragmentFlow {
 			fragmentationType: FRAGMENTATION_PAGE,
 		});
 
-		const algo = new BlockContainerAlgorithm(this.#root, cs, inputBreakToken);
-		const result = runLayoutGenerator(algo);
+		let result = runLayoutGenerator(new BlockContainerAlgorithm(this.#root, cs, inputBreakToken));
+		if (result.earlyBreak) {
+			result = runLayoutGenerator(
+				new BlockContainerAlgorithm(this.#root, cs, inputBreakToken, result.earlyBreak),
+			);
+		}
 
 		// Drop fully-consumed items; the first childBreakToken pins the one still in progress.
 		const continuing = result.breakToken?.childBreakTokens?.[0]?.node ?? null;

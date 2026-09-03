@@ -1,7 +1,6 @@
 import {
 	BlockBreakToken,
 	findChildBreakToken,
-	isAvoidBreakValue,
 	isForcedBreakValue,
 } from "../fragmentation/tokens.js";
 import {
@@ -45,6 +44,12 @@ const SCORING_SKIP_THRESHOLD = 0.75;
  *   actual break is worse, return { earlyBreak } to signal re-layout.
  * - Pass 2: When earlyBreakTarget is provided, break at the designated
  *   node instead of waiting for space exhaustion.
+ *
+ * @param {import("../layout/layout-node-base.js").LayoutNode} node - Block container to lay out
+ * @param {ConstraintSpace} constraintSpace - Available fragmentainer space
+ * @param {BlockBreakToken|null} breakToken - Previous block continuation
+ * @param {EarlyBreak|null} earlyBreakTarget - Selected second-pass breakpoint
+ * @returns {BlockContainerAlgorithm} Block container layout algorithm
  */
 export class BlockContainerAlgorithm {
 	// Inputs
@@ -706,15 +711,6 @@ export class BlockContainerAlgorithm {
 		return prevPage !== thisPage && (thisPage !== null || prevPage !== null);
 	}
 
-	#shouldPushBreakInsideAvoid(child, childBT, remainingSpace) {
-		if (isMonolithic(child) || childBT || !this.#hasContentAbove()) return false;
-		if (!isAvoidBreakValue(child.breakInside, this.#constraintSpace.fragmentationType)) {
-			return false;
-		}
-		const childSize = child.blockSize || 0;
-		return childSize > remainingSpace;
-	}
-
 	#buildChildConstraint(remainingSpace, collapseAdj) {
 		return new ConstraintSpace({
 			availableInlineSize: this.#constraintSpace.availableInlineSize,
@@ -787,6 +783,23 @@ export class BlockContainerAlgorithm {
 		) {
 			return;
 		}
+		// Repeated page headers: a prefix without placed body rows leaves the
+		// same header ahead of the first row, so it cannot improve that split.
+		if (
+			this.#constraintSpace.fragmentationType === FRAGMENTATION_PAGE &&
+			this.#node.isTable &&
+			this.#node.children.some((child) => child.isTableHeaderGroup) &&
+			!this.#childFragments.some((fragment) => {
+				const node = fragment.node;
+				if (node.isTableHeaderGroup || node.display === "table-caption") return false;
+				if (node.isTableSection) {
+					return fragment.childFragments.some((row) => row.node?.isTableRow && row.blockSize > 0);
+				}
+				return fragment.blockSize > 0;
+			})
+		) {
+			return;
+		}
 
 		const children = this.#node.children;
 		const cum = this.#node.cumulativeHeights;
@@ -811,6 +824,9 @@ export class BlockContainerAlgorithm {
 	}
 
 	#childBreakScore(result) {
+		// CSS Fragmentation §2.1/§4.3: forced breaks override avoidance only
+		// when no independent in-flow branch still has an unforced break.
+		if (this.#hasOnlyForcedInFlowBreaks(result.breakToken)) return BreakScore.PERFECT;
 		// Quality of the break this child produced, as seen from this container:
 		// orphans/widows violations are reported by inline content and nested
 		// block containers; any break inside a break-inside:avoid container is
@@ -820,6 +836,14 @@ export class BlockContainerAlgorithm {
 			result.breakScore ?? BreakScore.PERFECT,
 			this.#constraintSpace.fragmentationType,
 		);
+	}
+
+	#hasOnlyForcedInFlowBreaks(token) {
+		if (!token?.continuesInFlow) return false;
+		if (token.isForcedBreak) return true;
+		const children = token.childBreakTokens?.filter((child) => child.continuesInFlow) || [];
+		return children.length > 0 &&
+			children.every((child) => this.#hasOnlyForcedInFlowBreaks(child));
 	}
 
 	/**
@@ -940,14 +964,6 @@ export class BlockContainerAlgorithm {
 					this.#childBreakTokens.push(BlockBreakToken.createBreakBefore(child, false));
 					break;
 				}
-			}
-
-			// break-inside: avoid elements (e.g. tables): push to next
-			// fragmentainer when they don't fit, rather than stranding a
-			// header row alone at the bottom of the page.
-			if (this.#shouldPushBreakInsideAvoid(child, effectiveChildBreakToken, remainingSpace)) {
-				this.#childBreakTokens.push(BlockBreakToken.createBreakBefore(child, false));
-				break;
 			}
 
 			const collapseAdj = this.#margins.collapseAdjustment(

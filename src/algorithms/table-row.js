@@ -3,6 +3,7 @@ import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { Fragment } from "../fragmentation/fragment.js";
 import { LayoutRequest } from "../layout/layout-request.js";
 import { findChildBreakToken } from "../fragmentation/tokens.js";
+import { BreakScore, applyBreakInsideAvoid } from "../fragmentation/break-scoring.js";
 
 export const ALGORITHM_TABLE_ROW = "TableRowData";
 
@@ -17,6 +18,12 @@ export const ALGORITHM_TABLE_ROW = "TableRowData";
  * the minimum height their content requires (CSS 2.1 §17.5.3). A cell's
  * fragment carries only the latter: the block container sizes a cell by
  * its content, never by its `height`, because the row owns that size.
+ *
+ * @param {import("../layout/layout-node-base.js").LayoutNode} node - Table row to lay out
+ * @param {ConstraintSpace} constraintSpace - Available fragmentainer space
+ * @param {BlockBreakToken|null} breakToken - Previous row continuation
+ * @param {import("../fragmentation/break-scoring.js").EarlyBreak|null} earlyBreakTarget - Descendant retry target
+ * @returns {TableRowAlgorithm} Table row layout algorithm
  */
 export class TableRowAlgorithm {
 	#node;
@@ -28,6 +35,7 @@ export class TableRowAlgorithm {
 	#maxCellBlockSize = 0;
 	#anyChildBroke = false;
 	#anyChildBrokeInFlow = false;
+	#breakScore = BreakScore.PERFECT;
 	#earlyBreakTarget = null;
 
 	// Class A break scoring (earlyBreakTarget) is only implemented by
@@ -99,7 +107,15 @@ export class TableRowAlgorithm {
 			if (result.breakToken) {
 				this.#cellBreakTokens.push(result.breakToken);
 				this.#anyChildBroke = true;
-				if (result.breakToken.continuesInFlow) this.#anyChildBrokeInFlow = true;
+				if (result.breakToken.continuesInFlow) {
+					this.#anyChildBrokeInFlow = true;
+					this.#breakScore = Math.max(
+						this.#breakScore,
+						this.#hasOnlyForcedInFlowBreaks(result.breakToken)
+							? BreakScore.PERFECT
+							: result.breakScore ?? BreakScore.PERFECT,
+					);
+				}
 			} else {
 				// Placeholder — resolved below if any sibling broke
 				this.#cellBreakTokens.push(null);
@@ -136,6 +152,21 @@ export class TableRowAlgorithm {
 			fragment.breakToken = rowToken;
 		}
 
-		return { fragment, breakToken: fragment.breakToken || null };
+		const breakScore = this.#anyChildBrokeInFlow && !this.#hasOnlyForcedInFlowBreaks(fragment.breakToken)
+			? applyBreakInsideAvoid(
+					this.#node,
+					this.#breakScore,
+					this.#constraintSpace.fragmentationType,
+				)
+			: BreakScore.PERFECT;
+		return { fragment, breakToken: fragment.breakToken || null, breakScore };
+	}
+
+	#hasOnlyForcedInFlowBreaks(token) {
+		if (!token?.continuesInFlow) return false;
+		if (token.isForcedBreak) return true;
+		const children = token.childBreakTokens?.filter((child) => child.continuesInFlow) || [];
+		return children.length > 0 &&
+			children.every((child) => this.#hasOnlyForcedInFlowBreaks(child));
 	}
 }
