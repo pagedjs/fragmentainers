@@ -179,7 +179,9 @@ Defined in `src/resolvers/page-resolver.js`.
 | `namedPage`    | `string \| null`               | CSS page name, same value as the element's `namedPage` property.                      |
 | `pageBoxSize`  | `{ inlineSize, blockSize }`    | Full page box (paper size after orientation).                                         |
 | `margins`      | `{ top, right, bottom, left }` | Resolved `@page` margins in CSS pixels.                                               |
-| `contentArea`  | `{ inlineSize, blockSize }`    | `pageBoxSize` minus margins. This is the fragmentainer.                               |
+| `padding`      | `{ top, right, bottom, left }` | Resolved `@page` padding in CSS pixels.                                               |
+| `borderWidths` | `{ top, right, bottom, left }` | Used `@page` border widths in CSS pixels.                                             |
+| `contentArea`  | `{ inlineSize, blockSize }`    | `pageBoxSize` minus margins, borders, and padding. This is the fragmentainer.         |
 | `isFirst`      | `boolean`                      | `pageIndex === 0`.                                                                    |
 | `isVerso`      | `boolean`                      | True on verso (left) pages per the document's writing mode and `@page :left` cascade. |
 | `isRecto`      | `boolean`                      | True on recto (right) pages. Inverse of `isVerso`.                                    |

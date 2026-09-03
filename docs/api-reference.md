@@ -235,7 +235,7 @@ Parsed representation of a CSS `@page` rule.
 #### Constructor
 
 ```js
-new PageRule({ name, pseudo, nth, size, margin, pageOrientation });
+new PageRule({ name, pseudo, nth, size, margin, padding, border, pageOrientation });
 ```
 
 | Property          | Type                                   | Description                                                       |
@@ -245,6 +245,8 @@ new PageRule({ name, pseudo, nth, size, margin, pageOrientation });
 | `nth`             | `{ a: number, b: number } \| null`     | Coefficients from `:nth(<An+B>)`, matched against the 1-based page index |
 | `size`            | `string \| null`                       | Raw CSS size value such as `"A4"` or `"210mm 297mm"`             |
 | `margin`          | `{ top, right, bottom, left } \| null` | Raw CSS length strings for each margin side                        |
+| `padding`         | `{ top, right, bottom, left } \| null` | Raw CSS length strings for each padding side                       |
+| `border`          | `{ top, right, bottom, left } \| null` | Per-side `width`, `style`, and `color` declarations                |
 | `pageOrientation` | `string \| null`                       | `"rotate-left"`, `"rotate-right"`, or `null`                      |
 
 ---
@@ -258,7 +260,7 @@ Resolved page dimensions for one page -- the fragmentainer definition.
 #### Constructor
 
 ```js
-new PageConstraints({ pageIndex, namedPage, pageBoxSize, margins, contentArea, isFirst, isVerso, isRecto, isBlank?, matchedRules? })
+new PageConstraints({ pageIndex, namedPage, pageBoxSize, margins, padding, borderWidths, contentArea, isFirst, isVerso, isRecto, isBlank?, matchedRules? })
 ```
 
 | Property      | Type                                        | Description                                                                        |
@@ -267,7 +269,9 @@ new PageConstraints({ pageIndex, namedPage, pageBoxSize, margins, contentArea, i
 | `namedPage`   | `string \| null`                            | CSS `page` property value                                                          |
 | `pageBoxSize` | `{ inlineSize: number, blockSize: number }` | Full page dimensions                                                               |
 | `margins`     | `{ top, right, bottom, left }`              | Resolved margins in CSS px                                                         |
-| `contentArea` | `{ inlineSize: number, blockSize: number }` | The fragmentainer (page box minus margins)                                         |
+| `padding`     | `{ top, right, bottom, left }`              | Resolved page padding in CSS px                                                    |
+| `borderWidths` | `{ top, right, bottom, left }`             | Used page border widths in CSS px                                                  |
+| `contentArea` | `{ inlineSize: number, blockSize: number }` | The fragmentainer (page box minus margins, borders, and padding)                   |
 | `isFirst`     | `boolean`                                   | Whether this is the first page                                                     |
 | `isVerso`     | `boolean`                                   | Whether this is a verso (left) page                                                |
 | `isRecto`     | `boolean`                                   | Whether this is a recto (right) page                                               |

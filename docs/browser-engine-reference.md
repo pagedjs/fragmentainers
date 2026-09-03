@@ -536,7 +536,9 @@ Implements `@page` rule parsing, matching, cascading, and per-page constraint re
 | `namedPage`   | `string \| null`               | Named page type for this page                                       |
 | `pageBoxSize` | `{ inlineSize, blockSize }`    | Full page dimensions                                                |
 | `margins`     | `{ top, right, bottom, left }` | Page margins                                                        |
-| `contentArea` | `{ inlineSize, blockSize }`    | The fragmentainer (page box minus margins)                          |
+| `padding` | `{ top, right, bottom, left }` | Resolved page padding in CSS px                                     |
+| `borderWidths` | `{ top, right, bottom, left }` | Used page border widths in CSS px                                  |
+| `contentArea` | `{ inlineSize, blockSize }`    | The fragmentainer (page box minus margins, borders, and padding)    |
 | `isFirst`     | `boolean`                      | Matches `:first` pseudo-class                                       |
 | `isVerso`     | `boolean`                      | Matches `:left` pseudo-class (verso page)                           |
 | `isRecto`     | `boolean`                      | Matches `:right` pseudo-class (recto page)                          |

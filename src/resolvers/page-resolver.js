@@ -20,6 +20,11 @@ export const NAMED_SIZES = {
 };
 
 const MARGIN_SIDES = ["top", "right", "bottom", "left"];
+const BORDER_WIDTH_KEYWORDS = {
+	thin: 1,
+	medium: 3,
+	thick: 5,
+};
 
 /**
  * Structured form of a single `@page` at-rule.
@@ -29,6 +34,8 @@ const MARGIN_SIDES = ["top", "right", "bottom", "left"];
  * @property {{a: number, b: number}|null} nth - `:nth(An+B)` coefficients, or null
  * @property {string|null} size - CSS size value ("A4", "210mm 297mm", ...), or null
  * @property {{ top: string|null, right: string|null, bottom: string|null, left: string|null }|null} margin - CSS lengths, or null
+ * @property {{ top: string|null, right: string|null, bottom: string|null, left: string|null }|null} padding - CSS lengths, or null
+ * @property {Object<string, { width: string|null, style: string|null, color: string|null }>|null} border - Per-side border declarations, or null
  * @property {string|null} pageOrientation - 'rotate-left', 'rotate-right', or null
  * @property {string|null} counterReset - CSS counter-reset value, or null when absent
  * @property {string|null} counterIncrement - CSS counter-increment value, or null when absent
@@ -40,6 +47,8 @@ export class PageRule {
 		nth,
 		size,
 		margin,
+		padding,
+		border,
 		pageOrientation,
 		counterReset,
 		counterIncrement,
@@ -49,6 +58,8 @@ export class PageRule {
 		this.nth = nth ?? null;
 		this.size = size ?? null;
 		this.margin = margin ?? null;
+		this.padding = padding ?? null;
+		this.border = border ?? null;
 		this.pageOrientation = pageOrientation ?? null;
 		this.counterReset = counterReset ?? null;
 		this.counterIncrement = counterIncrement ?? null;
@@ -94,6 +105,8 @@ export class PageConstraints {
 	 * @param {string|null} opts.namedPage
 	 * @param {{ inlineSize: number, blockSize: number }} opts.pageBoxSize - Full page dimensions
 	 * @param {{ top: number, right: number, bottom: number, left: number }} opts.margins
+	 * @param {{ top: number, right: number, bottom: number, left: number }} opts.padding
+	 * @param {{ top: number, right: number, bottom: number, left: number }} opts.borderWidths
 	 * @param {{ inlineSize: number, blockSize: number }} opts.contentArea - The fragmentainer
 	 * @param {boolean} opts.isFirst
 	 * @param {boolean} opts.isVerso
@@ -108,6 +121,8 @@ export class PageConstraints {
 		namedPage,
 		pageBoxSize,
 		margins,
+		padding,
+		borderWidths,
 		contentArea,
 		isFirst,
 		isVerso,
@@ -121,6 +136,8 @@ export class PageConstraints {
 		this.namedPage = namedPage;
 		this.pageBoxSize = pageBoxSize;
 		this.margins = margins;
+		this.padding = padding;
+		this.borderWidths = borderWidths;
 		this.contentArea = contentArea;
 		this.isFirst = isFirst;
 		this.isVerso = isVerso;
@@ -204,9 +221,29 @@ export class PageResolver {
 		const pageSize = this.resolveSize(resolved.size);
 		const orientedSize = this.applyOrientation(pageSize, resolved.pageOrientation);
 		const margins = this.resolveMargins(resolved.margin, orientedSize);
+		const padding = this.resolvePadding(resolved.padding, orientedSize);
+		const borderWidths = this.resolveBorderWidths(resolved.border);
 		const contentArea = {
-			inlineSize: orientedSize.inlineSize - margins.left - margins.right,
-			blockSize: orientedSize.blockSize - margins.top - margins.bottom,
+			inlineSize: Math.max(
+				0,
+				orientedSize.inlineSize -
+					margins.left -
+					margins.right -
+					borderWidths.left -
+					borderWidths.right -
+					padding.left -
+					padding.right,
+			),
+			blockSize: Math.max(
+				0,
+				orientedSize.blockSize -
+					margins.top -
+					margins.bottom -
+					borderWidths.top -
+					borderWidths.bottom -
+					padding.top -
+					padding.bottom,
+			),
 		};
 
 		const verso = this.isVerso(pageIndex);
@@ -215,6 +252,8 @@ export class PageResolver {
 			namedPage,
 			pageBoxSize: orientedSize,
 			margins,
+			padding,
+			borderWidths,
 			contentArea,
 			isFirst: pageIndex === 0,
 			isVerso: verso,
@@ -257,6 +296,8 @@ export class PageResolver {
 		const result = {
 			size: null,
 			margin: null,
+			padding: null,
+			border: null,
 			pageOrientation: null,
 			counterReset: null,
 			counterIncrement: null,
@@ -276,6 +317,12 @@ export class PageResolver {
 						if (rule.margin[side] != null) result.margin[side] = rule.margin[side];
 					}
 				}
+			}
+			if (rule.padding != null) {
+				result.padding = mergeEdges(result.padding, rule.padding);
+			}
+			if (rule.border != null) {
+				result.border = mergeBorders(result.border, rule.border);
 			}
 			if (rule.pageOrientation != null) result.pageOrientation = rule.pageOrientation;
 			if (rule.counterReset != null) result.counterReset = rule.counterReset;
@@ -336,6 +383,40 @@ export class PageResolver {
 			}
 		}
 		return margins;
+	}
+
+	/** Resolve page padding. Percentages use the page box inline size. */
+	resolvePadding(paddingDecl, pageSize) {
+		const padding = {};
+		const percentBase = pageSize?.inlineSize ?? null;
+		for (const side of MARGIN_SIDES) {
+			const raw = paddingDecl?.[side];
+			padding[side] = raw
+				? Math.max(0, Math.round(toPx(String(raw).trim(), { percentBase }) ?? 0))
+				: 0;
+		}
+		return padding;
+	}
+
+	/** Resolve the used border widths after border-style suppression. */
+	resolveBorderWidths(borderDecl) {
+		const widths = {};
+		for (const side of MARGIN_SIDES) {
+			const declared = borderDecl?.[side];
+			const style = declared?.style ?? "none";
+			if (style === "none" || style === "hidden") {
+				widths[side] = 0;
+				continue;
+			}
+
+			const raw = declared?.width ?? "medium";
+			const keyword = BORDER_WIDTH_KEYWORDS[String(raw).trim().toLowerCase()];
+			widths[side] = Math.max(
+				0,
+				Math.round(keyword ?? toPx(String(raw).trim()) ?? 0),
+			);
+		}
+		return widths;
 	}
 
 	/** In LTR page progression, page 0 is recto (right), page 1 is verso (left). */
@@ -467,6 +548,8 @@ function pageRuleFromCSSPageRule(cssPageRule) {
 	const style = cssPageRule.style;
 	const margin = parseMargins(style);
 	const hasMargin = MARGIN_SIDES.some((s) => margin[s]);
+	const padding = parsePhysicalEdges(style, "padding");
+	const border = parseBorders(style);
 
 	return new PageRule({
 		name: parsed.name,
@@ -474,10 +557,63 @@ function pageRuleFromCSSPageRule(cssPageRule) {
 		nth: parsed.nth,
 		size: style.getPropertyValue("size").trim() || null,
 		margin: hasMargin ? margin : null,
+		padding,
+		border,
 		pageOrientation: style.getPropertyValue("page-orientation").trim() || null,
 		counterReset: style.getPropertyValue("counter-reset").trim() || null,
 		counterIncrement: style.getPropertyValue("counter-increment").trim() || null,
 	});
+}
+
+function mergeEdges(current, incoming) {
+	const result = current ? { ...current } : {};
+	for (const side of MARGIN_SIDES) {
+		if (incoming[side] != null) result[side] = incoming[side];
+	}
+	return result;
+}
+
+function mergeBorders(current, incoming) {
+	const result = {};
+	for (const side of MARGIN_SIDES) {
+		if (current?.[side]) result[side] = { ...current[side] };
+	}
+	for (const side of MARGIN_SIDES) {
+		const next = incoming[side];
+		if (!next) continue;
+		const resolved = { ...(result[side] ?? {}) };
+		for (const field of ["width", "style", "color"]) {
+			if (next[field] != null) resolved[field] = next[field];
+		}
+		result[side] = resolved;
+	}
+	return result;
+}
+
+function parsePhysicalEdges(style, property) {
+	const edges = {};
+	let present = false;
+	for (const side of MARGIN_SIDES) {
+		const value = style.getPropertyValue(`${property}-${side}`).trim() || null;
+		edges[side] = value;
+		if (value != null) present = true;
+	}
+	return present ? edges : null;
+}
+
+function parseBorders(style) {
+	const border = {};
+	let present = false;
+	for (const side of MARGIN_SIDES) {
+		const edge = {};
+		for (const field of ["width", "style", "color"]) {
+			const value = style.getPropertyValue(`border-${side}-${field}`).trim() || null;
+			edge[field] = value;
+			if (value != null) present = true;
+		}
+		border[side] = edge;
+	}
+	return present ? border : null;
 }
 
 /**

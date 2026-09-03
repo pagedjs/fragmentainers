@@ -95,6 +95,121 @@ test.describe("PageResolver", () => {
 		expect(result.blockSize).toBe(900);
 	});
 
+	test("subtracts page padding and used border widths from the page area", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const edges = { top: "20px", right: "20px", bottom: "20px", left: "20px" };
+			const border = Object.fromEntries(
+				["top", "right", "bottom", "left"].map((side) => [
+					side,
+					{ width: "5px", style: "solid", color: "red" },
+				]),
+			);
+			const resolver = new PageResolver([
+				new PageRule({
+					size: "600px 800px",
+					margin: { top: "50px", right: "50px", bottom: "50px", left: "50px" },
+					padding: edges,
+					border,
+				}),
+			]);
+			const c = resolver.resolve(0, null, null);
+			return {
+				contentArea: c.contentArea,
+				padding: c.padding,
+				borderWidths: c.borderWidths,
+			};
+		});
+
+		expect(result).toEqual({
+			contentArea: { inlineSize: 450, blockSize: 650 },
+			padding: { top: 20, right: 20, bottom: 20, left: 20 },
+			borderWidths: { top: 5, right: 5, bottom: 5, left: 5 },
+		});
+	});
+
+	test("resolves padding percentages against the page inline size", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([
+				{
+					size: "600px 800px",
+					padding: { top: "10%", right: "10%", bottom: "10%", left: "10%" },
+				},
+			]);
+			return resolver.resolve(0, null, null);
+		});
+
+		expect(result.padding).toEqual({ top: 60, right: 60, bottom: 60, left: 60 });
+		expect(result.contentArea).toEqual({ inlineSize: 480, blockSize: 680 });
+	});
+
+	test("suppresses border width for none and hidden styles", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([
+				{
+					border: {
+						top: { width: "20px", style: "none" },
+						right: { width: "20px", style: "hidden" },
+						bottom: { width: "thin", style: "solid" },
+						left: { width: "thick", style: "double" },
+					},
+				},
+			]);
+			return resolver.resolve(0, null, null).borderWidths;
+		});
+
+		expect(result).toEqual({ top: 0, right: 0, bottom: 1, left: 5 });
+	});
+
+	test("cascades padding edges and border subproperties independently", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([
+				{
+					size: "600px 800px",
+					padding: { top: "10px", right: "10px", bottom: "10px", left: "10px" },
+					border: {
+						top: { width: "2px", style: "solid", color: "red" },
+						left: { width: "2px", style: "solid", color: "red" },
+					},
+				},
+				{
+					pseudo: ["first"],
+					padding: { left: "30px" },
+					border: { top: { width: "7px", color: "blue" } },
+				},
+			]);
+			const c = resolver.resolve(0, null, null);
+			return {
+				padding: c.padding,
+				borderWidths: c.borderWidths,
+				border: resolver.cascadeRules(c.matchedRules).border,
+			};
+		});
+
+		expect(result.padding).toEqual({ top: 10, right: 10, bottom: 10, left: 30 });
+		expect(result.borderWidths).toEqual({ top: 7, right: 0, bottom: 0, left: 2 });
+		expect(result.border.top).toEqual({ width: "7px", style: "solid", color: "blue" });
+	});
+
+	test("clamps a page area consumed by padding and borders to zero", async ({ page }) => {
+		const result = await page.evaluate(async () => {
+			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+			const resolver = new PageResolver([
+				{
+					size: "100px 100px",
+					padding: { top: "80px", right: "80px", bottom: "80px", left: "80px" },
+				},
+			]);
+			return resolver.resolve(0, null, null).contentArea;
+		});
+		expect(result).toEqual({ inlineSize: 0, blockSize: 0 });
+	});
+
 	test("resolves em margins against the root font size", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
@@ -735,8 +850,8 @@ test.describe("PageResolver constructor with plain objects", () => {
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 
 			const css = `
-				@page { size: 210mm 297mm; margin: 20mm; }
-				@page :first { margin-top: 40mm; }
+				@page { size: 210mm 297mm; margin: 20mm; padding: 4mm 5mm; border: 2px solid red; }
+				@page :first { margin-top: 40mm; padding-left: 8mm; border-top-width: 7px; }
 				@page :left { margin-left: 30mm; }
 			`;
 			const sheet = new CSSStyleSheet();
@@ -747,10 +862,19 @@ test.describe("PageResolver constructor with plain objects", () => {
 				{
 					size: "210mm 297mm",
 					margin: { top: "20mm", right: "20mm", bottom: "20mm", left: "20mm" },
+					padding: { top: "4mm", right: "5mm", bottom: "4mm", left: "5mm" },
+					border: Object.fromEntries(
+						["top", "right", "bottom", "left"].map((side) => [
+							side,
+							{ width: "2px", style: "solid", color: "red" },
+						]),
+					),
 				},
 				{
 					pseudo: ["first"],
 					margin: { top: "40mm" },
+					padding: { left: "8mm" },
+					border: { top: { width: "7px" } },
 				},
 				{
 					pseudo: ["left"],
@@ -763,6 +887,8 @@ test.describe("PageResolver constructor with plain objects", () => {
 				return {
 					pageBoxSize: c.pageBoxSize,
 					margins: c.margins,
+					padding: c.padding,
+					borderWidths: c.borderWidths,
 					contentArea: c.contentArea,
 					isFirst: c.isFirst,
 					isVerso: c.isVerso,
