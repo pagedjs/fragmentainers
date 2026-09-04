@@ -74,7 +74,13 @@ export function collectInlineItems(nodes) {
 		const isInline = display === "inline";
 		const isAtomicInline = display === "inline-block" || display === "inline-table";
 
-		if (isAtomicInline) {
+		// Native generated content: an empty inline still occupies a position
+		// in the text stream, so a split cannot copy it onto both pages.
+		const hasGeneratedContent = el.childNodes.length === 0 && ["before", "after"].some((pseudo) => {
+			const content = getComputedStyle(el, `::${pseudo}`).content;
+			return content && content !== "none" && content !== "normal";
+		});
+		if (isAtomicInline || hasGeneratedContent) {
 			items.push({
 				type: INLINE_ATOMIC,
 				startOffset: offset,

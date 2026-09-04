@@ -145,6 +145,21 @@ test.describe("FragmentFlow", () => {
 		expect(result.p3Break).toBe(false);
 	});
 
+	test("an ordinary body deferred at a complete boundary remains queued without rejection", async ({ page }) => {
+		const result = await runBoundedFlow(page, {
+			html: `<div id="first" style="height:40px">FIRST</div>
+				<div id="second" style="height:80px">SECOND</div>
+				<div id="third" style="height:40px">THIRD</div>`,
+			caps: [120],
+			replayAt: 0,
+		});
+		expectConservedFlow(result);
+		expect(result.pages.map((page) => page.text)).toEqual(["FIRSTSECOND", "THIRD"]);
+		expect(result.pages.map((page) => page.rejected)).toEqual([null, null]);
+		expect(result.pages.map((page) => page.queue)).toEqual([["third"], []]);
+		expect(result.pages.map((page) => page.blockSize)).toEqual([120, 40]);
+	});
+
 	test("break-inside: avoid item that doesn't fit is signaled as rejectedNode", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { FragmentFlow } = await import("/src/fragmentation/fragment-flow.js");

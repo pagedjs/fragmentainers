@@ -839,17 +839,20 @@ export class Fragmenter extends Iterator {
 			? { reservedBlockStart: 0, reservedBlockEnd: 0, afterRenderCallbacks: [] }
 			: this.#flowContext.handlers.layout(rootNode, constraintSpace, breakToken, layoutChildFn);
 
-		const MAX_POST_LAYOUT_ITERATIONS = 3;
+		let iterationLimit = 3;
 		const flowEntries = this.#flowContext.handlers.getFlows();
 		const flowSnapshots = flowEntries.map(({ flow }) => flow.snapshot());
 		const flowReservations = flowEntries.map(() => 0);
+		const reservationHistory = flowEntries.map(() => new Set());
+		const flowLimits = flowEntries.map(() => Infinity);
+		const conservativeReservations = flowEntries.map(() => false);
 		const flowFragments = flowEntries.map(() => null);
 		const flowInputTokens = flowEntries.map(() => null);
 		let postLayoutReserved = 0;
 		let postLayoutCallbacks = [];
 		let result;
 
-		for (let iter = 0; iter <= MAX_POST_LAYOUT_ITERATIONS; iter++) {
+		for (let iter = 0; iter <= iterationLimit; iter++) {
 			// Roll every flow back to its page-start state so repeated passes
 			// don't re-lay settled flows against already-advanced queues and tokens.
 			if (iter > 0) {
@@ -895,7 +898,7 @@ export class Fragmenter extends Iterator {
 			let pushedForward = false;
 			for (let i = 0; i < flowEntries.length; i++) {
 				const { handler, flow } = flowEntries[i];
-				const cap = handler.getFlowCap(constraintSpace);
+				const cap = Math.min(handler.getFlowCap(constraintSpace), flowLimits[i]);
 				const save = flow.snapshot();
 				// On drainage pages (main done, flow has carry-over) we don't
 				// re-extract bodies — the flow queue already holds the in-progress
@@ -918,7 +921,8 @@ export class Fragmenter extends Iterator {
 					}
 					flow.enqueue(children);
 				}
-				const flowResult = flow.layoutFragmentainer({
+				const queued = flow.snapshot();
+				let flowResult = flow.layoutFragmentainer({
 					availableInlineSize: constraintSpace.availableInlineSize,
 					availableBlockSize: cap,
 				});
@@ -935,9 +939,49 @@ export class Fragmenter extends Iterator {
 					continue;
 				}
 
-				const needed = flowResult.fragment.blockSize;
-				if (needed !== flowReservations[i]) {
+				let needed = flowResult.fragment.blockSize;
+				let fitsRemainingSpace = false;
+				if (needed > flowReservations[i] && reservationHistory[i].has(needed)) {
+					const completePrefix = flowResult.fragment.childFragments
+						.filter((child) => !child.breakToken)
+						.map((child) => child.blockOffset + child.blockSize)
+						.findLast((end) => end > flowReservations[i] && end < Math.min(cap, needed));
+					if (completePrefix !== undefined) {
+						// Reservation cycle: try the last complete child boundary before
+						// splitting a child into the space the current main flow leaves.
+						flowLimits[i] = completePrefix;
+						flowReservations[i] = completePrefix;
+						reservationHistory[i].add(completePrefix);
+						iterationLimit += 2;
+						flow.restore(save);
+						flowsSettled = false;
+						continue;
+					}
+					// Reservation cycle: keep the current main fragment and split the
+					// parallel flow into the space it actually leaves on this page.
+					const remaining = Math.max(0, constraintSpace.availableBlockSize -
+						reservedBlockStart - reservedBlockEnd - legacyReserved - result.fragment.blockSize -
+						(flowTotal - flowReservations[i]));
+					const full = flow.snapshot();
+					flow.restore(queued);
+					const bounded = flow.layoutFragmentainer({
+						availableInlineSize: constraintSpace.availableInlineSize,
+						availableBlockSize: Math.min(cap, remaining),
+					});
+					if (!bounded.rejectedNode && bounded.fragment.blockSize > 0 && bounded.fragment.blockSize <= remaining) {
+						flowResult = bounded;
+						needed = bounded.fragment.blockSize;
+						fitsRemainingSpace = true;
+					} else {
+						flow.restore(full);
+						conservativeReservations[i] = true;
+					}
+				}
+				const fitsReservation = needed <= flowReservations[i] &&
+					(conservativeReservations[i] || iter === iterationLimit);
+				if (needed !== flowReservations[i] && !fitsRemainingSpace && !fitsReservation) {
 					flow.restore(save);
+					reservationHistory[i].add(needed);
 					flowReservations[i] = needed;
 					flowsSettled = false;
 					continue;

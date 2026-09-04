@@ -3,6 +3,7 @@ import { BlockContainerAlgorithm } from "../algorithms/block-container.js";
 import { runLayoutGenerator } from "../layout/layout-driver.js";
 import { ConstraintSpace, FRAGMENTATION_PAGE } from "./constraint-space.js";
 import { Fragment } from "./fragment.js";
+import { isAvoidBreakValue } from "./tokens.js";
 
 /**
  * Synthetic root whose children are the flow's append-only queue. Layout
@@ -132,17 +133,15 @@ export class FragmentFlow {
 }
 
 /**
- * A child's break-before token means the algorithm pushed it forward
- * without placing any content — it didn't fit, typically because the
- * node carries `break-inside: avoid`. The flow consumer treats this as
- * a push-forward signal (e.g. in the footnote case, move the call's
- * containing block to the next page so call + body stay together).
+ * An avoided child pushed whole to the next fragmentainer asks the consumer
+ * to move its anchor forward too. Ordinary break-before tokens only carry
+ * queued content to the next fragmentainer.
  */
 function detectRejectedNode(breakToken) {
 	const children = breakToken?.childBreakTokens;
 	if (!children) return null;
 	for (const child of children) {
-		if (child.isBreakBefore) return child.node;
+		if (child.isBreakBefore && isAvoidBreakValue(child.node.breakInside)) return child.node;
 	}
 	return null;
 }
