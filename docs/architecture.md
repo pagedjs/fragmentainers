@@ -934,7 +934,7 @@ Handlers interact with the engine at these hook points, listed in lifecycle orde
 4. **`prepareContent(content)`** — called after rule processing with the full
    source content, before it enters the measurement DOM. Handlers mutate the
    content or set markers (`markPersistent`, `markNativePseudo` from
-   `fragmentainers/handlers`) that the measurer and `PseudoElements` read later.
+   `fragmentainers/handlers.js`) that the measurer and `PseudoElements` read later.
 
 5. **`applyConstraintSpace(constraintSpace)`** — called when the engine sizes
    the measurement container: at setup, before the reflow, and at the start of

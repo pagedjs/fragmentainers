@@ -434,10 +434,10 @@ export function myContainerNode({ debugName, children = [], ...overrides } = {})
 
 ### 6. Export
 
-Add the class to the algorithms barrel at `src/algorithms/index.js`:
+Add the class to the algorithms barrel at `src/algorithms.js`:
 
 ```javascript
-export { MyContainerAlgorithm } from "./my-container.js";
+export { MyContainerAlgorithm } from "./algorithms/my-container.js";
 ```
 
 ---

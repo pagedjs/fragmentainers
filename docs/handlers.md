@@ -113,7 +113,7 @@ After the walk, the registry calls `appendRules(rules)` on each handler. Handler
 
 ## Markers
 
-Features cooperate through DOM attribute markers rather than by calling each other. Anything that can touch the content before layout can set them: a handler in `prepareContent()`, or the caller before constructing a `Fragmenter`. Import the helpers from `fragmentainers/handlers`.
+Features cooperate through DOM attribute markers rather than by calling each other. Anything that can touch the content before layout can set them: a handler in `prepareContent()`, or the caller before constructing a `Fragmenter`. Import the helpers from `fragmentainers/handlers.js`.
 
 | Helper | Attribute | Effect |
 | --- | --- | --- |
@@ -204,7 +204,7 @@ class PageFit extends LayoutHandler {
 
 ## Writing Your Own Handler
 
-1. Create a class that extends `LayoutHandler` from `fragmentainers/handlers`.
+1. Create a class that extends `LayoutHandler` from `fragmentainers/handlers.js`.
 2. Override `matchRule()` to inspect CSS rules and accumulate selectors or state.
 3. Override `claim()`, `layout()`, and/or `beforeChildren()` as needed.
 4. Use `node.getCustomProperty("my-prop")` to read CSS custom properties (the `--` prefix is added automatically). This uses the cached `getComputedStyle` on `DOMLayoutNode`, so repeated reads are free.
@@ -248,8 +248,8 @@ Shipped but not in the default catalog (push them yourself):
 
 | Handler        | Import                                                       | Purpose                                                          |
 | -------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
-| `PageFloat`    | `import { PageFloat } from "fragmentainers/handlers"`        | Page-relative floats (`--float-reference: page`)                 |
-| `MutationSync` | `import { MutationSync } from "fragmentainers/handlers"`     | Sync mutations from fragment-container clones back to source     |
+| `PageFloat`    | `import { PageFloat } from "fragmentainers/handlers.js"`        | Page-relative floats (`--float-reference: page`)                 |
+| `MutationSync` | `import { MutationSync } from "fragmentainers/handlers.js"`     | Sync mutations from fragment-container clones back to source     |
 
 Paged-media handlers such as footnotes live in pagedjs, which appends them to the catalog.
 

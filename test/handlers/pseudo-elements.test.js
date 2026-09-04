@@ -393,7 +393,7 @@ test.describe("native pseudo preservation", () => {
 	test("skips materialization for marked native pseudos", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PseudoElements } = await import("/src/handlers/pseudo-elements.js");
-			const { markNativePseudo } = await import("/src/handlers/index.js");
+			const { markNativePseudo } = await import("/src/handlers.js");
 
 			const style = document.createElement("style");
 			style.textContent = ".native::after { content: \"native\"; }";
@@ -425,7 +425,7 @@ test.describe("native pseudo preservation", () => {
 	test("keeps a counter ::after native through the full flow pipeline", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { Fragmenter } = await import("/src/index.js");
-			const { markNativePseudo } = await import("/src/handlers/index.js");
+			const { markNativePseudo } = await import("/src/handlers.js");
 
 			const sheet = new CSSStyleSheet();
 			sheet.replaceSync(`

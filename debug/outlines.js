@@ -1,5 +1,5 @@
-import { findChildBreakToken } from "../src/fragmentation/index.js";
-import { isMonolithic } from "../src/layout/index.js";
+import { findChildBreakToken } from "../src/fragmentation.js";
+import { isMonolithic } from "../src/layout.js";
 import { BREAK_TOKEN_BLOCK, BREAK_TOKEN_INLINE } from "../src/fragmentation/tokens.js";
 
 /**

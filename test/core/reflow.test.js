@@ -94,7 +94,7 @@ test.describe("Fragmenter.reflow()", () => {
 
 	test("tracks nested same-name counter scopes across fragmentainers", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { Fragmenter } = await import("/src/fragmentation/index.js");
+			const { Fragmenter } = await import("/src/fragmentation.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
@@ -127,7 +127,7 @@ test.describe("Fragmenter.reflow()", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { Fragmenter } = await import("/src/fragmentation/index.js");
+			const { Fragmenter } = await import("/src/fragmentation.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");
@@ -167,7 +167,7 @@ test.describe("Fragmenter.reflow()", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { Fragmenter } = await import("/src/fragmentation/index.js");
+			const { Fragmenter } = await import("/src/fragmentation.js");
 			await import("/src/components/fragment-container.js");
 
 			const template = document.createElement("template");

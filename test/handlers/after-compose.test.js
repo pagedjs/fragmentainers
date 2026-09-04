@@ -3,8 +3,8 @@ import { test, expect } from "../browser-fixture.js";
 test.describe("LayoutHandler.afterCompose", () => {
 	test("runs in handler order after normal fragment composition is complete", async ({ page }) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentationContext, Fragment } = await import("/src/fragmentation/index.js");
-			const { HandlerRegistry, LayoutHandler } = await import("/src/handlers/index.js");
+			const { FragmentationContext, Fragment } = await import("/src/fragmentation.js");
+			const { HandlerRegistry, LayoutHandler } = await import("/src/handlers.js");
 
 			const calls = [];
 			let expectedFragment;
@@ -86,8 +86,8 @@ test.describe("LayoutHandler.afterCompose", () => {
 		page,
 	}) => {
 		const result = await page.evaluate(async () => {
-			const { FragmentationContext, Fragment } = await import("/src/fragmentation/index.js");
-			const { HandlerRegistry, LayoutHandler } = await import("/src/handlers/index.js");
+			const { FragmentationContext, Fragment } = await import("/src/fragmentation.js");
+			const { HandlerRegistry, LayoutHandler } = await import("/src/handlers.js");
 
 			const calls = [];
 			class BlankHandler extends LayoutHandler {
