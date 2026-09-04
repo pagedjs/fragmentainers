@@ -22,11 +22,12 @@ const HOST_STYLES = `
   :host {
     display: block;
     overflow: clip;
-    contain: size style;
+    contain: size layout style;
     block-size: 100%;
   }
   slot {
-    display: block;
+    /* Slot formatting context: descendant margins stay inside the content area. */
+    display: flow-root;
     height: 100%;
   }
 `;
