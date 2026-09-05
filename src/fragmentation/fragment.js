@@ -68,6 +68,10 @@ export class Fragment {
 		// Child nodes need no context of their own for composition.
 		const cloneMap = this.node ? ensureFlowContext(this.node).cloneMap : new CloneMap();
 		const docFragment = document.createDocumentFragment();
+		if (this.multicolData) {
+			this.#buildMulticol(inputBreakToken, docFragment, cloneMap);
+			return docFragment;
+		}
 		for (const child of this.childFragments) {
 			if (!child.node) continue;
 			const childInputBT = findChildBreakToken(inputBreakToken, child.node);
@@ -332,7 +336,9 @@ export class Fragment {
 			colEl.style.flexShrink = "0";
 
 			// Thread break tokens: col 0 uses inputBreakToken, col N uses col N-1's breakToken
-			const colInputBT = i === 0 ? inputBreakToken : this.childFragments[i - 1].breakToken;
+			const colInputBT = i === 0
+				? inputBreakToken?.childBreakTokens?.[0] ?? null
+				: this.childFragments[i - 1].breakToken;
 
 			for (const child of colFragment.childFragments) {
 				if (!child.node) continue;
