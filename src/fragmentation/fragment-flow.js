@@ -3,7 +3,7 @@ import { BlockContainerAlgorithm } from "../algorithms/block-container.js";
 import { runLayoutGenerator } from "../layout/layout-driver.js";
 import { ConstraintSpace, FRAGMENTATION_PAGE } from "./constraint-space.js";
 import { Fragment } from "./fragment.js";
-import { isAvoidBreakValue } from "./tokens.js";
+import { BlockBreakToken, isAvoidBreakValue } from "./tokens.js";
 
 /**
  * Synthetic root whose children are the flow's append-only queue. Layout
@@ -60,8 +60,17 @@ export class FragmentFlow {
 
 	enqueue(nodes) {
 		if (!nodes) return;
+		const size = this.#queue.length;
 		for (const node of nodes) {
 			if (this.#queue.indexOf(node) === -1) this.#queue.push(node);
+		}
+		if (this.#queue.length !== size && this.#breakToken?.hasSeenAllChildren) {
+			// Appended children: the saved token describes the old queue boundary.
+			// Copy it so speculative enqueue leaves earlier snapshots unchanged.
+			this.#breakToken = Object.assign(new BlockBreakToken(this.#root), this.#breakToken, {
+				hasSeenAllChildren: false,
+				isAtBlockEnd: false,
+			});
 		}
 	}
 
@@ -106,6 +115,11 @@ export class FragmentFlow {
 			rejectedNode: detectRejectedNode(result.breakToken),
 			inputBreakToken,
 		};
+	}
+
+	/** @returns {boolean} Whether queued content remains, including an unlaid first body. */
+	get hasPending() {
+		return this.#queue.length > 0 || this.#breakToken !== null;
 	}
 
 	get breakToken() {
