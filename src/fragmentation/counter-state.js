@@ -274,11 +274,13 @@ function walkFragment(fragment, inputBreakToken, counterState, parentScope, dept
 		const resets = parseCounterDirective(node.counterReset);
 		if (resets.length > 0) counterState.applyReset(resets, scope);
 
-		const sets = parseCounterDirective(node.counterSet);
-		if (sets.length > 0) counterState.applySet(sets, scope);
-
+		// CSS Lists 3 §4: reset creates instances, increment changes their
+		// values, and set supplies the final value used on this element.
 		const increments = parseCounterDirective(node.counterIncrement, 1);
 		if (increments.length > 0) counterState.applyIncrement(increments, scope);
+
+		const sets = parseCounterDirective(node.counterSet);
+		if (sets.length > 0) counterState.applySet(sets, scope);
 	}
 
 	const ownScope = depth === 0 ? DOCUMENT_SCOPE : childScope(node, parentScope);

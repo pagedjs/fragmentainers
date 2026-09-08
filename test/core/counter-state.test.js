@@ -501,11 +501,24 @@ test.describe("walkFragmentTree", () => {
 		expect(result.snap2).toEqual({ paragraph: 3 });
 	});
 
-	test("applies reset, set, then increment on the same element", async ({ page }) => {
+	test("applies reset, increment, then set on the same element", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
 			const { Fragment } = await import("/src/fragmentation/fragment.js");
 			const { blockNode } = await import("/test/fixtures/nodes.js");
+			const style = document.createElement("style");
+			style.textContent = `
+				#native-counter-order {
+					counter-reset: chapter 2;
+					counter-increment: chapter 3;
+					counter-set: chapter 5;
+				}
+				#native-counter-order::after { content: "native=" counter(chapter) ";"; }
+			`;
+			document.head.append(style);
+			const native = document.createElement("div");
+			native.id = "native-counter-order";
+			document.body.append(native);
 
 			const node = blockNode({
 				counterReset: "chapter 2",
@@ -517,7 +530,16 @@ test.describe("walkFragmentTree", () => {
 			walkFragmentTree(fragment, null, state);
 			return state.value("chapter");
 		});
-		expect(result).toBe(8);
+		expect(result).toBe(5);
+
+		const client = await page.context().newCDPSession(page);
+		try {
+			const { documents, strings } = await client.send("DOMSnapshot.captureSnapshot", { computedStyles: [] });
+			const painted = documents.flatMap(({ layout }) => layout.text.map((index) => strings[index])).join("");
+			expect(painted).toContain("native=5;");
+		} finally {
+			await client.detach();
+		}
 	});
 
 	test("closes descendant scopes before returning to an outer sibling", async ({ page }) => {
