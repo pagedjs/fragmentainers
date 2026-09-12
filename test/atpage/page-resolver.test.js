@@ -1534,3 +1534,73 @@ test.describe("createFragments with PageResolver", () => {
 		expect(result.constraints).toEqual({ contentArea: { inlineSize: 600, blockSize: 200 } });
 	});
 });
+
+
+test("preserves per-property important and layer priority for extracted page rules", async ({ page }) => {
+	const result = await page.evaluate(async () => {
+		const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+		const resolver = new PageResolver([
+			{ margin: { top: "12px", left: "15px" }, counterIncrement: "page -2", important: { "margin-top": true, "counter-increment": true }, layer: "base", layerOrder: 0 },
+			{ pseudo: ["first"], margin: { top: "23px", left: "25px" }, counterIncrement: "page 3", important: { "margin-top": true, "counter-increment": true }, layer: "overrides", layerOrder: 1 },
+			{ pseudo: ["first"], margin: { left: "revert-layer" }, layer: "overrides", layerOrder: 1 },
+		]);
+		const constraints = resolver.resolve(0, null, null);
+		return { margins: constraints.margins, increment: constraints.counterIncrement };
+	});
+	expect(result).toEqual({ margins: { top: 12, right: 0, bottom: 0, left: 15 }, increment: "page -2" });
+});
+
+test("orders nested page layers by their hierarchical rank", async ({ page }) => {
+	const result = await page.evaluate(async () => {
+		const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+		const topLevel = new PageResolver([
+			{ margin: { top: "15px" }, layer: "a.child", layerOrder: [0, 0] },
+			{ margin: { top: "25px" }, layer: "b", layerOrder: [1] },
+		]);
+		const important = new PageResolver([
+			{
+				margin: { top: "15px" },
+				important: { "margin-top": true },
+				layer: "a.child",
+				layerOrder: [0, 0],
+			},
+			{
+				margin: { top: "25px" },
+				important: { "margin-top": true },
+				layer: "b",
+				layerOrder: [1],
+			},
+		]);
+		const parent = new PageResolver([
+			{ margin: { top: "15px" }, layer: "theme.child", layerOrder: [0, 0] },
+			{ margin: { top: "25px" }, layer: "theme", layerOrder: [0] },
+		]);
+		return {
+			topLevel: topLevel.resolve(0, null, null).margins.top,
+			important: important.resolve(0, null, null).margins.top,
+			parent: parent.resolve(0, null, null).margins.top,
+		};
+	});
+	expect(result).toEqual({ topLevel: 25, important: 15, parent: 25 });
+});
+
+
+test("distinguishes author-origin revert from layer rollback", async ({ page }) => {
+	const result = await page.evaluate(async () => {
+		const { PageResolver } = await import("/src/resolvers/page-resolver.js");
+		const reverted = new PageResolver([
+			{ margin: { top: "11px" }, layer: "base", layerOrder: [0] },
+			{ pseudo: ["first"], margin: { top: "revert" } },
+		]);
+		const layerReverted = new PageResolver([
+			{ margin: { top: "11px" }, layer: "base", layerOrder: [0] },
+			{ pseudo: ["first"], margin: { top: "22px" }, layer: "override", layerOrder: [1] },
+			{ pseudo: ["first"], margin: { top: "revert-layer" }, layer: "override", layerOrder: [1] },
+		]);
+		return {
+			revert: reverted.resolve(0, null, null).margins.top,
+			revertLayer: layerReverted.resolve(0, null, null).margins.top,
+		};
+	});
+	expect(result).toEqual({ revert: 0, revertLayer: 11 });
+});

@@ -48,7 +48,7 @@ export function buildCompositeText(
 		(s) => s !== UA_DEFAULTS && s !== injectedSheet,
 	);
 
-	const parts = isPageBased ? [`@layer {\n${UA_DEFAULTS_HOST_TEXT}\n}`] : [];
+	const parts = isPageBased ? [`@layer fragmentainers-ua {\n${UA_DEFAULTS_HOST_TEXT}\n}`] : [];
 
 	const injectedText = sheetText(injectedSheet);
 	if (injectedText) parts.push(injectedText);

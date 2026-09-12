@@ -52,6 +52,9 @@ export class PageRule {
 		pageOrientation,
 		counterReset,
 		counterIncrement,
+		important = {},
+		layer = null,
+		layerOrder = null,
 	} = {}) {
 		this.name = name || null;
 		this.pseudo = pseudo ?? [];
@@ -63,6 +66,9 @@ export class PageRule {
 		this.pageOrientation = pageOrientation ?? null;
 		this.counterReset = counterReset ?? null;
 		this.counterIncrement = counterIncrement ?? null;
+		this.important = important;
+		this.layer = layer;
+		this.layerOrder = layerOrder;
 	}
 
 	/**
@@ -303,30 +309,52 @@ export class PageResolver {
 			counterIncrement: null,
 		};
 
-		const sorted = [...matchingRules].sort((a, b) => a.compareSpecificity(b));
-
-		for (const rule of sorted) {
-			if (rule.size != null) {
-				result.size = rule.size;
-			}
-			if (rule.margin != null) {
-				if (!result.margin) {
-					result.margin = { ...rule.margin };
-				} else {
-					for (const side of MARGIN_SIDES) {
-						if (rule.margin[side] != null) result.margin[side] = rule.margin[side];
+		const resolve = (property, read) => {
+			const candidates = matchingRules.map((rule, index) => ({ rule, index, value: read(rule) }))
+				.filter(({ value }) => value != null)
+				.sort((a, b) => {
+					const importantA = !!a.rule.important[property];
+					const importantB = !!b.rule.important[property];
+					if (importantA !== importantB) return Number(importantB) - Number(importantA);
+					const layersA = Array.isArray(a.rule.layerOrder) ? a.rule.layerOrder : [a.rule.layerOrder ?? Infinity];
+					const layersB = Array.isArray(b.rule.layerOrder) ? b.rule.layerOrder : [b.rule.layerOrder ?? Infinity];
+					for (let index = 0; index < Math.max(layersA.length, layersB.length); index++) {
+						const layerA = layersA[index] ?? Infinity;
+						const layerB = layersB[index] ?? Infinity;
+						if (layerA !== layerB) return importantA ? layerA - layerB : layerB - layerA;
 					}
+					return b.rule.compareSpecificity(a.rule) || b.index - a.index;
+				});
+			const revertedLayers = new Set();
+			for (const { rule, value } of candidates) {
+				if (revertedLayers.has(rule.layer)) continue;
+				if (value === "revert") return null;
+				if (value === "revert-layer") {
+					revertedLayers.add(rule.layer);
+					continue;
 				}
+				return value;
 			}
-			if (rule.padding != null) {
-				result.padding = mergeEdges(result.padding, rule.padding);
-			}
-			if (rule.border != null) {
-				result.border = mergeBorders(result.border, rule.border);
-			}
-			if (rule.pageOrientation != null) result.pageOrientation = rule.pageOrientation;
-			if (rule.counterReset != null) result.counterReset = rule.counterReset;
-			if (rule.counterIncrement != null) result.counterIncrement = rule.counterIncrement;
+			return null;
+		};
+		for (const [field, property] of [["size", "size"], ["pageOrientation", "page-orientation"],
+			["counterReset", "counter-reset"], ["counterIncrement", "counter-increment"]]) {
+			result[field] = resolve(property, (rule) => rule[field]);
+		}
+		for (const property of ["margin", "padding"]) {
+			const edges = Object.fromEntries(MARGIN_SIDES.map((side) => [side,
+				resolve(`${property}-${side}`, (rule) => rule[property]?.[side]),
+			]));
+			if (Object.values(edges).some((value) => value != null)) result[property] = edges;
+		}
+		const border = {};
+		for (const side of MARGIN_SIDES) {
+			border[side] = Object.fromEntries(["width", "style", "color"].map((field) => [field,
+				resolve(`border-${side}-${field}`, (rule) => rule.border?.[side]?.[field]),
+			]));
+		}
+		if (Object.values(border).some((edge) => Object.values(edge).some((value) => value != null))) {
+			result.border = border;
 		}
 
 		return result;
@@ -563,31 +591,6 @@ function pageRuleFromCSSPageRule(cssPageRule) {
 		counterReset: style.getPropertyValue("counter-reset").trim() || null,
 		counterIncrement: style.getPropertyValue("counter-increment").trim() || null,
 	});
-}
-
-function mergeEdges(current, incoming) {
-	const result = current ? { ...current } : {};
-	for (const side of MARGIN_SIDES) {
-		if (incoming[side] != null) result[side] = incoming[side];
-	}
-	return result;
-}
-
-function mergeBorders(current, incoming) {
-	const result = {};
-	for (const side of MARGIN_SIDES) {
-		if (current?.[side]) result[side] = { ...current[side] };
-	}
-	for (const side of MARGIN_SIDES) {
-		const next = incoming[side];
-		if (!next) continue;
-		const resolved = { ...(result[side] ?? {}) };
-		for (const field of ["width", "style", "color"]) {
-			if (next[field] != null) resolved[field] = next[field];
-		}
-		result[side] = resolved;
-	}
-	return result;
 }
 
 function parsePhysicalEdges(style, property) {

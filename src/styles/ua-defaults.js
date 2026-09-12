@@ -12,6 +12,7 @@
 
 const UA_DEFAULTS = new CSSStyleSheet();
 UA_DEFAULTS.replaceSync(`
+  @layer fragmentainers-ua {
     :host {
       height: 100%;
     }
@@ -24,6 +25,7 @@ UA_DEFAULTS.replaceSync(`
     :host(fragment-container:not([data-last])) > slot {
       margin-block-end: 0 !important;
     }
+  }
   `);
 
 const UA_DEFAULTS_HOST_TEXT = `
