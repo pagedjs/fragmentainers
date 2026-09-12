@@ -26,6 +26,7 @@ import { collapseMargins } from "./margin-collapsing.js";
 export function isMonolithic(node) {
 	return (
 		node.isReplacedElement ||
+		node.isMathRoot ||
 		node.isScrollable ||
 		(node.hasOverflowHidden && node.hasExplicitBlockSize)
 	);

@@ -22,6 +22,8 @@ const INLINE_DISPLAYS = new Set([
 	"inline-table",
 	"inline-flex",
 	"inline-grid",
+	"math",
+	"inline math",
 ]);
 
 /**
@@ -184,6 +186,11 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	// Layout classification
+
+	get isMathRoot() {
+		return this.element.namespaceURI === "http://www.w3.org/1998/Math/MathML" &&
+			this.element.localName === "math";
+	}
 
 	get isReplacedElement() {
 		return REPLACED_ELEMENTS.has(this.element.tagName?.toLowerCase());
@@ -577,7 +584,7 @@ export class DOMLayoutNode extends LayoutNode {
 	}
 
 	computedBlockSize(_availableInlineSize) {
-		if (this.isReplacedElement) {
+		if (this.isReplacedElement || this.isMathRoot) {
 			return measureElementBlockSize(this.element);
 		}
 
@@ -598,7 +605,7 @@ export class DOMLayoutNode extends LayoutNode {
 		const cssHeight = this.computedBlockSize();
 		if (cssHeight == null) return null;
 		// Replaced elements: measureElementBlockSize already yields border-box.
-		if (this.isReplacedElement) return cssHeight;
+		if (this.isReplacedElement || this.isMathRoot) return cssHeight;
 		return this.#toBorderBox(cssHeight);
 	}
 
@@ -610,7 +617,7 @@ export class DOMLayoutNode extends LayoutNode {
 	 * reports its rendered size, which already honours its limits.
 	 */
 	blockSizeLimits() {
-		if (this.isReplacedElement) {
+		if (this.isReplacedElement || this.isMathRoot) {
 			return { specified: measureElementBlockSize(this.element), min: 0, max: Infinity };
 		}
 		const map = this.#getStyleMap();
@@ -642,7 +649,7 @@ export class DOMLayoutNode extends LayoutNode {
 
 		// An element is an inline FC if it directly contains text nodes
 		// or inline-level elements (and is not replaced/table/etc.)
-		if (this.isReplacedElement || this.isTable || this.isTableRow) {
+		if (this.isReplacedElement || this.isMathRoot || this.isTable || this.isTableRow) {
 			this.#isInlineFormattingContext = false;
 			return false;
 		}

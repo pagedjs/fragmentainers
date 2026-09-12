@@ -102,6 +102,9 @@ export class LayoutNode {
 	get isReplacedElement() {
 		return false;
 	}
+	get isMathRoot() {
+		return false;
+	}
 	get isScrollable() {
 		return false;
 	}
