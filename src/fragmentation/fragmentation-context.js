@@ -1,22 +1,9 @@
 import { locate } from "./locate.js";
+import { restoreComposedCounters } from "./counter-state.js";
 
 // Default overflow threshold: browser default line height (16px * 1.2).
 // Used when the fragment's root node has no computed lineHeight.
 export const DEFAULT_OVERFLOW_THRESHOLD = 16 * 1.2;
-
-/**
- * Serialize a counter snapshot's innermost values as a `counter-set` value.
- *
- * @param {Readonly<Record<string, number>>} values - `CounterSnapshot.values`
- * @returns {string}
- */
-function formatCounterSet(values) {
-	const parts = [];
-	for (const [name, value] of Object.entries(values)) {
-		parts.push(`${name} ${value}`);
-	}
-	return parts.join(" ");
-}
 
 /**
  * The result of running fragmentation — a "fragmented flow" in CSS spec terms.
@@ -105,9 +92,6 @@ export class FragmentationContext extends Array {
 
 		const prev = index > 0 ? this.#fragments[index - 1] : this.#previous;
 		const counterSnapshot = prev?.counterState ?? null;
-		if (counterSnapshot && Object.keys(counterSnapshot.values).length > 0) {
-			el.style.counterSet = formatCounterSet(counterSnapshot.values);
-		}
 
 		if (fragment.isBlank) {
 			el.setAttribute("data-blank-page", "");
@@ -115,7 +99,9 @@ export class FragmentationContext extends Array {
 			el.overflowThreshold = 0;
 		} else {
 			const prevBreakToken = prev?.breakToken ?? null;
-			el.appendChild(fragment.build(prevBreakToken));
+			const content = fragment.build(prevBreakToken);
+			restoreComposedCounters(content, fragment, counterSnapshot);
+			el.appendChild(content);
 
 			if (fragment.afterRender) {
 				for (const callback of fragment.afterRender) {

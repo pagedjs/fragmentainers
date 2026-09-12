@@ -404,6 +404,7 @@ test.describe("walkFragmentTree", () => {
 			const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
 
 			const sectionBT = new BlockBreakToken(section);
+			sectionBT.consumedBlockSize = 1;
 			const tree = frag(section, [frag(p1)], sectionBT);
 			const state = new CounterState();
 			walkFragmentTree(tree, sectionBT, state);
@@ -429,7 +430,9 @@ test.describe("walkFragmentTree", () => {
 			const p1 = blockNode({ debugName: "p1", counterIncrement: "paragraph 1" });
 
 			const p1BT = new BlockBreakToken(p1);
+			p1BT.consumedBlockSize = 1;
 			const sectionBT = new BlockBreakToken(section);
+			sectionBT.consumedBlockSize = 1;
 			sectionBT.childBreakTokens = [p1BT];
 
 			const tree = frag(section, [frag(p1)]);
@@ -486,11 +489,13 @@ test.describe("walkFragmentTree", () => {
 			const state = new CounterState();
 
 			const bt = new BlockBreakToken(section);
+			bt.consumedBlockSize = 1;
 			const tree1 = frag(section, [frag(p1), frag(p2)], bt);
 			walkFragmentTree(tree1, null, state);
 			const snap1 = state.snapshot().values;
 
 			const sectionBT = new BlockBreakToken(section);
+			sectionBT.consumedBlockSize = 1;
 			const tree2 = frag(section, [frag(p3)]);
 			walkFragmentTree(tree2, sectionBT, state);
 			const snap2 = state.snapshot().values;
@@ -580,11 +585,15 @@ test.describe("walkFragmentTree", () => {
 			const item = blockNode({ counterIncrement: "chapter 1" });
 
 			const itemToken = new BlockBreakToken(item);
+			itemToken.consumedBlockSize = 1;
 			const sectionToken = new BlockBreakToken(section);
+			sectionToken.consumedBlockSize = 1;
 			sectionToken.childBreakTokens = [itemToken];
 			const outerToken = new BlockBreakToken(outer);
+			outerToken.consumedBlockSize = 1;
 			outerToken.childBreakTokens = [sectionToken];
 			const docToken = new BlockBreakToken(doc);
+			docToken.consumedBlockSize = 1;
 			docToken.childBreakTokens = [outerToken];
 
 			const firstItem = new Fragment(item, 20);
@@ -669,4 +678,29 @@ test.describe("walkFragmentTree", () => {
 		expect(result.pageCount).toBe(1);
 		expect(result.values).toEqual([1]);
 	});
+});
+
+
+test("does not apply counters for a shell the compositor omits", async ({ page }) => {
+	const result = await page.evaluate(async () => {
+		const { CounterState, walkFragmentTree } = await import("/src/fragmentation/counter-state.js");
+		const { Fragment } = await import("/src/fragmentation/fragment.js");
+		const { BlockBreakToken } = await import("/src/fragmentation/tokens.js");
+		const { blockNode } = await import("/test/fixtures/nodes.js");
+		const root = blockNode();
+		const child = blockNode({ counterIncrement: "chapter 1" });
+		child.children.push(blockNode());
+		const shell = new Fragment(child, 0);
+		shell.breakToken = new BlockBreakToken(child);
+		const tree = new Fragment(root, 0, [shell]);
+		tree.breakToken = new BlockBreakToken(root);
+		tree.breakToken.childBreakTokens = [shell.breakToken];
+		const state = new CounterState();
+		walkFragmentTree(tree, null, state);
+		const before = state.value("chapter");
+		const next = new Fragment(root, 20, [new Fragment(child, 20)]);
+		walkFragmentTree(next, tree.breakToken, state);
+		return { before, after: state.value("chapter") };
+	});
+	expect(result).toEqual({ before: 0, after: 1 });
 });

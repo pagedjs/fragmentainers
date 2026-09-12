@@ -1125,7 +1125,13 @@ export class Fragmenter extends Iterator {
 
 		// Counter state accumulation
 		const prevBT = this.#prevFragment?.breakToken ?? null;
-		walkFragmentTree(result.fragment, prevBT, this.#counterState, this.#measurer?.contentRoot ?? null);
+		walkFragmentTree(result.fragment, prevBT, this.#counterState, this.#measurer?.contentRoot ?? null,
+			result.fragment.constraints.pageBoxSize ? ({ reset, set, increment }) => {
+				for (const entry of reset) this.#pageCounter = entry.value;
+				for (const entry of set) this.#pageCounter = entry.value;
+				for (const entry of increment) this.#pageCounter += entry.value;
+			} : null);
+		if (result.fragment.constraints.pageBoxSize) result.fragment.page = this.#pageCounter;
 		if (!this.#counterState.isEmpty()) {
 			result.fragment.counterState = this.#counterState.snapshot();
 		}

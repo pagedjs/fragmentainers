@@ -1,4 +1,6 @@
 import { findChildBreakToken } from "./tokens.js";
+import { rendersNothing } from "./fragment.js";
+import { ensureFlowContext } from "./flow-context.js";
 
 const ROOT_SCOPE = Symbol("counter-root-scope");
 const DOCUMENT_SCOPE = Symbol("counter-document-scope");
@@ -246,9 +248,11 @@ function scopeFor(node, parentScope, depth, contentRoot) {
  * @param {Element|null} [contentRoot] - The element whose children are the
  *   document's top-level content; operations on those children key to a scope
  *   that survives measurer reattachment.
+ * @param {Function|null} [applyPageCounter] Apply source page operations to the canonical page counter.
+ * @returns {void}
  */
-export function walkFragmentTree(fragment, inputBreakToken, counterState, contentRoot = null) {
-	walkFragment(fragment, inputBreakToken, counterState, ROOT_SCOPE, 0, contentRoot);
+export function walkFragmentTree(fragment, inputBreakToken, counterState, contentRoot = null, applyPageCounter = null) {
+	walkFragment(fragment, inputBreakToken, counterState, ROOT_SCOPE, 0, contentRoot, applyPageCounter);
 }
 
 /**
@@ -259,27 +263,38 @@ export function walkFragmentTree(fragment, inputBreakToken, counterState, conten
  * @param {number} depth - Distance from the root fragment
  * @param {Element|null} contentRoot
  */
-function walkFragment(fragment, inputBreakToken, counterState, parentScope, depth, contentRoot) {
+function walkFragment(fragment, inputBreakToken, counterState, parentScope, depth, contentRoot, applyPageCounter) {
 	const node = fragment.node;
-	if (!node) return;
+	if (!node || rendersNothing(fragment, inputBreakToken)) return;
 
 	// A break-before token means the node produced no fragment on the previous
 	// fragmentainer, so its operations have not run yet.
-	const isContinuation = inputBreakToken !== null && !inputBreakToken.isBreakBefore;
+	const isContinuation = inputBreakToken !== null && !inputBreakToken.isBreakBefore &&
+		(inputBreakToken.consumedBlockSize > 0 || inputBreakToken.textOffset > 0 || inputBreakToken.isAtBlockEnd);
 	const scope = scopeFor(node, parentScope, depth, contentRoot);
 
 	if (!isContinuation) {
 		if (node.element) counterState.prepareForElement(node.element);
 
-		const resets = parseCounterDirective(node.counterReset);
+		const operations = {
+			reset: parseCounterDirective(node.counterReset),
+			set: parseCounterDirective(node.counterSet),
+			increment: parseCounterDirective(node.counterIncrement, 1),
+		};
+		if (applyPageCounter) {
+			applyPageCounter(Object.fromEntries(Object.entries(operations).map(([kind, entries]) =>
+				[kind, entries.filter(({ name }) => name === "page")])));
+			for (const kind of Object.keys(operations)) operations[kind] = operations[kind].filter(({ name }) => name !== "page");
+		}
+		const resets = operations.reset;
 		if (resets.length > 0) counterState.applyReset(resets, scope);
 
 		// CSS Lists 3 §4: reset creates instances, increment changes their
 		// values, and set supplies the final value used on this element.
-		const increments = parseCounterDirective(node.counterIncrement, 1);
+		const increments = operations.increment;
 		if (increments.length > 0) counterState.applyIncrement(increments, scope);
 
-		const sets = parseCounterDirective(node.counterSet);
+		const sets = operations.set;
 		if (sets.length > 0) counterState.applySet(sets, scope);
 	}
 
@@ -287,11 +302,57 @@ function walkFragment(fragment, inputBreakToken, counterState, parentScope, dept
 	for (const child of fragment.childFragments) {
 		if (!child.node) continue;
 		const childBT = findChildBreakToken(inputBreakToken, child.node);
-		walkFragment(child, childBT, counterState, ownScope, depth + 1, contentRoot);
+		walkFragment(child, childBT, counterState, ownScope, depth + 1, contentRoot, applyPageCounter);
 	}
 
 	// A counter created by an element also covers that element's following
 	// siblings, so a completed fragment closes only what its children created.
 	// Document-level counters have no such end: the root never closes them.
 	if (depth > 0 && fragment.breakToken === null) counterState.closeScope(ownScope);
+}
+
+/**
+ * Restore counters inside the publication tree's continuation scopes.
+ * Counter operations on a shadow host do not seed its slotted content.
+ * @param {DocumentFragment} content Composed publication content.
+ * @param {import("./fragment.js").Fragment} fragment Current fragment.
+ * @param {CounterSnapshot|null} snapshot Previous committed counter state.
+ * @returns {void}
+ */
+export function restoreComposedCounters(content, fragment, snapshot) {
+	if (!snapshot || !fragment.node) return;
+	const cloneMap = ensureFlowContext(fragment.node).cloneMap;
+	const clones = new Map();
+	for (const clone of content.querySelectorAll("*")) {
+		const source = cloneMap.get(clone);
+		if (source && !clones.has(source)) clones.set(source, clone);
+	}
+	const nodes = new Map();
+	const visit = (current) => {
+		if (current.node?.element) nodes.set(current.node.element, current.node);
+		for (const child of current.childFragments) visit(child);
+	};
+	visit(fragment);
+	const seeds = new Map();
+	for (const [name, frames] of snapshot.frames) {
+		if (name === "page") continue;
+		for (const { scope, value } of frames) {
+			// Operation scopes are DOM parents: seeding their clone keeps the
+			// restored counter active across every continued child in that scope.
+			const target = scope === ROOT_SCOPE || scope === DOCUMENT_SCOPE
+				? content.firstElementChild : clones.get(scope);
+			if (!target) continue;
+			const entries = seeds.get(target) ?? new Map();
+			entries.set(name, value);
+			seeds.set(target, entries);
+		}
+	}
+	for (const [target, entries] of seeds) {
+		const sourceNode = nodes.get(cloneMap.get(target));
+		const reset = target.hasAttribute("data-split-from") ? "none" : sourceNode?.counterReset ?? "none";
+		for (const { name } of parseCounterDirective(reset)) entries.delete(name);
+		const values = [...entries].map(([name, value]) => `${name} ${value}`);
+		if (reset !== "none") values.push(reset);
+		if (values.length) target.style.setProperty("counter-reset", values.join(" "), "important");
+	}
 }
