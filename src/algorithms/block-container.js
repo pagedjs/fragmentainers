@@ -702,7 +702,7 @@ export class BlockContainerAlgorithm {
 			this.#constraintSpace.fragmentationType !== FRAGMENTATION_PAGE ||
 			!prevChild ||
 			childBT ||
-			this.#blockOffset === 0
+			!this.#hasPlacedContent()
 		) {
 			return false;
 		}

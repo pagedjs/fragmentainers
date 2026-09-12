@@ -393,9 +393,38 @@ export class Measurer {
 
 		this.#measureElement = measurer;
 		this.#arrange(0, null);
+		// Empty unnamed prefixes generate no page boundary (CSS Page §3.1): the first
+		// named box must be connected before layout can descend into it.
+		while (this.#mergeEmptyInitialSegment()) this.#arrange(0, null);
 		this.#contentStyles = measurer.getContentStyles();
 
 		return measurer.contentRoot;
+	}
+
+	#mergeEmptyInitialSegment() {
+		if (this.#segments.length < 2) return false;
+		const first = this.#segments[0];
+		const next = this.#segments[1];
+		if (
+			isForcedBreakValue(this.#breakProps[next.start].breakBefore) ||
+			isForcedBreakValue(this.#breakProps[first.end - 1].breakAfter)
+		) return false;
+		for (let i = first.start; i < first.end; i++) {
+			if (this.#breakProps[i].page !== null) return false;
+			const element = this.#flowElements[i];
+			const style = getComputedStyle(element);
+			if (
+				element.children.length > 0 || element.textContent.trim() ||
+				element.getBoundingClientRect().height > 0 ||
+				parseFloat(style.marginTop) || parseFloat(style.marginBottom)
+			) return false;
+		}
+		first.end = next.end;
+		this.#segments.splice(1, 1);
+		for (const [node, segment] of this.#segmentOf) {
+			if (segment > 0) this.#segmentOf.set(node, segment - 1);
+		}
+		return true;
 	}
 
 	/**
