@@ -176,10 +176,59 @@ export class LayoutHandler {
 	}
 
 	/**
-	 * Cap on the flow's block-size contribution to the fragmentainer.
+	 * Resolve a rejected parallel-flow body to its anchor in the main flow.
+	 *
+	 * @param {import("../layout/layout-node-base.js").LayoutNode} node
+	 * @returns {Element|null}
+	 */
+	getFlowAnchor(node) {
+		return node.element ?? null;
+	}
+
+	/**
+	 * Select a main-flow extent ending before a rejected body's anchor.
+	 * @param {import("../fragmentation/fragment.js").Fragment} mainFragment
+	 * @param {Element} anchor
+	 * @param {import("../fragmentation/tokens.js").BreakToken|null} inputBreakToken
+	 * @returns {number|null} Extent, zero when no earlier break can progress, or null for block-ancestor fallback.
+	 */
+	getFlowBreak() {
+		return null;
+	}
+
+	/**
+	 * Prepare page-dependent parallel-flow geometry before layout reads.
+	 * @param {import("../fragmentation/constraint-space.js").ConstraintSpace} constraintSpace
+	 * @param {object|null} constraints - Resolved page or region metadata.
+	 * @returns {void}
+	 */
+	prepareFragmentainer() {}
+
+	/**
+	 * Resolve the content space inside a parallel flow's outer reservation.
+	 * @param {import("../fragmentation/constraint-space.js").ConstraintSpace} constraintSpace
+	 * @param {number} cap - Maximum outer extent.
+	 * @returns {{availableInlineSize: number, availableBlockSize: number}}
+	 */
+	getFlowLayoutSpace(constraintSpace, cap) {
+		return { availableInlineSize: constraintSpace.availableInlineSize, availableBlockSize: cap };
+	}
+
+	/**
+	 * Include flow-owned decorations in its fragmentainer reservation.
+	 * @param {import("../fragmentation/fragment.js").Fragment} fragment
+	 * @returns {number}
+	 */
+	getFlowReservation(fragment) {
+		return fragment.blockSize;
+	}
+
+	/**
+	 * Cap on the flow's outer block-size contribution to the fragmentainer.
 	 * Returning Infinity (default) lets the flow take whatever it needs.
 	 *
 	 * @param {import('../fragmentation/constraint-space.js').ConstraintSpace} constraintSpace
+	 * @param {{continuationOnly?: boolean}} [options] Whether only queued parallel content remains.
 	 * @returns {number}
 	 */
 	getFlowCap() {

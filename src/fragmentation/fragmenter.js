@@ -18,6 +18,7 @@ import { NullMeasurer } from "../measurement/null-measurer.js";
 import { setTargetDevicePixelRatio } from "../measurement/line-box.js";
 import { FlowContext } from "./flow-context.js";
 import { locate } from "./locate.js";
+import { isAvoidBreakValue } from "./tokens.js";
 import { defaultHandlers } from "../handlers/catalog.js";
 import { UA_DEFAULTS } from "../styles/ua-defaults.js";
 import { buildCompositeText } from "../styles/composite-sheet.js";
@@ -617,7 +618,7 @@ export class Fragmenter extends Iterator {
 		);
 		const pendingFlow = this.#flowContext.handlers
 			.getFlows()
-			.some(({ flow }) => flow.breakToken !== null);
+			.some(({ flow }) => flow.hasPending);
 		this.#done = this.#mainDone && !pendingFlow;
 		this.#zeroProgressCount = 0;
 	}
@@ -784,7 +785,7 @@ export class Fragmenter extends Iterator {
 			this.#zeroProgressCount = 0;
 		}
 
-		const pendingFlow = this.#flowContext.handlers.getFlows().some(({ flow }) => flow.breakToken !== null);
+		const pendingFlow = this.#flowContext.handlers.getFlows().some(({ flow }) => flow.hasPending);
 		if (fragment.breakToken === null && !pendingFlow && !fragment.isBlank) {
 			this.#done = true;
 			fragment.isLast = true;
@@ -851,6 +852,16 @@ export class Fragmenter extends Iterator {
 		let postLayoutReserved = 0;
 		let postLayoutCallbacks = [];
 		let result;
+		let mainLimit = Infinity;
+		const pushFlowAnchor = (handler, anchor) => {
+			const limit = handler.getFlowBreak(result.fragment, anchor, breakToken);
+			if (limit != null) {
+				if (limit <= 0 || limit >= mainLimit || limit >= result.fragment.blockSize) return false;
+				mainLimit = limit;
+				return true;
+			}
+			return pushBlockAncestorToNextPage(rootNode, anchor, this.#pushedBreaks);
+		};
 
 		for (let iter = 0; iter <= iterationLimit; iter++) {
 			// Roll every flow back to its page-start state so repeated passes
@@ -865,11 +876,11 @@ export class Fragmenter extends Iterator {
 			const flowTotal = flowReservations.reduce((s, n) => s + n, 0);
 			const totalReservedEnd = reservedBlockEnd + postLayoutReserved + flowTotal;
 			let adjustedSpace = constraintSpace;
-			if (reservedBlockStart > 0 || totalReservedEnd > 0) {
+			if (reservedBlockStart > 0 || totalReservedEnd > 0 || mainLimit < Infinity) {
 				adjustedSpace = new ConstraintSpace({
 					availableInlineSize: constraintSpace.availableInlineSize,
 					availableBlockSize:
-						constraintSpace.availableBlockSize - reservedBlockStart - totalReservedEnd,
+						Math.min(mainLimit, constraintSpace.availableBlockSize - reservedBlockStart - totalReservedEnd),
 					fragmentainerBlockSize: constraintSpace.fragmentainerBlockSize - totalReservedEnd,
 					blockOffsetInFragmentainer:
 						constraintSpace.blockOffsetInFragmentainer + reservedBlockStart,
@@ -898,7 +909,12 @@ export class Fragmenter extends Iterator {
 			let pushedForward = false;
 			for (let i = 0; i < flowEntries.length; i++) {
 				const { handler, flow } = flowEntries[i];
-				const cap = Math.min(handler.getFlowCap(constraintSpace), flowLimits[i]);
+				let cap = Math.min(handler.getFlowCap(constraintSpace, { continuationOnly: this.#mainDone }), flowLimits[i]);
+				if (iter === iterationLimit) {
+					cap = Math.min(cap, Math.max(0, constraintSpace.availableBlockSize -
+						reservedBlockStart - reservedBlockEnd - legacyReserved - result.fragment.blockSize -
+						(flowTotal - flowReservations[i])));
+				}
 				const save = flow.snapshot();
 				// On drainage pages (main done, flow has carry-over) we don't
 				// re-extract bodies — the flow queue already holds the in-progress
@@ -911,7 +927,8 @@ export class Fragmenter extends Iterator {
 						cap,
 					);
 					for (const el of pushForward) {
-						if (pushBlockAncestorToNextPage(rootNode, el, this.#pushedBreaks)) {
+						if (pushFlowAnchor(handler, el)) {
+							iterationLimit++;
 							pushedForward = true;
 						}
 					}
@@ -922,29 +939,43 @@ export class Fragmenter extends Iterator {
 					flow.enqueue(children);
 				}
 				const queued = flow.snapshot();
-				let flowResult = flow.layoutFragmentainer({
-					availableInlineSize: constraintSpace.availableInlineSize,
-					availableBlockSize: cap,
-				});
+				let flowResult = flow.layoutFragmentainer(handler.getFlowLayoutSpace(constraintSpace, cap));
 
-				if (flowResult.rejectedNode) {
+				const retryAtAnchor = (candidate) => {
+					const rejected = candidate.rejectedNode ?? candidate.breakToken?.childBreakTokens
+						.find((token) => isAvoidBreakValue(token.node.breakInside))?.node;
+					if (!rejected || !pushFlowAnchor(handler, handler.getFlowAnchor(rejected))) return false;
 					flow.restore(save);
-					const pushed = pushBlockAncestorToNextPage(
-						rootNode,
-						flowResult.rejectedNode,
-						this.#pushedBreaks,
-					);
-					if (pushed) pushedForward = true;
+					pushedForward = true;
 					flowsSettled = false;
-					continue;
-				}
+					iterationLimit++;
+					return true;
+				};
+				if (retryAtAnchor(flowResult)) continue;
 
-				let needed = flowResult.fragment.blockSize;
+				let needed = handler.getFlowReservation(flowResult.fragment);
 				let fitsRemainingSpace = false;
+				const actualRemaining = Math.max(0, constraintSpace.availableBlockSize -
+					reservedBlockStart - reservedBlockEnd - legacyReserved - result.fragment.blockSize -
+					(flowTotal - flowReservations[i]));
+				if (needed > actualRemaining && (needed <= flowReservations[i] || iter === iterationLimit)) {
+					// Main-flow minimum progress can exceed its reservation-adjusted cap.
+					// Commit only the parallel content that fits beside the actual result.
+					flow.restore(queued);
+					flowResult = flow.layoutFragmentainer(handler.getFlowLayoutSpace(constraintSpace, Math.min(cap, actualRemaining)));
+					if (retryAtAnchor(flowResult)) continue;
+					needed = handler.getFlowReservation(flowResult.fragment);
+					if (needed > actualRemaining && result.fragment.blockSize > 0) {
+						flow.restore(queued);
+						flowResult = flow.layoutFragmentainer(handler.getFlowLayoutSpace(constraintSpace, 0));
+						needed = 0;
+					}
+					fitsRemainingSpace = needed <= actualRemaining;
+				}
 				if (needed > flowReservations[i] && reservationHistory[i].has(needed)) {
 					const completePrefix = flowResult.fragment.childFragments
 						.filter((child) => !child.breakToken)
-						.map((child) => child.blockOffset + child.blockSize)
+						.map((child) => child.blockOffset + child.blockSize + needed - flowResult.fragment.blockSize)
 						.findLast((end) => end > flowReservations[i] && end < Math.min(cap, needed));
 					if (completePrefix !== undefined) {
 						// Reservation cycle: try the last complete child boundary before
@@ -964,13 +995,12 @@ export class Fragmenter extends Iterator {
 						(flowTotal - flowReservations[i]));
 					const full = flow.snapshot();
 					flow.restore(queued);
-					const bounded = flow.layoutFragmentainer({
-						availableInlineSize: constraintSpace.availableInlineSize,
-						availableBlockSize: Math.min(cap, remaining),
-					});
-					if (!bounded.rejectedNode && bounded.fragment.blockSize > 0 && bounded.fragment.blockSize <= remaining) {
+					const bounded = flow.layoutFragmentainer(handler.getFlowLayoutSpace(constraintSpace, Math.min(cap, remaining)));
+					if (retryAtAnchor(bounded)) continue;
+					const boundedReservation = handler.getFlowReservation(bounded.fragment);
+					if (!bounded.rejectedNode && bounded.fragment.blockSize > 0 && boundedReservation <= remaining) {
 						flowResult = bounded;
-						needed = bounded.fragment.blockSize;
+						needed = boundedReservation;
 						fitsRemainingSpace = true;
 					} else {
 						flow.restore(full);
@@ -979,7 +1009,7 @@ export class Fragmenter extends Iterator {
 				}
 				const fitsReservation = needed <= flowReservations[i] &&
 					(conservativeReservations[i] || iter === iterationLimit);
-				if (needed !== flowReservations[i] && !fitsRemainingSpace && !fitsReservation) {
+				if (iter < iterationLimit && needed !== flowReservations[i] && !fitsRemainingSpace && !fitsReservation) {
 					flow.restore(save);
 					reservationHistory[i].add(needed);
 					flowReservations[i] = needed;
@@ -1104,6 +1134,10 @@ export class Fragmenter extends Iterator {
 			constraintSpace = Object.assign(new ConstraintSpace(), constraintSpace);
 			constraintSpace.bodyMarginBlockStart = this.#tree.marginBlockStart;
 			constraintSpace.fragmentainerContentStart = this.#tree.marginBlockStart;
+		}
+
+		for (const { handler } of this.#flowContext.handlers.getFlows()) {
+			handler.prepareFragmentainer(constraintSpace, constraints);
 		}
 
 		// Sync DOM measurement container
