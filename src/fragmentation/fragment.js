@@ -115,7 +115,10 @@ export class Fragment {
 
 		const node = this.node;
 
-		if (this.multicolData) {
+		if (!node.element && !node.isInlineNode) {
+			// Flow threads: structural nodes carry descendants but no box to clone.
+			this.#buildChildren(parentEl, inputBreakToken, cloneMap);
+		} else if (this.multicolData) {
 			this.#buildMulticol(inputBreakToken, parentEl, cloneMap);
 		} else if (node.isInlineNode) {
 			this.#buildInline(inputBreakToken, parentEl);

@@ -42,3 +42,28 @@ for (const count of ["auto", "1", "2"]) {
 		}
 	});
 }
+
+test("keeps multicol flow threads transparent during composition", async ({ page }) => {
+	const result = await page.evaluate(async () => {
+		const { Fragment } = await import("/src/fragmentation/fragment.js");
+		const { FlowThreadNode } = await import("/src/layout/flow-thread-node.js");
+		const { DOMLayoutNode } = await import("/src/layout/layout-node.js");
+		const source = document.createElement("div");
+		source.innerHTML = "<p data-flow-thread-child>Child content</p>";
+		document.body.append(source);
+
+		const child = new Fragment(new DOMLayoutNode(source.firstElementChild), 20);
+		const flowThread = new Fragment(
+			new FlowThreadNode(new DOMLayoutNode(source)),
+			20,
+			[child],
+		);
+		const root = new Fragment(null, 20, [flowThread]);
+		const content = root.build(null);
+		const composed = content.querySelector("[data-flow-thread-child]");
+		source.remove();
+		return composed?.textContent;
+	});
+
+	expect(result).toBe("Child content");
+});
