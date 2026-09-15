@@ -949,8 +949,7 @@ test.describe("block-start decorations across fragmentainers", () => {
 					styles: [sheet],
 				});
 
-				// stop: 0 runs layout without composing anything.
-				const ctx = flow.flow({ start: 0, stop: 0 });
+				const ctx = flow.flow();
 				const olToken = ctx.fragments[0].breakToken.childBreakTokens[0];
 				const recorded = {
 					tag: olToken.node.element.tagName,
@@ -960,7 +959,7 @@ test.describe("block-start decorations across fragmentainers", () => {
 
 				const pages = [];
 				for (let i = 0; i < ctx.fragmentainerCount; i++) {
-					pages.push(ctx.createFragmentainer(i).innerHTML);
+					pages.push(ctx.next().value.innerHTML);
 				}
 				flow.destroy();
 				return { recorded, pages };
@@ -1009,17 +1008,17 @@ test.describe("block-start decorations across fragmentainers", () => {
 					return { flow, ctx: flow.flow(range) };
 				}
 
-				const whole = start({ start: 0, stop: 0 });
+				const whole = start();
 				const beforeCompose = whole.ctx.fragments.map((f) => snapshot(f.breakToken));
 				const wholePages = [];
 				for (let i = 0; i < whole.ctx.fragmentainerCount; i++) {
-					wholePages.push(whole.ctx.createFragmentainer(i).innerHTML);
+					wholePages.push(whole.ctx.next().value.innerHTML);
 				}
 				const afterCompose = whole.ctx.fragments.map((f) => snapshot(f.breakToken));
 				whole.flow.destroy();
 
 				const subrange = start({ start: 1 });
-				const subrangePage = subrange.ctx[0].innerHTML;
+				const subrangePage = subrange.ctx.next().value.innerHTML;
 				subrange.flow.destroy();
 
 				return {

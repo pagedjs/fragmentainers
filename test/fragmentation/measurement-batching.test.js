@@ -56,7 +56,7 @@ test.describe("measurement write batching", () => {
 					}
 				}
 				window.flow = new Fragmenter(frag, { width: 300, height: 260, styles: [sheet] });
-				const pages = window.flow.flow().length;
+				const pages = [...window.flow.flow()].length;
 				void document.body.offsetHeight;
 				return { pages };
 			},
@@ -149,7 +149,7 @@ test.describe("measurement write batching", () => {
 					}
 				}
 				window.flow = new Fragmenter(frag, { styles: [sheet] });
-				const pages = window.flow.flow().length;
+				const pages = [...window.flow.flow()].length;
 				void document.body.offsetHeight;
 				return { pages };
 			},

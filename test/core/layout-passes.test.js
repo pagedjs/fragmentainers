@@ -1,7 +1,7 @@
 import { test, expect } from "../browser-fixture.js";
 
 test.describe("Fragmenter layout passes", () => {
-	test("streams ordinary flows but buffers registered flows before yielding", async ({ page }) => {
+	test("streams ordinary flows but settles registered flows before composing one element at a time", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { Fragmenter } = await import("/src/fragmentation/fragmenter.js");
 			const { LayoutHandler } = await import("/src/handlers/handler.js");
@@ -128,7 +128,7 @@ test.describe("Fragmenter layout passes", () => {
 		expect(result.registered).toEqual({
 			firstIndex: 0,
 			firstDone: false,
-			bufferedState: { laidOut: 3, afterPass: 1, composed: 3 },
+			bufferedState: { laidOut: 3, afterPass: 1, composed: 1 },
 			remaining: [
 				{ index: 1, done: false },
 				{ index: 2, done: false },
@@ -139,7 +139,7 @@ test.describe("Fragmenter layout passes", () => {
 			firstIndex: 0,
 			laidOut: 3,
 			afterPass: 1,
-			composed: 3,
+			composed: 1,
 		});
 	});
 

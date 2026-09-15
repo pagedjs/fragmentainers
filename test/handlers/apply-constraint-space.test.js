@@ -39,7 +39,7 @@ test.describe("applyConstraintSpace hook", () => {
 					{ inlineSize: 300, blockSize: 200 },
 				);
 				flow = new Fragmenter(template.content, { resolver });
-				const pageCount = flow.flow().length;
+				const pageCount = [...flow.flow()].length;
 				return { calls, pageCount };
 			} finally {
 				flow?.destroy();
@@ -182,7 +182,7 @@ test.describe("applyConstraintSpace hook", () => {
 				// flow() releases the measurer when it finishes; reflow reattaches it.
 				flow.flow();
 				calls.length = 0;
-				const pageCount = flow.reflow(0).length;
+				const pageCount = [...flow.reflow(0)].length;
 				return { calls: calls.slice(0, 3), pageCount };
 			} finally {
 				flow?.destroy();

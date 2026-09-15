@@ -825,7 +825,7 @@ text nodes is needed.
 
 ### Fragment containers
 
-`FragmentationContext.createFragmentainer(index)` creates a `<fragment-container>`
+`FragmentationContext.next()` creates a `<fragment-container>`
 custom element. `fragment.build()` produces the composed DOM, which is
 appended as light-DOM children of the host (projected visually through the
 `<slot>` in the host's shadow scaffold), registering clone→source mappings as

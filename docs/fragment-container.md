@@ -43,7 +43,7 @@ Fragmenter.next()
   │
   ├── run layout for one fragmentainer   ← Fragment + BreakToken + CounterState
   │
-  └── FragmentationContext.createFragmentainer(index)
+  └── FragmentationContext.next()
         │
         ├── document.createElement("fragment-container")
         ├── assign fragmentIndex, constraints, namedPage
@@ -101,10 +101,10 @@ composite sheet.
 ## 3. Creation via FragmentationContext
 
 All fragment-containers are created by
-`FragmentationContext.createFragmentainer(index)` in
-`src/fragmentation/fragmentation-context.js`. The constructor creates one per
-fragment when composition runs; consumers can also instantiate elements
-lazily by calling `createFragmentainer()` directly (e.g. during `reflow()`).
+`FragmentationContext.next()` in
+`src/fragmentation/fragmentation-context.js`. The constructor stores layout metadata without creating DOM. Each iterator
+step composes the next selected element, preserving preceding break tokens
+and counters. `flow()` and `reflow()` return this lazy iterator.
 
 Key points:
 

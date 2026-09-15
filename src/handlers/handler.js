@@ -246,6 +246,13 @@ export class LayoutHandler {
 	composeFlowFragment() {}
 
 	/**
+	 * Reset composition state and recover carryover before a selected range.
+	 * @param {{fromIndex: number, fragments: import("../fragmentation/fragment.js").Fragment[], indexOffset: number}} context Full layout and absolute start of composition.
+	 * @returns {void}
+	 */
+	beforeComposition() {}
+
+	/**
 	 * Called after a fragment-container has been fully composed. Engine-owned
 	 * properties, fragment content, and afterRender callbacks are complete.
 	 *

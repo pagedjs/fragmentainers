@@ -138,9 +138,16 @@ Options are checked in priority order: `constraintSpace` > `resolver` > `width`/
 **Source:** `src/fragmentation/fragmentation-context.js`
 
 Result of running fragmentation -- a "fragmented flow" in CSS spec terms.
-Extends `Array`, so context instances are directly iterable: `context[0]` gives
-the first element, `context.length` gives the composed count, and `for...of`
-iterates the elements. Elements are created eagerly during `flow()`.
+Extends `Iterator`. `flow()` and `reflow()` settle layout and return a context
+without creating output DOM. Each `next()` composes one selected element;
+`for...of` consumes the remaining elements. Collect with `Array.from(context)`
+when indexing or repeated traversal of elements is needed. `.fragments` and
+`.fragmentainerCount` describe layout independently of iterator consumption.
+
+The context becomes invalid when its owner starts another flow, reflows,
+rebuilds layout, or is destroyed. Advancing an unfinished invalid context throws
+`AbortError`. A completed context stays exhausted. Range indexes are relative
+to the context; emitted `fragmentIndex` values include the continuation offset.
 
 #### Constructor
 
@@ -167,7 +174,8 @@ new FragmentationContext(fragments, contentStyles, { start, stop, previous });
 
 | Method                       | Returns   | Description                                                                                                                                                 |
 | ---------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createFragmentainer(index)` | `Element` | Create a single fragmentainer as a `<fragment-container>` element. Blank pages get `data-blank-page` attribute. Sets `namedPage` property from constraints. |
+| `next()` | `IteratorResult<Element>` | Compose the next selected fragmentainer, or return `done: true`. |
+| `locate(element)` | `Array` | Find the source element in the layout, with absolute indexes and continuation metadata. |
 
 ---
 
@@ -1395,3 +1403,14 @@ Returns the lazily-initialized shared `FontMetrics` singleton.
 | `measure(family, weight?, style?)`                         | `number` | Raw line-height ratio for a font (cached, DPR-independent)            |
 | `getNormalLineHeight(element)`                             | `number` | DPR-rounded `line-height: normal` for a live DOM element              |
 | `computeNormalLineHeight(family, weight, style, fontSize)` | `number` | DPR-rounded `line-height: normal` from raw CSS values (no DOM needed) |
+
+
+### Composition lifecycle
+
+`LayoutHandler.beforeComposition({ fromIndex, fragments, indexOffset })` runs
+once on the first consumed element of each context. `fragments` contains the
+full layout, including the prefix preceding a reflowed suffix. Both indexes
+are absolute: `indexOffset` numbers the first layout fragment, and `fromIndex`
+is the first selected output. Use this hook to reset output state and recover
+range carryover without composing prefix elements. `afterCompose` runs once
+for each yielded element, after content and page annotations are installed.

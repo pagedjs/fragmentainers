@@ -732,13 +732,13 @@ reflow; an already-built mock layout tree uses `NullMeasurer`.
 
 ### FragmentationContext
 
-`FragmentationContext` extends `Array` — iterate directly to access composed `<fragment-container>` elements.
+`FragmentationContext` extends `Iterator`. Layout is settled before construction; each step creates one selected `<fragment-container>`. Collect explicitly with `Array.from(context)` when array access is needed.
 
 | Property / Method              | Type                   | Description                                                                                                                   |
 | ------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `fragments`                    | `Fragment[]`   | All fragmentainer fragments                                                                                                   |
 | `fragmentainerCount`           | `number`               | Number of fragmentainers                                                                                                      |
-| `createFragmentainer(index)`   | `Element`              | Composes one `<fragment-container>`. Blank pages get `data-blank-page` attribute. Sets `namedPage` property from constraints. |
+| `next()`                      | `IteratorResult<Element>`              | Lazily composes the next selected `<fragment-container>`. Blank pages get `data-blank-page` attribute. Sets `namedPage` property from constraints. |
 
 The constructor accepts `{ start, stop, previous }` as its third argument.
 `previous` supplies the fragment before a reflowed suffix so its first composed

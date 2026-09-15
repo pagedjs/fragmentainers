@@ -162,3 +162,10 @@ fragment --help                                      # full flag list
 ## License
 
 MIT
+
+
+`flow({ start, stop })` and `reflow(fromIndex)` return lazy
+`FragmentationContext` iterators after layout settles. Read `.fragments` for
+layout data, consume with `for...of` for incremental DOM composition, or use
+`Array.from(context)` to collect all elements. Contexts are single-use and
+unfinished contexts are invalidated by replacement layout or destruction.

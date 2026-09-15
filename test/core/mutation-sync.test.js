@@ -18,7 +18,8 @@ test.describe("MutationSync with shared clone map", () => {
         </div>`;
 
 				const layout = new Fragmenter(template.content, { width: 400, height: 150 });
-				const flow = layout.flow();
+				const flowResult = layout.flow();
+				const flow = Array.from(flowResult);
 
 				const syncHandler = layout.handlers.get(MutationSync);
 
@@ -305,7 +306,8 @@ test.describe("FragmentContainerElement.takeMutationRecords()", () => {
         <div style="height: 200px; margin: 0;"></div>
       </div>`;
 			const layout = new Fragmenter(template.content, { width: 400, height: 100 });
-			const flow = layout.flow();
+			const flowResult = layout.flow();
+			const flow = Array.from(flowResult);
 			const fragEl = flow[0];
 			document.body.appendChild(fragEl);
 

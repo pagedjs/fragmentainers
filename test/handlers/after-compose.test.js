@@ -55,7 +55,9 @@ test.describe("LayoutHandler.afterCompose", () => {
 				},
 			];
 
-			const context = new FragmentationContext([fragment], { sheets: [] }, { handlers });
+			const contextResult = new FragmentationContext([fragment], { sheets: [] }, { handlers });
+
+			const context = Array.from(contextResult);
 			return { calls, contextLength: context.length };
 		});
 
@@ -112,7 +114,9 @@ test.describe("LayoutHandler.afterCompose", () => {
 			};
 			fragment.isBlank = true;
 
-			const context = new FragmentationContext([fragment], { sheets: [] }, { handlers });
+			const contextResult = new FragmentationContext([fragment], { sheets: [] }, { handlers });
+
+			const context = Array.from(contextResult);
 			return { calls, contextLength: context.length };
 		});
 
@@ -156,7 +160,8 @@ test.describe("LayoutHandler.afterCompose", () => {
 				layout = new Fragmenter(template.content, {
 					resolver: new PageResolver([], { inlineSize: 300, blockSize: 100 }),
 				});
-				const context = layout.flow();
+				const contextResult = layout.flow();
+				const context = Array.from(contextResult);
 				return { calls, pageCount: context.length };
 			} finally {
 				layout?.destroy();

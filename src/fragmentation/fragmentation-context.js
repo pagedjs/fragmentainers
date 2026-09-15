@@ -8,25 +8,29 @@ export const DEFAULT_OVERFLOW_THRESHOLD = 16 * 1.2;
 /**
  * The result of running fragmentation — a "fragmented flow" in CSS spec terms.
  *
- * Extends Array so it is directly iterable as the array of
+ * Lazily iterates in document order over
  * <fragment-container> elements. Also exposes the underlying
  * Fragment data via .fragments.
  */
-export class FragmentationContext extends Array {
+export class FragmentationContext extends Iterator {
 	#fragments;
 	#previous = null;
 	#contentStyles;
 	#handlers;
 	#indexOffset = 0;
 
-	static get [Symbol.species]() {
-		return Array;
-	}
+	#position;
+	#stop;
+	#started = false;
+	#exhausted = false;
+	#signal;
+	#layoutFragments;
+	#layoutIndexOffset;
 
 	/**
 	 * @param {import("./fragment.js").Fragment[]} fragments
 	 * @param {{ sheets: CSSStyleSheet[] }|null} contentStyles
-	 * @param {{ start?: number, stop?: number, previous?: import("./fragment.js").Fragment|null, handlers?: import("../handlers/registry.js").HandlerRegistry|null, indexOffset?: number }} [range]
+	 * @param {{ start?: number, stop?: number, previous?: import("./fragment.js").Fragment|null, handlers?: import("../handlers/registry.js").HandlerRegistry|null, indexOffset?: number, signal?: AbortSignal, layoutFragments?: import("./fragment.js").Fragment[], layoutIndexOffset?: number }} [range]
 	 *   `previous` is the fragment preceding index 0 of `fragments` — set when
 	 *   this context holds a slice of a longer flow (reflow), so the first
 	 *   fragmentainer still resumes its counters and split decorations.
@@ -34,7 +38,8 @@ export class FragmentationContext extends Array {
 	constructor(
 		fragments,
 		contentStyles,
-		{ start = 0, stop, previous = null, handlers = null, indexOffset = 0 } = {},
+		{ start = 0, stop, previous = null, handlers = null, indexOffset = 0, signal,
+			layoutFragments = fragments, layoutIndexOffset = indexOffset } = {},
 	) {
 		super();
 		this.#fragments = fragments;
@@ -42,12 +47,33 @@ export class FragmentationContext extends Array {
 		this.#contentStyles = contentStyles;
 		this.#handlers = handlers;
 		this.#indexOffset = indexOffset;
-		if (contentStyles) {
-			const end = stop ?? fragments.length;
-			for (let i = start; i < end; i++) {
-				this.push(this.createFragmentainer(i));
-			}
+		this.#position = start;
+		this.#stop = stop;
+		this.#signal = signal;
+		this.#layoutFragments = layoutFragments;
+		this.#layoutIndexOffset = layoutIndexOffset;
+	}
+
+	/**
+	 * Compose the next selected fragmentainer, after its layout has settled.
+	 * @returns {IteratorResult<Element>} The next element or exhaustion.
+	 */
+	next() {
+		if (this.#exhausted) return { value: undefined, done: true };
+		this.#signal?.throwIfAborted();
+		if (!this.#contentStyles || this.#position >= Math.min(this.#stop ?? this.#fragments.length, this.#fragments.length)) {
+			this.#exhausted = true;
+			return { value: undefined, done: true };
 		}
+		if (!this.#started) {
+			this.#started = true;
+			this.#handlers?.beforeComposition({
+				fromIndex: this.#indexOffset + this.#position,
+				fragments: this.#layoutFragments,
+				indexOffset: this.#layoutIndexOffset,
+			});
+		}
+		return { value: this.#createFragmentainer(this.#position++), done: false };
 	}
 
 	/** @returns {import("./fragment.js").Fragment[]} */
@@ -74,12 +100,12 @@ export class FragmentationContext extends Array {
 	 * @param {number} index - Zero-based fragmentainer index
 	 * @returns {Element} A <fragment-container> element
 	 */
-	createFragmentainer(index) {
+	#createFragmentainer(index) {
 		const fragment = this.#fragments[index];
 		const { contentArea } = fragment.constraints;
 
 		const el = document.createElement("fragment-container");
-		el.fragmentIndex = index;
+		el.fragmentIndex = this.#indexOffset + index;
 		el.constraints = fragment.constraints;
 		el.namedPage = fragment.constraints?.namedPage ?? null;
 		if (!fragment.constraints.pageBoxSize) {

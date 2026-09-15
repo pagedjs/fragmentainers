@@ -767,7 +767,8 @@ test.describe("end-to-end cascade", () => {
 				height: 100,
 				styles: [sheet],
 			});
-			const flow = layout.flow();
+			const flowResult = layout.flow();
+			const flow = Array.from(flowResult);
 			for (const fragmentainer of flow) document.body.appendChild(fragmentainer);
 			const following = flow.find((el) => el.querySelector("#following"));
 			const other = flow.find((el) => el.querySelector("#other"));

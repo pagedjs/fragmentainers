@@ -244,6 +244,7 @@ export class Fragmenter extends Iterator {
 	#pushedBreaks = [];
 	#initialFlowSnapshots = null;
 	#buffered = null;
+	#composition = new AbortController();
 
 	/**
 	 * @param {DocumentFragment|Element|object} content - Content to fragment
@@ -384,6 +385,7 @@ export class Fragmenter extends Iterator {
 			this.releaseMeasurer();
 			this.#ensureStyleSheet();
 			this.#context = new FragmentationContext([...this.#fragments], this.#contentStyles, {
+				signal: this.#composition.signal,
 				handlers: this.#flowContext.handlers,
 				indexOffset: this.#startIndex,
 			});
@@ -395,6 +397,7 @@ export class Fragmenter extends Iterator {
 		if (!this.#context) {
 			this.#ensureStyleSheet();
 			this.#context = new FragmentationContext(this.#fragments, this.#contentStyles, {
+				signal: this.#composition.signal,
 				handlers: this.#flowContext.handlers,
 				indexOffset: this.#startIndex,
 			});
@@ -402,12 +405,11 @@ export class Fragmenter extends Iterator {
 
 		this.#step();
 
-		// Create element and push to internal context (if contentStyles available)
+		// Composition
 		let el;
 		if (this.#contentStyles) {
 			this.#ensureStyleSheet();
-			el = this.#context.createFragmentainer(this.#fragments.length - 1);
-			this.#context.push(el);
+			el = this.#context.next().value;
 		}
 
 		if (this.#done) this.releaseMeasurer();
@@ -430,7 +432,7 @@ export class Fragmenter extends Iterator {
 	}
 
 	/**
-	 * Run fragmentation to completion and return a FragmentationContext.
+	 * Settle fragmentation and return a lazy iterator over composed elements.
 	 *
 	 * Use flow() when you need a specific range of elements, or when
 	 * you want the full FragmentationContext result. For simple iteration,
@@ -442,6 +444,7 @@ export class Fragmenter extends Iterator {
 	 * @returns {FragmentationContext}
 	 */
 	flow({ start, stop } = {}) {
+		this.#invalidateComposition();
 		this.#layout();
 		this.#runToEnd();
 		this.#settleLayout(this.#startIndex);
@@ -454,6 +457,7 @@ export class Fragmenter extends Iterator {
 		return new FragmentationContext([...this.#fragments], this.#contentStyles, {
 			start,
 			stop,
+			signal: this.#composition.signal,
 			handlers: this.#flowContext.handlers,
 			indexOffset: this.#startIndex,
 		});
@@ -487,6 +491,9 @@ export class Fragmenter extends Iterator {
 		this.#ensureStyleSheet();
 
 		return new FragmentationContext(fragments, this.#contentStyles, {
+			signal: this.#composition.signal,
+			layoutFragments: [...this.#fragments],
+			layoutIndexOffset: this.#startIndex,
 			previous: prev,
 			handlers: this.#flowContext.handlers,
 			indexOffset: this.#startIndex + position,
@@ -641,6 +648,7 @@ export class Fragmenter extends Iterator {
 	}
 
 	#restartLayout(fromIndex, { rebuild = false } = {}) {
+		this.#invalidateComposition();
 		if (rebuild) {
 			if (this.#initialFlowSnapshots) {
 				const entries = this.#flowContext.handlers.getFlows();
@@ -1187,6 +1195,7 @@ export class Fragmenter extends Iterator {
 	 * @param {boolean} [forceUpdate=false] - Force re-initialization
 	 */
 	layout(forceUpdate = false) {
+		if (forceUpdate) this.#invalidateComposition();
 		this.#layout(forceUpdate);
 	}
 
@@ -1429,6 +1438,8 @@ export class Fragmenter extends Iterator {
 	 * Call when the layout is no longer needed.
 	 */
 	destroy() {
+		this.#invalidateComposition();
+		this.#done = true;
 		if (this.#measurer) {
 			const result = this.#measurer.release();
 			this.#content = result.content;
@@ -1466,6 +1477,13 @@ export class Fragmenter extends Iterator {
 		this.#fragments = [];
 		this.#tree = null;
 		this.#prevFragment = null;
+		this.#context = null;
+		this.#buffered = null;
+	}
+
+	#invalidateComposition() {
+		this.#composition.abort(new DOMException("Layout was replaced or destroyed", "AbortError"));
+		this.#composition = new AbortController();
 		this.#context = null;
 		this.#buffered = null;
 	}

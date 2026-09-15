@@ -330,7 +330,8 @@ test.describe("Fragmenter.reflow()", () => {
 							(item) => item.getAttribute("data-seeded"),
 						),
 					);
-				const expected = read(initial);
+				const initialElements = [...initial];
+				const expected = read(initialElements);
 				const restarts = [];
 				for (let index = 0; index < initial.fragments.length; index++) {
 					restarts.push(read(layout.reflow(index)));
@@ -339,7 +340,7 @@ test.describe("Fragmenter.reflow()", () => {
 					expected,
 					restarts,
 					mainBreaks: initial.fragments.map((fragment) => fragment.breakToken !== null),
-					mainContent: [...initial].map(
+					mainContent: initialElements.map(
 						(element) => element.querySelector("[data-main]") !== null,
 					),
 					flowState: initial.fragments.map((fragment) =>
@@ -538,7 +539,9 @@ test.describe("Fragmenter.reflow() (browser)", () => {
 			const frag0BlockSize = flow.fragments[0].blockSize;
 			const originalCount = flow.fragmentainerCount;
 
-			const newFlow = layout.reflow(1);
+			const newFlowResult = layout.reflow(1);
+
+			const newFlow = Array.from(newFlowResult);
 			const r = {
 				originalCount,
 				newFlowLengthGt0: newFlow.length > 0,
@@ -572,7 +575,9 @@ test.describe("layout.reflow() returns FragmentationContext (browser)", () => {
 			});
 			layout.flow();
 
-			const newFlow = layout.reflow(0);
+			const newFlowResult = layout.reflow(0);
+
+			const newFlow = Array.from(newFlowResult);
 			const r = {
 				lengthGt0: newFlow.length > 0,
 				tagName: newFlow[0].tagName.toLowerCase(),
@@ -603,9 +608,11 @@ test.describe("layout.reflow() returns FragmentationContext (browser)", () => {
 			const target = layout.contentRoot.querySelector("#target");
 			target.style.height = "50px";
 
-			const newFlow = layout.reflow(0);
+			const newFlowResult = layout.reflow(0);
+
+			const newFlow = Array.from(newFlowResult);
 			const r = {
-				fragmentainerCount: newFlow.fragmentainerCount,
+				fragmentainerCount: newFlowResult.fragmentainerCount,
 				length: newFlow.length,
 			};
 			layout.destroy();
@@ -631,7 +638,8 @@ test.describe("FragmentContainerElement observers (browser)", () => {
 				width: 400,
 				height: 100,
 			});
-			const flow = layout.flow();
+			const flowResult = layout.flow();
+			const flow = Array.from(flowResult);
 
 			const indices = [];
 			for (let i = 0; i < flow.length; i++) {
@@ -659,7 +667,8 @@ test.describe("FragmentContainerElement observers (browser)", () => {
 				width: 400,
 				height: 100,
 			});
-			const flow = layout.flow();
+			const flowResult = layout.flow();
+			const flow = Array.from(flowResult);
 			const fragEl = flow[0];
 			document.body.appendChild(fragEl);
 
@@ -710,7 +719,8 @@ test.describe("FragmentContainerElement observers (browser)", () => {
 				width: 400,
 				height: 100,
 			});
-			const flow = layout.flow();
+			const flowResult = layout.flow();
+			const flow = Array.from(flowResult);
 			const fragEl = flow[0];
 			document.body.appendChild(fragEl);
 

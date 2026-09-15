@@ -139,9 +139,10 @@ async function run() {
 		await layout.preload();
 
 		const tLayout = performance.now();
-		const flow = layout.flow();
+		const flowResult = layout.flow();
+		const flow = Array.from(flowResult);
 		const layoutTime = performance.now() - tLayout;
-		const fragments = flow.fragments;
+		const fragments = flowResult.fragments;
 
 		const [startIdx, endIdx] = parseRange(range, fragments.length);
 

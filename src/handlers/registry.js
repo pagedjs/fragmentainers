@@ -241,6 +241,16 @@ export class HandlerRegistry {
 		}
 	}
 
+	/**
+	 * Begin a new composition sequence without retaining prior output state.
+	 * @param {{fromIndex: number, fragments: import("../fragmentation/fragment.js").Fragment[], indexOffset: number}} context Layout metadata.
+	 * @returns {void}
+	 */
+	beforeComposition(context) {
+		this.#ensureReady();
+		for (const handler of this.#handlers) handler.beforeComposition(context);
+	}
+
 	beforeLayoutPass(context) {
 		this.#ensureReady();
 		for (const handler of this.#handlers) handler.beforeLayoutPass(context);

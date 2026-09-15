@@ -25,7 +25,8 @@ test.describe("Segment sheet reinstall (HND-3)", () => {
 			source.append(heading, following);
 
 			const layout = new Fragmenter(source, { width: 300, height: 200, styles: [sheet] });
-			const flow = layout.flow();
+			const flowResult = layout.flow();
+			const flow = Array.from(flowResult);
 			for (const fragmentainer of flow) document.body.appendChild(fragmentainer);
 			const pageWithFollowing = flow.find((el) => el.querySelector("p"));
 			const color = getComputedStyle(pageWithFollowing.querySelector("p")).color;

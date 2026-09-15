@@ -99,11 +99,13 @@ test.describe("FragmentationContext", () => {
 				return fragments;
 			}
 
-			const flow = new FragmentationContext(makeFragments(3), null);
+			const flowResult = new FragmentationContext(makeFragments(3), null);
+
+			const flow = Array.from(flowResult);
 			return {
 				length: flow.length,
-				fragmentainerCount: flow.fragmentainerCount,
-				fragmentsLength: flow.fragments.length,
+				fragmentainerCount: flowResult.fragmentainerCount,
+				fragmentsLength: flowResult.fragments.length,
 			};
 		});
 
@@ -136,7 +138,9 @@ test.describe("FragmentationContext", () => {
 				return fragments;
 			}
 
-			const flow = new FragmentationContext(makeFragments(2), null);
+			const flowResult = new FragmentationContext(makeFragments(2), null);
+
+			const flow = Array.from(flowResult);
 			const mapped = flow.map((el) => el?.tagName || "none");
 			const isArray = Array.isArray(mapped);
 			const isNotFragmentationContext = !(mapped instanceof FragmentationContext);
@@ -320,11 +324,12 @@ test.describe("Fragmenter.flow() (browser)", () => {
 				width: 400,
 				height: 100,
 			});
-			const flow = layout.flow();
+			const flowResult = layout.flow();
+			const flow = Array.from(flowResult);
 			const r = {
-				isFragmentationContext: flow instanceof FragmentationContext,
-				fragmentainerCountGte2: flow.fragmentainerCount >= 2,
-				lengthMatchesCount: flow.length === flow.fragmentainerCount,
+				isFragmentationContext: flowResult instanceof FragmentationContext,
+				fragmentainerCountGte2: flowResult.fragmentainerCount >= 2,
+				lengthMatchesCount: flow.length === flowResult.fragmentainerCount,
 			};
 			layout.destroy();
 			return r;
@@ -347,9 +352,10 @@ test.describe("Fragmenter.flow() (browser)", () => {
 				width: 400,
 				height: 100,
 			});
-			const flow = layout.flow({ start: 1, stop: 3 });
+			const flowResult = layout.flow({ start: 1, stop: 3 });
+			const flow = Array.from(flowResult);
 			const r = {
-				fragmentainerCountGte4: flow.fragmentainerCount >= 4,
+				fragmentainerCountGte4: flowResult.fragmentainerCount >= 4,
 				length: flow.length,
 				firstIndex: flow[0].fragmentIndex,
 				secondIndex: flow[1].fragmentIndex,
@@ -376,7 +382,8 @@ test.describe("Fragmenter.flow() (browser)", () => {
 				width: 400,
 				height: 100,
 			});
-			const flow = layout.flow();
+			const flowResult = layout.flow();
+			const flow = Array.from(flowResult);
 			const tags = [];
 			for (const el of flow) {
 				tags.push(el.tagName.toLowerCase());
@@ -403,7 +410,8 @@ test.describe("Fragmenter.flow() (browser)", () => {
 				width: 400,
 				height: 100,
 			});
-			const flow = layout.flow();
+			const flowResult = layout.flow();
+			const flow = Array.from(flowResult);
 			const r = {
 				tagName: flow[0].tagName.toLowerCase(),
 				fragmentIndex: flow[0].fragmentIndex,
@@ -673,7 +681,7 @@ test.describe("namedPage property", () => {
 			const flow = new FragmentationContext(fragments, contentStyles);
 			const namedPages = [];
 			for (let i = 0; i < fragments.length; i++) {
-				const el = flow.createFragmentainer(i);
+				const el = flow.next().value;
 				namedPages.push(el.namedPage);
 			}
 			return { namedPages };
