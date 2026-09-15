@@ -75,11 +75,12 @@ function inlineTargetRange(items, target) {
 	return Number.isFinite(range.start) && Number.isFinite(range.end) ? range : null;
 }
 
-function locateInline(fragment, inputToken, target) {
+function locateInline(fragment, inputToken, target, ranges) {
 	const data = fragment.node.inlineItemsData;
 	if (!data?.items?.length) return { found: false, precise: false, continuation: false };
 
-	const range = inlineTargetRange(data.items, target);
+	if (!ranges.has(data)) ranges.set(data, inlineTargetRange(data.items, target));
+	const range = ranges.get(data);
 	if (!range || range.start >= range.end) {
 		return { found: false, precise: false, continuation: false };
 	}
@@ -97,11 +98,11 @@ function locateInline(fragment, inputToken, target) {
 	};
 }
 
-function locateInFragment(fragment, inputToken, target) {
+function locateInFragment(fragment, inputToken, target, ranges) {
 	const node = fragment?.node;
 	if (!node) return { found: false, precise: false, continuation: false };
 
-	if (node.isInlineNode) return locateInline(fragment, inputToken, target);
+	if (node.isInlineNode) return locateInline(fragment, inputToken, target, ranges);
 
 	if (node.element === target) {
 		return { found: true, precise: true, continuation: isContinuation(inputToken) };
@@ -112,7 +113,7 @@ function locateInFragment(fragment, inputToken, target) {
 	for (const child of fragment.childFragments ?? []) {
 		if (!child.node) continue;
 		const childToken = childInputToken(inputToken, child.node, taken);
-		childMatches.push(locateInFragment(child, childToken, target));
+		childMatches.push(locateInFragment(child, childToken, target, ranges));
 	}
 
 	const nested = mergeMatches(childMatches);
@@ -148,9 +149,10 @@ function locateInFragment(fragment, inputToken, target) {
 export function locate(fragments, element, { previous = null, indexOffset = 0 } = {}) {
 	if (!Array.isArray(fragments) || !element) return [];
 
+	const ranges = new WeakMap();
 	let seenFallback = false;
 	if (previous && !previous.isBlank) {
-		seenFallback = locateInFragment(previous, null, element).found;
+		seenFallback = locateInFragment(previous, null, element, ranges).found;
 	}
 
 	const locations = [];
@@ -162,7 +164,7 @@ export function locate(fragments, element, { previous = null, indexOffset = 0 } 
 			previousFragment = fragment;
 			continue;
 		}
-		const match = locateInFragment(fragment, inputToken, element);
+		const match = locateInFragment(fragment, inputToken, element, ranges);
 		if (match.found) {
 			locations.push({
 				index: indexOffset + i,
