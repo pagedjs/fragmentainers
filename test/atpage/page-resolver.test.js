@@ -130,7 +130,7 @@ test.describe("PageResolver", () => {
 		});
 	});
 
-	test("resolves padding percentages against the page inline size", async ({ page }) => {
+	test("resolves padding percentages against the corresponding page axis", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const resolver = new PageResolver([
@@ -142,8 +142,8 @@ test.describe("PageResolver", () => {
 			return resolver.resolve(0, null, null);
 		});
 
-		expect(result.padding).toEqual({ top: 60, right: 60, bottom: 60, left: 60 });
-		expect(result.contentArea).toEqual({ inlineSize: 480, blockSize: 680 });
+		expect(result.padding).toEqual({ top: 80, right: 60, bottom: 80, left: 60 });
+		expect(result.contentArea).toEqual({ inlineSize: 480, blockSize: 640 });
 	});
 
 	test("suppresses border width for none and hidden styles", async ({ page }) => {
@@ -223,7 +223,7 @@ test.describe("PageResolver", () => {
 		expect(result).toEqual({ top: 32, right: 32, bottom: 32, left: 32 });
 	});
 
-	test("resolves percentage margins against the page inline size", async ({ page }) => {
+	test("resolves percentage margins against the corresponding page axis", async ({ page }) => {
 		const result = await page.evaluate(async () => {
 			const { PageRule, PageResolver } = await import("/src/resolvers/page-resolver.js");
 			const pct = { top: "10%", right: "10%", bottom: "10%", left: "10%" };
@@ -233,7 +233,7 @@ test.describe("PageResolver", () => {
 			});
 			return resolver.resolve(0, null, null).margins;
 		});
-		expect(result).toEqual({ top: 60, right: 60, bottom: 60, left: 60 });
+		expect(result).toEqual({ top: 80, right: 60, bottom: 80, left: 60 });
 	});
 
 	test("resolves an em page size without throwing", async ({ page }) => {

@@ -401,10 +401,12 @@ export class PageResolver {
 	 */
 	resolveMargins(marginDecl, pageSize) {
 		const margins = {};
-		const percentBase = pageSize?.inlineSize ?? null;
 		for (const side of MARGIN_SIDES) {
 			const raw = marginDecl?.[side];
 			if (raw) {
+				const percentBase = side === "left" || side === "right"
+					? pageSize?.inlineSize ?? null
+					: pageSize?.blockSize ?? null;
 				margins[side] = Math.round(toPx(String(raw).trim(), { percentBase }) ?? 0);
 			} else {
 				margins[side] = 0;
@@ -416,9 +418,11 @@ export class PageResolver {
 	/** Resolve page padding. Percentages use the page box inline size. */
 	resolvePadding(paddingDecl, pageSize) {
 		const padding = {};
-		const percentBase = pageSize?.inlineSize ?? null;
 		for (const side of MARGIN_SIDES) {
 			const raw = paddingDecl?.[side];
+			const percentBase = side === "left" || side === "right"
+				? pageSize?.inlineSize ?? null
+				: pageSize?.blockSize ?? null;
 			padding[side] = raw
 				? Math.max(0, Math.round(toPx(String(raw).trim(), { percentBase }) ?? 0))
 				: 0;
