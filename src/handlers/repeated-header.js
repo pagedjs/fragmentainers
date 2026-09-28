@@ -3,6 +3,11 @@ import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { findChildBreakToken } from "../fragmentation/tokens.js";
 import { FRAGMENTATION_NONE, FRAGMENTATION_PAGE } from "../fragmentation/constraint-space.js";
 
+/**
+ * Repeats a table header group on continued page fragments.
+ *
+ * @returns {RepeatedTableHeader} Repeated table-header handler
+ */
 class RepeatedTableHeader extends LayoutHandler {
 	beforeChildren(node, constraintSpace, breakToken) {
 		if (!breakToken || !node.isTable) return null;

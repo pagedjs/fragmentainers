@@ -4,8 +4,8 @@ import { toPx } from "../styles/css-values.js";
 import { walkRules } from "../styles/walk-rules.js";
 import { parseAnPlusB, matchesAnPlusB } from "../styles/an-plus-b.js";
 
-// Named page sizes from CSS Paged Media Level 3 §3.1
-// (CSS pixels at 96 DPI, rounded to match resolveSize)
+// CSS Paged Media Level 3 §7.1: named page sizes in CSS pixels at 96 DPI,
+// rounded to match resolveSize.
 export const NAMED_SIZES = {
 	A5: { inlineSize: 559, blockSize: 794 },
 	A4: { inlineSize: 794, blockSize: 1123 },
@@ -39,6 +39,8 @@ const BORDER_WIDTH_KEYWORDS = {
  * @property {string|null} pageOrientation - 'rotate-left', 'rotate-right', or null
  * @property {string|null} counterReset - CSS counter-reset value, or null when absent
  * @property {string|null} counterIncrement - CSS counter-increment value, or null when absent
+ * @param {object} [options] - Parsed page rule fields
+ * @returns {PageRule} Structured page rule
  */
 export class PageRule {
 	constructor({
@@ -72,7 +74,7 @@ export class PageRule {
 	}
 
 	/**
-	 * CSS Paged Media §3.4 specificity as [f, g, h]:
+	 * CSS Paged Media §4.4 specificity as [f, g, h]:
 	 *   f — 1 if a page type name is present, else 0
 	 *   g — count of :first / :blank / :nth pseudo-classes
 	 *   h — count of :left / :right pseudo-classes
@@ -103,6 +105,9 @@ export class PageRule {
 
 /**
  * Resolved page dimensions for one page — the fragmentainer definition.
+ *
+ * @param {object} options - Resolved page dimensions and context flags
+ * @returns {PageConstraints} Resolved page constraint record
  */
 export class PageConstraints {
 	/**
@@ -168,6 +173,10 @@ export class PageConstraints {
 
 /**
  * Resolves page dimensions per-page by implementing `@page` rule matching and cascade.
+ *
+ * @param {(PageRule | object)[]} rules - Page rules in document order
+ * @param {{ inlineSize: number, blockSize: number }} [size] - Fallback page size
+ * @returns {PageResolver} Page constraint resolver
  */
 export class PageResolver {
 	/**
@@ -207,7 +216,7 @@ export class PageResolver {
 			try {
 				cssRules = sheet.cssRules;
 			} catch {
-				// cross-origin sheet
+				// Cross-origin stylesheet: CSSOM rules are not readable.
 				continue;
 			}
 			collectPageRules(cssRules, rules);
@@ -219,8 +228,9 @@ export class PageResolver {
 	 * Resolve the constraint space for a specific page.
 	 *
 	 * @param {number} pageIndex - Zero-based page number
-	 * @param {import('./helpers.js').LayoutNode|null} rootNode - Root layout node (for named page resolution)
-	 * @param {import('./tokens.js').BreakToken|null} breakToken - Current break token
+	 * @param {import('../layout/layout-node-base.js').LayoutNode|null} rootNode - Root layout node (for named page resolution)
+	 * @param {import('../fragmentation/tokens.js').BreakToken|null} breakToken - Current break token
+	 * @param {boolean} [isBlank] - Whether this is an inserted blank page
 	 * @returns {PageConstraints}
 	 */
 	resolve(pageIndex, rootNode, breakToken, isBlank = false) {
@@ -297,7 +307,7 @@ export class PageResolver {
 	}
 
 	/**
-	 * Cascade matched rules per CSS Paged Media §3.4.
+	 * Cascade matched rules per CSS Paged Media §4.4.
 	 * Sorts by lexicographic [f, g, h] specificity; Array.sort's stability
 	 * preserves document order as the tiebreaker.
 	 */
@@ -399,8 +409,9 @@ export class PageResolver {
 	}
 
 	/**
-	 * Resolve CSS margin strings to pixel values. Percentages resolve
-	 * against the page box inline size (CSS Paged Media §5.1).
+	 * Resolve CSS margin strings to pixel values.
+	 * CSS Paged Media §6: horizontal percentages use the page width; vertical
+	 * percentages use the page height.
 	 */
 	resolveMargins(marginDecl, pageSize) {
 		const margins = {};
@@ -418,7 +429,11 @@ export class PageResolver {
 		return margins;
 	}
 
-	/** Resolve page padding. Percentages use the page box inline size. */
+	/**
+	 * Resolve page padding.
+	 * CSS Paged Media §6: horizontal percentages use the page width; vertical
+	 * percentages use the page height.
+	 */
 	resolvePadding(paddingDecl, pageSize) {
 		const padding = {};
 		for (const side of MARGIN_SIDES) {
@@ -744,11 +759,9 @@ export function getNamedPage(node) {
 }
 
 /**
- * Used value of `page` for a node: its own named page, else the nearest
- * ancestor's. CSS Paged Media §3.2 — `page: auto` takes the value of the
- * nearest ancestor with a non-auto value — so content continuing out of a
- * named section keeps that name on every page it spans, not just the one
- * the section starts on.
+ * Resolve a node's used `page` value from its own name or its ancestors.
+ * CSS Paged Media §8.1: `page: auto` uses the nearest ancestor's non-auto
+ * value, so a named section keeps its name on continuation pages.
  *
  * @param {import("../layout/layout-node.js").LayoutNode|null} node
  * @param {import("../layout/layout-node.js").LayoutNode[]} ancestors - Root first.

@@ -9,6 +9,9 @@ import { LayoutNode } from "./layout-node-base.js";
  * All classification flags stay at the `LayoutNode` defaults (falsy), which
  * is what routes dispatch to block layout. Only `children`, `debugName`,
  * and `computedBlockSize` need overrides.
+ *
+ * @param {LayoutNode} node - Container whose children form the thread
+ * @returns {FlowThreadNode} Anonymous flow-thread node
  */
 export class FlowThreadNode extends LayoutNode {
 	#node;

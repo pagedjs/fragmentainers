@@ -26,13 +26,6 @@ const INLINE_DISPLAYS = new Set([
 	"inline math",
 ]);
 
-/**
- * Lazy wrapper around a DOM Element that implements the LayoutNode interface.
- *
- * Read-only: resolves computed styles on demand via CSS Typed OM and caches
- * the results. Does not mutate the DOM.
- */
-
 function cssPx(value) {
 	return typedLengthToPx(value) ?? 0;
 }
@@ -49,6 +42,13 @@ function cssBorderWidth(map, edge) {
 	return cssPx(map.get(`border-${edge}-width`));
 }
 
+/**
+ * Read-only LayoutNode wrapper that resolves and caches a DOM element's
+ * computed styles on demand.
+ *
+ * @param {Element} element - Element represented by the layout node
+ * @returns {DOMLayoutNode} DOM-backed layout node
+ */
 export class DOMLayoutNode extends LayoutNode {
 	#element;
 	#styleMap = null;
@@ -185,8 +185,6 @@ export class DOMLayoutNode extends LayoutNode {
 		return v != null && v > 0;
 	}
 
-	// Layout classification
-
 	get isMathRoot() {
 		return this.element.namespaceURI === "http://www.w3.org/1998/Math/MathML" &&
 			this.element.localName === "math";
@@ -282,8 +280,6 @@ export class DOMLayoutNode extends LayoutNode {
 		return d === "grid" || d === "inline-grid";
 	}
 
-	// Flex/Grid properties
-
 	get flexDirection() {
 		return cssKeyword(this.#getStyleMap().get("flex-direction"), "row");
 	}
@@ -308,8 +304,6 @@ export class DOMLayoutNode extends LayoutNode {
 		const n = parseInt(v.toString(), 10);
 		return Number.isFinite(n) ? n : null;
 	}
-
-	// Multicol properties
 
 	get isMulticolContainer() {
 		const map = this.#getStyleMap();
@@ -336,8 +330,6 @@ export class DOMLayoutNode extends LayoutNode {
 	get columnFill() {
 		return cssKeyword(this.#getStyleMap().get("column-fill"), "balance");
 	}
-
-	// Box model (margins, padding, border)
 
 	get marginBlockStart() {
 		if (this.#marginBlockStart === null) this.#getStyleMap();
@@ -433,8 +425,6 @@ export class DOMLayoutNode extends LayoutNode {
 		return v && v.unit ? v.value : 2;
 	}
 
-	// Counters
-
 	get counterReset() {
 		return cssKeyword(this.#getStyleMap().get("counter-reset"), "none");
 	}
@@ -461,8 +451,6 @@ export class DOMLayoutNode extends LayoutNode {
 		if (this.#whiteSpace === null) this.#getStyleMap();
 		return this.#whiteSpace ?? "normal";
 	}
-
-	// Children
 
 	get children() {
 		if (this.#children !== null) return this.#children;
@@ -546,8 +534,6 @@ export class DOMLayoutNode extends LayoutNode {
 		this.#intrinsicBlockSizeCache = null;
 		this.#cumulativeHeights = null;
 	}
-
-	// Block size
 
 	get blockSize() {
 		return measureElementBlockSize(this.element);
@@ -642,8 +628,6 @@ export class DOMLayoutNode extends LayoutNode {
 		return cssLength + insets;
 	}
 
-	// Inline formatting context
-
 	get isInlineFormattingContext() {
 		if (this.#isInlineFormattingContext !== null) return this.#isInlineFormattingContext;
 
@@ -682,21 +666,15 @@ export class DOMLayoutNode extends LayoutNode {
 			}
 		}
 
-		// Mixed: if there's inline content, treat as inline FC
-		// (real implementation would wrap anonymous blocks)
 		this.#isInlineFormattingContext = hasInlineContent && !hasBlockContent;
 		return this.#isInlineFormattingContext;
 	}
-
-	// Table row support
 
 	get cells() {
 		if (!this.isTableRow) return [];
 		return this.children;
 	}
 }
-
-// Helpers for mixed content detection
 
 const BLOCK_DISPLAYS = new Set([
 	"block",

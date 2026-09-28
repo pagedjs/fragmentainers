@@ -11,6 +11,11 @@ export const DEFAULT_OVERFLOW_THRESHOLD = 16 * 1.2;
  * Lazily iterates in document order over
  * <fragment-container> elements. Also exposes the underlying
  * Fragment data via .fragments.
+ *
+ * @param {import("./fragment.js").Fragment[]} fragments - Laid-out fragments
+ * @param {{ sheets: CSSStyleSheet[] }|null} contentStyles - Styles used for composition
+ * @param {object} [range] - Selected range and continuation context
+ * @returns {FragmentationContext} Fragmented-flow iterator
  */
 export class FragmentationContext extends Iterator {
 	#fragments;

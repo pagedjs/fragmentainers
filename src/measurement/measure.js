@@ -130,8 +130,9 @@ function resolveBreakProperties(elements, styles) {
 		let breakBefore = "auto";
 		let breakAfter = "auto";
 		let page = null;
-		// Normal-importance cascade (ascending → last wins), then inline normal,
-		// then !important cascade, then inline !important — CSS Cascade L4 §6.3.
+		// CSS Cascade L4 §6.1: apply normal declarations before !important.
+		// Within each group, ascending order leaves the winning rule last;
+		// inline declarations follow stylesheet rules.
 		for (const r of matched) {
 			if (r.breakBefore && !r.bbImp) breakBefore = r.breakBefore;
 			if (r.breakAfter && !r.baImp) breakAfter = r.breakAfter;
@@ -244,6 +245,11 @@ const SKIP_DISPLAYS = new Set(["table-column", "table-column-group", "none"]);
  * Handles creating, populating, and destroying measurement containers.
  * When top-level children have forced breaks, splits measurement into
  * segments so the browser only lays out one segment at a time.
+ *
+ * @param {DocumentFragment} content - Content to measure
+ * @param {CSSStyleSheet[]} styles - Stylesheets applied during measurement
+ * @param {import('../fragmentation/flow-context.js').FlowContext} [context] - Owning flow context
+ * @returns {Measurer} DOM measurement coordinator
  */
 export class Measurer {
 	#content;
@@ -361,8 +367,6 @@ export class Measurer {
 			this.#segments.push({ start, end });
 		}
 
-		// Build DOMLayoutNode wrappers for all top-level children
-		// (both flow and persistent)
 		this.#allNodes = [];
 		for (const el of this.#allElements) {
 			const node = this.#createNode(el);
@@ -375,7 +379,6 @@ export class Measurer {
 		this.#flowElements = flowElements;
 		this.#indexNodes();
 
-		// Set override break/page on all boundary children (lookahead nodes)
 		for (let i = 1; i < this.#segments.length; i++) {
 			const boundaryIdx = this.#segments[i].start;
 			const el = flowElements[boundaryIdx];
@@ -393,7 +396,7 @@ export class Measurer {
 
 		this.#measureElement = measurer;
 		this.#arrange(0, null);
-		// Empty unnamed prefixes generate no page boundary (CSS Page §3.1): the first
+		// Empty unnamed prefixes generate no page boundary (CSS Page §8.1): the first
 		// named box must be connected before layout can descend into it.
 		while (this.#mergeEmptyInitialSegment()) this.#arrange(0, null);
 		this.#contentStyles = measurer.getContentStyles();

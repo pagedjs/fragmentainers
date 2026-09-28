@@ -18,6 +18,10 @@ const HAS_NUMERIC_PARSE =
  * Polyfill for CSSUnitValue with .to() and .sub() for the subset of
  * operations this codebase uses. Returned when the native Typed OM
  * class isn't available (Firefox/Safari).
+ *
+ * @param {number} value - Numeric value
+ * @param {string} [unit] - CSS unit
+ * @returns {UnitValue} CSS unit value
  */
 export class UnitValue {
 	constructor(value, unit = "px") {
@@ -57,6 +61,10 @@ export class UnitValue {
 /**
  * Construct a CSS numeric value. Returns a native CSSUnitValue when
  * available, otherwise a UnitValue polyfill with the same shape.
+ *
+ * @param {number} value - Numeric value
+ * @param {string} [unit] - CSS unit
+ * @returns {CSSUnitValue|UnitValue} Typed numeric value
  */
 export function cssValue(value, unit = "px") {
 	if (HAS_CSS_UNIT_VALUE) return new CSSUnitValue(value, unit);
@@ -67,6 +75,9 @@ export function cssValue(value, unit = "px") {
  * Parse a CSS numeric value string into a typed value with .to() and
  * .sub(). Uses native CSSNumericValue.parse when available so calc()
  * expressions and any supported unit work. Bare numbers are treated as px.
+ *
+ * @param {string} str - CSS numeric value
+ * @returns {CSSNumericValue|UnitValue|null} Parsed value
  */
 export function parseNumeric(str) {
 	str = str.trim();

@@ -3,6 +3,9 @@ import { FRAGMENTATION_REGION } from "../fragmentation/constraint-space.js";
 
 /**
  * Resolved region dimensions for one region element.
+ *
+ * @param {object} options - Region index, element, and content area
+ * @returns {RegionConstraints} Resolved region constraint record
  */
 export class RegionConstraints {
 	/**
@@ -35,6 +38,9 @@ export class RegionConstraints {
  * Each region element becomes a fragmentainer. The resolver reads dimensions
  * from the element's client rect. The caller controls the loop via
  * Fragmenter.next() and stops when regions run out.
+ *
+ * @param {Element[]} regionElements - Ordered target regions
+ * @returns {RegionResolver} Region constraint resolver
  */
 export class RegionResolver {
 	/**

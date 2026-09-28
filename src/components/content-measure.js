@@ -1,16 +1,3 @@
-/**
- * <content-measure> — off-screen measurement container with Shadow DOM.
- *
- * Injects content + CSS into a shadow root so the host page's styles
- * don't affect layout measurements. Uses `all: initial` on :host to
- * reset inherited CSS properties to browser defaults. Body/html-targeting
- * rules are re-applied as :host overrides so inherited properties
- * flow correctly to content inside the slot.
- *
- * Content is appended to a <slot> element as fallback content,
- * keeping it inside the shadow DOM where only adopted stylesheets apply.
- */
-
 import { defineElement } from "./define.js";
 
 const MEASURE_HOST_STYLES = `
@@ -26,6 +13,16 @@ const MEASURE_HOST_STYLES = `
   }
 `;
 
+/**
+ * Off-screen measurement container with Shadow DOM.
+ *
+ * Injects content and CSS into a shadow root so the host page's styles do
+ * not affect measurements. `all: initial` resets inherited properties;
+ * body/html rules are reapplied as host overrides. The slot's fallback
+ * content stays in the shadow tree and uses the adopted measurement sheets.
+ *
+ * @returns {ContentMeasureElement} Measurement container element
+ */
 export class ContentMeasureElement extends HTMLElement {
 	#shadow;
 	#slot = null;
@@ -73,7 +70,7 @@ export class ContentMeasureElement extends HTMLElement {
 	 *
 	 * No-ops when the inline size hasn't changed.
 	 *
-	 * @param {import('../constraint-space.js').ConstraintSpace} constraintSpace
+	 * @param {import('../fragmentation/constraint-space.js').ConstraintSpace} constraintSpace
 	 */
 	applyConstraintSpace(constraintSpace) {
 		const inlineSize = constraintSpace.availableInlineSize;

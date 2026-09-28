@@ -26,6 +26,8 @@ const COMPOSITOR_ATTRS = new Set([
  *     const records = pages[0].takeMutationRecords();
  *     sync.applyMutations(records);
  *   });
+ *
+ * @returns {MutationSync} Mutation synchronization handler
  */
 export class MutationSync extends LayoutHandler {
 	#cloneMap = null;

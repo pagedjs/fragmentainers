@@ -7,6 +7,9 @@ import { CloneMap } from "./clone-map.js";
  * the flow's handler instances and its clone→source map. Carried on
  * every LayoutNode (see LayoutNode.context) so algorithms and Fragment
  * composition find it without threading it through signatures.
+ *
+ * @param {object} [options] - Handler classes and owning flow
+ * @returns {FlowContext} Flow context
  */
 export class FlowContext {
 	#layoutPassBudget = 0;

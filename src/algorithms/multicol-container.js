@@ -48,6 +48,12 @@ export function resolveColumnDimensions(U, specifiedWidth, specifiedCount, gap) 
  * Resolves column dimensions, creates an anonymous flow thread,
  * and runs a column loop where each iteration is a column fragmentainer.
  * Mirrors Chromium's NGColumnLayoutAlgorithm.
+ *
+ * @param {import("../layout/layout-node-base.js").LayoutNode} node - Multicol container to lay out
+ * @param {ConstraintSpace} constraintSpace - Available fragmentainer space
+ * @param {BlockBreakToken|null} breakToken - Previous multicol continuation
+ * @param {import("../fragmentation/break-scoring.js").EarlyBreak|null} earlyBreakTarget - Descendant retry target
+ * @returns {MulticolAlgorithm} Multicol container layout algorithm
  */
 export class MulticolAlgorithm {
 	#node;

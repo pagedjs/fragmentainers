@@ -39,6 +39,9 @@ class FlowRootNode extends LayoutNode {
  * extraction in their `extractFlowChildren` hook. Domain-specific layout
  * (e.g. footnote area positioning, ::marker suppression on continuations)
  * lives in the handler's `composeFlowFragment`, not here.
+ *
+ * @param {import('./flow-context.js').FlowContext|null} [context] - Owning flow context
+ * @returns {FragmentFlow} Parallel fragmentation flow
  */
 export class FragmentFlow {
 	#queue = [];

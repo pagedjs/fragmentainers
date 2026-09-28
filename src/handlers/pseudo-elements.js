@@ -1,27 +1,3 @@
-/**
- * Materialize ::before and ::after pseudo elements as real DOM elements.
- *
- * Implemented as a LayoutHandler so pseudo handling participates in the
- * standard handler pipeline:
- *   - matchRule/appendRules rewrites each ::before/::after rule into a
- *     companion style rule targeting a synthetic <frag-pseudo> child and a
- *     relocation rule setting content on that synthetic's own pseudo —
- *     `none` for string/attr content, the specified value otherwise — plus
- *     two global suppression rules that hide the original pseudos.
- *   - beforeMeasurement walks the injected DOM and materializes
- *     <frag-pseudo> children under elements whose pseudos resolve. The
- *     relocation rule's computed result on the synthetic decides which:
- *     `none` for text materialized into the DOM, anything else for content
- *     the browser keeps re-resolving on the synthetic's own pseudo.
- *
- * Follows Chromium LayoutNG's approach where pseudo elements become layout
- * objects in the layout tree, rather than being invisible to the engine.
- *
- * Features that need native browser pseudo handling can mark elements via
- * markNativePseudo(), which makes beforeMeasurement skip materialization
- * for that element/pseudo pair.
- */
-
 import { LayoutHandler } from "./handler.js";
 import { hasNativePseudo } from "../markers.js";
 import { splitSelectorList } from "../styles/selector-utils.js";
@@ -54,6 +30,16 @@ function wrapRule(ruleText, wrappers) {
 	return css;
 }
 
+/**
+ * Materializes `::before` and `::after` for layout measurement.
+ *
+ * Rule matching emits companion styles for synthetic `<frag-pseudo>` children;
+ * beforeMeasurement creates those children. Content requiring live resolution,
+ * such as `counter()`, remains on the synthetic element's own pseudo. Elements
+ * marked with markNativePseudo() retain native browser pseudo handling.
+ *
+ * @returns {PseudoElements} Pseudo-element layout handler
+ */
 export class PseudoElements extends LayoutHandler {
 	#rules = [];
 	#hasPseudoRules = false;

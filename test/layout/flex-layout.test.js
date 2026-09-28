@@ -58,10 +58,8 @@ test.describe("layoutFlexContainer", () => {
 			return out;
 		});
 
-		// One flex line containing both items
 		expect(result.childCount).toBe(1);
 		expect(result.lineChildCount).toBe(2);
-		// Tallest item (100) drives line height
 		expect(result.lineBlockSize).toBe(100);
 	});
 

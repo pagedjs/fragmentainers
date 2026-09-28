@@ -785,10 +785,8 @@ test.describe("Fragment.build", () => {
 
 			const outerNode = new DOMLayoutNode(outer);
 			const childNodes = outerNode.children;
-			// Access a style property to trigger #getStyle() while attached
 			void childNodes[0].breakBefore;
 
-			// Detach
 			container.removeChild(outer);
 
 			const childFrag = splitTextBlock(childNodes[0], 50);

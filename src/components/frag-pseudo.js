@@ -12,6 +12,7 @@ import { defineElement } from "./define.js";
  * strategy a given pseudo took.
  *
  * @element frag-pseudo
+ * @returns {FragPseudoElement} Materialized pseudo element
  */
 export class FragPseudoElement extends HTMLElement {
 	/**

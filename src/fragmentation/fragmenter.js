@@ -52,6 +52,14 @@ function elementLabel(element) {
 	return `${element.tagName.toLowerCase()}${id}`;
 }
 
+/**
+ * Error raised when deferred handlers cannot settle within their pass budget.
+ *
+ * @param {number} maxPasses - Exhausted pass budget
+ * @param {import("../handlers/handler.js").LayoutHandler[]} handlers - Handlers requesting another pass
+ * @param {Element[]} elements - Elements that remained unsettled
+ * @returns {LayoutPassLimitError} Layout pass limit error
+ */
 export class LayoutPassLimitError extends Error {
 	constructor(maxPasses, handlers, elements) {
 		const handlerNames = [...new Set(handlers.map((handler) => handler.constructor.name))];
@@ -195,6 +203,10 @@ function findBlockAncestor(node, targetEl) {
  * - `width` / `height` — sugar for column fragmentation at a fixed size
  * - (none) — auto-collects @page rules from document.styleSheets,
  *   defaults to US Letter
+ *
+ * @param {DocumentFragment|Element|object} content - Content to fragment
+ * @param {object} [options] - Fragmentation and measurement options
+ * @returns {Fragmenter} Fragmented-flow iterator
  */
 export class Fragmenter extends Iterator {
 	/**

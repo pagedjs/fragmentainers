@@ -1,12 +1,8 @@
 /**
  * Polyfill for element.computedStyleMap().
  *
- * Uses native CSS Typed OM when available, falls back to a
- * getComputedStyle-based shim that returns the same interface:
- * a map with .get(prop) returning a CSSUnitValue-shaped value.
- *
- * When all evergreen browsers support Typed OM, delete this file
- * and replace imports with direct element.computedStyleMap() calls.
+ * Uses native CSS Typed OM when available. The fallback provides the `get()`
+ * method the engine uses and returns CSSUnitValue-shaped numeric values.
  *
  * @module
  */
@@ -19,6 +15,9 @@ export const HAS_TYPED_OM =
 
 /**
  * Get a typed computed style map for an element.
+ *
+ * @param {Element} element - Element whose computed styles are read
+ * @returns {StylePropertyMapReadOnly|{get: Function}} Native or fallback style map
  */
 export function computedStyleMap(element) {
 	if (HAS_TYPED_OM) return element.computedStyleMap();
@@ -27,6 +26,9 @@ export function computedStyleMap(element) {
 
 /**
  * Fallback style map over getComputedStyle. Exported for testing.
+ *
+ * @param {Element} element - Element whose computed styles are read
+ * @returns {{get: Function}} Style map implementing the required `get()` subset
  */
 export function createFallbackStyleMap(element) {
 	const style = getComputedStyle(element);
@@ -45,19 +47,14 @@ export function createFallbackStyleMap(element) {
  * object { value } when the input is non-numeric.
  */
 function parseCSSValue(raw) {
-	// Unitless integer (column-count, orphans, widows, z-index)
 	if (/^\d+$/.test(raw)) return new UnitValue(parseInt(raw, 10), "number");
 
-	// Pixel value — the most common case for resolved computed styles
 	if (raw.endsWith("px")) return new UnitValue(parseFloat(raw), "px");
 
-	// Percentage
 	if (raw.endsWith("%")) return new UnitValue(parseFloat(raw), "percent");
 
-	// Other numeric+unit (em, rem, s, ms, deg, etc.)
 	const match = raw.match(/^([\d.]+)(\w+)$/);
 	if (match) return new UnitValue(parseFloat(match[1]), match[2]);
 
-	// Keyword (auto, normal, none, block, flex, etc.)
 	return { value: raw };
 }

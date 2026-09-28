@@ -15,8 +15,6 @@ history.replaceState(null, "", `?${params}`);
 const headerEl = document.getElementById("header");
 const outputEl = document.getElementById("output");
 
-// Header
-
 const dl = document.createElement("dl");
 
 // URL control — always visible
@@ -70,7 +68,6 @@ const pagesDd = addRow("pages", "—");
 const sizeDd = addRow("size", "—");
 const timeDd = addRow("time", "—");
 
-// Outlines toggle
 const toggle = document.createElement("input");
 toggle.type = "checkbox";
 toggle.id = "fragment-borders";
@@ -93,8 +90,6 @@ function updateHeader(summary, timing) {
 	}
 }
 
-// Helpers
-
 function parseRange(str, total) {
 	if (!str) return [0, total];
 	const match = str.match(/^(\d+)(?:-(\d+))?$/);
@@ -113,8 +108,6 @@ function findBaseLineHeight(fragment) {
 	}
 	return null;
 }
-
-// Main
 
 if (url) {
 	run();

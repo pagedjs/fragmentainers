@@ -19,6 +19,11 @@ import { CloneMap } from "./clone-map.js";
 /**
  * The output of a layout algorithm — a positioned fragment.
  * Represents the portion of a CSS box that belongs to exactly one fragmentainer.
+ *
+ * @param {import("../layout/layout-node-base.js").LayoutNode|null} node - Source layout node
+ * @param {number} blockSize - Fragment block size in CSS pixels
+ * @param {Fragment[]} [childFragments] - Child fragments
+ * @returns {Fragment} Positioned fragment
  */
 export class Fragment {
 	constructor(node, blockSize, childFragments = []) {
@@ -193,7 +198,6 @@ export class Fragment {
 		const taken = new Set();
 		for (const child of this.childFragments) {
 			if (!child.node) continue;
-			// Skip materialized pseudo elements at wrong split boundaries
 			if (
 				child.node.element &&
 				!shouldBuildPseudo(child.node.element, inputBreakToken, this.breakToken)
@@ -526,7 +530,6 @@ export class Fragment {
 					}
 					continue;
 				}
-				// Skip materialized pseudo elements at wrong split boundaries
 				if (pseudoContext && isPseudoElement(item.element)) {
 					const which = item.element.dataset.pseudo;
 					const skip =
@@ -555,7 +558,6 @@ export class Fragment {
 				}
 			} else if (item.type === INLINE_ATOMIC) {
 				if (item.startOffset >= startOffset && item.startOffset < endOffset) {
-					// Skip materialized pseudo elements at wrong split boundaries
 					if (pseudoContext && isPseudoElement(item.element)) {
 						const which = item.element.dataset.pseudo;
 						const skip =
@@ -610,9 +612,7 @@ function consumedBlockSize(inputBreakToken) {
 function shouldBuildPseudo(element, inputBreakToken, outputBreakToken) {
 	if (!isPseudoElement(element)) return true;
 	const which = element.dataset.pseudo;
-	// ::before only appears on the first fragment (no inputBreakToken)
 	if (which === "before" && inputBreakToken && !inputBreakToken.isBreakBefore) return false;
-	// ::after only appears on the last fragment (no output breakToken)
 	if (which === "after" && outputBreakToken) return false;
 	return true;
 }

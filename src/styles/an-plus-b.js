@@ -1,6 +1,9 @@
 /**
  * Parse a CSS An+B expression into { a, b } coefficients.
  * Accepts the `odd` and `even` keywords as shortcuts for `2n+1` and `2n`.
+ *
+ * @param {string} expr - An+B expression
+ * @returns {{a: number, b: number}} Parsed coefficients
  */
 export function parseAnPlusB(expr) {
 	const s = expr.replace(/\s+/g, "").toLowerCase();
@@ -17,6 +20,10 @@ export function parseAnPlusB(expr) {
 
 /**
  * Test whether a 1-based index matches an An+B formula.
+ *
+ * @param {number} index - One-based index
+ * @param {{a: number, b: number}} formula - An+B coefficients
+ * @returns {boolean} Whether the index matches
  */
 export function matchesAnPlusB(index, { a, b }) {
 	if (a === 0) return index === b;

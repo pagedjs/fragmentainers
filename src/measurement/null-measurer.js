@@ -7,6 +7,9 @@
  *
  * Having one lets the flow talk to a measurer unconditionally instead of
  * branching on whether it has one.
+ *
+ * @param {*} [content] - Flow content retained across release and reattach
+ * @returns {NullMeasurer} Inert measurer
  */
 export class NullMeasurer {
 	#content;

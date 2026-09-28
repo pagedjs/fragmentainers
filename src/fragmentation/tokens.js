@@ -11,11 +11,15 @@ export const DEFAULT_HYPHEN = "\u2010";
  * When a node's content doesn't fit in the current fragmentainer,
  * the layout algorithm produces a fragment and attaches a break token
  * to resume layout in the next fragmentainer.
+ *
+ * @param {"block"|"inline"} type - Token kind
+ * @param {import("../layout/layout-node-base.js").LayoutNode} node - Continuation node
+ * @returns {BreakToken} Layout continuation token
  */
 export class BreakToken {
 	constructor(type, node) {
-		this.type = type; // "block" | "inline"
-		this.node = node; // reference to the layout node
+		this.type = type;
+		this.node = node;
 		this.isBreakBefore = false;
 		this.isForcedBreak = false;
 		this.forcedBreakValue = null;
@@ -87,6 +91,9 @@ function algorithmDataEqual(left, right) {
  *   whole extent; overflow continuing in parallel (§2.1) adds nothing to it.
  * - childBreakTokens form a sparse tree mirroring the CSS box tree
  * - sequenceNumber increments per fragment (0, 1, 2, ...)
+ *
+ * @param {import("../layout/layout-node-base.js").LayoutNode} node - Block continuation node
+ * @returns {BlockBreakToken} Block continuation token
  */
 export class BlockBreakToken extends BreakToken {
 	constructor(node) {
@@ -181,15 +188,20 @@ export class BlockBreakToken extends BreakToken {
  * Content-addressed via itemIndex + textOffset into InlineItemsData.
  * Does NOT store pixel positions, line numbers, or geometry.
  * This makes it survive inline-size changes between fragmentainers.
+ *
+ * @param {import("../layout/layout-node-base.js").LayoutNode} node - Inline continuation node
+ * @returns {InlineBreakToken} Inline continuation token
  */
 export class InlineBreakToken extends BreakToken {
 	constructor(node) {
 		super(BREAK_TOKEN_INLINE, node);
-		this.itemIndex = 0; // index into InlineItemsData.items
-		this.textOffset = 0; // offset into InlineItemsData.textContent
-		this.flags = 0; // inline-specific state bits
-		this.isHyphenated = false; // true when break follows a soft hyphen (U+00AD)
-		this.hyphenateCharacter = DEFAULT_HYPHEN; // glyph to append on page N when isHyphenated
+		this.itemIndex = 0;
+		this.textOffset = 0;
+		this.flags = 0;
+		// Hyphenated break: the render layer appends hyphenateCharacter to the
+		// preceding fragment.
+		this.isHyphenated = false;
+		this.hyphenateCharacter = DEFAULT_HYPHEN;
 		/**
 		 * When true, the render layer trims one trailing space from the
 		 * last text node of page N. Set by the layout layer when the
@@ -225,6 +237,11 @@ export class InlineBreakToken extends BreakToken {
  * and borrow their container's, so two sibling fragments can carry the same
  * node. `taken` records the tokens already matched in one pass so the second
  * sibling does not resume from the first one's token.
+ *
+ * @param {BlockBreakToken|null} parentBreakToken - Parent continuation token
+ * @param {import("../layout/layout-node-base.js").LayoutNode} childNode - Child to resume
+ * @param {Set<BreakToken>|null} [taken] - Tokens already matched in this pass
+ * @returns {BreakToken|null} Matching child token
  */
 export function findChildBreakToken(parentBreakToken, childNode, taken = null) {
 	if (!parentBreakToken) return null;
@@ -240,6 +257,9 @@ export function findChildBreakToken(parentBreakToken, childNode, taken = null) {
  * Check if a CSS break-before/break-after value is a forced break.
  * Values like "page", "column", "always", "left", "right" force a
  * break; "auto" and the "avoid"/"avoid-*" family do not.
+ *
+ * @param {string|null} value - CSS break value
+ * @returns {boolean} Whether the value forces a break
  */
 export function isForcedBreakValue(value) {
 	if (!value || value === "auto") return false;
@@ -259,6 +279,10 @@ export function isForcedBreakValue(value) {
  * applicable to the current fragmentation context. `avoid` applies to
  * any context; `avoid-page`, `avoid-column`, `avoid-region` apply only
  * to their respective contexts.
+ *
+ * @param {string|null} value - CSS break value
+ * @param {string} [fragmentationType] - Active fragmentation context
+ * @returns {boolean} Whether the value avoids a break in this context
  */
 export function isAvoidBreakValue(value, fragmentationType = "page") {
 	if (value === "avoid") return true;

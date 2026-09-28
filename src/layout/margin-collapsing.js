@@ -16,6 +16,8 @@
  *   all positive  → max(positive margins)
  *   all negative  → min(negative margins)  (most negative)
  *   mixed         → max(positives) + min(negatives)
+ *
+ * @returns {MarginStrut} Empty collapsing margin set
  */
 export class MarginStrut {
 	positiveMargin = 0;
@@ -155,6 +157,9 @@ export function collectThroughMarginEnd(node) {
  *
  * Usage: create one instance per BlockContainerAlgorithm pass, then call
  * methods at the documented points in the child loop.
+ *
+ * @param {number} [bodyMarginBlockStart] - First-page body margin
+ * @returns {MarginState} Margin-collapsing state
  */
 export class MarginState {
 	/** Margin-end of previous sibling, pending collapse with next sibling */

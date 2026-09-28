@@ -164,7 +164,11 @@ function measureProbeLineHeight(element) {
 
 let shared;
 
-/** Lazily-initialized shared FontMetrics instance. */
+/**
+ * Return the shared font metrics probe, creating it on first use.
+ *
+ * @returns {FontMetrics} Shared font metrics instance
+ */
 export function getSharedFontMetrics() {
 	if (!shared) shared = new FontMetrics();
 	return shared;

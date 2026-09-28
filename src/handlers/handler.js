@@ -1,3 +1,8 @@
+/**
+ * Base lifecycle contract for layout handlers.
+ *
+ * @returns {LayoutHandler} Layout handler instance
+ */
 export class LayoutHandler {
 	/**
 	 * Called on the fresh instance a flow creates at layout

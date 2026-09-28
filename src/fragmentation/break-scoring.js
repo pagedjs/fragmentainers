@@ -17,13 +17,18 @@ export const BreakScore = {
  * Early break — tracks the best breakpoint found during Pass 1.
  * Forms a chain (path) to the optimal breakpoint, which can be
  * arbitrarily deep in the tree.
+ *
+ * @param {import("../layout/layout-node-base.js").LayoutNode} node - Node associated with the breakpoint
+ * @param {number} score - BreakScore value
+ * @param {"before"|"inside"} type - Breakpoint position
+ * @returns {EarlyBreak} Early-break candidate
  */
 export class EarlyBreak {
 	constructor(node, score, type) {
-		this.node = node; // which node to break at
-		this.score = score; // BreakScore value
-		this.type = type; // EARLY_BREAK_BEFORE | EARLY_BREAK_INSIDE
-		this.childEarlyBreak = null; // EarlyBreak chain to deep breakpoint
+		this.node = node;
+		this.score = score;
+		this.type = type;
+		this.childEarlyBreak = null;
 	}
 }
 
@@ -35,6 +40,10 @@ export class EarlyBreak {
  * for the same appeal. Keeping the earlier one would strand the space between
  * them. Matches Blink's `ContainerFragmentBuilder::UpdateEarlyBreak`, which
  * replaces unless the stored candidate has strictly better appeal.
+ *
+ * @param {EarlyBreak|null} a - New candidate
+ * @param {EarlyBreak|null} b - Recorded candidate
+ * @returns {boolean} Whether the new candidate should replace the recorded one
  */
 export function isBetterBreak(a, b) {
 	if (!a) return false;
@@ -46,8 +55,9 @@ export function isBetterBreak(a, b) {
  * Evaluate the break score for a Class A break between siblings.
  * Checks break-after on the previous sibling and break-before on the next.
  *
- * @param {import("./helpers.js").LayoutNode|null} prevChild - child before the break
- * @param {import("./helpers.js").LayoutNode} nextChild - child after the break
+ * @param {import("../layout/layout-node-base.js").LayoutNode|null} prevChild - Child before the break
+ * @param {import("../layout/layout-node-base.js").LayoutNode} nextChild - Child after the break
+ * @param {string} [fragmentationType] - Active fragmentation context
  * @returns {number} BreakScore value
  */
 export function scoreClassABreak(prevChild, nextChild, fragmentationType = "page") {
@@ -64,6 +74,11 @@ export function scoreClassABreak(prevChild, nextChild, fragmentationType = "page
  * Check if the parent has break-inside: avoid (or context-appropriate
  * avoid-page/avoid-column/avoid-region). If so, any break inside
  * degrades the score.
+ *
+ * @param {import("../layout/layout-node-base.js").LayoutNode} node - Parent containing the break
+ * @param {number} score - Current BreakScore value
+ * @param {string} [fragmentationType] - Active fragmentation context
+ * @returns {number} Adjusted BreakScore value
  */
 export function applyBreakInsideAvoid(node, score, fragmentationType = "page") {
 	if (

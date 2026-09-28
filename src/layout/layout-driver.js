@@ -17,6 +17,7 @@ import { ensureFlowContext } from "../fragmentation/flow-context.js";
  * parent's context here.
  *
  * @param {Object} algorithm - Algorithm instance with a *layout() generator method
+ * @returns {{fragment: import("../fragmentation/fragment.js").Fragment|null, breakToken: import("../fragmentation/tokens.js").BreakToken|null, earlyBreak?: import("../fragmentation/break-scoring.js").EarlyBreak}} Completed layout result
  */
 export function runLayoutGenerator(algorithm) {
 	ensureFlowContext(algorithm.node);
@@ -40,10 +41,8 @@ function runGenerator(algorithm) {
 		);
 		const childResult = runGenerator(childAlgo);
 
-		// Propagate earlyBreak signal up to the driver immediately
 		if (childResult.earlyBreak) return childResult;
 
-		// Send the child's result back into the parent generator
 		genResult = gen.next(childResult);
 	}
 
@@ -52,6 +51,9 @@ function runGenerator(algorithm) {
 
 /**
  * Dispatch to the correct layout algorithm class based on node type.
+ *
+ * @param {import("./layout-node-base.js").LayoutNode} node - Node to dispatch
+ * @returns {typeof BlockContainerAlgorithm|typeof FlexAlgorithm|typeof GridAlgorithm|typeof InlineContentAlgorithm|typeof MulticolAlgorithm|typeof TableRowAlgorithm} Layout algorithm class
  */
 export function getLayoutAlgorithm(node) {
 	if (node.isMulticolContainer) return MulticolAlgorithm;

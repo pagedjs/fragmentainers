@@ -19,6 +19,12 @@ export const ALGORITHM_FLEX_LINE = "FlexLineData";
  *
  * Column direction: items are sequential in the block direction,
  * delegated to a flow thread (same Chromium pattern as multicol).
+ *
+ * @param {import("../layout/layout-node-base.js").LayoutNode} node - Flex container to lay out
+ * @param {ConstraintSpace} constraintSpace - Available fragmentainer space
+ * @param {BlockBreakToken|null} breakToken - Previous flex continuation
+ * @param {import("../fragmentation/break-scoring.js").EarlyBreak|null} earlyBreakTarget - Descendant retry target
+ * @returns {FlexAlgorithm} Flex container layout algorithm
  */
 export class FlexAlgorithm {
 	#node;

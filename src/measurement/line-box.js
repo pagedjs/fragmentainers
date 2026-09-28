@@ -19,8 +19,6 @@
 import { computedStyleMap } from "../styles/computed-style-map.js";
 import { INLINE_TEXT } from "./collect-inlines.js";
 
-// Target device pixel ratio
-
 let targetDevicePixelRatio = typeof devicePixelRatio !== "undefined" ? devicePixelRatio : 1;
 
 /**
@@ -29,20 +27,23 @@ let targetDevicePixelRatio = typeof devicePixelRatio !== "undefined" ? devicePix
  * to integers to match browser behavior. At 2+, raw sub-pixel
  * values are returned.
  *
- * Called once during setup — the value persists for the layout flow.
+ * The value persists until the next call.
  *
  * @param {number} value
+ * @returns {void}
  */
 export function setTargetDevicePixelRatio(value) {
 	targetDevicePixelRatio = value;
 }
 
-/** @returns {number} current target device pixel ratio */
+/**
+ * Return the current target device pixel ratio.
+ *
+ * @returns {number} Current target device pixel ratio
+ */
 export function getTargetDevicePixelRatio() {
 	return targetDevicePixelRatio;
 }
-
-// Line measurement
 
 /**
  * Whether a rect belongs to the same line as a cluster anchored on the
@@ -159,8 +160,6 @@ export function measureLinesAcrossNodes(nodes) {
 	range.setEndAfter(nodes[nodes.length - 1]);
 	return reduceRectsToLines(range.getClientRects());
 }
-
-// Line box extents
 
 // Sub-pixel slack. Layout snaps line positions to 1/64 px, and a computed
 // line-height such as `0.9 * 48px` does not reproduce the used advance
@@ -358,6 +357,11 @@ function offsetToItemAndLocal(textItems, flatOffset) {
 	return null;
 }
 
+/**
+ * Create an inline offset measurer that reuses a DOM Range.
+ *
+ * @returns {{charTop: function(Text, number): number, offsetAtLine: function(Object[], number[], number): (number|null)}} Inline offset measurement helpers
+ */
 export function createMeasurer() {
 	const range = document.createRange();
 
@@ -404,6 +408,11 @@ export function createMeasurer() {
 
 let sharedMeasurer = null;
 
+/**
+ * Return the shared inline offset measurer, creating it on first use.
+ *
+ * @returns {{charTop: function(Text, number): number, offsetAtLine: function(Object[], number[], number): (number|null)}} Shared inline offset measurement helpers
+ */
 export function getSharedMeasurer() {
 	if (!sharedMeasurer) sharedMeasurer = createMeasurer();
 	return sharedMeasurer;

@@ -117,7 +117,6 @@ test.describe("getLineHeight", () => {
 			div.remove();
 			return lh;
 		});
-		// Floored to integer at DPR 1
 		expect(result).toBe(Math.floor(result));
 		expect(result).toBeGreaterThan(20);
 	});
@@ -151,7 +150,6 @@ test.describe("getLineHeight", () => {
 			div.remove();
 			return lh;
 		});
-		// Should still return a valid floored value even with one line
 		expect(result).toBe(Math.floor(result));
 		expect(result).toBeGreaterThanOrEqual(16);
 	});
@@ -247,7 +245,6 @@ test.describe("measureLines", () => {
 			setTargetDevicePixelRatio(1);
 			return { measuredLh: measured.lineHeight, getLh: lh };
 		});
-		// Both should return the same raw rendered line height
 		expect(result.measuredLh).toBeCloseTo(result.getLh, 1);
 	});
 });
@@ -397,4 +394,3 @@ test.describe("createMeasurer", () => {
 		});
 	});
 });
-

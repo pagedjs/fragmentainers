@@ -18,6 +18,12 @@ export const ALGORITHM_GRID = "GridData";
  * Grid row membership is determined from each item's gridRowStart
  * property. Items are assumed to span exactly one row (spanning
  * grid items are stubbed).
+ *
+ * @param {import("../layout/layout-node-base.js").LayoutNode} node - Grid container to lay out
+ * @param {ConstraintSpace} constraintSpace - Available fragmentainer space
+ * @param {BlockBreakToken|null} breakToken - Previous grid continuation
+ * @param {import("../fragmentation/break-scoring.js").EarlyBreak|null} earlyBreakTarget - Descendant retry target
+ * @returns {GridAlgorithm} Grid container layout algorithm
  */
 export class GridAlgorithm {
 	#node;

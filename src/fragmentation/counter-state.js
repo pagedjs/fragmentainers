@@ -46,6 +46,9 @@ export function parseCounterDirective(value, defaultValue = 0) {
  * structural copy (spread, structuredClone, serialization) cannot carry them:
  * `restore` rejects anything but an instance instead of silently flattening
  * every counter into the root scope.
+ *
+ * @param {Map<string, { value: number, scope: object|symbol }[]>} counters - Live counter stacks to snapshot
+ * @returns {CounterSnapshot} Immutable counter snapshot
  */
 export class CounterSnapshot {
 	/** @type {Readonly<Record<string, number>>} */
@@ -97,6 +100,8 @@ export class CounterSnapshot {
  * Each name owns an outer-to-inner stack. A stack frame is keyed by the
  * element whose child scope created it, so sibling resets replace one another
  * while descendant resets nest.
+ *
+ * @returns {CounterState} Empty scoped counter accumulator
  */
 export class CounterState {
 	/** @type {Map<string, { value: number, scope: object|symbol }[]>} */

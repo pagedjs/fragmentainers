@@ -4,6 +4,11 @@ import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 
 const VALID_VALUES = new Set(["fill", "contain", "cover"]);
 
+/**
+ * Places page-fit elements over a full fragmentainer.
+ *
+ * @returns {PageFit} Page-fit layout handler
+ */
 class PageFit extends LayoutHandler {
 	claim(node) {
 		const value = node.getCustomProperty("page-fit");

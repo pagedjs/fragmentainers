@@ -239,6 +239,9 @@ function buildRefSelector(compounds, ref, start = 0) {
 
 /**
  * Extract compound-aware descriptors from stylesheets. Exposed for tests.
+ *
+ * @param {CSSStyleSheet[]} sheets - Stylesheets to inspect
+ * @returns {object[]} Compiled selector descriptors
  */
 export function extractNthDescriptors(sheets) {
 	const descriptors = [];
@@ -260,6 +263,11 @@ export function extractNthDescriptors(sheets) {
 	return descriptors;
 }
 
+/**
+ * Rewrites structural selectors so composed clones retain source matches.
+ *
+ * @returns {StyleResolver} Structural style-resolution handler
+ */
 class StyleResolver extends LayoutHandler {
 	#descriptors = [];
 	#nextRefId = 0;

@@ -4,6 +4,9 @@ import { typedLengthToPx } from "../styles/css-values.js";
 
 /**
  * Measure the rendered block size (height) of a DOM element.
+ *
+ * @param {Element} element - Element to measure
+ * @returns {number} Border-box height in CSS pixels
  */
 export function measureElementBlockSize(element) {
 	return element.getBoundingClientRect().height;
@@ -11,6 +14,9 @@ export function measureElementBlockSize(element) {
 
 /**
  * Measure the rendered inline size (width) of a DOM element's border box.
+ *
+ * @param {Element} element - Element to measure
+ * @returns {number} Border-box width in CSS pixels
  */
 export function measureElementInlineSize(element) {
 	return element.getBoundingClientRect().width;

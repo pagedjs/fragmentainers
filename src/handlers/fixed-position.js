@@ -38,6 +38,8 @@ function classifyAnchorEdge(element) {
  *
  * Only active in page fragmentation — fixed elements are viewport-relative
  * in column/region contexts and don't participate in those flows.
+ *
+ * @returns {FixedPosition} Fixed-position layout handler
  */
 class FixedPosition extends LayoutHandler {
 	#fixedSelectors = [];

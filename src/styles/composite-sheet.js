@@ -71,6 +71,10 @@ export function buildCompositeText(
  * Convenience wrapper around `buildCompositeText` for callers that
  * don't already own a sheet.
  *
+ * @param {{ sheets: CSSStyleSheet[] }} contentStyles - Author styles
+ * @param {CSSStyleSheet[]} handlerSheets - Handler-generated stylesheets
+ * @param {CSSStyleSheet|null} injectedSheet - Registry-injected stylesheet
+ * @param {{ isPageBased?: boolean }} [options] - Flow mode options
  * @returns {CSSStyleSheet}
  */
 export function buildCompositeSheet(contentStyles, handlerSheets, injectedSheet, options) {

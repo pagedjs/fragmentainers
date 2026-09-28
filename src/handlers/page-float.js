@@ -2,6 +2,11 @@ import { LayoutHandler } from "./handler.js";
 import { ConstraintSpace } from "../fragmentation/constraint-space.js";
 import { FRAGMENTATION_NONE } from "../fragmentation/constraint-space.js";
 
+/**
+ * Places page floats at the fragmentainer block edges.
+ *
+ * @returns {PageFloat} Page-float layout handler
+ */
 class PageFloat extends LayoutHandler {
 	claim(node) {
 		return node.getCustomProperty("float-reference") === "page";

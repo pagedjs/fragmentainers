@@ -9,11 +9,11 @@
  * immutable style/structure snapshots. Subclasses are free to add setters
  * (e.g. `DOMLayoutNode.setChildren`) for flow-thread / anonymous-box
  * wrapping, but those are outside the base interface.
+ *
+ * @returns {LayoutNode} Layout node with neutral defaults
  */
 export class LayoutNode {
 	#context = null;
-
-	// Flow context
 
 	/**
 	 * The FlowContext of the flow this node belongs to (handlers, clone
@@ -46,8 +46,6 @@ export class LayoutNode {
 		this.#context = parent.#context;
 	}
 
-	// Structure
-
 	get children() {
 		return [];
 	}
@@ -72,8 +70,6 @@ export class LayoutNode {
 		return "[layout-node]";
 	}
 
-	// Intrinsic size
-
 	get blockSize() {
 		return 0;
 	}
@@ -93,8 +89,6 @@ export class LayoutNode {
 	getCustomProperty() {
 		return null;
 	}
-
-	// Classification
 
 	get isInlineFormattingContext() {
 		return false;
@@ -154,8 +148,6 @@ export class LayoutNode {
 		return false;
 	}
 
-	// Box model
-
 	get marginBlockStart() {
 		return 0;
 	}
@@ -181,8 +173,6 @@ export class LayoutNode {
 		return "content-box";
 	}
 
-	// Fragmentation
-
 	get page() {
 		return null;
 	}
@@ -206,8 +196,6 @@ export class LayoutNode {
 	get widows() {
 		return 2;
 	}
-
-	// Algorithm hints
 
 	get flexDirection() {
 		return "row";
@@ -248,8 +236,6 @@ export class LayoutNode {
 	get position() {
 		return "static";
 	}
-
-	// Counters
 
 	get counterReset() {
 		return "none";

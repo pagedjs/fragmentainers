@@ -18,14 +18,19 @@ export const PERSISTENT_ATTR = "data-frag-persistent";
 const NATIVE_PSEUDO_PREFIX = "data-frag-native-pseudo-";
 
 /**
+ * Mark an element as present in every measurement segment.
+ *
  * @param {Element} element
  * @param {string} [owner=""] — identifies who set the marker
+ * @returns {void}
  */
 export function markPersistent(element, owner = "") {
 	element.setAttribute(PERSISTENT_ATTR, owner);
 }
 
 /**
+ * Check whether an element persists across measurement segments.
+ *
  * @param {Element} element
  * @returns {boolean}
  */
@@ -38,6 +43,7 @@ export function isPersistent(element) {
  *
  * @param {Element} element
  * @param {string} owner
+ * @returns {void}
  */
 export function clearPersistent(element, owner) {
 	if (element.getAttribute(PERSISTENT_ATTR) === owner) {
@@ -46,14 +52,19 @@ export function clearPersistent(element, owner) {
 }
 
 /**
+ * Preserve one native pseudo instead of materializing it.
+ *
  * @param {Element} element
  * @param {"before"|"after"} pseudo
+ * @returns {void}
  */
 export function markNativePseudo(element, pseudo) {
 	element.setAttribute(`${NATIVE_PSEUDO_PREFIX}${pseudo}`, "");
 }
 
 /**
+ * Check whether one pseudo is marked for native rendering.
+ *
  * @param {Element} element
  * @param {"before"|"after"} pseudo
  * @returns {boolean}

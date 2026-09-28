@@ -11,6 +11,11 @@ import { LayoutNode } from "./layout-node-base.js";
  * block container (CSS 2.1 §9.2.1.1). Extends `LayoutNode` — only the
  * non-default getters (debugName, inline-FC plumbing, measurer/contentRect)
  * are overridden here; everything else inherits neutral defaults.
+ *
+ * @param {Element} parentElement - Block container establishing the inline formatting context
+ * @param {Node[]} childNodes - Consecutive inline-level nodes
+ * @param {import("./layout-node.js").DOMLayoutNode|null} [parentNode] - Parent layout node
+ * @returns {AnonymousBlockNode} Anonymous inline-content wrapper
  */
 export class AnonymousBlockNode extends LayoutNode {
 	#parentElement;

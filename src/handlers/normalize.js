@@ -2,24 +2,6 @@ import { LayoutHandler } from "./handler.js";
 import { getLineHeight, setTargetDevicePixelRatio } from "../measurement/line-box.js";
 import { parseNumeric } from "../styles/css-values.js";
 
-/**
- * EmulatePrintPixelRatio — generates a line-height normalization
- * stylesheet for fragment-container rendering.
- *
- * Browsers round `line-height: normal` to device pixels (integers at
- * DPR 1, half-pixels at DPR 2). This handler builds a `@media screen`
- * stylesheet that sets explicit line-height values matching the target
- * DPR, ensuring rendered fragment-containers match layout predictions.
- *
- * The sheet is NOT adopted on the measurer (avoids reflow). It is
- * adopted on each fragment-container via getAdoptedSheets().
- *
- * Lifecycle:
- *   matchRule()              — collect selectors with font properties
- *   afterMeasurementSetup()  — probe live DOM, build stylesheet
- *   getAdoptedSheets()       — provide sheet for fragment-containers
- */
-
 const BODY_HTML_RE = /^(body|html)\b/i;
 
 /**
@@ -63,6 +45,15 @@ function resolveFontSize(value, defaultSize) {
 	}
 }
 
+/**
+ * Generates line-height normalization styles for fragment rendering.
+ *
+ * Browsers round `line-height: normal` to device pixels. The screen stylesheet
+ * sets explicit values matching the target DPR for composed fragments.
+ * Keeping it off the measurer avoids another reflow.
+ *
+ * @returns {EmulatePrintPixelRatio} Print pixel-ratio handler
+ */
 class EmulatePrintPixelRatio extends LayoutHandler {
 	#collectedRules = [];
 	#defaultFont = { family: "serif", weight: "400", style: "normal", size: 16 };

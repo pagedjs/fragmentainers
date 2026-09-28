@@ -34,6 +34,10 @@ export function resolveHandlerClasses(classes) {
  * (normally `Fragmenter.handlers`); instances are created by init()
  * and destroyed only by this registry's destroy(). Two registries never
  * share instances.
+ *
+ * @param {Array<typeof LayoutHandler>} classes - Ordered handler classes
+ * @param {import('../fragmentation/flow-context.js').FlowContext|null} context - Owning flow context
+ * @returns {HandlerRegistry} Handler registry
  */
 export class HandlerRegistry {
 	#classes;

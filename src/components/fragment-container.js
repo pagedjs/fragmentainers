@@ -1,21 +1,3 @@
-/**
- * <fragment-container> — visible page container.
- *
- * Custom element that hosts the rendered output of one fragmentainer as
- * light-DOM children, projected through a `<slot>` in its shadow root.
- * Anchor link targets remain in the document tree, so hash navigation
- * and PDF link annotations resolve natively.
- *
- * The shadow root holds only the structural scaffold (host CSS +
- * `<slot>`). Author/handler/override stylesheets adopt at the document
- * level via the engine's composite scoped sheet. Each fragment's
- * counter snapshot is set as inline `style.counterSet`; style
- * containment isolates the counter scope per container.
- *
- * Observers target the inner `<slot>` (whose flow size reflects the
- * projected content) — the host is size-contained and fixed-size.
- */
-
 import { defineElement } from "./define.js";
 
 const HOST_STYLES = `
@@ -36,6 +18,16 @@ const HOST_STYLES = `
 // styles are parsed once rather than per fragment-container instance.
 let hostSheet = null;
 
+/**
+ * Visible container for one composed fragmentainer.
+ *
+ * Output remains in the light DOM so hash navigation and PDF link annotations
+ * work natively. The shadow root provides only a slot and structural styles;
+ * observers target the slot because the host itself is size-contained. Style
+ * containment isolates the counter values set on each fragment.
+ *
+ * @returns {FragmentContainerElement} Fragment container element
+ */
 export class FragmentContainerElement extends HTMLElement {
 	#shadow;
 	#slot;

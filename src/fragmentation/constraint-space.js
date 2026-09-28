@@ -7,6 +7,9 @@ export const FRAGMENTATION_REGION = "region";
  * Constraint space for a fragmentainer.
  * Carries the fragmentainer's dimensions and fragmentation type.
  * A fresh constraint space is created for each fragmentainer.
+ *
+ * @param {object} [options] - Fragmentainer dimensions and layout flags
+ * @returns {ConstraintSpace} Fragmentainer constraint space
  */
 export class ConstraintSpace {
 	constructor({

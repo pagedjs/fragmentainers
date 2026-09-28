@@ -396,7 +396,6 @@ export class BlockContainerAlgorithm {
 			this.#blockOffset = 0;
 		}
 
-		// Build the output fragment
 		const fragment = new Fragment(node, this.#blockOffset, this.#childFragments);
 		fragment.inlineSize = constraintSpace.availableInlineSize;
 		fragment.hasFixedBlockSize = this.#hasFixedBlockSize;
@@ -606,10 +605,8 @@ export class BlockContainerAlgorithm {
 
 		this.#margins = new MarginState(constraintSpace.bodyMarginBlockStart || 0);
 
-		// Effective start of this container within the fragmentainer
 		this.#containerOffsetInFragmentainer = constraintSpace.blockOffsetInFragmentainer;
 
-		// Check if earlyBreakTarget points into this node
 		if (
 			earlyBreakTarget &&
 			earlyBreakTarget.node === node &&
@@ -879,7 +876,6 @@ export class BlockContainerAlgorithm {
 			const child = children[i];
 			const childBreakToken = findChildBreakToken(breakToken, child);
 
-			// Skip completed children
 			if (
 				!childBreakToken &&
 				breakToken &&
@@ -888,7 +884,6 @@ export class BlockContainerAlgorithm {
 				continue;
 			}
 
-			// Skip children claimed by a layout handler (e.g. page floats)
 			if (this.#node.context.handlers.claim(child)) continue;
 
 			// isBreakBefore means "pushed to this fragmentainer, lay out fresh"
@@ -928,14 +923,12 @@ export class BlockContainerAlgorithm {
 
 			const remainingSpace = this.#remainingSpace();
 
-			// Pass 2: if earlyBreakTarget says "break before this child", do it now
 			if (this.#shouldHonorEarlyBreakBefore(child)) {
 				this.#childBreakTokens.push(BlockBreakToken.createBreakBefore(child, false));
 				this.#breakScore = this.#earlyBreakForChild.score;
 				break;
 			}
 
-			// Track Class A breakpoint score (between siblings).
 			this.#updateBestEarlyBreak(i);
 
 			// Forced break-before: break-before: page|column|always. Checks the
@@ -950,14 +943,13 @@ export class BlockContainerAlgorithm {
 				break;
 			}
 
-			// Named page change forces a page break (CSS Paged Media §3)
+			// CSS Paged Media §8.1: a change in the used `page` value forces a page break.
 			const prevChild = i > this.#startIndex ? children[i - 1] : null;
 			if (this.#namedPageChanged(child, prevChild, effectiveChildBreakToken)) {
 				this.#childBreakTokens.push(BlockBreakToken.createBreakBefore(child, true));
 				break;
 			}
 
-			// Monolithic content: push or overflow
 			if (isMonolithic(child) && !effectiveChildBreakToken) {
 				const childSize = getMonolithicBlockSize(child, this.#constraintSpace);
 				if (childSize > remainingSpace && this.#hasContentAbove()) {
@@ -972,10 +964,7 @@ export class BlockContainerAlgorithm {
 			);
 			const childConstraint = this.#buildChildConstraint(remainingSpace, collapseAdj);
 
-			// Yield layout request — driver runs child generator and returns result.
-			// A descendant-owned early-break target is forwarded so the owning
-			// block can honor it; #setup only acts on a target whose node matches,
-			// so forwarding to every child is safe.
+			// Early-break target: only the block it names honors it.
 			const result = yield new LayoutRequest(
 				child,
 				childConstraint,
@@ -1041,7 +1030,6 @@ export class BlockContainerAlgorithm {
 				break;
 			}
 
-			// Forced break-after: break-after: page|column|always
 			const breakAfter = child.breakAfter;
 			if (isForcedBreakValue(breakAfter) && nextChild) {
 				this.#childBreakTokens.push(
@@ -1050,7 +1038,6 @@ export class BlockContainerAlgorithm {
 				break;
 			}
 
-			// Check if we've exceeded fragmentainer space
 			if (this.#fragmentainerExhausted() && nextChild) {
 				const exhaustionScore = this.#scoreBreakBetween(child, nextChild);
 				const earlyBreak = this.#earlyBreakIfBetter(exhaustionScore);

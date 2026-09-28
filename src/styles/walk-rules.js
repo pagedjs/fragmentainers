@@ -3,6 +3,11 @@
  * (@media, @supports, @layer, etc.) and calling visitor(rule, wrappers)
  * for every leaf rule. `wrappers` carries the grouping rule preambles
  * from outermost to innermost.
+ *
+ * @param {CSSRuleList|CSSRule[]} ruleList - Rules to walk
+ * @param {Function} visitor - Called for each leaf rule
+ * @param {string[]} [wrappers] - Active grouping-rule preambles
+ * @returns {void}
  */
 export function walkRules(ruleList, visitor, wrappers = []) {
 	for (const rule of ruleList) {
@@ -22,6 +27,10 @@ export function walkRules(ruleList, visitor, wrappers = []) {
 /**
  * Walk CSS rules across multiple stylesheets, silently skipping
  * cross-origin sheets whose cssRules access throws.
+ *
+ * @param {CSSStyleSheet[]} sheets - Stylesheets to walk
+ * @param {Function} visitor - Called for each leaf rule
+ * @returns {void}
  */
 export function walkSheets(sheets, visitor) {
 	for (const sheet of sheets) {
@@ -82,6 +91,11 @@ export function wrappersActive(wrappers) {
 /**
  * Insert a CSS rule into a target sheet, wrapped in grouping rule
  * contexts. Builds the nested CSS string inside-out.
+ *
+ * @param {CSSStyleSheet} target - Destination stylesheet
+ * @param {string} ruleText - Leaf rule text
+ * @param {string[]} wrappers - Grouping-rule preambles
+ * @returns {void}
  */
 export function insertWrappedRule(target, ruleText, wrappers) {
 	let css = ruleText;

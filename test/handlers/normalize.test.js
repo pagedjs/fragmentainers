@@ -43,10 +43,8 @@ test.describe("EmulatePrintPixelRatio line-height ratio computation", () => {
 			const flooredLh = getLineHeight(div);
 			const ratio = flooredLh / 16;
 
-			// Apply the ratio as an explicit unitless line-height
 			div.style.lineHeight = String(ratio);
 
-			// Measure with the ratio applied
 			const measured = measureLines(div);
 			const totalHeight = div.getBoundingClientRect().height;
 
@@ -54,11 +52,9 @@ test.describe("EmulatePrintPixelRatio line-height ratio computation", () => {
 			return { flooredLh, ratio, measuredLh: measured.lineHeight, totalHeight, lines: measured.count };
 		});
 
-		// The measured line gap with the ratio applied should match the floored value
 		if (result.measuredLh > 0) {
 			expect(Math.abs(result.measuredLh - result.flooredLh)).toBeLessThan(1);
 		}
-		// Total height should be close to lines * flooredLh
 		expect(Math.abs(result.totalHeight - result.lines * result.flooredLh)).toBeLessThan(2);
 	});
 
@@ -84,7 +80,6 @@ test.describe("EmulatePrintPixelRatio line-height ratio computation", () => {
 			};
 		});
 
-		// All should be valid ratios
 		for (const key of ["serif", "sansSerif", "monospace"]) {
 			expect(result[key]).toBeGreaterThan(0.9);
 			expect(result[key]).toBeLessThan(1.5);
@@ -114,8 +109,6 @@ test.describe("EmulatePrintPixelRatio line-height ratio computation", () => {
 			};
 		});
 
-		// Same font family should produce similar ratios across sizes
-		// (within tolerance for integer flooring at different sizes)
 		const values = Object.values(result);
 		const min = Math.min(...values);
 		const max = Math.max(...values);

@@ -42,6 +42,8 @@ const MEASURE_HOST_SELECTOR = ":host(content-measure)";
  * measurer-side background rule is dropped.
  *
  * Only runs for page-based flows.
+ *
+ * @returns {BodyRewriter} Body selector rewriting handler
  */
 export class BodyRewriter extends LayoutHandler {
 	#enabled = false;

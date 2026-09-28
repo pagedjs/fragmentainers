@@ -2,6 +2,8 @@
  * Per-flow map from composed clone elements back to their source
  * elements. Populated during Fragment composition; read by handlers
  * that need to resolve output DOM to input DOM (e.g. MutationSync).
+ *
+ * @returns {CloneMap} Empty per-flow clone map
  */
 export class CloneMap {
 	#map = new WeakMap();

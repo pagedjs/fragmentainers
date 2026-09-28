@@ -149,6 +149,14 @@ function lineIndexAtTop(tops, y) {
 	return 0;
 }
 
+/**
+ * Lays out an inline formatting context into line fragments.
+ *
+ * @param {import("../layout/layout-node-base.js").LayoutNode} node - Inline container to lay out
+ * @param {import("../fragmentation/constraint-space.js").ConstraintSpace} constraintSpace - Available fragmentainer space
+ * @param {InlineBreakToken|null} breakToken - Previous inline continuation
+ * @returns {InlineContentAlgorithm} Inline content layout algorithm
+ */
 export class InlineContentAlgorithm {
 	#node;
 	#constraintSpace;
