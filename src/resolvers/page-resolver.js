@@ -203,11 +203,14 @@ export class PageResolver {
 	static fromStyleSheets(sheets, size) {
 		const rules = [];
 		for (const sheet of sheets) {
+			let cssRules;
 			try {
-				collectPageRules(sheet.cssRules, rules);
+				cssRules = sheet.cssRules;
 			} catch {
 				// cross-origin sheet
+				continue;
 			}
+			collectPageRules(cssRules, rules);
 		}
 		return new PageResolver(rules, size);
 	}
